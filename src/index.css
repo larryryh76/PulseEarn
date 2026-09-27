@@ -189,7 +189,10 @@
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  /* PSEmine surfaces are owned exclusively by src/styles/psemine.css (Duty & Ledger). */
+  /* PSEmine's own visual layer was purged (see
+     `refactor(psemine): purge legacy design implementation`) and is pending a
+     rebuild. Until then PSEmine routes use the minimal functional presentation
+     in src/components/psemine/PseBasics.tsx on top of this stylesheet. */
 }
 
 /* UTILITIES */

@@ -1,188 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import {
-  ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck, User as UserIcon, RefreshCcw,
-  LogOut, CheckCircle2, AlertTriangle, ShieldX, LifeBuoy, KeyRound, Wand2,
-} from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
-import { PSELogo, Field, PSELoading, usePseDocumentTitle } from '../../components/psemine/pse';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import { gbp, gbpHour } from '../../components/psemine/pse';
+import { usePseDocumentTitle } from '../../components/psemine/pseCore';
+import {
+  PseButton, PseField, PseInput, PseLoading, PseNotice, PseSection,
+} from '../../components/psemine/PseBasics';
 import { mapAuthError } from '../../utils/errors';
-import { cn } from '../../utils';
 
-/** Official Google "G" mark (brand-accurate, four-color). */
-const GoogleG: React.FC<{ size?: number }> = ({ size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 18 18" aria-hidden="true">
-    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z" />
-    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" />
-    <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" />
-    <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
-  </svg>
-);
-
-const Spinner: React.FC<{ className?: string }> = ({ className }) => (
-  <span className={cn('h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60', className)} />
-);
-
-/* ═══════════════════ Shared auth shell ═══════════════════ */
-
-/** Ledger strip: the campaign facts, in the same visual language as the console. */
-const CampaignLedgerStrip: React.FC = () => {
-  const tools = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-  return (
-    <div className="pse-ledger overflow-hidden">
-      <div className="border-b px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-        <p className="pse-np">Campaign schedule</p>
-      </div>
-      <dl className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
-        {[
-          ['Duration', `${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days`],
-          ['Accounting', 'GBP — fixed hourly rates'],
-          ['Payment', 'BNB · BNB Smart Chain'],
-          ['Peak capacity', gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)],
-        ].map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-4 px-5 py-2.5">
-            <dt className="pse-meta">{k}</dt>
-            <dd className="pse-copy-s pse-n font-semibold" style={{ color: 'var(--pse-text)' }}>{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="border-t px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-        <p className="pse-np mb-2">Tools from</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-          {tools.slice(0, 3).map(t => (
-            <span key={t.id} className="pse-meta">
-              {t.name} · <span className="pse-n" style={{ color: 'var(--pse-success-ink)' }}>{gbp(t.purchasePriceGBP)}</span>
-              {' · '}<span className="pse-n">{gbpHour(t.hourlyRateGBP).replace('/hour', '/hr')}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: string[]; showLedger?: boolean }> = ({
-  children, quote, points, showLedger,
-}) => (
-  <main className="pse-scope flex min-h-screen" style={{ background: 'var(--pse-canvas)' }}>
-    <aside className="hidden lg:flex lg:w-[44%] lg:shrink-0 lg:flex-col lg:justify-between lg:border-r lg:p-12"
-      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-plane)' }}>
-      <Link to="/mine" aria-label="PSEmine home"><PSELogo size={34} withWordmark /></Link>
-      <div className="max-w-sm">
-        <p className="pse-copy font-medium" style={{ color: 'var(--pse-text)' }}>{quote}</p>
-        <ul className="mt-7 space-y-3">
-          {points.map(p => (
-            <li key={p} className="flex items-start gap-2.5 pse-copy-s">
-              <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success-ink)' }} />
-              {p}
-            </li>
-          ))}
-        </ul>
-        {showLedger && <div className="mt-8"><CampaignLedgerStrip /></div>}
-      </div>
-      <p className="pse-meta">90-day campaign · GBP accounting · BNB Smart Chain settlement</p>
-    </aside>
-    <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8">
-      <div className="w-full max-w-md">{children}</div>
-    </div>
-  </main>
-);
-
-function PasswordInput({ value, onChange, placeholder, autoComplete, minLength = 8 }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string; minLength?: number;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Lock size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="pse-input pl-10 pr-11"
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        required
-        minLength={minLength}
-      />
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg"
-        style={{ color: 'var(--pse-text-3)' }}
-        aria-label={show ? 'Hide password' : 'Show password'}
-      >
-        {show ? <EyeOff size={15} /> : <Eye size={15} />}
-      </button>
-    </div>
-  );
-}
-
-function SubmitBtn({ pending, label }: { pending: boolean; label: string }) {
-  return (
-    <button type="submit" disabled={pending} className="pse-btn w-full justify-center py-3">
-      {pending ? <Spinner /> : <>{label} <ArrowRight size={14} /></>}
-    </button>
-  );
-}
-
-function GoogleBtn({ pending, label, onClick }: { pending: boolean; label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} disabled={pending}
-      className="pse-btn pse-btn-2 w-full justify-center gap-2.5 py-3"
-      style={{ background: 'var(--pse-sunken)' }}>
-      {pending ? <Spinner /> : <><GoogleG size={16} /> {label}</>}
-    </button>
-  );
-}
-
-/** Inline, role-announced error line (no dialog, no layout jump). */
-function FormError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <div role="alert" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'var(--pse-red)', background: 'var(--pse-sunken)' }}>
-      <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-red)' }} />
-      <p className="pse-copy-s" style={{ color: 'var(--pse-red)' }}>{message}</p>
-    </div>
-  );
-}
-
-/** Inline success line (used by recovery/verification flows). */
-function FormSuccess({ message }: { message: string }) {
-  return (
-    <div role="status" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'var(--pse-success-ink)', background: 'var(--pse-sunken)' }}>
-      <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success-ink)' }} />
-      <p className="pse-copy-s" style={{ color: 'var(--pse-success-ink)' }}>{message}</p>
-    </div>
-  );
-}
-
-function Divider({ label }: { label?: string }) {
-  return (
-    <div className="my-5 flex items-center gap-3">
-      <span className="h-px flex-1" style={{ background: 'var(--pse-line)' }} />
-      {label && <span className="pse-meta" style={{ color: 'var(--pse-text-3)' }}>{label}</span>}
-      <span className="h-px flex-1" style={{ background: 'var(--pse-line)' }} />
-    </div>
-  );
-}
-
-/** Password strength — informational only; the server still enforces its own rules. */
-function strengthOf(pw: string): { score: number; label: string; tone: string } {
-  let score = 0;
-  if (pw.length >= 8) score += 25;
-  if (/[A-Z]/.test(pw)) score += 25;
-  if (/[0-9]/.test(pw)) score += 25;
-  if (/[^A-Za-z0-9]/.test(pw)) score += 25;
-  if (score <= 25) return { score, label: 'Weak', tone: 'var(--pse-red)' };
-  if (score <= 50) return { score, label: 'Fair', tone: 'var(--pse-amber)' };
-  if (score <= 75) return { score, label: 'Good', tone: 'var(--pse-bone)' };
-  return { score, label: 'Strong', tone: 'var(--pse-success-ink)' };
-}
+/**
+ * PSEmine authentication — MINIMAL FUNCTIONAL PRESENTATION.
+ *
+ * The designed auth surface (split ledger shell, campaign strip, strength meter)
+ * was purged in `refactor(psemine): purge legacy design implementation`. Every
+ * behaviour is unchanged: sign-up with a referral code, sign-in, Google sign-in,
+ * password reset, email verification with resend cooldown, the explicit
+ * entitlement gate (`enablePSEmine`), and the protected route that preserves the
+ * intended destination in `returnTo`, requires a verified identity, explains
+ * missing product access, and only then applies the onboarding gate.
+ */
 
 /* ═══════════════════ LOGIN / SIGNUP ═══════════════════ */
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
@@ -205,11 +40,18 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   const refFromQuery = params.get('ref') || undefined;
   const returnTo = params.get('returnTo') || undefined;
 
-  const strength = useMemo(() => strengthOf(password), [password]);
+  const strength = useMemo(() => {
+    let score = 0;
+    if (password.length >= 8) score += 25;
+    if (/[A-Z]/.test(password)) score += 25;
+    if (/[0-9]/.test(password)) score += 25;
+    if (/[^A-Za-z0-9]/.test(password)) score += 25;
+    return score <= 25 ? 'Weak' : score <= 50 ? 'Fair' : score <= 75 ? 'Good' : 'Strong';
+  }, [password]);
 
-  // Session restore: route completed sessions to their next step. Entitlement
-  // is NOT judged here — the protected route owns that decision so a
-  // non-enrolled account gets an explanation, not a silent redirect.
+  // Session restore: route completed sessions to their next step. Entitlement is
+  // NOT judged here — the protected route owns that decision so a non-enrolled
+  // account gets an explanation, not a silent redirect.
   useEffect(() => {
     if (!currentUser) return;
     if (!isVerified) { navigate('/mine/verify-email', { replace: true }); return; }
@@ -250,118 +92,103 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   };
 
   return (
-    <AuthShell
-      showLedger={isSignup}
-      quote="A quieter way to build earning capacity."
-      points={[
-        '90-day campaign with GBP-denominated capacity',
-        'On-chain payment verification on BNB Smart Chain',
-        'Ledger-backed balances settled after the campaign ends',
-      ]}
-    >
-      <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-np">{isSignup ? 'Create your PSEmine account' : 'Welcome back'}</p>
-      <h1 className="pse-h2 mt-2">{isSignup ? 'Start your campaign' : 'Sign in to PSEmine'}</h1>
-      <p className="pse-copy-s mt-2">
-        {isSignup
-          ? refFromQuery
-            ? 'You were invited — the referral code is applied to this account automatically.'
-            : 'One account for tools, capacity, and settlement.'
-          : 'Continue to your mining console.'}
-      </p>
+    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
+      <header className="space-y-2">
+        <h1 className="text-xl font-semibold text-text-primary">
+          {isSignup ? 'Create your PSEmine account' : 'Sign in to PSEmine'}
+        </h1>
+        <p className="text-sm text-text-secondary">
+          {isSignup
+            ? refFromQuery
+              ? 'You were invited — the referral code is applied to this account automatically.'
+              : 'One account for tools, capacity and settlement.'
+            : 'Continue to your mining console.'}
+        </p>
+        <p className="text-sm">
+          <Link to="/mine" className="underline">About PSEmine</Link>
+        </p>
+      </header>
 
       {refFromQuery && isSignup && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
-          style={{ borderColor: 'var(--pse-amber)', background: 'var(--pse-sunken)' }}>
-          <Wand2 size={14} style={{ color: 'var(--pse-amber)' }} />
-          <p className="pse-meta" style={{ color: 'var(--pse-amber)' }}>
-            Referral applied: <span className="pse-mono">{refFromQuery}</span>
-          </p>
-        </div>
+        <PseNotice>Referral applied: <span className="font-mono text-xs">{refFromQuery}</span></PseNotice>
       )}
+      {formError && <PseNotice tone="danger">{formError}</PseNotice>}
 
-      {formError && <div className="mt-4"><FormError message={formError} /></div>}
+      <PseButton onClick={() => void google()} disabled={googlePending} className="w-full">
+        {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Sign in with Google'}
+      </PseButton>
+      <p className="text-xs text-text-tertiary">
+        {isSignup
+          ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
+          : 'Use the same Google identity you signed up with — no second account is created.'}
+      </p>
 
-      <div className="mt-6">
-        <GoogleBtn
-          pending={googlePending}
-          label={isSignup ? 'Sign up with Google' : 'Sign in with Google'}
-          onClick={() => void google()}
-        />
-        <p className="pse-meta mt-2">
-          {isSignup
-            ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
-            : 'Use the same Google identity you signed up with — no second account is created.'}
-        </p>
-      </div>
-
-      <Divider label="or use email" />
-
-      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={submit} className="space-y-4" noValidate>
         {isSignup && (
-          <Field label="Display name" hint="Shown to referrals">
-            <div className="relative">
-              <UserIcon size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-              <input value={username} onChange={e => setUsername(e.target.value)} className="pse-input pl-10"
-                placeholder="How you'll appear" autoComplete="nickname" required />
-            </div>
-          </Field>
+          <PseField label="Display name" hint="Shown to referrals" htmlFor="pse-signup-username">
+            <PseInput
+              id="pse-signup-username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="How you'll appear"
+              autoComplete="nickname"
+              required
+            />
+          </PseField>
         )}
-        <Field label="Email">
-          <div className="relative">
-            <Mail size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="pse-input pl-10"
-              placeholder="you@example.com" autoComplete="email" required />
-          </div>
-        </Field>
-        <Field label="Password" hint={isSignup ? 'Minimum 8 characters' : undefined}>
-          <PasswordInput value={password} onChange={setPassword}
-            autoComplete={isSignup ? 'new-password' : 'current-password'} />
-        </Field>
+        <PseField label="Email" htmlFor="pse-auth-email">
+          <PseInput
+            id="pse-auth-email"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
+        </PseField>
+        <PseField label="Password" hint={isSignup ? 'Minimum 8 characters' : undefined} htmlFor="pse-auth-password">
+          <PseInput
+            id="pse-auth-password"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete={isSignup ? 'new-password' : 'current-password'}
+            required
+            minLength={8}
+          />
+        </PseField>
 
         {isSignup && password.length > 0 && (
-          <div aria-live="polite">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="pse-meta">Password strength</span>
-              <span className="pse-meta font-semibold" style={{ color: strength.tone }}>{strength.label}</span>
-            </div>
-            <div className="pse-progress" role="progressbar" aria-label="Password strength" aria-valuenow={Math.round(strength.score)} aria-valuemin={0} aria-valuemax={100}>
-              <div className="pse-progress-fill" style={{ width: `${Math.max(8, strength.score)}%`, background: strength.tone }} />
-            </div>
-          </div>
+          <p className="text-xs text-text-tertiary" aria-live="polite">Password strength: {strength}</p>
         )}
 
         {!isSignup && (
-          <div className="flex justify-end">
-            <Link to="/mine/forgot-password" className="pse-copy-s font-medium hover:underline" style={{ color: 'var(--pse-success-ink)' }}>
-              Forgot password?
-            </Link>
-          </div>
+          <p className="text-sm">
+            <Link to="/mine/forgot-password" className="underline">Forgot password?</Link>
+          </p>
         )}
-        <SubmitBtn pending={pending} label={isSignup ? 'Create account' : 'Sign in'} />
+
+        <PseButton type="submit" disabled={pending} className="w-full">
+          {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
+        </PseButton>
       </form>
 
-      <div className="mt-7 flex items-center justify-between border-t pt-6" style={{ borderColor: 'var(--pse-line)' }}>
-        <span className="pse-copy-s">{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
-        <Link className="pse-copy-s font-semibold hover:underline" style={{ color: 'var(--pse-success-ink)' }}
-          to={isSignup ? '/mine/login' : '/mine/signup'}>
+      <p className="text-sm text-text-secondary">
+        {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
+        <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="underline">
           {isSignup ? 'Sign in' : 'Create account'}
         </Link>
-      </div>
+      </p>
 
       {isSignup && (
-        <p className="pse-meta mt-5">
-          By creating an account you agree to the <Link to="/terms">Terms</Link>
-          {' '}and <Link to="/privacy">Privacy Policy</Link>.
-          PSEmine is a separate product from PulseEarn; this account is shared, the product access is not.
+        <p className="text-xs text-text-tertiary">
+          By creating an account you agree to the <Link to="/terms" className="underline">Terms</Link> and{' '}
+          <Link to="/privacy" className="underline">Privacy Policy</Link>. PSEmine is a separate product from
+          PulseEarn: the account is shared, the product access is not.
         </p>
       )}
-
-      <div className="mt-6 flex items-center gap-2 pse-meta">
-        <ShieldCheck size={14} style={{ color: 'var(--pse-success-ink)' }} />
-        Secured authentication · your session stays on this device
-      </div>
-    </AuthShell>
+    </main>
   );
 };
 
@@ -384,47 +211,41 @@ export const PSEmineForgotPassword: React.FC = () => {
   };
 
   return (
-    <AuthShell
-      quote="Account recovery, handled carefully."
-      points={['Reset links are single-use and expire', 'Your balances and tools are untouched by a reset']}
-    >
-      <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-np">Account recovery</p>
-      <h1 className="pse-h2 mt-2">Reset your password</h1>
-      <p className="pse-copy-s mt-2">We&apos;ll email a secure reset link to your account address.</p>
+    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
+      <h1 className="text-xl font-semibold text-text-primary">Reset your password</h1>
+      <p className="text-sm text-text-secondary">We&apos;ll email a secure reset link to your account address.</p>
 
       {sent ? (
-        <div className="pse-ledger mt-7 p-6 text-center">
-          <CheckCircle2 size={22} className="mx-auto" style={{ color: 'var(--pse-success-ink)' }} />
-          <p className="pse-h3 mt-3">Check your inbox</p>
-          <p className="pse-copy-s mt-1.5">
-            A reset link was sent to <span className="font-medium" style={{ color: 'var(--pse-text)' }}>{email}</span>.
-            It expires shortly, so use it soon.
+        <PseSection title="Check your inbox">
+          <p className="text-sm text-text-secondary">
+            A reset link was sent to <span className="font-mono text-xs">{email}</span>. It expires shortly, so use it soon.
           </p>
-          <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-            <Link to="/mine/login" className="pse-btn pse-btn-2 pse-btn-sm justify-center">Back to sign in</Link>
-            <button type="button" onClick={() => setSent(false)} className="pse-btn pse-btn-3 pse-btn-sm justify-center">
-              Use a different email
-            </button>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/mine/login" className="text-sm underline">Back to sign in</Link>
+            <PseButton onClick={() => setSent(false)}>Use a different email</PseButton>
           </div>
-        </div>
+        </PseSection>
       ) : (
-        <form onSubmit={submit} className="mt-7 flex flex-col gap-4">
-          {error && <FormError message={error} />}
-          <Field label="Email">
-            <div className="relative">
-              <Mail size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                className="pse-input pl-10" placeholder="you@example.com" autoComplete="email" />
-            </div>
-          </Field>
-          <SubmitBtn pending={pending} label="Send reset link" />
-          <Link to="/mine/login" className="pse-copy-s text-center font-medium hover:underline" style={{ color: 'var(--pse-text-2)' }}>
-            Back to sign in
-          </Link>
+        <form onSubmit={submit} className="space-y-4">
+          {error && <PseNotice tone="danger">{error}</PseNotice>}
+          <PseField label="Email" htmlFor="pse-reset-email">
+            <PseInput
+              id="pse-reset-email"
+              type="email"
+              required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </PseField>
+          <PseButton type="submit" disabled={pending} className="w-full">
+            {pending ? 'Sending…' : 'Send reset link'}
+          </PseButton>
+          <p className="text-sm"><Link to="/mine/login" className="underline">Back to sign in</Link></p>
         </form>
       )}
-    </AuthShell>
+    </main>
   );
 };
 
@@ -460,74 +281,41 @@ export const PSEmineVerifyEmail: React.FC = () => {
   const cooldown = resentAt ? Math.max(0, 45 - Math.floor((Date.now() - resentAt) / 1000)) : 0;
 
   return (
-    <AuthShell
-      quote="One quick check before the console opens."
-      points={['Verification protects balances and payouts', 'Payouts require a verified email — enforced server-side']}
-    >
-      <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-np">Secure account setup</p>
-      <h1 className="pse-h2 mt-2">Verify your email</h1>
-      <p className="pse-copy-s mt-2">
-        We sent a verification link to <span className="font-medium" style={{ color: 'var(--pse-text)' }}>{currentUser.email}</span>.
-        Open it, then return here.
+    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
+      <h1 className="text-xl font-semibold text-text-primary">Verify your email</h1>
+      <p className="text-sm text-text-secondary">
+        We sent a verification link to <span className="font-mono text-xs">{currentUser.email}</span>. Open it, then
+        return here — this page advances automatically once the identity is verified.
       </p>
 
-      <div className="pse-ledger mt-7 p-5">
-        <p className="pse-np mb-3">Three steps</p>
-        <ol className="space-y-3">
-          {[
-            'Open the email and click the verification link.',
-            'Return to this page — it advances automatically.',
-            'Nothing happened? Re-check below.',
-          ].map((step, i) => (
-            <li key={step} className="flex items-start gap-3">
-              <span className="pse-clause-no" aria-hidden="true">{i + 1}</span>
-              <p className="pse-copy-s">{step}</p>
-            </li>
-          ))}
+      <PseSection title="If nothing happened">
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-text-secondary">
+          <li>Open the email and click the verification link.</li>
+          <li>Return to this page.</li>
+          <li>Re-check below, or resend the verification email.</li>
         </ol>
-      </div>
+      </PseSection>
 
-      {(notice || error) && (
-        <div className="mt-4">{error ? <FormError message={error} /> : <FormSuccess message={notice || ''} />}</div>
-      )}
+      {error ? <PseNotice tone="danger">{error}</PseNotice> : notice ? <PseNotice>{notice}</PseNotice> : null}
 
-      <div className="mt-5 flex flex-col gap-3">
-        <button type="button" disabled={pending || cooldown > 0} onClick={() => void resend()}
-          className="pse-btn pse-btn-2 w-full justify-center py-3">
-          <RefreshCcw size={14} className={pending ? 'animate-spin' : ''} />
+      <div className="flex flex-wrap gap-2">
+        <PseButton onClick={() => void resend()} disabled={pending || cooldown > 0}>
           {pending ? 'Sending…' : cooldown > 0 ? `Resend available in ${cooldown}s` : 'Resend verification email'}
-        </button>
-        <button type="button" onClick={() => window.location.reload()} className="pse-btn w-full justify-center py-3">
-          <CheckCircle2 size={14} /> I&apos;ve verified my email
-        </button>
+        </PseButton>
+        <PseButton onClick={() => window.location.reload()}>I&apos;ve verified my email</PseButton>
+        <PseButton onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}>Sign out</PseButton>
       </div>
-
-      <button
-        type="button"
-        onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}
-        className="mt-7 flex items-center gap-2 pse-copy-s font-medium hover:underline"
-        style={{ color: 'var(--pse-text-2)' }}
-      >
-        <LogOut size={13} /> Sign out
-      </button>
-    </AuthShell>
+    </main>
   );
 };
 
 /* ═══════════════════ ENTITLEMENT GATE ═══════════════════ */
 
 /**
- * "PSEmine isn't enabled for this account" — a REAL product state, not an
- * error. It is deliberately distinct from:
- *   • authentication failure  → the user is signed in, verified, and identified
- *   • backend failure         → no backend call has failed
- *   • network failure         → nothing was unreachable
- *   • temporary outage        → nothing is transient here
- *
- * Product access is explicit: this account was created for PulseEarn (or was
- * never enrolled). The user can enable PSEmine for THIS account, sign in with
- * the enrolled account, or contact support.
+ * "PSEmine isn't enabled for this account" — a REAL product state, not an error.
+ * It is deliberately distinct from authentication failure, backend failure,
+ * network failure and a temporary outage: nothing has failed and nothing was
+ * unreachable. Product access is explicit.
  */
 const PSEmineAccessGate: React.FC = () => {
   const { userData, currentUser, enablePSEmine, logout } = usePSEMineAuth();
@@ -552,61 +340,33 @@ const PSEmineAccessGate: React.FC = () => {
   };
 
   return (
-    <div className="pse-scope flex min-h-screen items-center justify-center px-5 py-14" style={{ background: 'var(--pse-canvas)' }}>
-      <div className="w-full max-w-lg">
-        <Link to="/mine" className="mb-8 inline-flex"><PSELogo size={32} withWordmark /></Link>
-        <div className="pse-ledger overflow-hidden">
-          <div className="flex items-start gap-3.5 border-b px-6 py-5" style={{ borderColor: 'var(--pse-line)' }}>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
-              style={{ borderColor: 'var(--pse-amber)', background: 'var(--pse-sunken)' }}>
-              <ShieldX size={19} style={{ color: 'var(--pse-amber)' }} />
-            </div>
-            <div>
-              <h1 className="pse-h3">PSEmine isn&apos;t enabled for this account</h1>
-              <p className="pse-meta mt-1">
-                Signed in as <span style={{ color: 'var(--pse-text-2)' }}>{currentUser?.email}</span>
-              </p>
-            </div>
-          </div>
+    <main className="mx-auto w-full max-w-lg space-y-5 p-4 py-14 sm:p-6">
+      <h1 className="text-xl font-semibold text-text-primary">PSEmine isn&apos;t enabled for this account</h1>
+      <p className="text-sm text-text-secondary">
+        Signed in as <span className="font-mono text-xs">{currentUser?.email}</span>. PSEmine and PulseEarn share one
+        sign-in identity but are separate products, and product access is explicit. This account does not currently
+        have PSEmine access.
+        {userData?.productAccess?.pulseearn ? ' It is enrolled in PulseEarn only.' : ' No product is currently enrolled on it.'}
+      </p>
 
-          <div className="space-y-4 px-6 py-5">
-            <p className="pse-copy-s">
-              PSEmine and PulseEarn share one sign-in identity but are separate products, and product access is
-              explicit. This account does not currently have PSEmine access.
-              {userData?.productAccess?.pulseearn ? ' It is enrolled in PulseEarn only.' : ' No product is currently enrolled on it.'}
-            </p>
+      {error && <PseNotice tone="danger">{error}</PseNotice>}
 
-            {error && <FormError message={error} />}
-
-            <div className="pse-sunken p-3.5">
-              <p className="pse-np">Enabling PSEmine</p>
-              <p className="pse-meta mt-1.5">
-                Enabling creates your PSEmine mining account on this identity (zeroed balances, no purchases, no
-                charges) and records an audit entry. The backend grants access — the app cannot grant it by itself.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2.5 sm:flex-row">
-              <button type="button" onClick={() => void enable()} disabled={pending} className="pse-btn flex-1 justify-center py-3">
-                {pending ? <Spinner /> : <>Enable PSEmine for this account <ArrowRight size={14} /></>}
-              </button>
-              <button type="button" onClick={() => void other()} className="pse-btn pse-btn-2 justify-center py-3">
-                Use another account
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4" style={{ borderColor: 'var(--pse-line)' }}>
-              <Link to="/mine/guide" className="pse-meta inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-success-ink)' }}>
-                <KeyRound size={12} /> Read how PSEmine works
-              </Link>
-              <Link to="/help" className="pse-meta inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-text-2)' }}>
-                <LifeBuoy size={12} /> Contact support
-              </Link>
-            </div>
-          </div>
+      <PseSection title="Enabling PSEmine">
+        <p className="text-sm text-text-secondary">
+          Enabling creates your PSEmine mining account on this identity (zeroed balances, no purchases, no charges) and
+          records an audit entry. The backend grants access — the app cannot grant it by itself.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <PseButton onClick={() => void enable()} disabled={pending}>{pending ? 'Working…' : 'Enable PSEmine for this account'}</PseButton>
+          <PseButton onClick={() => void other()}>Use another account</PseButton>
         </div>
-      </div>
-    </div>
+      </PseSection>
+
+      <p className="text-sm">
+        <Link to="/mine/guide" className="underline">Read how PSEmine works</Link> ·{' '}
+        <Link to="/help" className="underline">Contact support</Link>
+      </p>
+    </main>
   );
 };
 
@@ -617,10 +377,8 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   if (loading) {
     return (
-      <div className="pse-scope" style={{ background: 'var(--pse-canvas)' }}>
-        <div className="pse-work pse-gut">
-          <PSELoading skeleton label="Restoring secure session" />
-        </div>
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Restoring secure session" />
       </div>
     );
   }

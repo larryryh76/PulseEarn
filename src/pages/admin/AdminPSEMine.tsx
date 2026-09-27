@@ -1,27 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ShieldAlert, Play, Pause, RefreshCcw, ExternalLink, Loader2,
-  CheckCircle2, Ban, Wrench,
-} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import toast from 'react-hot-toast';
 import {
-  gbp, gbpHour, shortHash, shortAddr, fmtDateTime,
-  PSEEmpty, PSELoading, Stamp, StatementHeader, Verdict, RailBand, DutyRail,
-  Ledger, LedgerRow, Attn,
-  campaignStatusView, payoutStatusView, usePseDocumentTitle,
-} from '../../components/psemine/pse';
-import { ConfirmDialog } from '../../components/psemine/ConfirmDialog';
+  campaignStatusView, fmtDateTime, gbp, gbpHour, payoutStatusView, shortAddr, shortHash, usePseDocumentTitle,
+} from '../../components/psemine/pseCore';
+import {
+  PseButton, PseCell, PseConfirm, PseEmptyNote, PseField, PseInput, PseLoading,
+  PseNotice, PseRow, PseSection, PseTable,
+} from '../../components/psemine/PseBasics';
+import toast from 'react-hot-toast';
 
-/* Admin surfaces use the pse tokens too, but scoped to a wrapper so the rest
- * of OpsLayout (PulseEarn admin chrome) stays untouched.
+/**
+ * PSEmine operations console — MINIMAL FUNCTIONAL PRESENTATION.
  *
- * Composition follows the same law as the miner console — VERDICT → RAILS →
- * LEDGERS → NOTES — because this screen answers operational questions about the
- * same instruments: what the campaign is worth, what is broken, what is owed.
- * Three bordered surfaces: campaign control, payment recovery, payout review. */
-const AdminPSEMine: React.FC = () => {
+ * The designed admin surface was purged in
+ * `refactor(psemine): purge legacy design implementation`. Authorisation, the API
+ * contracts and every consequential action are unchanged:
+ *
+ *   • campaign lifecycle: pause / resume / settle / shutdown (shutdown requires
+ *     the typed token), each confirmed first and audited by the backend;
+ *   • payment recovery: the backend contract is exactly mark_reviewed |
+ *     attach_to_purchase | reject — none activates a tool from the browser;
+ *   • payout review: exactly { action: 'APPROVE', txHash } (which atomically
+ *     completes the payout and reserves the hash) or { action: 'REJECT' } (which
+ *     reverses the debit).
+ */
+export const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
   const { currentUser } = useAuth();
@@ -37,15 +41,14 @@ const AdminPSEMine: React.FC = () => {
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [txInputs, setTxInputs] = useState<Record<string, string>>({});
 
-  // FIX 3: design-system confirmation for consequential campaign actions.
-  // Same copy contract as before (action + consequence + affected entity),
-  // same backend endpoint/authorization — presentation only.
   const [confirm, setConfirm] = useState<{
     title: string; consequence: string; affected: string;
     confirmLabel: string; danger?: boolean; requireText?: string;
     run: () => Promise<void>;
   } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!currentUser) return;
@@ -82,7 +85,7 @@ const AdminPSEMine: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  /** Campaign lifecycle actions with design-system confirmation (FIX 3). */
+  /** Campaign lifecycle actions, confirmed before execution. */
   const campaignAction = async (action: 'pause' | 'resume' | 'settle' | 'shutdown') => {
     if (!currentUser) return;
     const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
@@ -123,11 +126,8 @@ const AdminPSEMine: React.FC = () => {
     });
   };
 
-  /** FIX 4: recovery resolution now goes through the same confirmation
-   * discipline. Backend contract (traced in psemine_engine.py
-   * admin_resolve_payment_recovery): valid actions are mark_reviewed,
-   * attach_to_purchase, reject — none activate a tool. The UI copy below
-   * reflects that contract and asks for purchaseId when attaching. */
+  /** Recovery resolution. Backend contract: mark_reviewed | attach_to_purchase |
+   *  reject — none activates a tool from the browser. */
   const resolveRecovery = async (recoveryId: string, action: 'mark_reviewed' | 'attach_to_purchase' | 'reject', notes: string, purchaseId?: string) => {
     setResolving(recoveryId + action);
     try {
@@ -147,13 +147,10 @@ const AdminPSEMine: React.FC = () => {
     } finally { setResolving(null); }
   };
 
-  /** Payout review — D3 fix: backend contract is exactly { action: 'APPROVE',
-   * txHash } (atomically completes the payout, reserving the hash) or
-   * { action: 'REJECT' } (reverses the debit). Any other shape returns 400. */
+  /** Payout review: { action: 'APPROVE', txHash } or { action: 'REJECT' }. */
   const reviewWithdrawal = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
     if (action === 'APPROVE' && !txHash) { toast.error('A transaction hash is required to approve a payout.'); return; }
     if (action === 'REJECT') {
-      // FIX 3: rejection reverses the debit — confirm with the design system.
       setConfirm({
         title: 'Reject this payout?',
         consequence: 'The debit is reversed exactly once and the request returns to the miner\u2019s available balance. The decision is recorded in the audit log.',
@@ -171,7 +168,7 @@ const AdminPSEMine: React.FC = () => {
   };
 
   /** Shared reviewer call — contract unchanged: {action:'APPROVE', txHash} or
-   * {action:'REJECT'}; success only on backend confirmation. */
+   *  {action:'REJECT'}; success only on backend confirmation. */
   const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
     try {
       const token = await currentUser?.getIdToken();
@@ -187,10 +184,18 @@ const AdminPSEMine: React.FC = () => {
       } else {
         toast.error(data.error || data.message || `Payout ${action.toLowerCase()} failed.`);
       }
-    } finally { setResolving(null); }
+    } finally {
+      setResolving(null);
+    }
   };
 
-  if (loading) return <div className="pse-scope"><PSELoading label="Loading PSEmine operations" /></div>;
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Loading PSEmine operations" />
+      </div>
+    );
+  }
 
   // The campaign state is whatever the backend reported. If neither the console
   // context nor the overview endpoint has it, this screen says so rather than
@@ -198,241 +203,163 @@ const AdminPSEMine: React.FC = () => {
   const camp = (campaign?.status || (typeof stats.campaignStatus === 'string' ? stats.campaignStatus : '')) || '';
   const campaignView = camp ? campaignStatusView(camp) : null;
   const num = (k: string): number => typeof stats[k] === 'number' ? stats[k] as number : 0;
-  const toolCount = num('toolsSold');
 
   return (
-    <div className="pse-scope min-h-screen">
-      <div className="pse-gut pse-stack" style={{ maxWidth: 'var(--pse-measure)', marginInline: 'auto', paddingTop: 26, paddingBottom: 72 }}>
-        <StatementHeader
-          routeKey="Operations · PSEmine"
-          title="PSEmine operations"
-          objective="Live campaign state and the two exception queues that require a human decision. Every figure here is read from the canonical PSEmine backend — nothing on this screen is computed in the browser."
-          status={<Stamp tone="fail">Super admin</Stamp>}
-          asOf={loadedAt ? fmtDateTime(loadedAt) : undefined}
-          actions={
-            <button onClick={() => void load(true)} disabled={refreshing} className="pse-btn pse-btn-2 pse-btn-sm">
-              <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
-            </button>
-          }
-        />
+    <div className="mx-auto w-full max-w-5xl space-y-8 p-4 pb-16 sm:p-6">
+      <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">PSEmine operations</h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Campaign controls, payment recovery and payout review. Every action here is authorised and audited by the
+            backend.
+            {loadedAt && ` As of ${fmtDateTime(new Date(loadedAt))}.`}
+          </p>
+        </div>
+        <PseButton onClick={() => void load(true)} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</PseButton>
+      </header>
 
-        {error && (
-          <Attn
-            tone="fail"
-            title="Operations data unavailable"
-            body={error}
-            action={<button onClick={() => void load(true)} className="pse-btn pse-btn-2 pse-btn-sm">Retry</button>}
-          />
+      {error && <PseNotice tone="danger">{error}</PseNotice>}
+      {!campaignView && <PseNotice tone="attention">The backend did not report a campaign state.</PseNotice>}
+
+      <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
+        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            ['Status', campaignView ? campaignView.label : '—'],
+            ['Tools sold', `${num('toolsSold')}`],
+            ['Active miners', `${num('activeMiners')}${num('totalMiners') ? ` / ${num('totalMiners')}` : ''}`],
+            ['Total capacity', gbpHour(num('totalCapacityGBPPerHour'))],
+            ['Accrued liability', gbp(num('totalAccruedLiabilityGBP'))],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
+              <dt className="text-sm text-text-secondary">{k}</dt>
+              <dd className="text-sm text-text-primary">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        {campaignView && <p className="text-xs text-text-tertiary">{campaignView.detail}</p>}
+        <div className="flex flex-wrap gap-2">
+          {(['pause', 'resume', 'settle', 'shutdown'] as const).map(action => (
+            <PseButton
+              key={action}
+              tone={action === 'shutdown' ? 'danger' : 'default'}
+              onClick={() => void campaignAction(action)}
+              disabled={actionBusy !== null}
+            >
+              {actionBusy === action ? 'Working…' : action.charAt(0).toUpperCase() + action.slice(1)}
+            </PseButton>
+          ))}
+        </div>
+      </PseSection>
+
+      <PseSection title="Payment recovery" meta="Evidence records for verification failures — review before resolving. No automatic assignment.">
+        {recoveryCases.length === 0 ? (
+          <PseEmptyNote>No open recovery cases. Verification failures appear here with full evidence for review.</PseEmptyNote>
+        ) : (
+          <PseTable head={['Case', 'Reason', 'Recorded', 'On-chain transaction', 'Actions']}>
+            {recoveryCases.map(c => {
+              const id = String(c.id || c.recoveryId || '');
+              const hash = (c.txHash || c.transactionHash) as string | undefined;
+              return (
+                <PseRow key={id}>
+                  <PseCell mono>{shortHash(id, 8)}</PseCell>
+                  <PseCell>{String(c.reason || 'unknown').replace(/_/g, ' ')}</PseCell>
+                  <PseCell>{fmtDateTime(c.createdAt as string)}</PseCell>
+                  <PseCell mono>
+                    {hash ? (
+                      <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
+                        {shortHash(hash)}
+                      </a>
+                    ) : '—'}
+                  </PseCell>
+                  <PseCell>
+                    <div className="flex flex-wrap gap-1.5">
+                      <PseButton
+                        disabled={resolving !== null}
+                        onClick={() => setConfirm({
+                          title: 'Complete purchase from recovery evidence?',
+                          consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
+                          affected: `psemine_payment_recovery/${id}`,
+                          confirmLabel: 'Re-verify & attempt purchase',
+                          run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
+                        })}
+                      >
+                        Complete purchase
+                      </PseButton>
+                      <PseButton
+                        tone="danger"
+                        disabled={resolving !== null}
+                        onClick={() => setConfirm({
+                          title: 'Dismiss this recovery case?',
+                          consequence: 'The case is marked rejected and closed without linking the transaction. Evidence is retained in psemine_payment_recovery. Recorded in the audit log.',
+                          affected: `psemine_payment_recovery/${id}`,
+                          confirmLabel: 'Dismiss case',
+                          danger: true,
+                          run: async () => { await resolveRecovery(id, 'reject', 'Dismissed after review.'); },
+                        })}
+                      >
+                        Dismiss
+                      </PseButton>
+                    </div>
+                  </PseCell>
+                </PseRow>
+              );
+            })}
+          </PseTable>
         )}
+      </PseSection>
 
-        {/* ══ VERDICT — the network's exposure, on the canvas ══
-            The number ops actually owns: GBP already accrued across every
-            operating tool. Secondary facts sit beside it, never above it. */}
-        <Verdict
-          label="Accrued liability · network"
-          value={gbp(num('totalAccruedLiabilityGBP'))}
-          status={campaignView
-            ? <Stamp tone={campaignView.tone} pulse={campaignView.live} glyph="●">{campaignView.label}</Stamp>
-            : <Stamp tone="idle">State unavailable</Stamp>}
-          note={campaignView?.detail ?? 'The backend has not reported a campaign state yet. No state is assumed in the browser.'}
-          side={
-            <div className="pse-verdict-facts">
-              <div>
-                <p className="pse-np">Active miners</p>
-                <p className="pse-fact-v pse-n">
-                  {num('activeMiners')}{num('totalMiners') ? ` / ${num('totalMiners')}` : ''}
-                </p>
-              </div>
-              <div>
-                <p className="pse-np">Tools deployed</p>
-                <p className="pse-fact-v pse-n">{toolCount}</p>
-              </div>
-              <div>
-                <p className="pse-np">Network capacity</p>
-                <p className="pse-fact-v pse-n">{gbpHour(num('totalCapacityGBPPerHour'))}</p>
-              </div>
-            </div>
-          }
-        />
+      <PseSection title="Payout review" meta="Actions are recorded in the admin audit trail. Payout completion validates the transaction hash atomically — a hash already attached to a completed payout is rejected (DUPLICATE_PAYOUT_TX).">
+        {withdrawalQueue.length === 0 ? (
+          <PseEmptyNote>No payouts awaiting review.</PseEmptyNote>
+        ) : (
+          <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>
+            {withdrawalQueue.map(w => {
+              const id = String(w.id || '');
+              const status = String(w.status || 'pending');
+              const view = payoutStatusView(status);
+              const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
+                : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
+              const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
+              return (
+                <PseRow key={id}>
+                  <PseCell>{fmtDateTime(w.createdAt as string)}</PseCell>
+                  <PseCell>{view.label}</PseCell>
+                  <PseCell>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</PseCell>
+                  <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
+                  <PseCell mono>{shortAddr(String(w.userId || w.uid || ''))}</PseCell>
+                  <PseCell>
+                    <PseField label="Tx hash" htmlFor={`pse-tx-${id}`}>
+                      <PseInput
+                        id={`pse-tx-${id}`}
+                        value={txInputs[id] || ''}
+                        onChange={e => setTxInputs(prev => ({ ...prev, [id]: e.target.value }))}
+                        placeholder="0x…"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </PseField>
+                  </PseCell>
+                  <PseCell>
+                    <div className="flex flex-wrap gap-1.5">
+                      <PseButton
+                        disabled={resolving !== null}
+                        onClick={() => void reviewWithdrawal(id, 'APPROVE', (txInputs[id] || '').trim())}
+                      >
+                        {resolving === id + 'APPROVE' ? 'Approving…' : 'Approve'}
+                      </PseButton>
+                      <PseButton tone="danger" disabled={resolving !== null} onClick={() => void reviewWithdrawal(id, 'REJECT')}>
+                        {resolving === id + 'REJECT' ? 'Rejecting…' : 'Reject'}
+                      </PseButton>
+                    </div>
+                  </PseCell>
+                </PseRow>
+              );
+            })}
+          </PseTable>
+        )}
+      </PseSection>
 
-        {/* ══ RAIL — the one canonical campaign clock ══
-            Ops decides on the campaign's position, so it reads the same duty
-            rail the miner console and the landing read — never a second
-            rendering of the same 90 days. */}
-        <RailBand
-          label="Campaign duty"
-          meta={campaign
-            ? `${campaign.name || 'Active campaign'} · ${campaign.durationDays || 90}-day campaign`
-            : 'Campaign configuration is not loaded'}
-          legend={[{ kind: 'jade', text: 'Elapsed' }, { kind: 'ghost', text: 'Remaining' }]}
-        >
-          {campaign
-            ? <DutyRail campaign={campaign} status={campaign.status} />
-            : <p className="pse-meta pse-measure">The campaign configuration has not loaded, so the duty rail is not drawn — position is never estimated in the browser.</p>}
-        </RailBand>
-
-        {/* ══ LEDGER 1 — campaign control ══ */}
-        <Ledger
-          title="Campaign control"
-          meta="psemine_campaigns/active_campaign · consequential actions are confirmed, then recorded in the audit trail"
-          legend={['Control', 'State']}
-          foot={
-            <div className="flex flex-wrap items-center gap-2">
-              {campaign?.status === 'paused' ? (
-                <button onClick={() => void campaignAction('resume')} disabled={actionBusy !== null}
-                  className="pse-btn pse-btn-sm">
-                  {actionBusy === 'resume' ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Resume
-                </button>
-              ) : (
-                <button onClick={() => void campaignAction('pause')} disabled={actionBusy !== null || campaign?.status !== 'active'}
-                  className="pse-btn pse-btn-2 pse-btn-sm">
-                  {actionBusy === 'pause' ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />} Pause
-                </button>
-              )}
-              <button onClick={() => void campaignAction('settle')} disabled={actionBusy !== null}
-                className="pse-btn pse-btn-2 pse-btn-sm">
-                {actionBusy === 'settle' ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} />} Begin settlement
-              </button>
-              <button onClick={() => void campaignAction('shutdown')} disabled={actionBusy !== null}
-                className="pse-btn pse-btn-danger pse-btn-sm">
-                {actionBusy === 'shutdown' ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />} Shutdown &amp; archive
-              </button>
-            </div>
-          }
-        >
-          <LedgerRow
-            title="Payment recovery queue"
-            sub="Verification failures awaiting a human decision"
-            value={<span className="pse-n">{recoveryCases.length}</span>}
-          />
-          <LedgerRow
-            title="Payout review queue"
-            sub="Requests pending review or in processing"
-            value={<span className="pse-n">{withdrawalQueue.length}</span>}
-          />
-        </Ledger>
-
-        {/* ══ LEDGER 2 — payment recovery ══ */}
-        <Ledger
-          title="Payment recovery"
-          meta="Evidence records for verification failures — review before resolving. No automatic assignment."
-          legend={['Recovery case', 'On-chain transaction']}
-        >
-          {recoveryCases.length === 0 ? (
-            <PSEEmpty icon={CheckCircle2} title="No open recovery cases" body="Verification failures appear here with full evidence for review." />
-          ) : recoveryCases.map(c => {
-            const id = String(c.id || c.recoveryId || '');
-            const hash = (c.txHash || c.transactionHash) as string | undefined;
-            return (
-              <LedgerRow
-                key={id}
-                title={
-                  <span className="flex flex-wrap items-center gap-2">
-                    {String(c.reason || 'unknown').replace(/_/g, ' ')}
-                    <Stamp tone="attn">Recovery</Stamp>
-                  </span>
-                }
-                sub={
-                  <>
-                    <span className="pse-mono">{shortHash(id, 8)}</span>
-                    {' · '}{fmtDateTime(c.createdAt as string)}
-                  </>
-                }
-                value={
-                  hash
-                    ? <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer"
-                        className="pse-mono inline-flex items-center gap-1">{shortHash(hash)} <ExternalLink size={10} /></a>
-                    : '—'
-                }
-              >
-                {/* FIX 4: contract-accurate actions (backend: mark_reviewed |
-                    attach_to_purchase | reject — none activate a tool).
-                    Consequential ones go through the design-system dialog. */}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <button
-                    onClick={() => setConfirm({
-                      title: 'Complete purchase from recovery evidence?',
-                      consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
-                      affected: `psemine_payment_recovery/${id}`,
-                      confirmLabel: 'Re-verify & attempt purchase',
-                      run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
-                    })}
-                    disabled={resolving !== null} className="pse-btn pse-btn-sm">Complete purchase</button>
-                  <button
-                    onClick={() => setConfirm({
-                      title: 'Dismiss this recovery case?',
-                      consequence: 'The case is marked rejected and closed without linking the transaction. Evidence is retained in psemine_payment_recovery. Recorded in the audit log.',
-                      affected: `psemine_payment_recovery/${id}`,
-                      confirmLabel: 'Dismiss case',
-                      danger: true,
-                      run: async () => { await resolveRecovery(id, 'reject', 'Dismissed after review.'); },
-                    })}
-                    disabled={resolving !== null} className="pse-btn pse-btn-3 pse-btn-sm">Dismiss</button>
-                </div>
-              </LedgerRow>
-            );
-          })}
-        </Ledger>
-
-        {/* ══ LEDGER 3 — payout review ══ */}
-        <Ledger
-          title="Payout review"
-          meta="Requests awaiting review or processing. Completion requires the on-chain transaction hash; duplicate hashes are rejected server-side."
-          legend={['Payout request', 'Amount']}
-        >
-          {withdrawalQueue.length === 0 ? (
-            <PSEEmpty icon={ShieldAlert} title="No payouts awaiting review" body="Withdrawal requests appear here once miners submit them at settlement." />
-          ) : withdrawalQueue.map(w => {
-            const id = String(w.id || '');
-            const status = String(w.status || 'pending');
-            const view = payoutStatusView(status);
-            const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
-              : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
-            const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
-            const busy = resolving === id + 'APPROVE' || resolving === id + 'REJECT';
-            const reviewable = status === 'pending' || status === 'under_review';
-            return (
-              <LedgerRow
-                key={id}
-                title={
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="pse-mono">Payout {shortHash(id, 6)}</span>
-                    <Stamp tone={view.tone}>{view.label}</Stamp>
-                  </span>
-                }
-                sub={
-                  <>
-                    Requested {fmtDateTime(w.createdAt as string)}
-                    {' · to '}<span className="pse-mono">{dest ? shortAddr(dest) : '—'}</span>
-                    {' · '}<span className="pse-mono">{shortAddr(String(w.userId || w.uid || ''))}</span>
-                  </>
-                }
-                value={amountMinor !== null ? gbp(amountMinor / 100) : '—'}
-              >
-                {reviewable && (
-                  /* FIX 5: actions wrap vertically within the cell on mobile */
-                  <div className="mt-2 flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
-                    {/* D3: approve IS the completion — backend atomically
-                        reserves the tx hash and marks the payout paid. */}
-                    <ApprovePayoutButton busy={busy} onApprove={(hash) => void reviewWithdrawal(id, 'APPROVE', hash)} />
-                    <button onClick={() => { void reviewWithdrawal(id, 'REJECT'); }}
-                      disabled={busy} className="pse-btn pse-btn-danger pse-btn-sm">Reject</button>
-                  </div>
-                )}
-              </LedgerRow>
-            );
-          })}
-        </Ledger>
-
-        {/* ══ NOTES — unframed ══ */}
-        <p className="pse-meta pse-measure flex items-start gap-2">
-          <ShieldAlert size={13} className="mt-0.5 shrink-0" />
-          All actions are recorded in the admin audit trail. Payout completion validates the transaction hash atomically — a hash already attached to a completed payout is rejected (DUPLICATE_PAYOUT_TX).
-        </p>
-      </div>
-
-      {/* FIX 3/4: design-system confirmation for all consequential actions */}
-      <ConfirmDialog
+      <PseConfirm
         open={confirm !== null}
         title={confirm?.title || ''}
         consequence={confirm?.consequence || ''}
@@ -440,52 +367,16 @@ const AdminPSEMine: React.FC = () => {
         confirmLabel={confirm?.confirmLabel}
         danger={confirm?.danger}
         requireText={confirm?.requireText}
-        busy={confirm?.confirmLabel === 'Archive campaign' ? actionBusy === 'shutdown' : false}
-        onConfirm={() => { const run = confirm?.run; setConfirm(null); if (run) void run(); }}
+        busy={confirmBusy}
         onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          if (!confirm) return;
+          setConfirmBusy(true);
+          void confirm.run().finally(() => { setConfirmBusy(false); setConfirm(null); });
+        }}
       />
     </div>
   );
 };
 
-/** D3: Approve form — one action, one tx hash. The backend reserves the hash
- * atomically and marks the payout paid in the same transaction. */
-function ApprovePayoutButton({ busy, onApprove }: { busy: boolean; onApprove: (hash: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [hash, setHash] = useState('');
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} disabled={busy} className="pse-btn pse-btn-sm">
-        Approve with tx hash…
-      </button>
-    );
-  }
-  return (
-    /* FIX 5: full-width column on mobile, compact inline row on ≥sm.
-       No API, validation, or state-machine changes. */
-    <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:flex-row sm:items-center">
-      <input
-        value={hash}
-        onChange={e => setHash(e.target.value)}
-        placeholder="0x… transaction hash"
-        className="pse-input pse-mono w-full sm:w-56"
-        style={{ fontSize: 11, minHeight: 34, padding: '7px 11px' }}
-        aria-label="Payout transaction hash"
-      />
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => { if (/^0x[0-9a-fA-F]{64}$/.test(hash.trim())) { onApprove(hash.trim()); setOpen(false); } else toast.error('Enter the full 66-character transaction hash.'); }}
-          disabled={busy}
-          className="pse-btn pse-btn-sm"
-        >
-          Approve payout
-        </button>
-        <button onClick={() => setOpen(false)} disabled={busy} className="pse-btn pse-btn-3 pse-btn-sm">Cancel</button>
-      </div>
-    </div>
-  );
-}
-
-export { AdminPSEMine };
 export default AdminPSEMine;

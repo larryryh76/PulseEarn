@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  Wallet, Lock, ShieldCheck, Info, Link2, Unlink, Send, Landmark, AlertTriangle, ChevronRight,
-} from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { requestPayout } from '../../engines/psemine/pseMineApi';
-import {
-  type StampTone,
-  Stamp, StatementHeader, Verdict, CapacityRail, Ledger, LedgerRow,
-  Attn, Clause, PSEEmpty, PSELoading, PSEError,
-  gbp, gbpHour, shortAddr, shortHash, fmtDateTime, payoutStatusView, CopyField,
-  campaignStatusView, campaignTone,
-} from '../../components/psemine/pse';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
+import {
+  campaignStatusView, fmtDateTime, gbp, gbpHour, payoutStatusView, shortAddr, shortHash,
+} from '../../components/psemine/pseCore';
+import {
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseField, PseInput, PseLoading,
+  PseNotice, PsePage, PseRow, PseSection, PseTable,
+} from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
+/**
+ * The wallet — MINIMAL FUNCTIONAL PRESENTATION.
+ *
+ * The Duty & Ledger wallet (verdict, capacity register, settlement ledgers) was
+ * purged in `refactor(psemine): purge legacy design implementation`. Everything
+ * that moves money is preserved exactly: wallet connection and binding, the
+ * payout-wallet lock cutoff, the backend re-validated payout request, and the
+ * real withdrawal history.
+ *
+ * GBP campaign accounting is not a crypto balance: the accrued figure and the
+ * settlement-available figure stay separate and labelled.
+ */
 const EVM = /^0x[0-9a-fA-F]{40}$/;
 
 /** Campaign states after which the payout wallet can no longer be changed
@@ -24,37 +32,11 @@ const WALLET_LOCKED_STATES = new Set(['settling', 'payout', 'closed', 'archived'
 
 export const PAYOUT_REQUEST_MIN_GBP = 10;
 
-/** Stamp tone for a backend payout-request status. */
-const payoutTone = (status?: string | null): StampTone => {
-  switch (status) {
-    case 'paid': return 'live';
-    case 'failed':
-    case 'reversed': return 'fail';
-    case 'under_review':
-    case 'processing': return 'attn';
-    case 'approved': return 'info';
-    default: return 'idle';
-  }
-};
-
-/**
- * The wallet.
- *
- * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
- *
- *   VERDICT  what the campaign has EARNED, on the canvas. The single most
- *            dangerous confusion in this product is mistaking GBP campaign
- *            accounting for a crypto balance, so the accrued figure dominates
- *            and the settlement balance is stated beside it, labelled.
- *   RAIL     the canonical capacity register — earnings accrue from capacity.
- *   LEDGERS  settlement, the two BNB addresses (payment vs payout — never the
- *            same thing) and the payout history. Real records only.
- *   NOTES    how settlement works, unframed.
- */
 export const PSEMineWallet: React.FC = () => {
   const {
     pseUser, connectedWallet, connectWallet, disconnectWallet, isConnectingWallet,
-    updatePayoutWallet, campaign,
+    updatePayoutWallet, campaign, injectedWallets, walletConnectAvailable,
+    connectWalletConnectTransport, walletName, walletChainId,
   } = usePSEMine();
 
   const { state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed } = usePseState();
@@ -84,8 +66,6 @@ export const PSEMineWallet: React.FC = () => {
     connectedWallet: pseUser?.connectedWallet ?? null,
   };
 
-  const capacity = user.totalCapacityGBPPerHour ?? 0;
-
   const handleSavePayout = async (e: React.FormEvent) => {
     e.preventDefault();
     const w = payoutInput.trim();
@@ -106,303 +86,192 @@ export const PSEMineWallet: React.FC = () => {
   };
 
   if (loading && !state) {
-    return <div className="pse-gut pt-6"><PSELoading label="Loading your wallet" /></div>;
+    return (
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Loading your wallet" />
+      </div>
+    );
   }
   if (error && !state) {
     return (
-      <div className="pse-gut py-8">
-        <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
   }
 
   return (
-    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
-      <StatementHeader
-        routeKey="Wallet · balances & addresses"
-        title="Wallet"
-        objective="Three separate things, deliberately kept apart: what the campaign has earned (GBP), what is settled and available, and the BNB Smart Chain addresses involved. Settlement is paid in crypto; campaign earnings are accounted in GBP."
-        status={
-          <Stamp tone={campaignTone(campaignStatus)} pulse={campaignView.live} glyph="●">
-            {campaignView.label.trim()}
-          </Stamp>
-        }
-        actions={
-          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-2 pse-btn-sm">
-            {refreshing ? 'Syncing…' : 'Sync balances'}
-          </button>
-        }
-      />
-
-      {/* ══ VERDICT — what the campaign has earned ══ */}
-      <Verdict
-        label="Campaign earnings accrued"
-        value={gbp(user.accruedGBP)}
-        status={
-          <Stamp tone={campaignView.live ? 'live' : 'idle'} glyph="●">
-            {campaignView.live ? 'Accruing' : campaignView.label.trim()}
-          </Stamp>
-        }
-        note={
-          <>
-            Earned by {gbpHour(capacity)} of capacity and stored server-side. Not withdrawable during the campaign —
-            the balance is finalised when the campaign closes and the ledger settles.
-          </>
-        }
-        side={
-          <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Settlement available</span><span className="pse-cyan">{availableStr}</span></div>
-            <div className="pse-spec-line"><span>Payout minimum</span><span>{gbp(PAYOUT_REQUEST_MIN_GBP)}</span></div>
-            <div className="pse-spec-line">
-              <span>Payout wallet</span>
-              <span>{payoutWallet ? shortAddr(payoutWallet) : 'Not set'}</span>
+    <PsePage
+      title="Wallet & payouts"
+      objective="Campaign earnings are denominated in GBP and paid in BNB after settlement, to the payout wallet configured here."
+      actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
+    >
+      <PseSection title="Campaign and balances" meta={`Campaign status: ${campaignView.label}`}>
+        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            ['Accrued (campaign)', gbp(user.accruedGBP)],
+            ['Settlement-available', availableStr],
+            ['Total capacity', gbpHour(user.totalCapacityGBPPerHour ?? 0)],
+            ['Tool capacity', gbpHour(user.toolCapacityGBPPerHour ?? 0)],
+            ['Referral capacity', gbpHour(user.referralCapacityGBPPerHour ?? 0)],
+            ['Payout minimum', gbp(PAYOUT_REQUEST_MIN_GBP)],
+            ['Payout network', `${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} (chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID})`],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
+              <dt className="text-sm text-text-secondary">{k}</dt>
+              <dd className="text-sm text-text-primary">{v}</dd>
             </div>
-            <div className="pse-spec-line">
-              <span>Payment wallet</span>
-              <span>{connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}</span>
-            </div>
-          </div>
-        }
-      />
+          ))}
+        </dl>
+        <p className="text-xs text-text-tertiary">
+          {campaignView.detail} Accrued earnings are not withdrawable until the backend finalises settlement and reports
+          a settlement-available figure.
+        </p>
+      </PseSection>
 
-      {/* ══ RAIL — capacity is what produces the earnings ══ */}
-      <CapacityRail
-        toolCapacity={user.toolCapacityGBPPerHour ?? 0}
-        referralCapacity={user.referralCapacityGBPPerHour ?? 0}
-        counts={pseUser?.toolOwnershipCounts}
-        referralCount={state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0}
-        label="Mining capacity"
-        meta="Earnings accrue by the hour from this capacity — only while tools are operating"
-      />
-
-      {feedErrors.withdrawals && (
-        <Attn
-          tone="attn"
-          title="Payout history is degraded"
-          body="Payout records could not be loaded — the history below may be incomplete."
-          action={
-            <button onClick={() => void refreshFeed('withdrawals')} disabled={refreshing} className="pse-btn pse-btn-2 pse-btn-sm">
-              Retry
-            </button>
-          }
-        />
-      )}
-
-      {pendingRequest && (
-        <Attn
-          tone="info"
-          title="A payout request is under review"
-          body="One request is being reviewed. It stays in the history below until it resolves, and no second request can be submitted meanwhile."
-        />
-      )}
-
-      {/* ══ LEDGER — settlement ══ */}
-      <Ledger
-        title="Settlement"
-        meta="Backend-reported balance · available only after the campaign ends"
-        legend={['Item', 'Value']}
-        action={
-          <Stamp tone={payoutBlocked ? 'idle' : pendingRequest ? 'attn' : 'live'} glyph="●">
-            {payoutBlocked ? 'Opens at settlement' : pendingRequest ? 'Request under review' : 'Open'}
-          </Stamp>
-        }
-        foot={
-          <PayoutRequestSection
-            blocked={payoutBlocked}
-            pending={pendingRequest}
-            availableMinor={availableMinor}
-            payoutWallet={payoutWallet}
-            campaignLabel={campaignView.label}
-            onSubmit={async (amountGbp) => {
-              const res = await requestPayout(amountGbp);
-              if (res.success) {
-                toast.success('Payout request submitted for review.');
-                await refresh();
-              } else {
-                toast.error(res.message || 'Payout request could not be submitted.');
-              }
-              return res.success;
-            }}
-          />
-        }
-      >
-        <LedgerRow
-          title="Settlement-available balance"
-          sub="Net of payout requests already submitted — never relabelled accrued earnings"
-          value={<span className="pse-cyan">{availableStr}</span>}
-        />
-        <LedgerRow title="Payout minimum" sub="Per request, after settlement" value={gbp(PAYOUT_REQUEST_MIN_GBP)} />
-        <LedgerRow title="Payout asset" sub={`${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}`} value="BNB" valueTone="var(--pse-bnb)" />
-        <LedgerRow
-          title="Requests on record"
-          sub={pendingRequest ? 'One is under review' : 'None pending'}
-          value={String(withdrawals.length)}
-        />
-        <LedgerRow title="Accounting currency" sub="Accrual is denominated in GBP" value="GBP (£)" />
-      </Ledger>
-
-      {/* ══ LEDGER — the two BNB addresses, one instrument ══ */}
-      <Ledger
-        title="BNB wallets"
-        meta="The wallet you pay from and the address settlement is paid to are different things"
-        legend={['Address', 'State']}
-      >
-        <LedgerRow
-          title="Payment wallet"
-          sub="Signs tool purchases · never changes where settlement is paid"
-          value={
-            <Stamp tone={connectedWallet ? 'live' : 'idle'} glyph="●">
-              {connectedWallet ? 'Connected' : 'Not connected'}
-            </Stamp>
-          }
-        >
-          <div className="flex flex-wrap items-center gap-2.5" style={{ marginTop: 10 }}>
-            {connectedWallet ? (
-              <>
-                <CopyField value={connectedWallet} display={shortAddr(connectedWallet)} label="connected wallet" />
-                <button onClick={disconnectWallet} className="pse-btn pse-btn-3 pse-btn-sm">
-                  <Unlink size={13} /> Disconnect
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => void connectWallet()}
-                disabled={isConnectingWallet}
-                className="pse-btn pse-btn-2 pse-btn-sm"
-              >
-                <Link2 size={13} /> {isConnectingWallet ? 'Connecting…' : 'Connect wallet'}
-              </button>
-            )}
-            <span className="pse-chain">
-              <span className="pse-chain-mark" aria-hidden="true" />
-              {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}
-            </span>
-          </div>
-        </LedgerRow>
-
-        <LedgerRow
-          title="Payout wallet"
-          sub="Stored server-side · payouts are irreversible once processed"
-          value={
-            <Stamp tone={walletLocked ? 'attn' : payoutWallet ? 'live' : 'fail'} glyph="●">
-              {walletLocked ? 'Locked for settlement' : payoutWallet ? 'Configured' : 'Not set'}
-            </Stamp>
-          }
-        >
-          <div className="pse-stack-tight" style={{ marginTop: 10 }}>
-            {payoutWallet && (
-              <div>
-                <CopyField value={payoutWallet} display={payoutWallet} label="payout wallet" fullWidth />
-                <p className="pse-meta" style={{ marginTop: 8 }}>
-                  Updated {pseUser?.payoutWalletUpdatedAt ? fmtDateTime(pseUser.payoutWalletUpdatedAt) : 'previously'}.
-                </p>
-              </div>
-            )}
-
-            {!walletLocked ? (
-              <form onSubmit={handleSavePayout} className="flex flex-col gap-2.5 sm:flex-row">
-                <input
-                  value={payoutInput}
-                  onChange={e => setPayoutInput(e.target.value)}
-                  className="pse-input flex-1 pse-mono"
-                  placeholder="0x…"
-                  spellCheck={false}
-                  autoComplete="off"
-                  aria-label="Payout wallet address"
-                />
-                <button type="submit" disabled={saving || !payoutInput.trim()} className="pse-btn">
-                  <ShieldCheck size={14} /> {saving ? 'Saving…' : 'Set payout wallet'}
-                </button>
-              </form>
-            ) : (
-              <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                <Lock size={13} className="shrink-0" style={{ color: 'var(--pse-amber)', marginTop: 2 }} />
-                <p className="pse-meta">
-                  The campaign is {campaignView.label.trim().toLowerCase()} — payout wallet changes are locked. The
-                  backend enforces this cutoff server-side.
-                </p>
-              </div>
-            )}
-          </div>
-        </LedgerRow>
-      </Ledger>
-
-      {/* ══ LEDGER — payout history ══ */}
-      <Ledger
-        title="Payout history"
-        meta="Real records only — requests, reviews and completions"
-        legend={['Request', 'Amount']}
-        action={withdrawals.length === 0
-          ? <Stamp tone="idle" glyph="·">Opens at settlement</Stamp>
-          : (
-            <button onClick={() => void refreshFeed('withdrawals')} className="pse-meta pse-link">
-              Refresh
-            </button>
+      <PseSection title="Connected wallet" meta={walletChainId ? `chain ${walletChainId}` : 'chain unread'}>
+        <p className="text-sm text-text-secondary">
+          {connectedWallet
+            ? <>Connected in this browser: <span className="font-mono text-xs">{connectedWallet}</span>{walletName ? ` (${walletName})` : ''}</>
+            : 'No wallet is connected in this browser. A connected wallet is required to sign a purchase payment.'}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {connectedWallet ? (
+            <PseButton onClick={() => void disconnectWallet()}>Disconnect</PseButton>
+          ) : (
+            <>
+              {injectedWallets.map(w => (
+                <PseButton key={w.id} onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
+                  {w.name}
+                </PseButton>
+              ))}
+              {walletConnectAvailable && (
+                <PseButton onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
+                  WalletConnect
+                </PseButton>
+              )}
+            </>
           )}
-      >
-        {withdrawals.length === 0 ? (
-          <PSEEmpty
-            icon={Wallet}
-            title="No payout history yet"
-            body="Payout requests become available once the campaign reaches settlement. Anything you request will be listed here with its full status."
-          />
-        ) : (
-          withdrawals.map(w => {
-            const view = payoutStatusView(w.status);
-            const amount = typeof w.amountGBP === 'number' ? w.amountGBP
-              : typeof w.amountMinor === 'number' ? w.amountMinor / 100
-              : typeof w.requestedAmountGBP === 'number' ? w.requestedAmountGBP : null;
-            const dest = w.destinationWallet || w.payoutWallet;
-            const tx = w.payoutTxHash || w.transactionHash;
-            return (
-              <LedgerRow
-                key={w.id}
-                title={
-                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    {fmtDateTime(w.createdAt)}
-                    <Stamp tone={payoutTone(w.status)} glyph="·">{view.label}</Stamp>
-                  </span>
-                }
-                sub={
-                  <>
-                    To <span className="pse-mono">{dest ? shortAddr(dest) : '—'}</span>
-                    {tx ? <span className="pse-dim-3"> · {shortHash(tx)}</span> : null}
-                  </>
-                }
-                value={amount !== null ? gbp(amount) : undefined}
-              />
-            );
-          })
-        )}
-      </Ledger>
-
-      {/* ══ NOTES — how settlement works, unframed ══ */}
-      <div className="pse-note pse-stack-tight">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="pse-h3">How settlement works</h2>
-          <div className="flex items-center gap-4">
-            <Landmark size={13} className="pse-cyan" />
-            <Link to="/mine/activity" className="pse-meta pse-link inline-flex items-center gap-1.5">
-              Ledger <ChevronRight size={12} />
-            </Link>
-            <Link to="/mine/guide" className="pse-meta pse-link inline-flex items-center gap-1.5">
-              Campaign guide <ChevronRight size={12} />
-            </Link>
-          </div>
         </div>
-        <Clause no="01" title="Campaign runs its full 90 days" body="Accrual stops at the end — capacity only accrues while the campaign is active." />
-        <Clause no="02" title="Balances are finalised" body="Settlement calculates final balances from the append-only mining ledger." />
-        <Clause no="03" title="Payout requests open" body={`Requests become available for settled balances of ${gbp(PAYOUT_REQUEST_MIN_GBP)} or more, paid to your configured payout wallet.`} />
-        <Clause no="04" title="Review, then payout" body="Each request is reviewed, then processed on BNB Smart Chain and recorded here with its transaction hash." />
-      </div>
-    </div>
+        {isConnectingWallet && <PseNotice>Waiting for the wallet…</PseNotice>}
+        {!connectedWallet && !walletConnectAvailable && injectedWallets.length === 0 && (
+          <PseNotice tone="attention">
+            No wallet detected. Open PSEmine in your wallet&apos;s browser (Trust, MetaMask) or install an extension.
+          </PseNotice>
+        )}
+        <p className="text-sm text-text-secondary">
+          Payout wallet (where settlement is paid):{' '}
+          {payoutWallet ? <span className="font-mono text-xs">{payoutWallet}</span> : 'not set'}
+        </p>
+        <p className="text-xs text-text-tertiary">
+          The payment wallet and the payout wallet are different things: payments are sent to the locked campaign
+          receiving address, payouts are sent to the payout wallet you configure here.
+        </p>
+      </PseSection>
+
+      <PseSection title="Payout wallet">
+        {walletLocked ? (
+          <PseNotice tone="attention">
+            The campaign is {campaignView.label.toLowerCase()} — payout wallet changes are locked. The current payout
+            wallet stays as configured: {payoutWallet ? shortAddr(payoutWallet) : 'not set'}.
+          </PseNotice>
+        ) : (
+          <form onSubmit={handleSavePayout} className="space-y-3">
+            <PseField label="BNB Smart Chain payout address" hint="0x + 40 hex characters" htmlFor="pse-payout-wallet">
+              <PseInput
+                id="pse-payout-wallet"
+                value={payoutInput}
+                onChange={e => setPayoutInput(e.target.value)}
+                placeholder={payoutWallet || '0x…'}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </PseField>
+            <PseButton type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save payout wallet'}</PseButton>
+          </form>
+        )}
+      </PseSection>
+
+      <PayoutRequestSection
+        blocked={payoutBlocked}
+        pending={pendingRequest}
+        availableMinor={availableMinor}
+        payoutWallet={payoutWallet}
+        campaignLabel={campaignView.label}
+        onSubmit={async (amountGbp) => {
+          const res = await requestPayout(amountGbp);
+          if (res.success) {
+            toast.success('Payout request submitted for review.');
+            await refresh();
+            return true;
+          }
+          toast.error(res.error || 'Payout request failed.');
+          return false;
+        }}
+      />
+
+      <PseSection
+        title="Payout history"
+        meta={
+          <span>
+            {withdrawals.length} record{withdrawals.length === 1 ? '' : 's'} ·{' '}
+            <button type="button" className="underline" onClick={() => void refreshFeed('withdrawals')}>Refresh</button>
+          </span>
+        }
+      >
+        {feedErrors.withdrawals && (
+          <PseNotice tone="attention">The payout history could not be refreshed.</PseNotice>
+        )}
+        {withdrawals.length === 0 ? (
+          <PseEmptyNote>No payout requests yet.</PseEmptyNote>
+        ) : (
+          <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Transaction']}>
+            {withdrawals.map(w => {
+              const view = payoutStatusView(w.status);
+              const amount = typeof w.amountGBP === 'number' ? w.amountGBP
+                : typeof w.amountMinor === 'number' ? w.amountMinor / 100
+                  : typeof w.requestedAmountGBP === 'number' ? w.requestedAmountGBP : null;
+              const dest = w.destinationWallet || w.payoutWallet;
+              const tx = w.payoutTxHash || w.transactionHash;
+              return (
+                <PseRow key={w.id}>
+                  <PseCell>{fmtDateTime(w.createdAt)}</PseCell>
+                  <PseCell>{view.label}</PseCell>
+                  <PseCell>{amount !== null ? gbp(amount) : '—'}</PseCell>
+                  <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
+                  <PseCell mono>
+                    {tx ? (
+                      <a href={`https://bscscan.com/tx/${tx}`} target="_blank" rel="noreferrer" className="underline">
+                        {shortHash(tx)}
+                      </a>
+                    ) : '—'}
+                  </PseCell>
+                </PseRow>
+              );
+            })}
+          </PseTable>
+        )}
+      </PseSection>
+
+      <PseSection title="How settlement works">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+          <li>Accrual continues while the campaign is active and stops when the campaign ends.</li>
+          <li>After settlement finalises your balance, a payout request becomes available for the settled amount.</li>
+          <li>Requests are reviewed before payment; an approved payout is sent in BNB to your configured payout wallet.</li>
+          <li>
+            Requests become available for settled balances of {gbp(PAYOUT_REQUEST_MIN_GBP)} or more. One request is
+            reviewed at a time.
+          </li>
+        </ul>
+      </PseSection>
+    </PsePage>
   );
 };
 
 /* ── Post-settlement payout request ─────────────────────────────────────
  * Availability derives from the BACKEND campaign state (never dates, never
- * browser time). While active/paused → explanation only. Post-settlement →
- * the real request form; the server re-validates every condition. */
+ * browser time). While active/paused → explanation only. Post-settlement → the
+ * real request form; the server re-validates every condition. */
 function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, campaignLabel, onSubmit }: {
   blocked: boolean; pending: boolean; availableMinor: number; payoutWallet: string | null;
   campaignLabel: string; onSubmit: (amountGbp: number) => Promise<boolean>;
@@ -412,72 +281,56 @@ function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, 
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (blocked) {
-    return (
-      <div className="flex items-start gap-3">
-        <Info size={14} className="shrink-0" style={{ color: 'var(--pse-text-3)', marginTop: 2 }} />
-        <div>
-          <p className="pse-label-b">Payout opens after campaign settlement</p>
-          <p className="pse-meta" style={{ marginTop: 6 }}>
-            The campaign is {campaignLabel.trim().toLowerCase()}. Once it reaches settlement and earnings are finalised,
-            a payout request form appears here — {gbp(PAYOUT_REQUEST_MIN_GBP)} minimum, paid to your configured payout wallet.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="pse-stack-tight">
-      {pending ? (
-        <p className="pse-meta">You already have a payout request under review. It appears in your history until it resolves.</p>
+    <PseSection title="Request a payout">
+      {blocked ? (
+        <PseNotice>
+          Payout opens after campaign settlement. The campaign is {campaignLabel.toLowerCase()}. Once it reaches
+          settlement and earnings are finalised, a payout request form appears here — {gbp(PAYOUT_REQUEST_MIN_GBP)}{' '}
+          minimum, paid to your configured payout wallet.
+        </PseNotice>
+      ) : pending ? (
+        <PseNotice>You already have a payout request under review. It appears in your history until it resolves.</PseNotice>
       ) : availableMinor < PAYOUT_REQUEST_MIN_GBP * 100 ? (
-        <p className="pse-meta">
-          A minimum of {gbp(PAYOUT_REQUEST_MIN_GBP)} is required to request a payout. Your settlement-available balance is {gbp(availableMinor / 100)}.
-        </p>
+        <PseNotice>
+          A minimum of {gbp(PAYOUT_REQUEST_MIN_GBP)} is required to request a payout. Your settlement-available balance
+          is {gbp(availableMinor / 100)}.
+        </PseNotice>
       ) : !walletConfigured ? (
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle size={13} className="shrink-0" style={{ color: 'var(--pse-amber)', marginTop: 2 }} />
-          <p className="pse-meta">Set a payout wallet above before requesting your settlement.</p>
-        </div>
+        <PseNotice tone="attention">Set a payout wallet above before requesting your settlement.</PseNotice>
       ) : (
         <>
-          <p className="pse-meta">
-            Request up to {gbp(availableGBP)} from your settlement-available balance, paid to your configured payout wallet
-            {payoutWallet ? ` (${shortAddr(payoutWallet)})` : ''}.
+          <p className="text-sm text-text-secondary">
+            Request up to {gbp(availableGBP)} from your settlement-available balance, paid to your configured payout
+            wallet{payoutWallet ? ` (${shortAddr(payoutWallet)})` : ''}.
           </p>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            const v = parseFloat(amount);
-            if (!Number.isFinite(v) || v < PAYOUT_REQUEST_MIN_GBP) { toast.error('Minimum payout request is £10.00.'); return; }
-            setBusy(true);
-            try { await onSubmit(v); } finally { setBusy(false); setAmount(''); }
-          }} className="flex flex-col gap-2.5 sm:flex-row">
-            <div className="relative flex-1">
-              <span className="pse-meta absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }}>£</span>
-              <input
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                inputMode="decimal"
-                className="pse-input w-full pl-6 pr-16"
-                placeholder="10.00"
-                aria-label="Payout amount in GBP"
-              />
-              <button
-                type="button"
-                onClick={() => setAmount(String(availableGBP))}
-                className="pse-btn pse-btn-3 pse-btn-sm absolute right-1.5 top-1/2 -translate-y-1/2"
-              >
-                Max
-              </button>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const v = parseFloat(amount);
+              if (!Number.isFinite(v) || v < PAYOUT_REQUEST_MIN_GBP) { toast.error('Minimum payout request is £10.00.'); return; }
+              setBusy(true);
+              try { await onSubmit(v); } finally { setBusy(false); setAmount(''); }
+            }}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <div className="min-w-[200px] flex-1">
+              <PseField label="Amount (GBP)" htmlFor="pse-payout-amount">
+                <PseInput
+                  id="pse-payout-amount"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="10.00"
+                />
+              </PseField>
             </div>
-            <button type="submit" disabled={busy} className="pse-btn">
-              <Send size={14} /> {busy ? 'Submitting…' : 'Request payout'}
-            </button>
+            <PseButton onClick={() => setAmount(String(availableGBP))}>Max</PseButton>
+            <PseButton type="submit" disabled={busy}>{busy ? 'Submitting…' : 'Request payout'}</PseButton>
           </form>
         </>
       )}
-    </div>
+    </PseSection>
   );
 }
 

@@ -9,7 +9,7 @@ import {
 import {
   PseErrorInfo, toPseErrorInfo, logPseDiagnostic,
 } from '../../engines/psemine/pseErrors';
-import { gbp } from './pse';
+import { gbp } from './pseCore';
 
 /** Secondary (non-blocking) data feeds. */
 export type PseFeed = 'withdrawals' | 'referrals' | 'activities' | 'notifications';

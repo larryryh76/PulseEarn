@@ -1,37 +1,26 @@
 import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Users, Share2, ChevronRight } from 'lucide-react';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import {
-  Stamp, StatementHeader, Verdict, CapacityRail, Ledger, LedgerRow,
-  Attn, Clause, CopyField, PSEEmpty, PSELoading, PSEError,
-  gbpHour, timeAgo, referralStageView, REFERRAL_STAGES,
-} from '../../components/psemine/pse';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
+import { gbpHour, referralStageView, timeAgo, REFERRAL_STAGES } from '../../components/psemine/pseCore';
+import {
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseLoading, PseNotice,
+  PsePage, PseRow, PseSection, PseTable,
+} from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
 const MAX_REFERRALS = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
 const BONUS = PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR;
 
 /**
- * Referral capacity.
+ * Referral capacity — MINIMAL FUNCTIONAL PRESENTATION.
  *
- * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
- *
- *   VERDICT  the qualified referral capacity this account actually holds, on the
- *            canvas — not inside a tinted panel.
- *   RAIL     the canonical capacity register (the same component the console and
- *            the tool marketplace render), so the referral lanes sit in their
- *            real place: capacity ADDS to tool capacity, it is not a separate
- *            economy.
- *   LEDGERS  the qualification pipeline, the invite instrument and the recorded
- *            invites. Real rows only.
- *   NOTES    the referral rules, unframed.
- *
- * Nothing here is a mining tool and nothing here is a task: referrals only ever
- * contribute £/hour of capacity, once each, from the qualification moment.
+ * The Duty & Ledger referral surface was purged in
+ * `refactor(psemine): purge legacy design implementation`. The referral engine is
+ * untouched: attribution, qualification stages and capacity are all read from
+ * the backend. Referrals only ever contribute hourly capacity, once each, from
+ * the qualification moment — they are not a separate economy and not a task.
  */
 export const PSEMineReferrals: React.FC = () => {
   const { referrals, referralCode, loading, error, refresh, refreshing, state, feedErrors, refreshFeed } = usePseState();
@@ -42,21 +31,19 @@ export const PSEMineReferrals: React.FC = () => {
   const link = code ? `${window.location.origin}/mine/signup?ref=${encodeURIComponent(code)}` : null;
   const qualified = state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0;
   const refCapacity = state?.user?.referralCapacityGBPPerHour ?? pseUser?.referralCapacityGBPPerHour ?? 0;
-  const toolCapacity = state?.user?.toolCapacityGBPPerHour ?? pseUser?.toolCapacityGBPPerHour ?? 0;
   const totalCapacity = state?.user?.totalCapacityGBPPerHour ?? pseUser?.totalCapacityGBPPerHour ?? 0;
-  const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
   const remainingSlots = Math.max(0, MAX_REFERRALS - qualified);
   const maxReferralCapacity = MAX_REFERRALS * BONUS;
 
   /** Stage distribution across the referral base — real rows only. */
   const stageCounts = useMemo(() => {
-    const counts_: Record<string, number> = {};
-    for (const s of REFERRAL_STAGES) counts_[s.id] = 0;
+    const counted: Record<string, number> = {};
+    for (const s of REFERRAL_STAGES) counted[s.id] = 0;
     for (const r of referrals) {
       const key = String(r.status || 'registered');
-      counts_[key] = (counts_[key] || 0) + 1;
+      counted[key] = (counted[key] || 0) + 1;
     }
-    return counts_;
+    return counted;
   }, [referrals]);
 
   const inProgress = referrals.filter(r => r.status !== 'qualified' && r.status !== 'rejected').length;
@@ -80,223 +67,118 @@ export const PSEMineReferrals: React.FC = () => {
   };
 
   if (loading && !state) {
-    return <div className="pse-gut pt-6"><PSELoading label="Loading referral capacity" /></div>;
+    return (
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Loading referral capacity" />
+      </div>
+    );
   }
   if (error && !state) {
     return (
-      <div className="pse-gut py-8">
-        <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
   }
 
   return (
-    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
-      <StatementHeader
-        routeKey="Referrals · capacity"
-        title="Referral capacity"
-        objective={`Each qualified referral adds +£${BONUS.toFixed(2)}/hour to your mining capacity, up to ${MAX_REFERRALS} referrals (+${gbpHour(maxReferralCapacity)}). Capacity applies from the qualification moment forward — never retroactively.`}
-        status={
-          <Stamp tone={qualified >= MAX_REFERRALS ? 'live' : 'info'} glyph={qualified >= MAX_REFERRALS ? '✓' : '▮'}>
-            {qualified >= MAX_REFERRALS ? 'Capacity maxed' : `${remainingSlots} slot${remainingSlots === 1 ? '' : 's'} left`}
-          </Stamp>
-        }
-        actions={
-          <button onClick={() => void share()} disabled={!link} className="pse-btn pse-btn-sm">
-            <Share2 size={13} /> Share invite link
-          </button>
-        }
-      />
+    <PsePage
+      title="Referral capacity"
+      objective={`Each qualified referral adds +£${BONUS.toFixed(2)}/hour to your mining capacity, up to ${MAX_REFERRALS} referrals (+${gbpHour(maxReferralCapacity)}). Capacity applies from the qualification moment forward — never retroactively.`}
+      actions={
+        <>
+          <PseButton onClick={() => void share()} disabled={!link}>Share invite link</PseButton>
+          <PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>
+        </>
+      }
+    >
+      <PseSection title="Referral capacity">
+        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            ['Qualified referral capacity', gbpHour(refCapacity)],
+            ['Qualified referrals', `${qualified} of ${MAX_REFERRALS}`],
+            ['Slots remaining', `${remainingSlots}`],
+            ['Referrals in progress', `${inProgress}`],
+            ['Total capacity', gbpHour(totalCapacity)],
+            ['Referral maximum', gbpHour(maxReferralCapacity)],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
+              <dt className="text-sm text-text-secondary">{k}</dt>
+              <dd className="text-sm text-text-primary">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        {qualified >= MAX_REFERRALS && <PseNotice>Capacity maxed — {MAX_REFERRALS} qualified referrals reached.</PseNotice>}
+      </PseSection>
 
-      {/* ══ VERDICT — the capacity this account actually holds ══ */}
-      <Verdict
-        label="Qualified referral capacity"
-        value={gbpHour(refCapacity)}
-        status={
-          <Stamp tone={qualified > 0 ? 'live' : 'idle'} glyph="●">
-            {qualified} of {MAX_REFERRALS} qualified
-          </Stamp>
-        }
-        note={
-          qualified >= MAX_REFERRALS
-            ? `Referral capacity is at its campaign maximum of ${gbpHour(maxReferralCapacity)}.`
-            : qualified === 0
-              ? `No referral has qualified yet, so no referral capacity is accruing. ${remainingSlots} slot${remainingSlots === 1 ? '' : 's'} remain.`
-              : `${gbpHour(remainingSlots * BONUS)} of referral capacity is still available across ${remainingSlots} remaining slot${remainingSlots === 1 ? '' : 's'}.`
-        }
-        side={
-          <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Bonus per referral</span><span>{gbpHour(BONUS)}</span></div>
-            <div className="pse-spec-line"><span>In progress</span><span>{inProgress} of {referrals.length} invites</span></div>
-            <div className="pse-spec-line"><span>Tool capacity</span><span className="pse-cyan">{gbpHour(toolCapacity)}</span></div>
-            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-cyan">{gbpHour(totalCapacity)}</span></div>
-          </div>
-        }
-      />
-
-      {/* ══ RAIL — the canonical capacity register ══ */}
-      <CapacityRail
-        toolCapacity={toolCapacity}
-        referralCapacity={refCapacity}
-        counts={counts}
-        referralCount={qualified}
-        label="Mining capacity"
-        meta="Referral lanes add to the tool lanes — one combined £/hour"
-      />
-
-      {!code && (
-        <Attn
-          tone="attn"
-          title="No referral code issued yet"
-          body="Your invite link appears here as soon as your account has a referral code. Until then no invite can be attributed to you."
-        />
-      )}
-
-      {qualified >= MAX_REFERRALS && (
-        <Attn
-          tone="info"
-          title="Referral capacity at maximum"
-          body={`${MAX_REFERRALS} qualified referrals is the campaign limit. Further invites still register, but they cannot add more than ${gbpHour(maxReferralCapacity)} of referral capacity.`}
-        />
-      )}
-
-      {/* ══ LEDGER — the qualification pipeline ══ */}
-      <Ledger
-        title="Qualification pipeline"
-        meta="Where your invites currently stand — real records only"
-        legend={['Stage', 'Invites']}
-      >
-        {REFERRAL_STAGES.map((s, i) => (
-          <LedgerRow
-            key={s.id}
-            title={
-              <span className="flex items-baseline gap-2.5">
-                <span className="pse-row-sign" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                {s.label}
-              </span>
-            }
-            sub={i === REFERRAL_STAGES.length - 1 ? 'Adds +£0.30/hour to your capacity' : undefined}
-            value={String(stageCounts[s.id] || 0)}
-          />
-        ))}
-      </Ledger>
-
-      {/* ══ LEDGER — the invite instrument ══ */}
-      <Ledger
-        title="Your invite link"
-        meta="New miners signing up through this link are attributed to your account by the backend"
-        legend={['Instrument', 'Value']}
-      >
+      <PseSection title="Your invite link" meta={code ? `code ${code}` : 'no code yet'}>
         {link ? (
           <>
-            <LedgerRow title="Invite link" sub="Anyone who registers through it is attributed to you">
-              <div style={{ marginTop: 10 }}>
-                <CopyField value={link} display={link} label="referral link" fullWidth />
-              </div>
-            </LedgerRow>
-            <LedgerRow
-              title="Referral code"
-              sub="Applied when your invite creates their account"
-              value={<CopyField value={code || ''} display={code || ''} label="referral code" />}
-            />
-            <LedgerRow
-              title="Attribution"
-              sub="Recorded server-side — self-referrals, duplicates and circular references are rejected by design"
-              value="Backend"
-            />
+            <p className="break-all font-mono text-xs text-text-primary">{link}</p>
+            <PseButton onClick={() => void navigator.clipboard?.writeText(link)}>Copy invite link</PseButton>
           </>
         ) : (
-          <PSEEmpty
-            icon={Users}
-            title="No referral code yet"
-            body="Your code is issued with your mining account and appears here automatically."
-          />
+          <PseEmptyNote>A referral code is issued by the backend; it will appear here once it exists.</PseEmptyNote>
         )}
-      </Ledger>
+      </PseSection>
 
-      {/* ══ LEDGER — the recorded invites ══ */}
-      <Ledger
-        title="Your referrals"
-        meta={`${referrals.length} recorded invite${referrals.length === 1 ? '' : 's'}`}
-        legend={['Miner', 'Stage']}
-        action={
-          <button onClick={() => void refreshFeed('referrals')} className="pse-meta pse-link">
-            Refresh
-          </button>
+      <PseSection title="Qualification pipeline">
+        <PseTable head={['Stage', 'Meaning', 'Count']}>
+          {REFERRAL_STAGES.map(s => (
+            <PseRow key={s.id}>
+              <PseCell>{s.label}</PseCell>
+              <PseCell>{referralStageView(s.id).help}</PseCell>
+              <PseCell>{stageCounts[s.id] || 0}</PseCell>
+            </PseRow>
+          ))}
+        </PseTable>
+        <p className="text-xs text-text-tertiary">
+          Qualification settles on the backend when the invite&apos;s first tool activates — one auditable event, once
+          per referral.
+        </p>
+      </PseSection>
+
+      <PseSection
+        title="Recorded invites"
+        meta={
+          <span>
+            {referrals.length} record{referrals.length === 1 ? '' : 's'} ·{' '}
+            <button type="button" className="underline" onClick={() => void refreshFeed('referrals')}>Refresh</button>
+          </span>
         }
       >
-        {feedErrors.referrals && (
-          <div className="pse-attn" data-tone="info">
-            <div className="pse-attn-body">
-              <p className="pse-label-b">Referral feed degraded</p>
-              <p className="pse-meta" style={{ marginTop: 4 }}>
-                Referral records could not be loaded — this list may be incomplete.
-              </p>
-            </div>
-            <button
-              onClick={() => void refreshFeed('referrals')}
-              disabled={refreshing}
-              className="pse-btn pse-btn-2 pse-btn-sm"
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        {feedErrors.referrals && <PseNotice tone="attention">The referral feed could not be refreshed.</PseNotice>}
         {referrals.length === 0 ? (
-          <PSEEmpty
-            icon={Users}
-            title="No referrals yet"
-            body="Share your invite link. When someone registers through it, they appear here with their live qualification stage."
-          />
+          <PseEmptyNote>
+            No referrals recorded yet. Invites appear here as accounts register with your code.
+          </PseEmptyNote>
         ) : (
-          referrals.map(r => {
-            const stage = referralStageView(r.status);
-            const name = r.refereeUsername || r.refereeEmailMasked || `Miner ${String(r.refereeId || '').slice(0, 6)}`;
-            const tone = r.status === 'qualified' ? 'live' : r.status === 'rejected' ? 'fail' : 'idle';
-            return (
-              <LedgerRow
-                key={r.id}
-                title={
-                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    {name}
-                    <Stamp tone={tone} glyph="·">{stage.label}</Stamp>
-                  </span>
-                }
-                sub={
-                  <>
-                    {stage.help}
-                    {' '}
-                    <span className="pse-dim-3">· {timeAgo(r.qualifiedAt || r.createdAt)}</span>
-                  </>
-                }
-                value={
-                  <span className="pse-meta" style={{ display: 'block' }}>
-                    Step {stage.step} of {REFERRAL_STAGES.length}
-                  </span>
-                }
-              />
-            );
-          })
+          <PseTable head={['Referral', 'Stage', 'Recorded', 'Qualified']}>
+            {referrals.map(r => {
+              const stage = referralStageView(r.status);
+              const name = r.refereeUsername || r.refereeEmailMasked || `Miner ${String(r.refereeId || '').slice(0, 6)}`;
+              return (
+                <PseRow key={r.id}>
+                  <PseCell>{name}</PseCell>
+                  <PseCell>{stage.label}</PseCell>
+                  <PseCell>{timeAgo(r.createdAt)}</PseCell>
+                  <PseCell>{r.qualifiedAt ? timeAgo(r.qualifiedAt) : '—'}</PseCell>
+                </PseRow>
+              );
+            })}
+          </PseTable>
         )}
-      </Ledger>
+      </PseSection>
 
-      {/* ══ NOTES — the referral rules, unframed ══ */}
-      <div className="pse-note pse-stack-tight">
-        <h2 className="pse-h3">Referral rules</h2>
-        <Clause no="01" title="Bonus per qualified referral" body={`${gbpHour(BONUS)}, added to your hourly mining capacity.`} />
-        <Clause no="02" title={`Maximum ${MAX_REFERRALS} qualified referrals`} body={`Referral capacity is capped at ${gbpHour(maxReferralCapacity)}.`} />
-        <Clause no="03" title="Qualification" body="Register → connect a wallet → purchase a mining tool → mining active. Qualification settles on the backend when the invite's first tool activates — one auditable event, once per referral." />
-        <Clause no="04" title="Timing" body="Capacity applies from the qualification moment onward and is never applied retroactively to past operating time." />
-        <p className="pse-meta">
-          Combined capacity remains capped at {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} — tool capacity capped at{' '}
-          {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} plus referral capacity capped at{' '}
-          {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}.{' '}
-          <Link to="/mine/guide" className="pse-link inline-flex items-center gap-1.5">
-            How capacity works <ChevronRight size={13} />
-          </Link>
-        </p>
-      </div>
-    </div>
+      <PseSection title="Referral rules">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+          <li>Register → connect a wallet → purchase a mining tool → mining active → qualified.</li>
+          <li>Only qualified referrals add capacity, and only from the qualification moment forward.</li>
+          <li>At most {MAX_REFERRALS} referrals count per account ({gbpHour(maxReferralCapacity)}).</li>
+          <li>Referral fraud controls and qualification are enforced by the backend, not in the browser.</li>
+        </ul>
+      </PseSection>
+    </PsePage>
   );
 };
 

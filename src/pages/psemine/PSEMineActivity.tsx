@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Activity as ActivityIcon, History, RefreshCcw, Search, ArrowDownUp,
-} from 'lucide-react';
 import { usePseState } from '../../components/psemine/PseStateProvider';
+import { fmtDateTime, gbp, timeAgo, toDateSafe } from '../../components/psemine/pseCore';
 import {
-  Stamp, StatementHeader, Verdict, Ledger, LedgerRow, DayGroup, Attn, PSEEmpty,
-  PSELoading, PSEError, gbp, timeAgo, fmtDateTime, toDateSafe, ACTIVITY_ICONS,
-} from '../../components/psemine/pse';
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseField, PseInput,
+  PseLoading, PsePage, PseRow, PseSection, PseTable,
+} from '../../components/psemine/PseBasics';
 
+/**
+ * The account ledger — MINIMAL FUNCTIONAL PRESENTATION.
+ *
+ * The Duty & Ledger statement was purged in
+ * `refactor(psemine): purge legacy design implementation`. Every row is still a
+ * backend record: nothing is generated to fill the page, and the credit/debit
+ * direction is taken from the recorded amount, never inferred.
+ */
 type FilterId = 'all' | 'purchase' | 'maintenance' | 'referral' | 'wallet' | 'campaign';
 
 const FILTERS: Array<{ id: FilterId; label: string }> = [
@@ -48,21 +54,6 @@ function dayLabel(key: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/**
- * The account ledger.
- *
- * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
- *
- *   VERDICT  the account's ledger state: what has been credited, and over how
- *            many records — on the canvas.
- *   LEDGER   ONE bordered container. Every recorded event from the backend, in
- *            day groups, each row a financial record with a fixed credit/debit
- *            column. A day boundary is a ruled header inside the ledger, never
- *            another container.
- *   NOTES    the filters and the degraded-feed exception.
- *
- * Every row is a backend record — nothing is generated to fill the page.
- */
 export const PSEMineActivity: React.FC = () => {
   const { activities, refresh, refreshing, error, loading, state, feedErrors, refreshFeed } = usePseState();
   const [filter, setFilter] = useState<FilterId>('all');
@@ -71,28 +62,26 @@ export const PSEMineActivity: React.FC = () => {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = activities.filter(a => {
-      if (!matchesFilter(a.type || '', filter)) return false;
-      if (!q) return true;
-      return `${a.title || ''} ${a.description || ''} ${a.type || ''}`.toLowerCase().includes(q);
-    });
-    return [...list].sort((a, b) => {
-      const ta = toDateSafe(a.createdAt)?.getTime() || 0;
-      const tb = toDateSafe(b.createdAt)?.getTime() || 0;
-      return dir === 'desc' ? tb - ta : ta - tb;
-    });
+    return activities
+      .filter(a => {
+        if (!matchesFilter(a.type || '', filter)) return false;
+        if (!q) return true;
+        return `${a.title || ''} ${a.description || ''} ${a.type || ''}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => {
+        const ta = toDateSafe(a.createdAt)?.getTime() || 0;
+        const tb = toDateSafe(b.createdAt)?.getTime() || 0;
+        return dir === 'desc' ? tb - ta : ta - tb;
+      });
   }, [activities, filter, query, dir]);
 
-  /** Date-grouped ledger — the shape a financial timeline should have. */
   const groups = useMemo(() => {
     const map = new Map<string, typeof filtered>();
     for (const a of filtered) {
       const key = dayKey(a.createdAt);
-      const existing = map.get(key);
-      if (existing) existing.push(a);
-      else map.set(key, [a]);
+      map.set(key, [...(map.get(key) || []), a]);
     }
-    return Array.from(map.entries());
+    return [...map.entries()];
   }, [filtered]);
 
   const totals = useMemo(() => {
@@ -113,181 +102,131 @@ export const PSEMineActivity: React.FC = () => {
   }, [activities]);
 
   if (loading && !state) {
-    return <div className="pse-gut pt-6"><PSELoading label="Loading your ledger" /></div>;
+    return (
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Loading your ledger" />
+      </div>
+    );
   }
   if (error && !state) {
     return (
-      <div className="pse-gut py-8">
-        <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
   }
 
-  const resetView = () => { setFilter('all'); setQuery(''); };
   const filteredView = filter !== 'all' || query.trim().length > 0;
 
   return (
-    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
-      <StatementHeader
-        routeKey="Activity · ledger"
-        title="Account ledger"
-        objective="Every recorded event for this PSEmine account — purchases, maintenance, referral qualifications and campaign milestones. Nothing here comes from PulseEarn."
-        status={
-          <Stamp tone={activities.length > 0 ? 'info' : 'idle'} glyph="▤">
-            {activities.length} entr{activities.length === 1 ? 'y' : 'ies'} loaded
-          </Stamp>
-        }
-        actions={
-          <>
-            <button
-              onClick={() => setDir(d => (d === 'desc' ? 'asc' : 'desc'))}
-              className="pse-btn pse-btn-2 pse-btn-sm"
-            >
-              <ArrowDownUp size={13} /> {dir === 'desc' ? 'Newest first' : 'Oldest first'}
-            </button>
-            <button
-              onClick={() => void refreshFeed('activities')}
-              disabled={refreshing}
-              className="pse-btn pse-btn-2 pse-btn-sm"
-            >
-              <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
-            </button>
-          </>
-        }
-      />
-
-      {/* ══ VERDICT — the ledger state, on the canvas ══ */}
-      <Verdict
-        label="Credited to this account"
-        value={gbp(totals.credited)}
-        status={
-          <Stamp tone={totals.credited > 0 ? 'live' : 'idle'} glyph="●">
-            {totals.credited > 0 ? 'Accrual recorded' : 'No credit recorded'}
-          </Stamp>
-        }
-        note={
-          activities.length === 0
-            ? 'No backend record exists for this account yet. Purchases, maintenance events, referral qualifications and campaign updates appear here as they happen.'
-            : `Across ${activities.length} recorded backend entr${activities.length === 1 ? 'y' : 'ies'}. Amounts are exactly as the backend recorded them — nothing on this page is estimated in the browser.`
-        }
-        side={
-          <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Debited from account</span><span>{gbp(totals.debited)}</span></div>
-            <div className="pse-spec-line"><span>Entries loaded</span><span>{activities.length}</span></div>
-            <div className="pse-spec-line">
-              <span>Last recorded event</span>
-              <span>{totals.newest ? timeAgo(totals.newest) : '—'}</span>
+    <PsePage
+      title="Activity"
+      objective="Every recorded PSEmine event on this account, in day groups, with its credit or debit column."
+      actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
+    >
+      <PseSection title="Account ledger state">
+        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            ['Credited', gbp(totals.credited)],
+            ['Debited', gbp(totals.debited)],
+            ['Records', `${activities.length}`],
+            ['Newest record', totals.newest ? timeAgo(totals.newest) : '—'],
+            ['Newest record (exact)', totals.newest ? fmtDateTime(totals.newest) : '—'],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
+              <dt className="text-sm text-text-secondary">{k}</dt>
+              <dd className="text-sm text-text-primary">{v}</dd>
             </div>
-            <div className="pse-spec-line">
-              <span>Last event time</span>
-              <span>{totals.newest ? fmtDateTime(totals.newest) : '—'}</span>
-            </div>
-          </div>
-        }
-      />
-
-      {/* ══ NOTES — the query instruments, ruled not carded ══ */}
-      <div className="pse-query">
-        <div className="pse-seg" role="group" aria-label="Filter activity by type">
-          {FILTERS.map(f => (
-            <button
-              key={f.id}
-              type="button"
-              aria-pressed={filter === f.id}
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-            </button>
           ))}
-        </div>
-        <div className="relative min-w-[200px] flex-1">
-          <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="pse-input pl-10"
-            placeholder="Search recorded events…"
-            aria-label="Search activity"
-          />
-        </div>
-        {filteredView && (
-          <span className="pse-meta pse-n">{filtered.length} of {activities.length} shown</span>
-        )}
-      </div>
+        </dl>
+      </PseSection>
 
       {feedErrors.activities && (
-        <Attn
-          tone="attn"
-          title="The activity feed is degraded"
-          body="The recorded ledger could not be fully loaded — entries may be missing from this statement."
-          action={
-            <button
-              onClick={() => void refreshFeed('activities')}
-              disabled={refreshing}
-              className="pse-btn pse-btn-2 pse-btn-sm"
-            >
-              <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> Retry
-            </button>
-          }
+        <PseFeedNotice
+          message="The activity feed could not be refreshed."
+          onRetry={() => void refreshFeed('activities')}
+          retrying={refreshing}
         />
       )}
 
-      {/* ══ LEDGER — the only bordered container on this page ══ */}
-      <Ledger
-        title="Recorded events"
-        meta={filteredView
-          ? `Filtered view · ${filtered.length} of ${activities.length} entries`
-          : 'Day-grouped · newest first'}
-        legend={['Event', 'Amount']}
+      <PseSection
+        title="Records"
+        meta={filteredView ? `Filtered view · ${filtered.length} of ${activities.length} entries` : `${activities.length} entries`}
       >
+        <div className="flex flex-wrap items-end gap-3">
+          <PseField label="Filter" htmlFor="pse-activity-filter">
+            <select
+              id="pse-activity-filter"
+              value={filter}
+              onChange={e => setFilter(e.target.value as FilterId)}
+              className="min-h-[36px] rounded border border-border-bright px-2 py-1.5 text-sm text-text-primary"
+            >
+              {FILTERS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </PseField>
+          <div className="min-w-[200px] flex-1">
+            <PseField label="Search" htmlFor="pse-activity-search">
+              <PseInput
+                id="pse-activity-search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="title, description or type"
+              />
+            </PseField>
+          </div>
+          <PseButton onClick={() => setDir(d => (d === 'desc' ? 'asc' : 'desc'))}>
+            {dir === 'desc' ? 'Newest first' : 'Oldest first'}
+          </PseButton>
+          {filteredView && (
+            <PseButton onClick={() => { setFilter('all'); setQuery(''); }}>Clear</PseButton>
+          )}
+        </div>
+
         {filtered.length === 0 ? (
-          <PSEEmpty
-            icon={activities.length === 0 ? History : ActivityIcon}
-            title={activities.length === 0 ? 'No activity yet' : 'No events match this view'}
-            body={activities.length === 0
-              ? 'Purchases, maintenance events, referral qualifications and campaign updates appear here as they happen.'
-              : 'Clear the search or choose a different filter to see other recorded events.'}
-            action={activities.length > 0 ? (
-              <button onClick={resetView} className="pse-btn pse-btn-2 pse-btn-sm">Reset view</button>
-            ) : undefined}
-          />
+          <PseEmptyNote>
+            {activities.length === 0
+              ? 'No records yet. Purchases, maintenance, referral qualifications and campaign milestones appear here as the backend records them.'
+              : 'No records match this filter.'}
+          </PseEmptyNote>
         ) : (
           groups.map(([key, rows]) => (
-            <React.Fragment key={key}>
-              <DayGroup label={dayLabel(key)} meta={`${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`} />
-              {rows.map(a => {
-                const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
-                const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
-                const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
-                const amount = amountMinor !== null ? amountMinor / 100 : amountGBP;
-                const hasAmount = amount !== null && amount !== 0;
-                return (
-                  <LedgerRow
-                    key={a.id}
-                    sign={hasAmount ? (amount > 0 ? 'credit' : 'debit') : undefined}
-                    title={
-                      <span className="flex items-baseline gap-2.5">
-                        <Icon size={13} style={{ color: 'var(--pse-text-3)', flexShrink: 0 }} />
+            <div key={key} className="space-y-1">
+              <h3 className="pt-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">{dayLabel(key)}</h3>
+              <PseTable head={['Record', 'Type', 'When', 'Amount']}>
+                {rows.map(a => {
+                  const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+                  const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+                  const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+                  return (
+                    <PseRow key={a.id}>
+                      <PseCell>
                         {a.title || 'Account event'}
-                      </span>
-                    }
-                    sub={
-                      <>
-                        {a.description ? `${a.description} · ` : ''}
-                        {fmtDateTime(a.createdAt)}
-                        {a.type ? <span className="pse-dim-3"> · {a.type}</span> : null}
-                      </>
-                    }
-                    value={hasAmount ? gbp(Math.abs(amount)) : undefined}
-                    valueTone={hasAmount && amount > 0 ? 'var(--pse-success-ink)' : undefined}
-                  />
-                );
-              })}
-            </React.Fragment>
+                        {a.description ? <span className="block text-xs text-text-tertiary">{a.description}</span> : null}
+                      </PseCell>
+                      <PseCell>{a.type || '—'}</PseCell>
+                      <PseCell>{fmtDateTime(a.createdAt)}</PseCell>
+                      <PseCell>
+                        {displayAmount !== null && displayAmount !== 0
+                          ? `${displayAmount > 0 ? '+' : '−'}${gbp(Math.abs(displayAmount))}`
+                          : '—'}
+                      </PseCell>
+                    </PseRow>
+                  );
+                })}
+              </PseTable>
+            </div>
           ))
         )}
-      </Ledger>
-    </div>
+      </PseSection>
+
+      <PseSection title="About this ledger">
+        <p className="text-sm text-text-secondary">
+          Rows are backend records with their recorded sign: a credit is money accrued or returned to the account, a
+          debit is money spent (a tool purchase) or paid out. Undated records are shown honestly as undated rather than
+          being given an invented time.
+        </p>
+      </PseSection>
+    </PsePage>
   );
 };
 

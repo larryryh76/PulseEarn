@@ -1,20 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCcw, Wrench, Activity as ActivityIcon } from 'lucide-react';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
-import {
-  gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs,
-  campaignStatusView, campaignTone, cycleStateView, purchaseStatusView,
-  Stamp, StatementHeader, Verdict, RailBand, DutyRail, CapacityRail, Ledger, LedgerRow,
-  Attn, PSEEmpty, PSEError, PSELoading, FeedNotice,
-  ACTIVITY_ICONS, shortHash, useCampaignClock,
-} from '../../components/psemine/pse';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { ModuleMark } from '../../components/psemine/PSEBrand';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import type { PseStateTool } from '../../engines/psemine/pseMineApi';
+import {
+  campaignStatusView, cycleStateView, gbp, gbpHour, nowMs, remainingFrom, timeAgo,
+} from '../../components/psemine/pseCore';
+import {
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading, PseNotice,
+  PsePage, PseRow, PseSection, PseTable,
+} from '../../components/psemine/PseBasics';
 
-/** Tool name/rate resolution that never invents a tier. */
+/**
+ * The mining console — MINIMAL FUNCTIONAL PRESENTATION.
+ *
+ * The Duty & Ledger composition (verdict, rails, ledgers, stamps) was purged in
+ * `refactor(psemine): purge legacy design implementation`. Every figure below is
+ * still reported by the mining backend (`/api/mine/state`) and every constant
+ * still comes from the locked economics; nothing is estimated in the browser.
+ */
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
   return LOCKED_PSEMINE_TOOLS[id] || null;
@@ -26,31 +31,7 @@ function toolRate(tool: PseStateTool): number {
   if (typeof tool.hourlyRateGBP === 'number') return tool.hourlyRateGBP;
   return toolDef(tool)?.hourlyRateGBP ?? 0;
 }
-function toolTier(tool: PseStateTool): 1 | 2 | 3 | 4 {
-  const def = toolDef(tool);
-  const rank = def?.tier ?? 1;
-  return Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
-}
 
-/**
- * The mining console.
- *
- * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
- *
- *   VERDICT  the accrued figure, its rate and the mining state — on the canvas,
- *            never inside a tinted panel.
- *   RAILS    the campaign duty rail (one campaign visual, shared with the shell)
- *            and the capacity register (one capacity visual, shared product-wide).
- *   LEDGERS  equipment, the account position and the records ledger — three
- *            bordered containers, inside the contract's cap on every viewport.
- *            Capacity, referral lanes and the tool tier stack are NOT repeated
- *            here: the capacity register above is the product's one capacity
- *            visual, and duplicating it made competitors out of it.
- *   NOTES    the exceptions the backend reports, stated plainly.
- *
- * Every figure comes from the mining backend (`/api/mine/state`), every constant
- * from the locked economics. Nothing here is estimated in the browser.
- */
 export const PSEMineDashboard: React.FC = () => {
   const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
   const { maintainTool, pseUser, purchases } = usePSEMine();
@@ -66,13 +47,6 @@ export const PSEMineDashboard: React.FC = () => {
   }, []);
 
   const tools = useMemo(() => state?.tools ?? [], [state?.tools]);
-  const user = state?.user;
-  // Hooks must run on EVERY render, so the campaign clock is anchored here —
-  // above the loading/error early returns. Called after them, a transition from
-  // a loaded console into an error state changed the hook count between renders
-  // and React threw "Rendered fewer hooks than expected" instead of showing the
-  // error screen it was asked for.
-  const clock = useCampaignClock(state?.campaign, campaignStatus);
 
   const needsMaintenance = useMemo(
     () => tools.filter(t => t.maintenanceRequired === true || t.cycleState === 'maintenance_required' || t.cycleState === 'cycle_complete'),
@@ -80,14 +54,6 @@ export const PSEMineDashboard: React.FC = () => {
   );
   const activeTools = useMemo(() => tools.filter(t => t.cycleState === 'active'), [tools]);
   const restartingTools = useMemo(() => tools.filter(t => t.cycleState === 'restarting'), [tools]);
-
-  /**
-   * TOOL STACKING: every owned tool is listed individually in the equipment
-   * ledger (three Advanced Miners are three stacked tools, never one Elite).
-   * Tier totals are NOT re-summed into a second ledger: the capacity register is
-   * the one place capacity is broken down, and the authoritative tool capacity
-   * is user.toolCapacityGBPPerHour.
-   */
 
   const handleMaintain = async (ownershipId: string) => {
     setMaintaining(prev => new Set(prev).add(ownershipId));
@@ -99,25 +65,25 @@ export const PSEMineDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="pse-gut pt-6">
-        <PSELoading label="Loading the mining console" />
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseLoading label="Loading the mining console" />
       </div>
     );
   }
 
+  const user = state?.user;
+
   if (error || !state || !user) {
     return (
-      <div className="pse-gut py-8">
-        {error
-          ? <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
-          : <PSEError
-              error={{
-                kind: 'data', title: "We couldn't load your mining account", retryable: true,
-                message: 'The mining backend returned an incomplete account. Please retry.',
-              }}
-              onRetry={() => void refresh()}
-              retrying={refreshing}
-            />}
+      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+        <PseErrorNotice
+          error={error ?? {
+            kind: 'data', title: "We couldn't load your mining account", retryable: true,
+            message: 'The mining backend returned an incomplete account. Please retry.',
+          }}
+          onRetry={() => void refresh()}
+          retrying={refreshing}
+        />
       </div>
     );
   }
@@ -126,355 +92,221 @@ export const PSEMineDashboard: React.FC = () => {
   const toolCapacity = user.toolCapacityGBPPerHour ?? 0;
   const referralCapacity = user.referralCapacityGBPPerHour ?? 0;
   const totalCapacity = user.totalCapacityGBPPerHour ?? 0;
+  const referralQualified = user.qualifiedReferralsCount ?? 0;
+  const counts = pseUser?.toolOwnershipCounts;
   const view = campaignStatusView(campaignStatus);
 
   /** The single answer to "is mining active?" — derived from backend state only. */
   const miningState = (() => {
     if (isMiningLive && tools.length === 0) {
-      return { label: 'No capacity yet', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.', tone: 'idle' as const };
+      return { label: 'No capacity yet', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.' };
     }
     if (isMiningLive && needsMaintenance.length > 0) {
       return {
         label: 'Partially interrupted',
         detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} finished a mining session and stopped accruing — restart them to resume.`,
-        tone: 'attn' as const,
       };
     }
     if (isMiningLive && restartingTools.length > 0 && activeTools.length === 0) {
       return {
         label: 'Restarting',
         detail: `${restartingTools.length} tool${restartingTools.length === 1 ? '' : 's'} restarting — mining resumes at the backend-scheduled time. No earnings accrue until then.`,
-        tone: 'info' as const,
       };
     }
     if (isMiningLive && activeTools.length > 0) {
-      return { label: 'Mining active', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.`, tone: 'live' as const };
+      return { label: 'Mining active', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
     }
     if (isMiningLive) {
-      return { label: 'Mining idle', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.', tone: 'attn' as const };
+      return { label: 'Mining idle', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.' };
     }
-    return { label: view.label.trim(), detail: view.detail, tone: campaignTone(campaignStatus) };
+    return { label: view.label, detail: view.detail };
   })();
 
   const checkpointEarned = typeof state.checkpoint?.earnedMinor === 'number' ? state.checkpoint.earnedMinor : 0;
-  const recentTools = tools.slice(0, 8);
   const purchaseOpen = state.campaign?.purchaseEnabled !== false;
-  const referralQualified = user.qualifiedReferralsCount ?? 0;
-  const counts = pseUser?.toolOwnershipCounts;
-  // Only the actionable purchase state belongs on the console: the full purchase
-  // history lives in the records ledger (/mine/activity) and the wallet.
-  const latestPurchase = purchases[0] ?? null;
   const awaitingPurchases = purchases.filter(p => p.status === 'awaiting_payment').length;
+  const latestPurchase = purchases[0] ?? null;
 
   return (
-    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
-      <StatementHeader
-        routeKey="Mining console"
-        title="Where this campaign stands"
-        objective="Campaign status, earnings and equipment — every figure below is reported by the mining backend."
-        /* The mining state is the one value on this screen the backend changes on
-           its own, so it is announced politely rather than silently repainted. */
-        status={
-          <span role="status" aria-live="polite">
-            <Stamp tone={miningState.tone} pulse={miningState.tone === 'live'} glyph="●">{miningState.label}</Stamp>
-          </span>
-        }
-        actions={
-          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-2 pse-btn-sm">
-            <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Syncing…' : 'Sync now'}
-          </button>
-        }
-      />
+    <PsePage
+      title="Mining console"
+      objective="Campaign status, earnings and equipment — every figure below is reported by the mining backend."
+      actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
+    >
+      <PseSection title="Mining state">
+        <p className="text-sm font-semibold text-text-primary" role="status" aria-live="polite">{miningState.label}</p>
+        <p className="text-sm text-text-secondary">{miningState.detail}</p>
+        {!purchaseOpen && (
+          <PseNotice tone="attention">Tool purchases are closed for this campaign status.</PseNotice>
+        )}
+        {awaitingPurchases > 0 && (
+          <PseNotice tone="attention">
+            {awaitingPurchases} purchase{awaitingPurchases === 1 ? '' : 's'} awaiting payment.{' '}
+            <Link to="/mine/tools" className="underline">Continue on the tools page</Link>.
+          </PseNotice>
+        )}
+      </PseSection>
 
-      {/* ══ VERDICT — the answer, on the canvas ══ */}
-      <Verdict
-        label="Accrued campaign earnings"
-        value={gbp(user.accruedGBP)}
-        status={<Stamp tone="live" glyph="≈">{gbpHour(totalCapacity)}</Stamp>}
-        note={
-          <>
-            {miningState.detail}
-            {isMiningLive
-              ? ' Accrual is written hourly by the backend while a tool’s duty cycle is open; the balance settles after the campaign ends.'
-              : ' Accrual is not running; earnings settle after the campaign ends.'}
-          </>
-        }
-        side={
-          <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Settlement-available</span><span className="pse-cyan">{availableStr}</span></div>
-            <div className="pse-spec-line"><span>Operating tools</span><span>{activeTools.length} / {tools.length}</span></div>
-            <div className="pse-spec-line">
-              <span>Qualified referrals</span>
-              <span>{referralQualified} / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span>
+      <PseSection title="Earnings and capacity">
+        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+          {[
+            ['Accrued (campaign)', gbp(user.accruedGBP)],
+            ['Settlement-available', availableStr],
+            ['Checkpoint accrued', gbp(checkpointEarned / 100)],
+            ['Tool capacity', gbpHour(toolCapacity)],
+            ['Referral capacity', gbpHour(referralCapacity)],
+            ['Total capacity', gbpHour(totalCapacity)],
+            ['Qualified referrals', `${referralQualified}`],
+            ['Payout wallet', user.payoutWallet || 'Not set'],
+          ].map(([k, v]) => (
+            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
+              <dt className="text-sm text-text-secondary">{k}</dt>
+              <dd className="text-sm text-text-primary">{v}</dd>
             </div>
-            <div className="pse-spec-line">
-              <span>Campaign</span>
-              <span>{clock.dayNumber !== null ? `Day ${clock.dayNumber} of ${clock.totalDays}` : 'Schedule pending'}</span>
-            </div>
-            {checkpointEarned > 0 && (
-              <p className="pse-meta">+{gbp(checkpointEarned / 100)} settled at the last checkpoint</p>
-            )}
-          </div>
-        }
-      />
+          ))}
+        </dl>
+        <p className="text-xs text-text-tertiary">
+          Settlement-available is the backend-reported figure only; accrued campaign earnings are not withdrawable until
+          settlement finalises them.
+        </p>
+      </PseSection>
 
-      {/* ══ RAILS — the campaign clock, then the capacity register ══ */}
-      <RailBand
-        label="Campaign clock"
-        meta={`${clock.totalDays}-day campaign · backend dates`}
-        right={<Link to="/mine/guide" className="pse-meta pse-link">How the campaign runs</Link>}
+      <PseSection title="Your tools" meta={`${tools.length} owned`}>
+        {tools.length === 0 ? (
+          <PseEmptyNote>
+            No tools yet. {purchaseOpen ? <>Browse the <Link to="/mine/tools" className="underline">tool catalogue</Link> to begin.</> : 'Purchases are closed for the current campaign status.'}
+          </PseEmptyNote>
+        ) : (
+          <PseTable head={['Tool', 'State', 'Rate', 'Session', 'Next event', 'Action']}>
+            {tools.slice(0, 12).map(tool => {
+              const def = toolDef(tool);
+              const cycle = cycleStateView(tool.cycleState || tool.status);
+              const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
+              const running = tool.cycleState === 'active' && isMiningLive;
+              const remaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
+              const restarting = tool.cycleState === 'restarting';
+              const restartEta = restarting ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
+              const canMaintain = tool.maintenanceRequired === true
+                || tool.cycleState === 'cycle_complete'
+                || tool.cycleState === 'maintenance_required';
+              return (
+                <PseRow key={tool.id}>
+                  <PseCell>{toolName(tool)}</PseCell>
+                  <PseCell>{cycle.label}</PseCell>
+                  <PseCell>{gbpHour(toolRate(tool))}</PseCell>
+                  <PseCell>
+                    {continuous ? 'Continuous' : typeof tool.cycleIndex === 'number' ? `#${tool.cycleIndex + 1}` : '—'}
+                  </PseCell>
+                  <PseCell>
+                    {remaining ? remaining.text : restartEta && restartEta.ms > 0 ? `resumes in ${restartEta.text}` : cycle.description}
+                  </PseCell>
+                  <PseCell>
+                    {canMaintain ? (
+                      <PseButton onClick={() => void handleMaintain(tool.id)} disabled={maintaining.has(tool.id)}>
+                        {maintaining.has(tool.id) ? 'Restarting…' : 'Restart tool'}
+                      </PseButton>
+                    ) : '—'}
+                  </PseCell>
+                </PseRow>
+              );
+            })}
+          </PseTable>
+        )}
+        <p className="text-xs text-text-tertiary">
+          Session tools stop accruing when a session ends until they are restarted; Elite runs continuously while the
+          campaign is active. Restart timing is derived by the backend.
+        </p>
+      </PseSection>
+
+      <PseSection
+        title="Tool ownership"
+        meta={`Total capacity ceiling ${gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}`}
       >
-        <DutyRail campaign={state.campaign} status={campaignStatus} />
-      </RailBand>
+        <PseTable head={['Tool', 'Owned', 'Limit', 'Capacity at limit', 'Operation']}>
+          {Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder).map(t => (
+            <PseRow key={t.id}>
+              <PseCell>{t.name}</PseCell>
+              <PseCell>{counts?.[t.id] ?? 0}</PseCell>
+              <PseCell>{t.maxPerUser}</PseCell>
+              <PseCell>{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</PseCell>
+              <PseCell>{t.operating.model === 'continuous' ? 'Continuous' : 'Session — manual restart'}</PseCell>
+            </PseRow>
+          ))}
+        </PseTable>
+      </PseSection>
 
-      <CapacityRail
-        toolCapacity={toolCapacity}
-        referralCapacity={referralCapacity}
-        counts={counts}
-        referralCount={referralQualified}
-        label="Mining capacity"
-      />
+      <PseSection title="Latest purchase">
+        {latestPurchase ? (
+          <p className="text-sm text-text-secondary">
+            {latestPurchase.toolName || latestPurchase.toolId || 'Tool'} · {latestPurchase.status} ·{' '}
+            {timeAgo(latestPurchase.createdAt)}. The full record lives in <Link to="/mine/activity" className="underline">activity</Link>.
+          </p>
+        ) : (
+          <PseEmptyNote>No purchases recorded on this account.</PseEmptyNote>
+        )}
+      </PseSection>
 
-      {/* ══ NOTES — exceptions the backend reports, in priority order ══ */}
-      {isMiningLive && needsMaintenance.length > 0 && (
-        <Attn
-          tone="attn"
-          title={needsMaintenance.length === 1 ? '1 mining session completed' : `${needsMaintenance.length} mining sessions completed`}
-          body="Mining stopped for these tools. Restarting begins the next session; the backend needs a short restart period before mining resumes, and nothing accrues while it restarts."
-        />
-      )}
-      {isMiningLive && restartingTools.length > 0 && (
-        <Attn
-          tone="info"
-          title={restartingTools.length === 1 ? '1 tool restarting' : `${restartingTools.length} tools restarting`}
-          body="The backend is preparing the next mining session. No earnings accrue during the restart period."
-        />
-      )}
-      {!purchaseOpen && (
-        <Attn
-          tone="attn"
-          title="Tool purchases are closed for this campaign"
-          body="Existing tools continue to follow their operating model until the campaign settles."
-        />
-      )}
-
-      {/* ══ LEDGERS — equipment beside the account reads ══ */}
-      <div className="pse-split">
-        <div className="pse-stack">
-          <Ledger
-            title="Your equipment"
-            meta={tools.length === 0
-              ? 'No tools held — every tier at its real price, rate and ownership limit'
-              : `${tools.length} tool${tools.length === 1 ? '' : 's'} · operating state derived by the backend`}
-            legend={tools.length === 0 ? ['Tier', '£ / hour · price'] : ['Tool', '£ / hour']}
-            action={
-              <Link to="/mine/tools" className="pse-btn pse-btn-2 pse-btn-sm">
-                {tools.length === 0 ? 'Open the marketplace' : 'Browse tools'}
-              </Link>
-            }
-            foot={latestPurchase ? (
-              <p className="pse-meta">
-                Latest purchase · {latestPurchase.toolName || latestPurchase.toolId}
-                {latestPurchase.transactionHash ? ` · ${shortHash(latestPurchase.transactionHash)}` : ''} ·{' '}
-                <Stamp tone={purchaseStatusView(latestPurchase.status).terminal ? 'info' : 'attn'} glyph="·">
-                  {purchaseStatusView(latestPurchase.status).label}
-                </Stamp>
-                {awaitingPurchases > 0 ? ` · ${awaitingPurchases} awaiting BNB payment` : ''}
-              </p>
-            ) : undefined}
-          >
-            {recentTools.length === 0 ? (
-              Object.values(LOCKED_PSEMINE_TOOLS)
-                .sort((a, b) => a.displayOrder - b.displayOrder)
-                .map(t => (
-                  <LedgerRow
-                    key={t.id}
-                    leading={<ModuleMark tier={t.tier as 1 | 2 | 3 | 4} size={54} active={false} />}
-                    title={t.name}
-                    sub={`Max ${t.maxPerUser} per account · at limit ${gbpHour(t.hourlyRateGBP * t.maxPerUser)} · ${t.operating.model === 'continuous' ? 'continuous duty' : 'session duty'}`}
-                    value={<>{gbpHour(t.hourlyRateGBP)}<span className="pse-meta" style={{ marginLeft: 10 }}>{gbp(t.purchasePriceGBP)}</span></>}
-                  />
-                ))
-            ) : (
-              recentTools.map(t => (
-                <ToolRow
-                  key={t.id}
-                  tool={t}
-                  miningLive={isMiningLive}
-                  onMaintain={handleMaintain}
-                  maintaining={maintaining.has(t.id)}
-                />
-              ))
-            )}
-          </Ledger>
-
-          <Ledger
-            title="Recent activity"
-            meta="Canonical backend ledger"
-            legend={['Event', 'Amount']}
-            legendCols={3}
-            action={<Link to="/mine/activity" className="pse-meta pse-link">Full ledger</Link>}
-          >
-            <ActivityPreview />
-          </Ledger>
-        </div>
-
-        <div className="pse-stack">
-          {/* One statement, not three cards: settlement, payout and referral lanes
-              are all "what this account is worth and where it can move". */}
-          <Ledger
-            title="Account position"
-            meta="Settlement, payout and referral reads — backend figures only"
-            legend={['Field', 'Value']}
-            action={
-              <>
-                <Link to="/mine/wallet" className="pse-meta pse-link">Wallet</Link>
-                <span className="pse-meta" aria-hidden="true"> · </span>
-                <Link to="/mine/referrals" className="pse-meta pse-link">Referrals</Link>
-              </>
-            }
-          >
-            <LedgerRow title="Settlement-available" sub="Backend-reported figure only" value={availableStr} valueTone="var(--pse-success-ink)" />
-            <LedgerRow
-              title="Payout wallet"
-              sub={user.payoutWallet ? 'Receives settlement' : 'Required before settlement'}
-              value={user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}…${user.payoutWallet.slice(-4)}` : 'Not set'}
-            />
-            <LedgerRow
-              title="Payout opens"
-              sub={`Minimum £10.00 per request`}
-              value={isMiningLive ? 'At settlement' : campaignStatusView(campaignStatus).label.trim()}
-            />
-            <LedgerRow
-              title="Qualified referral lanes"
-              sub={`Each lane adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} from qualification forward · capped at ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`}
-              value={`${referralQualified} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} · +${gbpHour(referralCapacity)}`}
-              valueTone={referralCapacity > 0 ? 'var(--pse-success-ink)' : undefined}
-              children={
-                <span className="pse-ticks" style={{ marginTop: 8 }} role="img" aria-label={`${referralQualified} of ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referral lanes qualified`}>
-                  {Array.from({ length: PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS }, (_, i) => (
-                    <span key={i} className="pse-tick" data-on={i < referralQualified ? 'true' : 'false'} />
-                  ))}
-                </span>
-              }
-            />
-          </Ledger>
-        </div>
-      </div>
-    </div>
+      <ActivityFeed />
+    </PsePage>
   );
 };
 
-/* ── Tool row: dense ledger record, with its own action when the backend says it needs one ── */
-function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
-  tool: PseStateTool; miningLive: boolean; onMaintain: (id: string) => void; maintaining: boolean;
-}) {
-  const cycle = cycleStateView(tool.cycleState || tool.status);
-  const def = toolDef(tool);
-  const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
-  const running = tool.cycleState === 'active' && miningLive;
-  // Continuous tools expose no session end — never invent a countdown for them.
-  const remaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
-  const restarting = tool.cycleState === 'restarting';
-  const restartEta = restarting ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
-  const needsAction = miningLive && !continuous && (
-    tool.maintenanceRequired === true ||
-    tool.cycleState === 'cycle_complete' ||
-    tool.cycleState === 'maintenance_required'
-  );
+/** Recent account records — the same backend activity feed the ledger read. */
+const ActivityFeed: React.FC = () => {
+  const { activities, feedErrors, refreshing, refreshFeed } = usePseState();
   const [, setTick] = useState(0);
+
   useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 15_000);
+    const id = window.setInterval(() => setTick(t => t + 1), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
-  return (
-    <LedgerRow
-      leading={<ModuleMark tier={toolTier(tool)} size={54} active={running || restarting} stopped={needsAction} />}
-      title={
-        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          {toolName(tool)}
-          <Stamp tone={needsAction ? 'attn' : running ? 'live' : restarting ? 'info' : 'idle'} glyph={needsAction ? '▲' : running ? '●' : '·'}>
-            {cycle.label}
-          </Stamp>
-          {continuous && <span className="pse-np pse-np-2">Continuous</span>}
-          {!continuous && typeof tool.cycleIndex === 'number' && (
-            <span className="pse-np pse-np-2">Session #{tool.cycleIndex + 1}</span>
-          )}
-        </span>
-      }
-      sub={
-        remaining
-          ? `Mining active — session remaining: ${remaining.text}`
-          : restartEta
-            ? `Mining stopped — restarting. Mining resumes${tool.restartResumesAt ? ` at ${new Date(tool.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : ''}${restartEta.ms > 0 ? ` · ${restartEta.text}` : ''}`
-            : continuous
-              ? (miningLive ? 'Mining active — continuous operation, no restart required' : 'Idle — campaign not active')
-              : cycle.live
-                ? (miningLive ? 'Mining active — accruing hourly' : 'Idle — campaign not active')
-                : cycle.description
-      }
-      value={
-        <span className="flex items-center gap-3">
-          {gbpRate(toolRate(tool))}
-          {needsAction && (
-            <button onClick={() => onMaintain(tool.id)} disabled={maintaining} className="pse-btn pse-btn-2 pse-btn-sm">
-              <Wrench size={12} /> {maintaining ? 'Restarting…' : 'Restart'}
-            </button>
-          )}
-        </span>
-      }
-    />
-  );
-}
-
-/* ── Activity preview — real ledger entries ── */
-function ActivityPreview() {
-  const { activities, feedErrors, refreshing, refreshFeed } = usePseState();
   const recent = activities.slice(0, 6);
 
-  if (feedErrors.activities) {
-    return (
-      <FeedNotice
-        message="The activity feed could not be loaded — entries may be missing."
-        onRetry={() => void refreshFeed('activities')}
-        retrying={refreshing}
-      />
-    );
-  }
-  if (recent.length === 0) {
-    return (
-      <PSEEmpty
-        icon={ActivityIcon}
-        title="No activity yet"
-        body="Tool purchases, maintenance events, referral qualifications and campaign milestones appear here as the backend records them."
-      />
-    );
-  }
   return (
-    <>
-      {recent.map(a => {
-        const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
-        const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
-        const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
-        const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
-        const credited = displayAmount !== null && displayAmount > 0;
-        return (
-          <LedgerRow
-            key={a.id}
-            sign={displayAmount === null || displayAmount === 0 ? '' : credited ? 'credit' : 'debit'}
-            leading={<Icon size={14} style={{ color: 'var(--pse-text-3)' }} />}
-            title={a.title || 'Account event'}
-            sub={`${timeAgo(a.createdAt)}${a.type ? ` · ${a.type}` : ''}`}
-            value={displayAmount !== null && displayAmount !== 0
-              ? `${credited ? '+' : ''}${gbp(Math.abs(displayAmount))}`
-              : '—'}
-            valueTone={credited ? 'var(--pse-success-ink)' : undefined}
-          />
-        );
-      })}
-    </>
+    <PseSection
+      title="Recent records"
+      meta={<button type="button" className="underline" onClick={() => void refreshFeed('activities')}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>}
+    >
+      {feedErrors.activities && (
+        <PseFeedNotice
+          message="The activity feed could not be refreshed."
+          onRetry={() => void refreshFeed('activities')}
+          retrying={refreshing}
+        />
+      )}
+      {recent.length === 0 ? (
+        <PseEmptyNote>
+          No activity recorded yet. Tool purchases, maintenance events, referral qualifications and campaign milestones
+          appear here as the backend records them.
+        </PseEmptyNote>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {recent.map(a => {
+            const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+            const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+            const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+            return (
+              <li key={a.id} className="flex flex-wrap items-baseline gap-x-3 border-b border-border py-1.5">
+                <span className="text-text-primary">{a.title || 'Account event'}</span>
+                <span className="text-xs text-text-tertiary">
+                  {timeAgo(a.createdAt)}{a.type ? ` · ${a.type}` : ''}
+                </span>
+                {displayAmount !== null && displayAmount !== 0 && (
+                  <span className="ml-auto text-text-primary">
+                    {displayAmount > 0 ? '+' : '−'}{gbp(Math.abs(displayAmount))}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="text-sm">
+        <Link to="/mine/activity" className="underline">Open the full activity ledger</Link>
+      </p>
+    </PseSection>
   );
-}
+};
 
 export default PSEMineDashboard;

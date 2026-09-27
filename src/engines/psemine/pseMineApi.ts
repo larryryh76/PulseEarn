@@ -12,7 +12,7 @@
  *     backend echoes one.
  */
 import { auth } from '../../firebase/config';
-import { anchorServerTime } from '../../components/psemine/pse';
+import { anchorServerTime } from '../../components/psemine/pseCore';
 import {
   PseApiError, pseDataError, pseHttpError, pseNetworkError, toPseErrorInfo,
 } from './pseErrors';

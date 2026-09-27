@@ -23,6 +23,7 @@ import {
   campaignStatusView, gbpHour, timeAgo, useCampaignClock, usePseDocumentTitle,
 } from './pseCore';
 import { PseButton, PseEmptyNote, PseSection } from './PseBasics';
+import { PSEmineLogo } from './PSEBrand';
 
 /** Console sections. The Guide and Account are reached from the footer rows. */
 const CONSOLE_NAV = [
@@ -72,11 +73,13 @@ export const PSEMineShell: React.FC = () => {
   if (!chrome) return <Outlet />;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="pse flex min-h-screen flex-col">
       <header className="border-b border-border">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 p-4">
-          <Link to={inConsole ? '/mine/dashboard' : '/mine'} className="text-sm font-semibold text-text-primary">
-            PSEmine
+          {/* The product's own mark, so the console carries the same identity as
+              the public page and the authentication family. */}
+          <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine">
+            <PSEmineLogo size={26} decorative />
           </Link>
 
           {inConsole && (

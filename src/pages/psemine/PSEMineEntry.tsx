@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { PSEmineProtectedRoute } from './PSEmineAuth';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMineLanding } from './PSEMineLanding';
-import { PseLoading } from '../../components/psemine/PseBasics';
+import { PseLoader } from '../../components/psemine/PseLoader';
 
 /**
  * /mine entry gate.
@@ -15,10 +15,15 @@ import { PseLoading } from '../../components/psemine/PseBasics';
 export const PSEMineEntry: React.FC = () => {
   const { currentUser, loading } = usePSEMineAuth();
 
+  // The real stage: the session Firebase already holds is being restored. The
+  // loader states that, and escalates if it takes too long, rather than showing a
+  // spinner that could hang forever.
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
-        <PseLoading label="Restoring PSEmine session" />
+      <div className="pse pse-surface min-h-screen">
+        <div className="pse-wrap">
+          <PseLoader variant="page" stage="session" />
+        </div>
       </div>
     );
   }

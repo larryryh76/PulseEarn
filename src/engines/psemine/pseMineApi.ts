@@ -226,3 +226,61 @@ export async function enrollInPSEmine(): Promise<boolean> {
   const data = await requestJson<{ success?: boolean }>('/api/mine/enroll', { method: 'POST' });
   return data?.success === true;
 }
+
+/* ── Public campaign status (UNAUTHENTICATED by design) ──────────────────
+ *
+ * `GET /api/mine/campaign/status` is the canonical pre-sign-in contract: it is
+ * declared for exactly this use (the public landing page and the pre-console
+ * banner), and the backend projects it through PUBLIC_CAMPAIGN_FIELDS
+ * (api/psemine_public.py), so it never publishes internal economics.
+ *
+ * It exists here because the public surfaces render OUTSIDE the authenticated
+ * providers: PSEMineProvider only reads the campaign document for an enrolled,
+ * signed-in account, so an anonymous visitor previously saw no campaign state at
+ * all and the page filled the gap with a default. Reading the real public
+ * contract is the honest alternative — and when it is unreachable the surface
+ * says so instead of inventing a status.
+ *
+ * Deliberately does NOT go through `request()`: that helper refuses to run
+ * without a signed-in user, which is the opposite of what this call is for. It is
+ * read-only, carries no token and creates no state server-side.
+ */
+export interface PsePublicCampaign {
+  id?: string;
+  name?: string;
+  status?: string;
+  durationDays?: number;
+  startAt?: string;
+  endAt?: string;
+  currencyDisplay?: string;
+  paymentAsset?: string;
+  paymentNetwork?: string;
+  paymentChainId?: number;
+  receiverWalletAddress?: string;
+  purchaseEnabled?: boolean;
+  miningEnabled?: boolean;
+  referralEnabled?: boolean;
+}
+
+const OPERATION_PUBLIC_CAMPAIGN = 'GET /api/mine/campaign/status';
+
+export async function fetchPublicCampaign(): Promise<PsePublicCampaign> {
+  let res: Response;
+  try {
+    res = await fetch('/api/mine/campaign/status', { headers: { Accept: 'application/json' } });
+  } catch (e) {
+    throw pseNetworkError(OPERATION_PUBLIC_CAMPAIGN, e);
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw pseHttpError(OPERATION_PUBLIC_CAMPAIGN, res.status, body);
+  }
+  const data = (await res.json().catch(() => null)) as
+    | { success?: boolean; campaign?: PsePublicCampaign | null }
+    | null;
+  if (!data) throw pseDataError(OPERATION_PUBLIC_CAMPAIGN, res.status);
+  if (data.success === false) {
+    throw pseHttpError(OPERATION_PUBLIC_CAMPAIGN, res.status, { error: 'CAMPAIGN_UNAVAILABLE' });
+  }
+  return data.campaign ?? {};
+}

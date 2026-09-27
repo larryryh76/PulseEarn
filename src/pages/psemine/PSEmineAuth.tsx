@@ -2,22 +2,43 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pseCore';
-import {
-  PseButton, PseField, PseInput, PseLoading, PseNotice, PseSection,
-} from '../../components/psemine/PseBasics';
+import { PseAuthFrame } from '../../components/psemine/PseAuthFrame';
+import { PseLoader } from '../../components/psemine/PseLoader';
 import { mapAuthError } from '../../utils/errors';
 
 /**
- * PSEmine authentication — MINIMAL FUNCTIONAL PRESENTATION.
+ * PSEmine authentication — the product's sign-in family.
  *
- * The designed auth surface (split ledger shell, campaign strip, strength meter)
- * was purged in `refactor(psemine): purge legacy design implementation`. Every
- * behaviour is unchanged: sign-up with a referral code, sign-in, Google sign-in,
- * password reset, email verification with resend cooldown, the explicit
- * entitlement gate (`enablePSEmine`), and the protected route that preserves the
- * intended destination in `returnTo`, requires a verified identity, explains
- * missing product access, and only then applies the onboarding gate.
+ * One shell (PseAuthFrame) for sign in, sign up, password reset, email
+ * verification and the entitlement gate, so the five surfaces read as one
+ * product. Every behaviour below is UNCHANGED from the implementation that
+ * preceded the design purge; this file is presentation only:
+ *
+ *   • sign-up with an optional referral code (from ?ref=, surfaced before submit)
+ *   • sign-in, Google sign-in (with the popup-dismissal case treated as a
+ *     dismissal rather than an error), password reset, verification resend with
+ *     a cooldown, the explicit entitlement gate (`enablePSEmine`), and the
+ *     protected route that preserves the intended destination in `returnTo`,
+ *     requires a verified identity, explains missing product access, and only
+ *     then applies the onboarding gate.
  */
+
+/** Password strength: computed from the real input, never displayed when empty. */
+const STRENGTH_STEPS = ['Weak', 'Fair', 'Good', 'Strong'] as const;
+
+const StrengthMeter: React.FC<{ label: string }> = ({ label }) => {
+  const step = Math.max(1, STRENGTH_STEPS.indexOf(label as (typeof STRENGTH_STEPS)[number]) + 1);
+  return (
+    <div className="space-y-1.5" aria-live="polite">
+      <div className="pse-meter" aria-hidden="true">
+        <span style={{ width: `${(step / STRENGTH_STEPS.length) * 100}%` }} />
+      </div>
+      <p className="pse-small">
+        Password strength: <span className="pse-strong">{label}</span>
+      </p>
+    </div>
+  );
+};
 
 /* ═══════════════════ LOGIN / SIGNUP ═══════════════════ */
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
@@ -92,103 +113,136 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   };
 
   return (
-    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
-      <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-text-primary">
-          {isSignup ? 'Create your PSEmine account' : 'Sign in to PSEmine'}
-        </h1>
-        <p className="text-sm text-text-secondary">
-          {isSignup
-            ? refFromQuery
-              ? 'You were invited — the referral code is applied to this account automatically.'
-              : 'One account for tools, capacity and settlement.'
-            : 'Continue to your mining console.'}
-        </p>
-        <p className="text-sm">
-          <Link to="/mine" className="underline">About PSEmine</Link>
-        </p>
-      </header>
-
-      {refFromQuery && isSignup && (
-        <PseNotice>Referral applied: <span className="font-mono text-xs">{refFromQuery}</span></PseNotice>
-      )}
-      {formError && <PseNotice tone="danger">{formError}</PseNotice>}
-
-      <PseButton onClick={() => void google()} disabled={googlePending} className="w-full">
-        {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Sign in with Google'}
-      </PseButton>
-      <p className="text-xs text-text-tertiary">
-        {isSignup
-          ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
-          : 'Use the same Google identity you signed up with — no second account is created.'}
-      </p>
-
-      <form onSubmit={submit} className="space-y-4" noValidate>
-        {isSignup && (
-          <PseField label="Display name" hint="Shown to referrals" htmlFor="pse-signup-username">
-            <PseInput
-              id="pse-signup-username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="How you'll appear"
-              autoComplete="nickname"
-              required
-            />
-          </PseField>
-        )}
-        <PseField label="Email" htmlFor="pse-auth-email">
-          <PseInput
-            id="pse-auth-email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
-        </PseField>
-        <PseField label="Password" hint={isSignup ? 'Minimum 8 characters' : undefined} htmlFor="pse-auth-password">
-          <PseInput
-            id="pse-auth-password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            autoComplete={isSignup ? 'new-password' : 'current-password'}
-            required
-            minLength={8}
-          />
-        </PseField>
-
-        {isSignup && password.length > 0 && (
-          <p className="text-xs text-text-tertiary" aria-live="polite">Password strength: {strength}</p>
-        )}
-
-        {!isSignup && (
-          <p className="text-sm">
-            <Link to="/mine/forgot-password" className="underline">Forgot password?</Link>
+    <PseAuthFrame
+      title={isSignup ? 'Create your PSEmine account' : 'Sign in to PSEmine'}
+      lede={
+        isSignup
+          ? refFromQuery
+            ? 'Your referral code is applied to this account automatically. It is recorded at sign-up and qualifies when the conditions are met — nothing is credited in advance.'
+            : 'One account for mining tools, capacity, campaign earnings and payout.'
+          : 'Continue to your mining console: tools, capacity, accrual and settlement.'
+      }
+      footer={
+        <div className="space-y-3">
+          <p className="pse-body">
+            {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
+            <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="pse-link">
+              {isSignup ? 'Sign in' : 'Create account'}
+            </Link>
+          </p>
+          {!isSignup && (
+            <p className="pse-small">
+              <Link to="/mine/forgot-password" className="pse-link inline-flex min-h-[44px] items-center">
+                Forgot your password?
+              </Link>
+            </p>
+          )}
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        {refFromQuery && isSignup && (
+          <p className="pse-notice" data-tone="good">
+            <span>
+              <span className="pse-notice-title">Referral applied.</span> Code{' '}
+              <span className="pse-figure">{refFromQuery}</span> — recorded on this account at sign-up.
+            </span>
           </p>
         )}
 
-        <PseButton type="submit" disabled={pending} className="w-full">
-          {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
-        </PseButton>
-      </form>
-
-      <p className="text-sm text-text-secondary">
-        {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
-        <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="underline">
-          {isSignup ? 'Sign in' : 'Create account'}
-        </Link>
-      </p>
-
-      {isSignup && (
-        <p className="text-xs text-text-tertiary">
-          By creating an account you agree to the <Link to="/terms" className="underline">Terms</Link> and{' '}
-          <Link to="/privacy" className="underline">Privacy Policy</Link>. PSEmine is a separate product from
-          PulseEarn: the account is shared, the product access is not.
+        <button
+          type="button"
+          onClick={() => void google()}
+          disabled={googlePending}
+          className="pse-btn pse-btn-quiet pse-btn-block"
+        >
+          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Sign in with Google'}
+        </button>
+        <p className="pse-small">
+          {isSignup
+            ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
+            : 'Use the same Google identity you signed up with — no second account is created.'}
         </p>
-      )}
-    </main>
+
+        <p className="pse-auth-alt">or use email</p>
+
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          {isSignup && (
+            <div>
+              <label className="pse-field-label" htmlFor="pse-signup-username">
+                Display name
+                <span className="pse-field-hint">Shown to referrals</span>
+              </label>
+              <input
+                id="pse-signup-username"
+                className="pse-input"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="How you'll appear"
+                autoComplete="nickname"
+                required
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="pse-field-label" htmlFor="pse-auth-email">
+              Email
+            </label>
+            <input
+              id="pse-auth-email"
+              className="pse-input"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="pse-field-label" htmlFor="pse-auth-password">
+              Password
+              {isSignup && <span className="pse-field-hint">Minimum 8 characters</span>}
+            </label>
+            <input
+              id="pse-auth-password"
+              className="pse-input"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+              required
+              minLength={8}
+            />
+            {isSignup && password.length > 0 && (
+              <div className="mt-2">
+                <StrengthMeter label={strength} />
+              </div>
+            )}
+          </div>
+
+          {formError && (
+            <p className="pse-notice" data-tone="danger" role="alert">
+              <span className="pse-notice-title">{formError}</span>
+            </p>
+          )}
+
+          <button type="submit" className="pse-btn pse-btn-block" disabled={pending}>
+            {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
+          </button>
+        </form>
+
+        {isSignup && (
+          <p className="pse-small">
+            By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
+            <Link to="/privacy" className="pse-link">Privacy Policy</Link>. PSEmine is a separate product from
+            PulseEarn: the account is shared, the product access is not.
+          </p>
+        )}
+      </div>
+    </PseAuthFrame>
   );
 };
 
@@ -211,26 +265,43 @@ export const PSEmineForgotPassword: React.FC = () => {
   };
 
   return (
-    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
-      <h1 className="text-xl font-semibold text-text-primary">Reset your password</h1>
-      <p className="text-sm text-text-secondary">We&apos;ll email a secure reset link to your account address.</p>
-
+    <PseAuthFrame
+      title="Reset your password"
+      lede="We email a secure reset link to the address on the account. The link is single-use and expires, so open it soon after it arrives."
+      footer={
+        <p className="pse-small">
+          <Link to="/mine/login" className="pse-link">
+            Back to sign in
+          </Link>
+        </p>
+      }
+    >
       {sent ? (
-        <PseSection title="Check your inbox">
-          <p className="text-sm text-text-secondary">
-            A reset link was sent to <span className="font-mono text-xs">{email}</span>. It expires shortly, so use it soon.
+        <div className="space-y-4">
+          <p className="pse-notice" data-tone="good">
+            <span>
+              <span className="pse-notice-title">Reset link sent.</span> Check <span className="pse-figure">{email}</span>{' '}
+              — including spam — then follow the link to choose a new password.
+            </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Link to="/mine/login" className="text-sm underline">Back to sign in</Link>
-            <PseButton onClick={() => setSent(false)}>Use a different email</PseButton>
+            <button type="button" className="pse-btn pse-btn-quiet" onClick={() => setSent(false)}>
+              Use a different email
+            </button>
+            <Link to="/mine/login" className="pse-btn pse-btn-ink">
+              Back to sign in
+            </Link>
           </div>
-        </PseSection>
+        </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          {error && <PseNotice tone="danger">{error}</PseNotice>}
-          <PseField label="Email" htmlFor="pse-reset-email">
-            <PseInput
+          <div>
+            <label className="pse-field-label" htmlFor="pse-reset-email">
+              Email
+            </label>
+            <input
               id="pse-reset-email"
+              className="pse-input"
               type="email"
               required
               value={email}
@@ -238,14 +309,20 @@ export const PSEmineForgotPassword: React.FC = () => {
               placeholder="you@example.com"
               autoComplete="email"
             />
-          </PseField>
-          <PseButton type="submit" disabled={pending} className="w-full">
+          </div>
+
+          {error && (
+            <p className="pse-notice" data-tone="danger" role="alert">
+              <span className="pse-notice-title">{error}</span>
+            </p>
+          )}
+
+          <button type="submit" className="pse-btn pse-btn-block" disabled={pending}>
             {pending ? 'Sending…' : 'Send reset link'}
-          </PseButton>
-          <p className="text-sm"><Link to="/mine/login" className="underline">Back to sign in</Link></p>
+          </button>
         </form>
       )}
-    </main>
+    </PseAuthFrame>
   );
 };
 
@@ -281,31 +358,59 @@ export const PSEmineVerifyEmail: React.FC = () => {
   const cooldown = resentAt ? Math.max(0, 45 - Math.floor((Date.now() - resentAt) / 1000)) : 0;
 
   return (
-    <main className="mx-auto w-full max-w-md space-y-6 p-4 py-10 sm:p-6">
-      <h1 className="text-xl font-semibold text-text-primary">Verify your email</h1>
-      <p className="text-sm text-text-secondary">
-        We sent a verification link to <span className="font-mono text-xs">{currentUser.email}</span>. Open it, then
-        return here — this page advances automatically once the identity is verified.
-      </p>
-
-      <PseSection title="If nothing happened">
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-text-secondary">
-          <li>Open the email and click the verification link.</li>
-          <li>Return to this page.</li>
-          <li>Re-check below, or resend the verification email.</li>
+    <PseAuthFrame
+      title="Verify your email"
+      lede={
+        <>
+          PSEmine requires a verified identity before it reads any account record. We sent a link to{' '}
+          <span className="pse-figure">{currentUser.email}</span>; this page advances by itself once the address is
+          verified.
+        </>
+      }
+      footer={
+        <button
+          type="button"
+          className="pse-small pse-link bg-transparent border-0 p-0"
+          onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}
+        >
+          Sign out and use another account
+        </button>
+      }
+    >
+      <div className="space-y-4">
+        <ol className="space-y-2 pse-body">
+          <li>
+            <span className="pse-strong">1.</span> Open the verification email and follow the link.
+          </li>
+          <li>
+            <span className="pse-strong">2.</span> Come back to this page — it advances on its own once Firebase reports
+            the address as verified.
+          </li>
+          <li>
+            <span className="pse-strong">3.</span> If nothing happened, resend the email below.
+          </li>
         </ol>
-      </PseSection>
 
-      {error ? <PseNotice tone="danger">{error}</PseNotice> : notice ? <PseNotice>{notice}</PseNotice> : null}
+        {error ? (
+          <p className="pse-notice" data-tone="danger" role="alert">
+            <span className="pse-notice-title">{error}</span>
+          </p>
+        ) : notice ? (
+          <p className="pse-notice" data-tone="good">
+            <span>{notice}</span>
+          </p>
+        ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <PseButton onClick={() => void resend()} disabled={pending || cooldown > 0}>
-          {pending ? 'Sending…' : cooldown > 0 ? `Resend available in ${cooldown}s` : 'Resend verification email'}
-        </PseButton>
-        <PseButton onClick={() => window.location.reload()}>I&apos;ve verified my email</PseButton>
-        <PseButton onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}>Sign out</PseButton>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="pse-btn" onClick={() => void resend()} disabled={pending || cooldown > 0}>
+            {pending ? 'Sending…' : cooldown > 0 ? `Resend available in ${cooldown}s` : 'Resend verification email'}
+          </button>
+          <button type="button" className="pse-btn pse-btn-quiet" onClick={() => window.location.reload()}>
+            I&apos;ve verified my email
+          </button>
+        </div>
       </div>
-    </main>
+    </PseAuthFrame>
   );
 };
 
@@ -340,33 +445,60 @@ const PSEmineAccessGate: React.FC = () => {
   };
 
   return (
-    <main className="mx-auto w-full max-w-lg space-y-5 p-4 py-14 sm:p-6">
-      <h1 className="text-xl font-semibold text-text-primary">PSEmine isn&apos;t enabled for this account</h1>
-      <p className="text-sm text-text-secondary">
-        Signed in as <span className="font-mono text-xs">{currentUser?.email}</span>. PSEmine and PulseEarn share one
-        sign-in identity but are separate products, and product access is explicit. This account does not currently
-        have PSEmine access.
-        {userData?.productAccess?.pulseearn ? ' It is enrolled in PulseEarn only.' : ' No product is currently enrolled on it.'}
-      </p>
-
-      {error && <PseNotice tone="danger">{error}</PseNotice>}
-
-      <PseSection title="Enabling PSEmine">
-        <p className="text-sm text-text-secondary">
-          Enabling creates your PSEmine mining account on this identity (zeroed balances, no purchases, no charges) and
-          records an audit entry. The backend grants access — the app cannot grant it by itself.
+    <PseAuthFrame
+      variant="embedded"
+      title="PSEmine isn't enabled for this account"
+      lede={
+        <>
+          Signed in as <span className="pse-figure">{currentUser?.email}</span>. PulseEarn and PSEmine share one sign-in
+          identity but are separate products, and product access is explicit.
+          {userData?.productAccess?.pulseearn
+            ? ' This account is enrolled in PulseEarn only.'
+            : ' No product is currently enrolled on this account.'}
+        </>
+      }
+      footer={
+        <p className="pse-small">
+          <Link to="/mine/guide" className="pse-link">
+            How PSEmine works
+          </Link>
+          {' · '}
+          <Link to="/help" className="pse-link">
+            Contact support
+          </Link>
         </p>
-        <div className="flex flex-wrap gap-2">
-          <PseButton onClick={() => void enable()} disabled={pending}>{pending ? 'Working…' : 'Enable PSEmine for this account'}</PseButton>
-          <PseButton onClick={() => void other()}>Use another account</PseButton>
+      }
+    >
+      <div className="space-y-4">
+        <div className="pse-panel pse-panel-body space-y-2">
+          <p className="pse-h3">Enabling PSEmine for this account</p>
+          <p className="pse-small">
+            Enabling creates your PSEmine mining account on this identity: zeroed balances, no purchases, no charges,
+            and an audit entry recording that access was granted. The backend grants access — the app cannot grant it by
+            itself.
+          </p>
+          <ul className="pse-small">
+            <li>· Your existing PulseEarn account and rewards are not affected.</li>
+            <li>· No wallet is connected, and no payment is requested, until you start a purchase yourself.</li>
+          </ul>
         </div>
-      </PseSection>
 
-      <p className="text-sm">
-        <Link to="/mine/guide" className="underline">Read how PSEmine works</Link> ·{' '}
-        <Link to="/help" className="underline">Contact support</Link>
-      </p>
-    </main>
+        {error && (
+          <p className="pse-notice" data-tone="danger" role="alert">
+            <span className="pse-notice-title">{error}</span>
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="pse-btn" onClick={() => void enable()} disabled={pending}>
+            {pending ? 'Enabling…' : 'Enable PSEmine for this account'}
+          </button>
+          <button type="button" className="pse-btn pse-btn-quiet" onClick={() => void other()} disabled={pending}>
+            Use another account
+          </button>
+        </div>
+      </div>
+    </PseAuthFrame>
   );
 };
 
@@ -377,8 +509,8 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
-        <PseLoading label="Restoring secure session" />
+      <div className="pse pse-wrap">
+        <PseLoader variant="page" stage="session" />
       </div>
     );
   }

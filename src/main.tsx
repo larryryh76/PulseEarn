@@ -1,11 +1,12 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// PSEmine (Duty & Ledger) stylesheet purged in
-// `refactor(psemine): purge legacy design implementation`. PSEmine routes
-// currently render the minimal functional presentation in
-// src/components/psemine/PseBasics.tsx on the app-wide stylesheet only; the
-// product's own visual layer will be rebuilt one system at a time.
+// PSEmine product visual layer — Phase 1 (brand, loader, authentication family,
+// public landing page). The previous PSEmine design was purged in
+// `refactor(psemine): purge legacy design implementation`; this is the rebuild,
+// scoped to `.pse` so it never restyles PulseEarn. The authenticated console is
+// still the minimal functional presentation and gets its own phase.
+import './styles/psemine.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

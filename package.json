@@ -14,6 +14,7 @@
     "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",
     "verify:user-journey": "bun scripts/pse-user-journey.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
+    "verify:a11y": "bun scripts/pse-a11y-check.mjs",
     "probe:route": "bun scripts/pse-probe.mjs",
     "metrics:db": "bun scripts/pse-db-metrics.mjs",
     "firebase:check": "bun scripts/check-firebase-infra.mjs",

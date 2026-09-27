@@ -1,4 +1,19 @@
 /**
+ * STALE DESIGN CONTRACT — DO NOT TREAT A PASS AS CERTIFICATION.
+ *
+ * This harness certifies the landing that existed before
+ * `refactor(psemine): purge legacy design implementation`, and then before the
+ * Phase 1 rebuild (`design(psemine): rebuild auth loader landing and brand`).
+ * Its design vocabulary no longer exists: the `[data-pse-section]` hooks, the
+ * `.pse-stamp` / `.pse-fact-v` / `.pse-verdict-fig` money selectors, the 6/8/10
+ * radius ladder and the "Duty & Ledger" surface budgets were all removed with
+ * that design. Its layout, figure and CTA checks still describe real
+ * requirements, but they must be re-pointed at the rebuilt page before it can be
+ * run again — and it needs a live deployment (`--base`) to run at all.
+ *
+ * Current landing evidence: `scripts/pse-visual-check.mjs`,
+ * `scripts/pse-a11y-check.mjs`, `scripts/pse-design-audit.mjs`.
+ *
  * PSEmine PUBLIC LANDING production QA — rendered evidence, not source review.
  *
  * The console has its own production harness (`pse-production-qa.mjs`). This is
@@ -12,10 +27,9 @@
  *  1. LAYOUT      no horizontal overflow, no content clipped by an ancestor, no
  *                 section collisions, and every briefed section present, at
  *                 390×844, 430×932, 768×1024 and 1440×900.
- *  2. DESIGN      the Duty & Ledger surface vocabulary: no card radius outside
- *                 the 6/8/10 ladder, a restrained palette (surfaces, shadows,
- *                 text colours within budget), and money that is never set in
- *                 the machine-face mono font.
+ *  2. DESIGN      (superseded — see the banner above) the Duty & Ledger surface
+ *                 vocabulary: no card radius outside the 6/8/10 ladder, a
+ *                 restrained palette, and money never set in the mono face.
  *  3. FIGURES     money is legible (no tiny financial text) and every locked
  *                 economic figure is on the page exactly as the product defines
  *                 it — four tiers with their real price, hourly rate and

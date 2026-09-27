@@ -1,6 +1,15 @@
 /**
  * PSEmine PRODUCTION QA harness.
  *
+ * NOTE — PARTIALLY STALE DESIGN CONTRACT (Phase 1): this harness was written
+ * against the pre-purge PSEmine presentation layer. The legacy design
+ * selectors it asserts on (pse-ledger, pse-rail, pse-verdict, pse-reg,
+ * pse-duty, pse-band, pse-h1, pse-copy) no longer exist in `src`, and the
+ * assertions using them are composition CAPS (zero matches satisfies a cap),
+ * so the harness still passes. They must NOT be treated as a design contract
+ * and should be re-pointed at the Phase 1 primitives the next time the
+ * authenticated/payment pass is actually runnable.
+ *
  * Exercises the REAL deployment (https://www.pulseearn.online) the way a real
  * user would — no service accounts, no fabricated tokens, no direct Firestore
  * writes:

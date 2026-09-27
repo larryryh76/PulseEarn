@@ -16,6 +16,11 @@
  * the end, so it never leaves a long-lived dev server behind.
  *
  * Usage:  bun scripts/pse-visual-check.mjs [--widths 375,390,...] [--out DIR]
+ *         bun scripts/pse-visual-check.mjs --viewports 390x844,430x932,768x1024,1440x900
+ *
+ * `--widths` keeps the original behaviour (each width at 900px tall).
+ * `--viewports` measures the exact device sizes a design phase has to satisfy,
+ * so a review can state what was actually rendered rather than a bare width.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -32,6 +37,14 @@ const widthsArgIdx = args.indexOf('--widths');
 const WIDTHS = widthsArgIdx >= 0
   ? args[widthsArgIdx + 1].split(',').map(n => parseInt(n.trim(), 10))
   : [375, 390, 430, 768, 1024, 1440];
+const viewportsArgIdx = args.indexOf('--viewports');
+/** Explicit device sizes; overrides --widths when present. */
+const VIEWPORTS = viewportsArgIdx >= 0
+  ? args[viewportsArgIdx + 1].split(',').map(pair => {
+      const [w, h] = pair.trim().toLowerCase().split('x');
+      return { width: parseInt(w, 10), height: parseInt(h || '900', 10) };
+    })
+  : null;
 
 /** Routes that render without an authenticated session (plus the guard itself). */
 const ROUTES = [
@@ -114,10 +127,12 @@ async function run() {
   const browser = await chromium.launch({ headless: true });
   const report = [];
 
+  const SIZES = VIEWPORTS || WIDTHS.map(width => ({ width, height: 900 }));
+
   for (const route of ROUTES) {
-    for (const width of WIDTHS) {
+    for (const { width, height } of SIZES) {
       const context = await browser.newContext({
-        viewport: { width, height: 900 },
+        viewport: { width, height },
         deviceScaleFactor: 1,
         isMobile: width <= 430,
         hasTouch: width <= 430,
@@ -170,14 +185,14 @@ async function run() {
             return out.slice(0, 8);
           }, width);
         }
-        await page.screenshot({ path: path.join(OUT, `${route.id}-${width}.png`), fullPage: true, animations: 'disabled' });
+        await page.screenshot({ path: path.join(OUT, `${route.id}-${width}x${height}.png`), fullPage: true, animations: 'disabled' });
       } catch (e) {
         pageErrors.push(`HARNESS: ${String(e).slice(0, 200)}`);
       }
       await context.close();
 
       report.push({
-        route: route.path, id: route.id, width, title,
+        route: route.path, id: route.id, width, height, title,
         titleOwnedByPsemine: /PSEmine/.test(title),
         paintedChars: painted, rootChildren,
         scrollWidth, clientWidth, horizontalOverflow: scrollWidth > clientWidth + 1, overflow,
@@ -191,7 +206,7 @@ async function run() {
   server.close();
 
   const summary = report.map(r => ({
-    route: r.route, width: r.width, painted: r.paintedChars > 40, rootChildren: r.rootChildren,
+    route: r.route, width: r.width, height: r.height, painted: r.paintedChars > 40, rootChildren: r.rootChildren,
     overflow: r.horizontalOverflow, consoleErrors: r.consoleErrors.length, pageErrors: r.pageErrors.length,
     title: r.titleOwnedByPsemine ? 'psemine' : 'NOT-PSEMINE',
     crossProductCalls: r.crossProductCalls.length,
@@ -203,7 +218,7 @@ async function run() {
   if (bad.length) {
     console.log('\nISSUES:');
     for (const b of bad) {
-      console.log(`- ${b.route} @${b.width}px overflow=${b.horizontalOverflow} painted=${b.paintedChars} pageErrors=${JSON.stringify(b.pageErrors)}`);
+      console.log(`- ${b.route} @${b.width}x${b.height} overflow=${b.horizontalOverflow} painted=${b.paintedChars} pageErrors=${JSON.stringify(b.pageErrors)}`);
       for (const o of b.overflow) console.log(`    overflow: ${o}`);
     }
   } else {

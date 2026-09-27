@@ -9,7 +9,7 @@
  *   • the state maps that mirror the backend state machines (label + meaning),
  *   • the formatters that render backend figures,
  *   • the server-anchored clock (the server is the only authority for cycles),
- *   • the document-title hook (PSEmine routes own their browser title).
+ *   • the document-chrome hook (PSEmine routes own their browser title + icon).
  *
  * Nothing in this file renders a surface, a colour or a layout. It contains no
  * React elements at all.
@@ -316,14 +316,36 @@ export function useCampaignClock(
   };
 }
 
-/* ── Document title ───────────────────────────────────────────────────────
- * PSEmine routes must own the browser title. The previous title is restored on
- * unmount so PulseEarn is unaffected. */
+/* ── Document chrome (title + product icon) ───────────────────────────────
+ * PSEmine routes must own the browser title AND the browser icon: index.html
+ * ships PulseEarn's title and favicon, so without this a PSEmine campaign page
+ * announces itself as PulseEarn in the tab, in history and in a bookmark.
+ *
+ * Both values are restored on unmount, and each restore only fires if the value
+ * is still the one this hook set — so a nested PSEmine route (the console shell
+ * plus the page inside it) cannot restore a stale title or icon over the
+ * sibling that is still mounted.
+ */
+const PSE_FAVICON = '/psemine-mark.svg';
+
 export function usePseDocumentTitle(title?: string) {
   React.useEffect(() => {
     if (!title) return;
-    const previous = document.title;
-    document.title = `${title} · PSEmine`;
-    return () => { document.title = previous; };
+    const fullTitle = `${title} · PSEmine`;
+    const previousTitle = document.title;
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    const previousHref = icon?.getAttribute('href') ?? null;
+    const swappedIcon = Boolean(icon) && previousHref !== PSE_FAVICON;
+
+    document.title = fullTitle;
+    if (swappedIcon && icon) {
+      icon.setAttribute('href', PSE_FAVICON);
+      icon.setAttribute('type', 'image/svg+xml');
+    }
+
+    return () => {
+      if (document.title === fullTitle) document.title = previousTitle;
+      if (swappedIcon && icon && previousHref) icon.setAttribute('href', previousHref);
+    };
   }, [title]);
 }

@@ -1,23 +1,26 @@
 /**
- * PSEmine minimal functional UI.
+ * PSEmine minimal functional UI — the AUTHENTICATED CONSOLE's presentation.
  *
- * This is deliberately NOT a design system. The PSEmine visual implementation
- * was purged in `refactor(psemine): purge legacy design implementation` and the
- * interface will be rebuilt one system at a time afterwards. Until then these
- * components provide the simplest presentation that keeps the product usable:
- * plain headings, plain text, basic tables and basic form controls, using the
- * app's existing global stylesheet only.
+ * This is deliberately not the product's design system. The PSEmine visual
+ * implementation was purged in `refactor(psemine): purge legacy design
+ * implementation` and the console is being rebuilt one system at a time
+ * afterwards; Phase 1 rebuilt the brand, loader, authentication family and
+ * public landing page (see src/styles/psemine.css). Until the console's own
+ * phase, these components keep it usable: plain headings, plain text, basic
+ * tables and basic form controls.
  *
  * Rules for this file:
- *   • No decorative surfaces, gradients, shadows, palettes or motion.
- *   • No new design tokens: only the app-wide CSS variables already in
- *     src/index.css and minimal spacing utilities.
- *   • Every component here is replaceable by the future design without touching
- *     product logic — pages import behaviour, never presentation, from
+ *   • No decorative surfaces, gradients, shadows, palettes or motion of its own.
+ *   • Loading and blocking failures are NOT re-invented here: they render through
+ *     the product's loader family (PseLoader / PseLoadFailure), so the whole
+ *     product reports a slow load or a failure the same way.
+ *   • Every component here is replaceable by the console's future design without
+ *     touching product logic — pages import behaviour, never presentation, from
  *     pseCore.ts.
  */
 import React from 'react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
+import { PseLoadFailure, PseLoader, type PseLoadStage } from './PseLoader';
 
 /** A console route: title, one line stating its objective, then content. */
 export const PsePage: React.FC<{
@@ -86,9 +89,16 @@ export const PseField: React.FC<{
   </label>
 );
 
-/** Loading state. */
-export const PseLoading: React.FC<{ label?: string }> = ({ label = 'Loading' }) => (
-  <p className="py-8 text-sm text-text-secondary" role="status" aria-live="polite">{label}…</p>
+/**
+ * Loading state.
+ *
+ * Delegates to the product's single loader (PseLoader) so a console page and the
+ * authentication surfaces show the same honest, escalating loading state instead
+ * of a text line that never changes and never times out. The visual layer is
+ * Phase 1; the console's own layout is unaffected.
+ */
+export const PseLoading: React.FC<{ label?: string; stage?: PseLoadStage }> = ({ label, stage }) => (
+  <PseLoader variant="inline" stage={stage} label={label} />
 );
 
 /** Empty state: states the fact, never invents a row. */
@@ -112,22 +122,15 @@ export const PseNotice: React.FC<{ tone?: 'info' | 'attention' | 'danger'; child
   </p>
 );
 
-/** Blocking failure: what happened, whether a retry is honest, and a retry. */
+/**
+ * Blocking failure: what happened, whether a retry is honest, and a retry.
+ * Rendered through the product's failure component so every PSEmine surface
+ * classifies and presents a failure the same way.
+ */
 export const PseErrorNotice: React.FC<{
   error: PseErrorInfo; onRetry?: () => void; retrying?: boolean;
 }> = ({ error, onRetry, retrying }) => (
-  <div role="alert" className="space-y-2 py-4">
-    <p className="text-sm font-semibold text-text-primary">{error.title}</p>
-    <p className="text-sm text-text-secondary">{error.message}</p>
-    {error.operation && (
-      <p className="text-xs text-text-tertiary">
-        {error.operation}{error.status ? ` · ${error.status}` : ''}{error.code ? ` · ${error.code}` : ''}
-      </p>
-    )}
-    {error.retryable && onRetry && (
-      <PseButton onClick={onRetry} disabled={retrying}>{retrying ? 'Retrying…' : 'Try again'}</PseButton>
-    )}
-  </div>
+  <PseLoadFailure error={error} onRetry={onRetry} retrying={retrying} />
 );
 
 /** Non-blocking notice for a degraded secondary feed. */

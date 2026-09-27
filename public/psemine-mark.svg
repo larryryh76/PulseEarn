@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="PSEmine">
+  <!--
+    PSEmine compact mark — the ore plate with its three sheared capacity bars.
+    Drawn for favicon scale: a solid plate keeps the silhouette readable at 16px
+    where a hairline outline would disappear. Structure is ink, capacity is the
+    accent, and the mark stays recognisable without any glow or gradient.
+  -->
+  <path d="M3 26.5V5.5A2.5 2.5 0 0 1 5.5 3h14L29 12.5v14a2.5 2.5 0 0 1-2.5 2.5h-21A2.5 2.5 0 0 1 3 26.5Z" fill="#0B0E12"/>
+  <path d="M9.5 26.4V20.6l3-3v8.8Z" fill="#38C2D2"/>
+  <path d="M14.5 26.4V16l3-3v13.4Z" fill="#38C2D2"/>
+  <path d="M19.5 26.4V11l3-3v18.4Z" fill="#38C2D2"/>
+</svg>

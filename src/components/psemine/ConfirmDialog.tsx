@@ -14,6 +14,7 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+/** Shows a modal confirmation with optional required text and disables actions while busy. */
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open, title, consequence, affected, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
   danger = false, busy = false, requireText, onConfirm, onCancel,

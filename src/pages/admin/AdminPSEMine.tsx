@@ -8,6 +8,7 @@ import {
 } from '../../components/psemine/pse';
 import { ConfirmDialog } from '../../components/psemine/ConfirmDialog';
 
+/** Displays campaign operations and review queues, gating mutation controls on administrator access. */
 const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
@@ -377,6 +378,7 @@ const AdminPSEMine: React.FC = () => {
   );
 };
 
+/** Collects and validates a full hexadecimal transaction hash before passing it to the approval callback. */
 function ApprovePayoutButton({ busy, onApprove }: { busy: boolean; onApprove: (hash: string) => void }) {
   const [open, setOpen] = useState(false);
   const [hash, setHash] = useState('');

@@ -33,6 +33,7 @@ export const CAMPAIGN_STATUS_MAP: Record<string, {
   archived:  { label: 'Archived', headline: 'Public mining interface closed', detail: 'This campaign is archived. Records remain available.', live: false },
 };
 
+/** Returns campaign display text and live state, with a non-live fallback for missing or unknown status. */
 export function campaignStatusView(status?: string | null) {
   if (!status) return { label: 'Unavailable', headline: 'Campaign state unavailable', detail: 'The backend has not reported a campaign state.', live: false };
   return CAMPAIGN_STATUS_MAP[status] || { label: 'State unavailable', headline: 'Campaign state unavailable', detail: 'The backend reported a state this interface does not recognize.', live: false };
@@ -55,6 +56,7 @@ export const CYCLE_STATE_MAP: Record<string, {
   inactive:              { label: 'Inactive', description: 'Not yet operating.', live: false },
 };
 
+/** Returns operating-cycle labels and live state, defaulting to an unavailable, non-live state. */
 export function cycleStateView(state?: string | null) {
   return CYCLE_STATE_MAP[state || ''] || { label: 'State unavailable', description: 'The backend has not reported an operating state.', live: false };
 }
@@ -83,6 +85,7 @@ export const PURCHASE_STATUS_MAP: Record<string, { label: string; terminal: bool
   reversed:              { label: 'Reversed', terminal: true },
 };
 
+/** Returns purchase display and terminal-state metadata, with a non-terminal fallback for unknown status. */
 export function purchaseStatusView(status?: string | null) {
   return PURCHASE_STATUS_MAP[status || ''] || { label: 'Status unavailable', terminal: false };
 }
@@ -97,6 +100,7 @@ export const REFERRAL_STAGE_MAP: Record<string, { label: string; step: number; h
   rejected:         { label: 'Rejected', step: 0, help: 'This referral did not qualify.' },
 };
 
+/** Returns referral labels, qualification steps, and help text, falling back to an unavailable stage. */
 export function referralStageView(stage?: string | null) {
   return REFERRAL_STAGE_MAP[stage || ''] || { label: 'Stage unavailable', step: 0, help: 'The backend has not reported a referral stage.' };
 }
@@ -120,6 +124,7 @@ export const PAYOUT_STATUS_MAP: Record<string, { label: string }> = {
   reversed:     { label: 'Reversed' },
 };
 
+/** Returns the payout status label or an unavailable label for missing or unknown status. */
 export function payoutStatusView(status?: string | null) {
   return PAYOUT_STATUS_MAP[status || ''] || { label: 'Status unavailable' };
 }
@@ -222,10 +227,12 @@ export async function copyText(text: string): Promise<boolean> {
 
 /* ── React primitives ─────────────────────────────────────────────────── */
 
+/** Renders the PSEmine emblem at the requested size, optionally with its wordmark. */
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return <BrandMark size={size} withWordmark={withWordmark} />;
 }
 
+/** Renders an error alert with diagnostic context, optional actions, and retry controls when allowed. */
 export function PSEError({ error, onRetry, retrying, action }: {
   error: PseErrorInfo;
   onRetry?: () => void;
@@ -253,10 +260,12 @@ export function PSEError({ error, onRetry, retrying, action }: {
   );
 }
 
+/** Announces the supplied loading message through a polite live status region. */
 export function PSELoading({ label = 'Loading' }: { label?: string }) {
   return <p role="status" aria-live="polite">{label}</p>;
 }
 
+/** Copies the full value while showing optional display text and brief feedback after a successful copy. */
 export function CopyField({ value, display, label, fullWidth: _fullWidth }: {
   value: string; display?: string; label?: string; fullWidth?: boolean;
 }) {
@@ -273,6 +282,7 @@ export function CopyField({ value, display, label, fullWidth: _fullWidth }: {
   );
 }
 
+/** Wraps form controls in a label with an optional hint and explicit control association. */
 export function Field({ label, hint, children, htmlFor }: {
   label: string; hint?: string; children: React.ReactNode; htmlFor?: string;
 }) {
@@ -308,6 +318,7 @@ export interface CampaignClock {
   daysLeft: number | null;
 }
 
+/** Derives campaign day and remaining days from the anchored clock, refreshing every minute; unavailable dates yield null. */
 export function useCampaignClock(
   campaign?: CampaignClockInput | null,
   statusOverride?: string | null,

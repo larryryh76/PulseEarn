@@ -259,6 +259,7 @@ type ResumeState =
   | { kind: 'submitted'; purchase: PsePendingPurchase }
   | { kind: 'expired'; purchase: PsePendingPurchase };
 
+/** Manages tool payment from quoting and wallet signing through backend verification, including pending-purchase recovery. */
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, pending, onClose }) => {
   const {
     connectedWallet, walletChainId, walletTransport, pseUser,
@@ -917,6 +918,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
 
 /* ── Wallet connection step ────────────────────────────────────────────── */
+/** Offers available injected wallets and WalletConnect transport, disabling connection actions while pending. */
 const WalletConnectStep: React.FC = () => {
   const {
     injectedWallets, walletConnectAvailable, connectWallet,

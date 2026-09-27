@@ -4,6 +4,7 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMineLanding } from './PSEMineLanding';
 import { PSELogo } from '../../components/psemine/PSEBrand';
 
+/** Announces that the PSEmine session is being restored while authentication loads. */
 function EntryLoadingStatus() {
   return (
     <main className="pm-product pm-auth-loading" aria-busy="true">
@@ -13,6 +14,7 @@ function EntryLoadingStatus() {
   );
 }
 
+/** Shows the public landing page to visitors and routes signed-in users through the protected dashboard gate. */
 export const PSEMineEntry: React.FC = () => {
   const { currentUser, loading } = usePSEMineAuth();
 

@@ -3,6 +3,7 @@ import { gbpHour } from './pse';
 
 const TIERS: PSEToolTierId[] = ['starter', 'builder', 'advanced', 'elite'];
 
+/** Renders the accessible SVG illustration for a tool tier in compact or standard size. */
 export function PSEMineToolVisual({ tier, size = 'standard' }: { tier: PSEToolTierId; size?: 'compact' | 'standard' }) {
   const labels: Record<PSEToolTierId, string> = {
     starter: 'Starter single-bay module',
@@ -50,6 +51,7 @@ export function PSEMineToolVisual({ tier, size = 'standard' }: { tier: PSEToolTi
   );
 }
 
+/** Displays all four tool tiers with their configured prices, capacities, and ownership limits. */
 export function PSEMineToolFamily() {
   return (
     <div className="pm-tool-family">
@@ -74,6 +76,7 @@ export function PSEMineToolFamily() {
   );
 }
 
+/** Displays tool ownership and backend capacity totals, marking missing values as unavailable. */
 export function PSEMineCapacityRegister({ counts, qualifiedReferrals, toolCapacity, referralCapacity, totalCapacity }: {
   counts?: Partial<Record<PSEToolTierId, number>> | null;
   qualifiedReferrals?: number | null;
@@ -133,6 +136,7 @@ const CAMPAIGN_STAGE_INDEX: Record<string, number> = {
   archived: 6,
 };
 
+/** Shows the reported campaign stage; paused shares the active position and unknown states select none. */
 export function PSEMineCampaignRail({ status }: { status?: string | null }) {
   const index = status ? CAMPAIGN_STAGE_INDEX[status] : undefined;
   const current = index === undefined ? null : CAMPAIGN_STAGES[index];
@@ -153,6 +157,7 @@ export function PSEMineCampaignRail({ status }: { status?: string | null }) {
   );
 }
 
+/** Labels a zero-based referral lane as qualified when its index is below the qualified count. */
 export function qualifiedReferralLaneLabel(index: number, qualified: number) {
   return index < qualified ? 'Qualified' : 'Available';
 }

@@ -29,6 +29,7 @@ const CampaignLedgerStrip: React.FC = () => {
   );
 };
 
+/** Wraps account-access forms in shared branding and campaign information, optionally including tool facts. */
 const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: string[]; showLedger?: boolean }> = ({
   children, quote, points, showLedger,
 }) => (
@@ -50,6 +51,7 @@ const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: st
   </main>
 );
 
+/** Renders a required controlled password input with a visibility toggle and configurable minimum length. */
 function PasswordInput({ id, value, onChange, placeholder, autoComplete, minLength = 8 }: {
   id: string; value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string; minLength?: number;
 }) {
@@ -77,6 +79,7 @@ function PasswordInput({ id, value, onChange, placeholder, autoComplete, minLeng
   );
 }
 
+/** Renders a submit button that shows a waiting label and is disabled while the request is pending. */
 function SubmitBtn({ pending, label }: { pending: boolean; label: string }) {
   return (
     <button type="submit" disabled={pending}>
@@ -85,6 +88,7 @@ function SubmitBtn({ pending, label }: { pending: boolean; label: string }) {
   );
 }
 
+/** Renders the Google authentication action, disabling it and showing a waiting label while pending. */
 function GoogleBtn({ pending, label, onClick }: { pending: boolean; label: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} disabled={pending}>
@@ -93,15 +97,18 @@ function GoogleBtn({ pending, label, onClick }: { pending: boolean; label: strin
   );
 }
 
+/** Announces a nonempty form error as an alert, rendering nothing when no message is supplied. */
 function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return <p role="alert">{message}</p>;
 }
 
+/** Announces a form success message through a status region. */
 function FormSuccess({ message }: { message: string }) {
   return <p role="status">{message}</p>;
 }
 
+/** Separates authentication options with a horizontal rule and optional label. */
 function Divider({ label }: { label?: string }) {
   return (
     <div>
@@ -124,6 +131,7 @@ function strengthOf(pw: string): { score: number; label: string } {
   return { score, label: 'Strong' };
 }
 
+/** Handles email and Google login or signup, forwarding referral codes and redirecting authenticated users. */
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
   const isSignup = mode === 'signup';
   const [email, setEmail] = useState('');
@@ -273,6 +281,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   );
 };
 
+/** Requests a password reset email and displays pending, error, and sent states. */
 export const PSEmineForgotPassword: React.FC = () => {
   usePseDocumentTitle('Reset password');
   const { resetPassword } = usePSEMineAuth();
@@ -325,6 +334,7 @@ export const PSEmineForgotPassword: React.FC = () => {
   );
 };
 
+/** Offers verification-email resends and sign-out, redirecting users once their email is verified. */
 export const PSEmineVerifyEmail: React.FC = () => {
   usePseDocumentTitle('Verify email');
   const { currentUser, isVerified, sendVerification, logout } = usePSEMineAuth();
@@ -447,6 +457,7 @@ const PSEmineAccessGate: React.FC = () => {
   );
 };
 
+/** Gates child routes on session restoration, sign-in, email verification, product access, and onboarding. */
 export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading, isVerified, hasPSEmineAccess } = usePSEMineAuth();
   const location = useLocation();

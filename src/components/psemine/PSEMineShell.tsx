@@ -29,10 +29,12 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/mine/, 'PSEmine'],
 ];
 
+/** Returns the first matching route title, falling back to the PSEmine product name. */
 function titleForPath(pathname: string): string {
   return ROUTE_TITLES.find(([re]) => re.test(pathname))?.[1] ?? 'PSEmine';
 }
 
+/** Wraps PSEmine routes with navigation, account controls, notifications, and campaign status. */
 export const PSEMineShell: React.FC = () => {
   const location = useLocation();
   const { currentUser, logout, hasPSEmineAccess } = usePSEMineAuth();
@@ -106,6 +108,7 @@ export const PSEMineShell: React.FC = () => {
   );
 };
 
+/** Renders account links and sign-out controls, forwarding its ref for outside-click dismissal. */
 const AccountMenu = forwardRef<HTMLDivElement, { open: boolean; setOpen: (value: boolean) => void }>(
   ({ open, setOpen }, ref) => {
     const { userData, currentUser, logout } = usePSEMineAuth();
@@ -130,6 +133,7 @@ const AccountMenu = forwardRef<HTMLDivElement, { open: boolean; setOpen: (value:
 );
 AccountMenu.displayName = 'AccountMenu';
 
+/** Shows campaign dates, status, and a refresh action when the user is in the console. */
 const ConsoleStatus: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
   const { state, campaignStatus, refreshing, refresh } = usePseState();
   const campaign = state?.campaign;

@@ -14,6 +14,7 @@ const EVM = /^0x[0-9a-fA-F]{40}$/;
 const WALLET_LOCKED_STATES = new Set(['settling', 'payout', 'closed', 'archived']);
 export const PAYOUT_REQUEST_MIN_GBP = 10;
 
+/** Displays earnings and settlement records with connected-wallet, payout-wallet, and payout-request controls. */
 export const PSEMineWallet: React.FC = () => {
   const { pseUser, connectedWallet, connectWallet, disconnectWallet, isConnectingWallet, updatePayoutWallet, campaign } = usePSEMine();
   const { state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed } = usePseState();
@@ -159,6 +160,7 @@ export const PSEMineWallet: React.FC = () => {
   );
 };
 
+/** Shows payout eligibility feedback or a GBP request form; the backend rechecks submitted amounts. */
 function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, campaignLabel, onSubmit }: {
   blocked: boolean; pending: boolean; availableMinor: number; payoutWallet: string | null;
   campaignLabel: string; onSubmit: (amountGbp: number) => Promise<boolean>;

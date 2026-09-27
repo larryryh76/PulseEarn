@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { usePseState } from './PseStateProvider';
 
+/** Displays notifications with unread counts, read actions, and a dismissible panel. */
 export const NotificationBell: React.FC<{ variant?: 'desktop' | 'mobile' }> = ({ variant = 'desktop' }) => {
   const { notifications, unreadNotifications, markNotificationRead, refresh, refreshing } = usePseState();
   const [open, setOpen] = useState(false);

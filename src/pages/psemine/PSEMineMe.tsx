@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: 'session', label: 'Session' },
 ];
 
+/** Displays one account detail with its value and an optional explanatory hint. */
 const SpecRow: React.FC<{ k: string; v: React.ReactNode; hint?: React.ReactNode }> = ({ k, v, hint }) => (
   <div>
     <strong>{k}</strong>
@@ -28,6 +29,7 @@ const SpecRow: React.FC<{ k: string; v: React.ReactNode; hint?: React.ReactNode 
   </div>
 );
 
+/** Groups account content under a stable section anchor, heading, optional metadata, and actions. */
 const Section: React.FC<{ id: string; title: string; meta?: string; action?: React.ReactNode; children: React.ReactNode }> = ({
   id, title, meta, action, children,
 }) => (

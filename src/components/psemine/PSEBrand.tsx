@@ -4,6 +4,7 @@ const MARK_BONE = '#E9EDF2';
 const MARK_STEEL = 'rgba(233,237,242,0.42)';
 const MARK_CUT = '#252B33';
 
+/** Renders the PSEmine emblem at the requested size, optionally with its wordmark. */
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return (
     <span className="pm-brand-logo">

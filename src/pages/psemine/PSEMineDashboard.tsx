@@ -23,6 +23,7 @@ function toolRate(tool: PseStateTool): number {
   return toolDef(tool)?.hourlyRateGBP ?? 0;
 }
 
+/** Summarizes campaign state, operating tools, capacity, balances, and recent activity with maintenance actions. */
 export const PSEMineDashboard: React.FC = () => {
   const { state, campaignStatus, loading, error, refresh, refreshing, activities } = usePseState();
   const { maintainTool, pseUser, purchases } = usePSEMine();
@@ -176,6 +177,7 @@ export const PSEMineDashboard: React.FC = () => {
   );
 };
 
+/** Displays one owned tool with its operating state, countdown, capacity, and eligible restart action. */
 function ToolRow({ tool, miningLive, serverNowMs, onMaintain, maintaining }: {
   tool: PseStateTool; miningLive: boolean; serverNowMs: number; onMaintain: (id: string) => void; maintaining: boolean;
 }) {
@@ -203,6 +205,7 @@ function ToolRow({ tool, miningLive, serverNowMs, onMaintain, maintaining }: {
   );
 }
 
+/** Renders the supplied activity records as a compact ledger, preferring minor-unit amounts when present. */
 function ActivityPreview({ activities }: { activities: ReturnType<typeof usePseState>['activities'] }) {
   if (activities.length === 0) return <div className="pm-empty"><p>No backend activity records yet. Purchases, referral qualifications and campaign milestones appear when recorded.</p></div>;
   return (

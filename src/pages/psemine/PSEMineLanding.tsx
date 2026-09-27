@@ -17,6 +17,7 @@ const FAQS = [
   ['Does PSEmine use PulseEarn points or tasks?', 'No. The products share an identity provider, but PSEmine access, campaign records and GBP accounting are separate from PulseEarn rewards.'],
 ];
 
+/** Presents public campaign information, tool tiers, and account-aware navigation to signup or the console. */
 export const PSEMineLanding: React.FC = () => {
   const { campaign, loading: campaignLoading } = usePSEMine();
   const { currentUser, loading: authLoading } = usePSEMineAuth();

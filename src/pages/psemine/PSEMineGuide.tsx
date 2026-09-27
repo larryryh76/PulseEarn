@@ -22,6 +22,7 @@ const FAQS = [
   { q: 'Does PSEmine use my PulseEarn points?', a: 'No. PSEmine and PulseEarn share one sign-in identity and nothing else. PSEmine works in GBP campaign earnings and BNB payouts; PulseEarn points, tasks and rewards never apply here.' },
 ];
 
+/** Displays the guide security explanation with an expandable section of technical details. */
 const SecurityBody: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   return (
@@ -192,6 +193,7 @@ const SECTIONS: Section[] = [
   },
 ];
 
+/** Renders the campaign guide with chapter progress and optional onboarding completion. */
 export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = false }) => {
   usePseDocumentTitle(onboarding ? 'Onboarding' : 'Campaign guide');
   const { currentUser, userData } = usePSEMineAuth();

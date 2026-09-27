@@ -10,6 +10,7 @@ const FILTERS: Array<{ id: FilterId; label: string }> = [
   { id: 'wallet', label: 'Wallet' }, { id: 'campaign', label: 'Campaign & payout' },
 ];
 
+/** Matches an activity type to a filter using case-insensitive event-name fragments. */
 function matchesFilter(type: string, filter: FilterId): boolean {
   if (filter === 'all') return true;
   const value = type.toLowerCase();
@@ -20,24 +21,29 @@ function matchesFilter(type: string, filter: FilterId): boolean {
   return value.includes('campaign') || value.includes('settlement') || value.includes('payout') || value.includes('accrual');
 }
 
+/** Returns the event metadata status when it is a string, otherwise null. */
 function eventStatus(activity: PseActivity): string | null {
   const status = activity.metadata?.status;
   return typeof status === 'string' ? status : null;
 }
+/** Returns the first non-nullish reference field when it is a string, otherwise null. */
 function eventReference(activity: PseActivity): string | null {
   const reference = activity.metadata?.referenceId ?? activity.metadata?.purchaseId ?? activity.metadata?.referralId ?? activity.metadata?.payoutId;
   return typeof reference === 'string' ? reference : null;
 }
+/** Groups an activity by its local calendar date, using an undated key for invalid or missing timestamps. */
 function dayKey(activity: PseActivity) {
   const date = toDateSafe(activity.createdAt);
   return date ? date.toLocaleDateString('en-CA') : 'undated';
 }
+/** Formats a year-month-day group key as a local date heading, with a label for undated records. */
 function dayLabel(key: string) {
   if (key === 'undated') return 'Undated records';
   const [year, month, day] = key.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/** Displays backend activity records with search, type and status filters, date sorting, and daily groups. */
 export const PSEMineActivity: React.FC = () => {
   const { activities, refresh, refreshing, error, loading, state, feedErrors, refreshFeed } = usePseState();
   const [filter, setFilter] = useState<FilterId>('all');

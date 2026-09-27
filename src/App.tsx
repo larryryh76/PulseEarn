@@ -144,6 +144,7 @@ const AppLayout: React.FC = () => {
   );
 };
 
+/** Mounts application routes, shared services, and the providers for each product. */
 function App() {
   return (
     <BrowserRouter>

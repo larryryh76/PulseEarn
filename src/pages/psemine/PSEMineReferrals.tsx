@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 const MAX_REFERRALS = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
 const BONUS = PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR;
 
+/** Displays referral qualification, reported capacity, invitation sharing, and backend referral records. */
 export const PSEMineReferrals: React.FC = () => {
   const { referrals, referralCode, loading, error, refresh, refreshing, state, feedErrors, refreshFeed } = usePseState();
   const { userData } = usePSEMineAuth();

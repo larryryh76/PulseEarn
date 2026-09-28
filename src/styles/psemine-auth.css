@@ -5,25 +5,168 @@
  * WHY THIS IS A SEPARATE FILE
  * `src/styles/psemine.css` owns the product's visual language and is loaded by
  * `src/main.tsx`; it is also consumed by the landing page, the loader and the
- * console primitives. These four rules extend it for the auth surfaces only, so
- * they live here and load immediately after it — which is what makes the
- * overrides below safe: same specificity, later in the cascade, deliberately
- * scoped to the auth family and to nothing else.
+ * console primitives. These rules extend it for the auth surfaces only, so they
+ * live here and load immediately after it — which is what makes the
+ * re-compositions below safe: the same specificity, later in the cascade by
+ * construction, deliberately scoped to the auth family and to nothing else.
  *
  * The plane is NOT declared here. It comes from `.pse-plane` in psemine.css, so
  * a sign-in surface and the landing page are the same product.
- */
+ *
+ * THE FORM'S SURFACE CHANGES WITH THE COMPOSITION, ON PURPOSE
+ *   < 768px   the form is a full-bleed column: on a phone width is the scarce
+ *             resource and a card would only eat it.
+ *   768-1023  the form IS the page, so it becomes a card — a lifted surface with
+ *             the shadow-as-border ring and one accent hairline across its top
+ *             edge, because at that size it needs a defined edge to read as a
+ *             surface rather than as loose controls.
+ *   ≥ 1024px  the brand panel arrives and takes over the page's surface, so the
+ *             form drops back to a plain column. Two competing surfaces on one
+ *             screen is the thing that makes a sign-in page look assembled
+ *             rather than designed.
+ * ───────────────────────────────────────────────────────────────────────── */
 
-/* ── The form as an instrument ──────────────────────────────────────────────
- * On a phone the form is a full-bleed column: width is the scarce resource and
- * a card would only eat it. From tablet up it becomes one of the product's own
- * objects — a lifted surface with the shadow-as-border ring and the inner top
- * highlight the rest of the product uses — because at that size the form needs
- * a defined edge to read as a surface rather than as loose controls.
- * ────────────────────────────────────────────────────────────────────────── */
+/* ── The composition ──────────────────────────────────────────────────────── */
+.pse-auth-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  padding: 0;
+}
+
+.pse-auth-formwrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2.75rem var(--pse-gutter) 3.5rem;
+}
+
+/* ── The brand panel ───────────────────────────────────────────────────────
+ * Artwork, not information: a precision plate holding the emblem, the lockup, a
+ * calibration rail down its left edge, one inset hairline frame, and the emblem
+ * again as a faint watermark. Nothing here states a figure or a state — which is
+ * why the whole panel is `aria-hidden` in the markup.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-auth-panel { display: none; }
+
+@media (min-width: 1024px) {
+  .pse-auth-panel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 540px;
+    padding: 3rem;
+    overflow: hidden;
+    background: var(--pse-surface);
+    border-right: 1px solid var(--pse-rule-2);
+  }
+
+  /* One hairline frame inset from the panel's edges: engineered, not decorative. */
+  .pse-auth-panel::before {
+    content: '';
+    position: absolute;
+    inset: 2.25rem;
+    border: 1px solid var(--pse-rule-2);
+    border-radius: var(--pse-r-lg);
+  }
+
+  .pse-auth-panel-rail {
+    position: absolute;
+    left: 3.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .pse-auth-panel-rail::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -0.5rem;
+    bottom: -0.5rem;
+    width: 1px;
+    background: var(--pse-rule-2);
+  }
+
+  .pse-auth-panel-tick { position: relative; display: block; width: 7px; height: 1px; background: var(--pse-rule); }
+
+  .pse-auth-panel-node {
+    position: relative;
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--pse-accent);
+    box-shadow: 0 0 0 3px var(--pse-surface);
+  }
+
+  .pse-auth-panel-watermark {
+    position: absolute;
+    right: -4.5rem;
+    bottom: -3.5rem;
+    opacity: 0.05;
+    color: var(--pse-ink);
+    pointer-events: none;
+  }
+
+  .pse-auth-panel-watermark svg { display: block; }
+
+  .pse-auth-panel-lockup {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.35rem;
+  }
+
+  .pse-auth-plate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 104px;
+    height: 104px;
+    border-radius: var(--pse-r-lg);
+    background: linear-gradient(180deg, var(--pse-surface-2), var(--pse-surface));
+    box-shadow: var(--pse-ring), var(--pse-lift-2);
+  }
+
+  .pse-auth-panel-wordmark { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+
+  .pse-auth-panel-name {
+    font-size: 1.375rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--pse-ink);
+  }
+
+  .pse-auth-panel-sub {
+    font-family: var(--pse-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--pse-ink-3);
+  }
+
+  .pse-auth-main { grid-template-columns: minmax(0, 1fr) minmax(0, 512px); }
+  .pse-auth-formwrap { align-items: center; padding: 3.5rem 3.5rem 3.5rem 4rem; }
+
+  /* One surface owns the screen: the panel. The form is a column again. */
+  .pse-auth-col { max-width: 400px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  .pse-auth-col::before { content: none; }
+}
+
+/* ── The form as an instrument ─────────────────────────────────────────────
+ * The card treatment, for the one band where the form is the whole page.
+ * ───────────────────────────────────────────────────────────────────────── */
 .pse-auth-col { position: relative; width: 100%; max-width: 392px; }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .pse-auth-col {
     max-width: 452px;
     padding: 2rem 2rem 1.75rem;
@@ -32,9 +175,9 @@
     box-shadow: var(--pse-ring), var(--pse-lift-2);
   }
 
-  /* One accent hairline across the top edge — the same mark every instrument
-     in the product carries, and the only colour on the screen until a control
-     is actually used. */
+  /* One accent hairline across the top edge — the same mark every instrument in
+     the product carries, and the only colour on the screen until a control is
+     actually used. */
   .pse-auth-col::before {
     content: '';
     position: absolute;
@@ -46,17 +189,22 @@
   }
 }
 
-/* ── Brand presence at the task itself ──────────────────────────────────────
- * The bar carries the full lockup for navigation; this carries a quiet mark and
- * the product name immediately above the task, so a person who landed straight
- * on `/mine/login` still knows what they are signing into. Name only — no
- * descriptor, because the descriptor is a product statement and this is a form.
- * ────────────────────────────────────────────────────────────────────────── */
+/* ── Brand presence at the task ─────────────────────────────────────────────
+ * Name only — no descriptor, because the descriptor is a product statement and
+ * this is a form.
+ * ───────────────────────────────────────────────────────────────────────── */
 .pse-auth-brand {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1.35rem;
+}
+
+/* From 1024px the panel carries the lockup, so the form must NOT repeat it: two
+   lockups on one screen is what makes a sign-in page look assembled. Declared
+   here, after the base rule, so the cascade order is the whole mechanism. */
+@media (min-width: 1024px) {
+  .pse-auth-brand { display: none; }
 }
 
 .pse-auth-brand-name {
@@ -77,7 +225,7 @@
  * Four steps on one rail, driven by the real input and shown only once there is
  * an input. It reports a quality band, never a score and never a percentage,
  * and the colour only moves through the semantic set the product already uses.
- * ────────────────────────────────────────────────────────────────────────── */
+ * ───────────────────────────────────────────────────────────────────────── */
 .pse-meter {
   display: block;
   height: 3px;

@@ -1,32 +1,39 @@
 /**
  * PSEmine product art — the drawn vocabulary of the product.
  *
- * Three families, all specific to PSEmine, and all drawn rather than the result
- * of a stock icon set or a photograph:
+ * Two families, both specific to PSEmine, both drawn rather than borrowed from
+ * an icon set or a photograph:
  *
  * 1. GLYPHS (`PseGlyph`)
  *    One idea per glyph, 24×24, one stroke weight. They label the stages of a
- *    pipeline and the claims in the trust grid. Each draws exactly what it
- *    names, because a sequence reads faster when the marks are literal: a quote,
- *    a wallet, a verification, an activation; accrual, settlement, review, a
+ *    pipeline and the claims on the trust map. Each draws exactly what it names,
+ *    because a sequence reads faster when the marks are literal: a quote, a
+ *    wallet, a verification, an activation; accrual, settlement, review, a
  *    payout; a server, a chain, an audit trail, a shield.
  *
  * 2. THE EQUIPMENT FAMILY (`PseTierModule`)
- *    One chassis, four interiors. Every tier is the same drawn machine — body,
- *    base rail, side vent — and the tier is carried by the *interior topology*:
- *    how many cells are populated and how they are arranged. Starter is one
- *    cell, Builder two stacked, Advanced a 2×2 block, Elite four across the rail
- *    with a continuous-duty crest above it. So the four tools read as one
- *    product line of increasing sophistication rather than four unrelated
- *    objects, and the difference is legible at 88px without any colour help.
+ *    Four engineered instruments on one 120×96 grid, drawn from a single
+ *    grammar so they read as one product line rather than four cards:
  *
- * 3. THE TIER RATE CELL (`PseTierCell`)
- *    The compact roster form used inside the hero specimen.
+ *      PLINTH      a base plate with two feet — every unit stands on it
+ *      CALIBRATION a ticked rail up the left edge — every unit is calibrated
+ *      MAST        a capacity column on the right that GROWS WITH THE TIER
+ *      FRAME       the instrument frame, taller as the tier rises
+ *      CELLS       the working surface, more continuous as the tier rises
+ *      CREST       Elite's continuous-duty bar — the only tier that carries one,
+ *                  because Elite is the only tier that mines continuously
+ *
+ *    The progression is geometric and deliberate: Starter is a low, narrow
+ *    chassis with a single cell; Builder stacks two; Advanced opens into a 2×2
+ *    lattice and introduces the restrained violet; Elite is the tallest frame,
+ *    a full four-column bank plus the continuous crest in cyan. Silhouette and
+ *    cell topology carry the tier — not colour alone, and not four hues — so the
+ *    difference is legible at 60px, in monochrome, and to a colour-blind reader.
  *
  * HONESTY. Nothing here is a readout. No glyph carries a number, a live state or
- * progress, because none of them knows anything about a particular visitor. The
- * accent colour is used to mark the single element each glyph or module is
- * actually about — never as decoration.
+ * progress, because none of them knows anything about a particular visitor. A
+ * cell's fill marks which part of the instrument is *active*, never how much of
+ * anything a person holds.
  */
 import React from 'react';
 
@@ -175,73 +182,188 @@ export const PseGlyph: React.FC<{ name: PseGlyphName; size?: number; className?:
 
 /* ═══════════════════ THE EQUIPMENT FAMILY ═══════════════════ */
 
-/** Body, base rail, vent. Shared by every tier — this is the family grammar. */
-const CHASSIS = (
+/** One 120×96 grid. Plinth at y=78 so every unit stands on the same floor. */
+const GRID_W = 120;
+const GRID_H = 96;
+const FLOOR = 78;
+
+const ACCENT = 'var(--pse-accent)';
+const CYAN = 'var(--pse-cyan)';
+const VIOLET = 'var(--pse-violet)';
+
+interface PseCell {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill: string;
+  opacity?: number;
+  /** The cell the tier is "about" — the only one that brightens on hover. */
+  key?: boolean;
+}
+
+interface PseEquipProfile {
+  /** The instrument frame: taller and wider as the tier rises. */
+  frame: { x: number; y: number; w: number; h: number };
+  /** The working cells inside the frame. */
+  cells: ReadonlyArray<PseCell>;
+  /** Where the capacity mast starts, and what it is filled with. */
+  mastTop: number;
+  mastFill: string;
+  mastOpacity: number;
+  /** Elite only: the continuous-duty crest, drawn above the frame. */
+  crest?: { x: number; w: number };
+}
+
+/**
+ * The four profiles. Read them as one family: the frame grows, the mast grows,
+ * the cells multiply, and the last one gains a crest.
+ */
+const EQUIPMENT: Record<number, PseEquipProfile> = {
+  1: {
+    frame: { x: 24, y: 52, w: 58, h: 26 },
+    mastTop: 62,
+    mastFill: ACCENT,
+    mastOpacity: 0.34,
+    cells: [{ x: 34, y: 60, w: 38, h: 10, fill: ACCENT, key: true }],
+  },
+  2: {
+    frame: { x: 22, y: 38, w: 64, h: 40 },
+    mastTop: 46,
+    mastFill: ACCENT,
+    mastOpacity: 0.55,
+    cells: [
+      { x: 32, y: 46, w: 44, h: 11, fill: ACCENT, opacity: 0.5 },
+      { x: 32, y: 62, w: 44, h: 11, fill: ACCENT, key: true },
+    ],
+  },
+  3: {
+    frame: { x: 20, y: 30, w: 70, h: 48 },
+    mastTop: 34,
+    mastFill: VIOLET,
+    mastOpacity: 0.7,
+    cells: [
+      { x: 28, y: 38, w: 26, h: 13, fill: ACCENT, key: true },
+      { x: 56, y: 38, w: 26, h: 13, fill: VIOLET, opacity: 0.85 },
+      { x: 28, y: 57, w: 26, h: 13, fill: ACCENT, opacity: 0.7 },
+      { x: 56, y: 57, w: 26, h: 13, fill: VIOLET, opacity: 0.5 },
+    ],
+  },
+  4: {
+    frame: { x: 18, y: 22, w: 76, h: 56 },
+    mastTop: 24,
+    mastFill: CYAN,
+    mastOpacity: 1,
+    crest: { x: 30, w: 58 },
+    cells: [
+      { x: 26, y: 30, w: 56, h: 13, fill: ACCENT, key: true },
+      { x: 26, y: 50, w: 12, h: 20, fill: ACCENT, opacity: 0.8 },
+      { x: 41, y: 50, w: 12, h: 20, fill: ACCENT, opacity: 0.62 },
+      { x: 56, y: 50, w: 12, h: 20, fill: CYAN, opacity: 0.8 },
+      { x: 71, y: 50, w: 11, h: 20, fill: CYAN },
+    ],
+  },
+};
+
+/** The grammar every unit shares: plinth, feet, calibration rail, capacity mast. */
+const PseEquipChassis: React.FC<{ mastTop: number; mastFill: string; mastOpacity: number }> = ({
+  mastTop,
+  mastFill,
+  mastOpacity,
+}) => (
   <>
-    <rect x="5" y="11" width="78" height="34" rx="6" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
-    <path d="M9 45h70" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.22" />
-    <path d="M76 18.5h3.4M76 24h3.4M76 29.5h3.4M76 35h3.4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.28" />
+    {/* Plinth and its two feet — one floor for the whole family. */}
+    <rect x="14" y={FLOOR} width="92" height="9" rx="3" stroke={S} strokeWidth="1.2" opacity="0.42" />
+    <path d={`M26 ${FLOOR + 9}v5M94 ${FLOOR + 9}v5`} stroke={S} strokeWidth="1.2" strokeLinecap="round" opacity="0.26" />
+
+    {/* Calibration rail with four ticks — the family's left edge. */}
+    <path d="M13 34v44" stroke={S} strokeWidth="1.1" strokeLinecap="round" opacity="0.22" />
+    <path
+      d="M13 40h5M13 52h5M13 64h5M13 76h3"
+      stroke={S}
+      strokeWidth="1.1"
+      strokeLinecap="round"
+      opacity="0.3"
+    />
+
+    {/* Capacity mast — the column that grows with the tier. */}
+    <rect x="104" y={mastTop} width="8" height={FLOOR - mastTop} rx="2" stroke={S} strokeWidth="1.1" opacity="0.3" />
+    <rect className="pse-equip-mast" x="104" y={mastTop} width="8" height={FLOOR - mastTop} rx="2" fill={mastFill} opacity={mastOpacity} />
   </>
 );
 
 /**
- * Interior cells per tier. Fewer, larger cells at the bottom of the family and
- * a populated rail at the top: the arrangement itself is the tier identity.
- */
-const INTERIOR: Record<number, ReadonlyArray<{ x: number; y: number; w: number; h: number; fill?: string; opacity?: number }>> = {
-  1: [{ x: 26, y: 21, w: 42, h: 14, fill: 'var(--pse-accent)' }],
-  2: [
-    { x: 24, y: 16, w: 46, h: 9, fill: 'var(--pse-accent)', opacity: 0.55 },
-    { x: 24, y: 30, w: 46, h: 9, fill: 'var(--pse-accent)' },
-  ],
-  3: [
-    { x: 17, y: 16, w: 24, h: 9, fill: 'var(--pse-accent)' },
-    { x: 47, y: 16, w: 22, h: 9, fill: 'var(--pse-violet)', opacity: 0.85 },
-    { x: 17, y: 30, w: 24, h: 9, fill: 'var(--pse-accent)', opacity: 0.75 },
-    { x: 47, y: 30, w: 22, h: 9, fill: 'var(--pse-violet)', opacity: 0.5 },
-  ],
-  4: [
-    { x: 12, y: 20, w: 14, h: 16, fill: 'var(--pse-accent)' },
-    { x: 30, y: 20, w: 14, h: 16, fill: 'var(--pse-accent)', opacity: 0.8 },
-    { x: 48, y: 20, w: 14, h: 16, fill: 'var(--pse-cyan)', opacity: 0.75 },
-    { x: 66, y: 20, w: 9, h: 16, fill: 'var(--pse-cyan)' },
-  ],
-};
-
-/**
- * One drawn mining unit. The tier changes the interior and, at the top of the
- * family, adds the continuous-duty crest — the one visual claim Elite makes
- * about itself, and one the product actually honours.
+ * One drawn mining unit. The tier is carried by the frame, the mast and the cell
+ * topology — so the four belong to one product line and the difference survives
+ * at 60px, in monochrome, and without colour.
  */
 export const PseTierModule: React.FC<{
   tier: number;
-  /** Continuous-operation tier (Elite). */
+  /** Continuous-operation tier (Elite). Draws the crest. */
   continuous?: boolean;
   width?: number;
   className?: string;
-}> = ({ tier, continuous = false, width = 88, className }) => {
-  const cells = INTERIOR[Math.min(4, Math.max(1, tier))] ?? INTERIOR[1];
+}> = ({ tier, continuous = false, width = 120, className }) => {
+  const profile = EQUIPMENT[Math.min(4, Math.max(1, tier))] ?? EQUIPMENT[1];
+
   return (
     <svg
       width={width}
-      height={(width * 56) / 88}
-      viewBox="0 0 88 56"
+      height={(width * GRID_H) / GRID_W}
+      viewBox={`0 0 ${GRID_W} ${GRID_H}`}
       fill="none"
       aria-hidden="true"
       focusable="false"
       shapeRendering="geometricPrecision"
       className={`pse-tool-module ${className || ''}`}
     >
-      {continuous && (
+      {profile.crest && continuous && (
         <>
-          <rect x="30" y="3" width="28" height="3" rx="1.5" fill="var(--pse-cyan)" />
-          <path d="M22 7.5h44" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.3" />
+          <rect
+            className="pse-equip-crest"
+            x={profile.crest.x}
+            y="13"
+            width={profile.crest.w}
+            height="6"
+            rx="3"
+            fill={CYAN}
+          />
+          <path
+            d={`M${profile.crest.x - 4} 21h${profile.crest.w + 8}`}
+            stroke={S}
+            strokeWidth="1.1"
+            strokeLinecap="round"
+            opacity="0.28"
+          />
         </>
       )}
-      {CHASSIS}
-      {cells.map((c, i) => (
-        <rect key={i} x={c.x} y={c.y} width={c.w} height={c.h} rx="2.5" fill={c.fill} opacity={c.opacity ?? 1} />
+
+      <rect
+        x={profile.frame.x}
+        y={profile.frame.y}
+        width={profile.frame.w}
+        height={profile.frame.h}
+        rx="5"
+        stroke={S}
+        strokeWidth="1.2"
+        opacity="0.46"
+      />
+
+      {profile.cells.map((cell, i) => (
+        <rect
+          key={i}
+          className={cell.key ? 'pse-equip-cell pse-equip-cell--key' : 'pse-equip-cell'}
+          x={cell.x}
+          y={cell.y}
+          width={cell.w}
+          height={cell.h}
+          rx="2.5"
+          fill={cell.fill}
+          opacity={cell.opacity ?? 1}
+        />
       ))}
+
+      <PseEquipChassis mastTop={profile.mastTop} mastFill={profile.mastFill} mastOpacity={profile.mastOpacity} />
     </svg>
   );
 };

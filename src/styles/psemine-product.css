@@ -1,0 +1,695 @@
+/*
+ * PSEmine — the landing page's art-direction layer.
+ *
+ * WHY THIS IS A SEPARATE FILE
+ * `src/styles/psemine.css` owns the product's tokens, type roles, controls,
+ * console primitives, the surface ladder and the shared instruments (capacity
+ * instrument, lifecycle rail, flow rail, equipment family, application window).
+ * This file owns the *composed* surfaces the landing page is built from — the
+ * asymmetric split, the purchase console, the settlement statement, the trust
+ * map and the branded loader — plus the handful of rules that re-compose the
+ * hero, the FAQ and the closing band.
+ *
+ * It is loaded by `src/main.tsx` immediately after psemine.css, which is what
+ * makes the re-compositions below safe: the same specificity, later in the
+ * cascade by construction, and every rule scoped to a `.pse-` class.
+ *
+ * THE COMPOSITION RULE FOR THIS FILE. Every surface declares its own ladder
+ * position instead of hoping to inherit one:
+ *   canvas   → the page
+ *   panel    → a module that groups related controls   (--pse-surface + ring)
+ *   raised   → a module that carries a decision        (+ one lift step)
+ *   inset    → a recessed well inside a module         (--pse-inset + hairline)
+ * Depth comes from those four steps, from the hairlines between them, and from
+ * exactly one overlap in the hero. Never from a drop shadow stack.
+ */
+
+/* ── Asymmetric composition ───────────────────────────────────────────────
+ * The page alternates a full-bleed instrument with an asymmetric split, and the
+ * split declares which side carries the object — so the object never lands on
+ * the same side twice in a row, and the reading column is never a leftover.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+
+.pse-split-text { display: flex; flex-direction: column; align-items: flex-start; }
+
+/* A paragraph that belongs to the reading column but arrives after the header:
+   separated by a hairline rather than by a gap, so it reads as a footnote to the
+   argument instead of a fourth paragraph in a stack. */
+.pse-split-aside { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--pse-rule-2); }
+
+.pse-section-object { margin-top: 2.25rem; }
+
+.pse-section-foot { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--pse-rule-2); max-width: 78ch; }
+
+@media (min-width: 768px) {
+  .pse-section-object { margin-top: 3.25rem; }
+}
+
+@media (min-width: 1024px) {
+  .pse-split { align-items: start; gap: 3.25rem; }
+  .pse-split--object-end { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .pse-split--object-start { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+  .pse-split--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── The application window, continued ────────────────────────────────────
+ * The window itself, its rail and its figures are declared in psemine.css. What
+ * is declared here is the part that makes it a window rather than a card: the
+ * tier roster along the bottom, the specimen footer, and the ONE floating tile
+ * that overlaps the lower edge — so the console sits in front of the page.
+ * ───────────────────────────────────────────────────────────────────────── */
+/* ── The equipment family: the tablet band ────────────────────────────────
+ * Between 640px and 1023px the family is neither the spec table nor the reel:
+ * the instrument sits beside the identity and the capacity, and the two aligned
+ * figures drop to their own row. It is declared HERE rather than in psemine.css
+ * because it is a re-composition, and because the drawn instrument is 150px wide
+ * — a 132px column would clip it by 18px, which is exactly the kind of silent
+ * overflow a specification row must never have.
+ * ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .pse-unit {
+    grid-template-columns: 150px minmax(0, 1fr);
+    grid-template-areas:
+      'art id'
+      'art cap'
+      'meta meta';
+    gap: 1rem 1.5rem;
+  }
+
+  .pse-unit-art { grid-area: art; align-self: start; }
+  .pse-unit-id { grid-area: id; }
+  .pse-unit-cap { grid-area: cap; }
+  .pse-unit-meta { grid-area: meta; }
+}
+
+/* The reel has no scrollbar, so it must leave room for each unit's own shadow
+   inside its own clip — otherwise the cards look cut off along the bottom. */
+@media (max-width: 639px) {
+  .pse-family-list { padding-bottom: 1.15rem; }
+}
+
+.pse-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding-top: 1.05rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-roster-cell { display: flex; flex-direction: column; gap: 0.3rem; }
+.pse-roster-cell .pse-tool-module { color: var(--pse-ink-3); }
+.pse-roster-name { font-size: 0.6875rem; font-weight: 500; color: var(--pse-ink-2); }
+
+.pse-roster-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+.pse-console-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-console-foot-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--pse-ink-3); opacity: 0.6; }
+
+/* On a phone the tile is simply the last row of the module: recomposed, not
+   shrunk, and it keeps its own surface so it still reads as a second layer. */
+.pse-floatcard {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+}
+
+.pse-floatcard-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-floatcard-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.pse-floatcard-term { font-size: 0.8125rem; color: var(--pse-ink-2); }
+.pse-floatcard-val { font-family: var(--pse-mono); font-size: 0.75rem; color: var(--pse-ink); text-align: right; }
+
+@media (min-width: 560px) {
+  .pse-console-body { grid-template-columns: 52px minmax(0, 1fr); }
+
+  .pse-console-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1.15rem 0;
+    border-right: 1px solid var(--pse-rule-2);
+    background: var(--pse-inset);
+  }
+
+  .pse-console-rail-cell { display: flex; opacity: 0.5; transition: opacity var(--pse-t) var(--pse-ease); }
+  .pse-console-rail-cell:first-child { opacity: 0.8; }
+  .pse-console:hover .pse-console-rail-cell { opacity: 0.72; }
+  .pse-console-rail-cell .pse-tool-module { color: var(--pse-ink-2); }
+
+  .pse-roster { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .pse-console-stage { padding-bottom: 1.75rem; }
+
+
+  .pse-floatcard {
+    position: absolute;
+    right: -1.25rem;
+    bottom: -2.25rem;
+    width: 232px;
+    margin-top: 0;
+    transition: transform var(--pse-t) var(--pse-ease);
+  }
+
+  .pse-console-stage:hover .pse-floatcard { transform: translateY(-3px); }
+
+  /* The tile overlaps the window's lower-right corner, so the specimen footer
+     RESERVES that corner for it: an overlap may cover a surface, never a
+     sentence. The footer text wraps before the tile's column. */
+  .pse-console .pse-console-foot { padding-right: 15.5rem; }
+}
+
+/* ── The purchase console ─────────────────────────────────────────────────
+ * A modern wallet flow, not a form and not a bordered paragraph. The amount
+ * hierarchy is the point: the price is fixed and stated in GBP, the BNB amount
+ * is honestly described as issued per quote, and the network carries its own
+ * identity. The state rail names the four real states of a purchase and marks
+ * only the one the specimen is actually at.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-pay {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--pse-r);
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+  overflow: hidden;
+}
+
+.pse-pay-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-pay-bar-title {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink);
+}
+
+.pse-pay-bar-id { font-family: var(--pse-mono); font-size: 0.6875rem; color: var(--pse-ink-3); }
+.pse-pay-bar .pse-chip { margin-left: auto; }
+
+.pse-pay-body { display: flex; flex-direction: column; gap: 1.25rem; padding: 1.25rem; }
+
+.pse-pay-unit { display: flex; align-items: center; gap: 1rem; padding-bottom: 1.15rem; border-bottom: 1px solid var(--pse-rule-2); }
+.pse-pay-unit-art { display: flex; flex: none; color: var(--pse-ink-2); }
+.pse-pay-unit-id { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.pse-pay-unit-rate { font-size: 0.75rem; color: var(--pse-ink-3); }
+
+.pse-pay-amount { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.9rem; }
+.pse-pay-amount-side { display: flex; flex-direction: column; gap: 0.3rem; }
+.pse-pay-amount-note { font-size: 0.75rem; line-height: 1.5; color: var(--pse-ink-3); }
+.pse-pay-amount-quoted { color: var(--pse-ink-3); }
+.pse-pay-amount-link { display: none; }
+
+@media (min-width: 560px) {
+  .pse-pay-amount { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 1rem; }
+
+  /* The rate is the connector between the two denominations, drawn vertically
+     between them — the one place in the product where a unit is translated. */
+  .pse-pay-amount-link { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; align-self: stretch; }
+  .pse-pay-amount-line { flex: 1 1 auto; width: 1px; background: var(--pse-rule); }
+  .pse-pay-amount-rate {
+    writing-mode: vertical-rl;
+    font-family: var(--pse-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--pse-ink-3);
+  }
+}
+
+.pse-pay-net {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-inset);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+}
+
+.pse-pay-net-mark { display: flex; flex: none; }
+.pse-pay-net-id { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.pse-pay-net-name { font-size: 0.875rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
+.pse-pay-net-note { font-size: 0.75rem; color: var(--pse-ink-3); }
+
+.pse-pay-states { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0; list-style: none; }
+
+.pse-pay-state { position: relative; display: flex; align-items: center; gap: 0.6rem; padding: 0 0 0.85rem; }
+.pse-pay-state:last-child { padding-bottom: 0; }
+
+.pse-pay-state:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 12px;
+  bottom: 0;
+  width: 1px;
+  background: var(--pse-rule-2);
+}
+
+.pse-pay-state-node {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pse-surface-3);
+  box-shadow: 0 0 0 1px var(--pse-rule);
+  transition: background-color var(--pse-t) var(--pse-ease), box-shadow var(--pse-t) var(--pse-ease);
+}
+
+.pse-pay-state-name {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  transition: color var(--pse-t) var(--pse-ease);
+}
+
+.pse-pay-state[data-active='true'] .pse-pay-state-node {
+  background: var(--pse-accent);
+  box-shadow: 0 0 0 1px var(--pse-accent), 0 0 0 4px var(--pse-accent-quiet);
+}
+
+.pse-pay-state[data-active='true'] .pse-pay-state-name { color: var(--pse-accent); }
+
+@media (min-width: 560px) {
+  .pse-pay-states { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 0.5rem; }
+  .pse-pay-state { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.85rem 0 0; }
+
+  .pse-pay-state:not(:last-child)::after {
+    left: 16px;
+    top: 3px;
+    bottom: auto;
+    width: calc(100% + 0.5rem - 16px);
+    height: 1px;
+  }
+}
+
+.pse-pay-foot { display: grid; gap: 0.6rem; padding: 1.1rem; border-top: 1px solid var(--pse-rule-2); background: var(--pse-inset); }
+.pse-pay-foot-note { font-size: 0.75rem; color: var(--pse-ink-3); }
+
+/* ── The settlement statement ─────────────────────────────────────────────
+ * The one place in the product where the unit a figure is denominated in
+ * changes, drawn as a statement: the denomination legend down the left, then the
+ * four stages as rows with their unit and their meaning in aligned columns.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-statement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  padding: 1.35rem;
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
+
+.pse-statement-side { display: flex; flex-direction: column; align-items: flex-start; }
+
+.pse-statement-unit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  height: 30px;
+  padding-inline: 0.6rem;
+  border-radius: var(--pse-r-xs);
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  background: var(--pse-accent-quiet);
+  color: var(--pse-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-accent) 30%, transparent);
+}
+
+.pse-statement-unit[data-unit='bnb'] {
+  background: color-mix(in srgb, var(--pse-bnb) 14%, transparent);
+  color: var(--pse-bnb);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-bnb) 32%, transparent);
+}
+
+.pse-statement-wire { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding-block: 0.45rem; margin-left: 1.625rem; }
+.pse-statement-wire-line { width: 1px; height: 14px; background: var(--pse-rule); }
+
+.pse-statement-wire-swap {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-statement-side-note { margin-top: 0.75rem; font-size: 0.75rem; line-height: 1.55; color: var(--pse-ink-3); max-width: 34ch; }
+
+.pse-statement-head { display: none; }
+.pse-statement-rows { margin: 0; padding: 0; list-style: none; }
+
+.pse-statement-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-statement-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-statement-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-inset);
+  color: var(--pse-ink-2);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+  transition: color var(--pse-t) var(--pse-ease);
+}
+
+.pse-statement-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+
+.pse-statement-unit-tag {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-2);
+}
+
+.pse-statement-note { grid-column: 2; font-size: 0.8125rem; line-height: 1.55; color: var(--pse-ink-2); }
+
+/* The terminal row is where the denomination changes — the only row allowed a
+   colour, and only in the two tokens that mean what it says. */
+.pse-statement-row[data-terminal='true'] { color: var(--pse-cyan); }
+.pse-statement-row[data-terminal='true'] .pse-statement-glyph { color: var(--pse-cyan); background: color-mix(in srgb, var(--pse-cyan) 12%, transparent); }
+.pse-statement-row[data-terminal='true'] .pse-statement-unit-tag { color: var(--pse-bnb); }
+
+.pse-statement-row:hover .pse-statement-glyph { color: var(--pse-accent); }
+
+@media (min-width: 720px) {
+  .pse-statement-head {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) 58px minmax(0, 1.7fr);
+    gap: 1rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--pse-rule);
+    font-family: var(--pse-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--pse-ink-3);
+  }
+
+  .pse-statement-row { grid-template-columns: 30px minmax(0, 1fr) 58px minmax(0, 1.7fr); gap: 1rem; padding: 0.85rem 0; }
+  .pse-statement-note { grid-column: auto; }
+}
+
+@media (min-width: 900px) {
+  .pse-statement { grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; padding: 1.75rem; }
+}
+
+/* ── The trust map ────────────────────────────────────────────────────────
+ * One account record, four properties wired to it. A grid of four blocks says
+ * "four features"; a map says "four properties of one system", which is the
+ * actual claim, and the wire is what makes it a map.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-trustmap { position: relative; display: flex; flex-direction: column; }
+
+.pse-trustmap-core {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--pse-r);
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
+
+.pse-trustmap-core::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -1.85rem;
+  width: 1px;
+  height: 1.85rem;
+  background: linear-gradient(180deg, var(--pse-rule), var(--pse-rule-2));
+}
+
+.pse-trustmap-core::before {
+  content: '';
+  position: absolute;
+  left: calc(50% - 3px);
+  bottom: calc(-1.85rem - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pse-accent);
+  box-shadow: 0 0 0 3px var(--pse-canvas);
+}
+
+.pse-trustmap-core-art { display: flex; flex: none; }
+.pse-trustmap-core-art .pse-tool-module { color: var(--pse-ink-3); }
+.pse-trustmap-core-id { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.pse-trustmap-core-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-trustmap-core-note { font-size: 0.8125rem; color: var(--pse-ink-3); }
+
+.pse-trustmap-items {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--pse-r);
+  overflow: hidden;
+  background: var(--pse-rule-2);
+  box-shadow: var(--pse-ring);
+}
+
+.pse-trustmap-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.15rem;
+  background: var(--pse-surface);
+  transition: background-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-trustmap-item:hover { background: var(--pse-surface-2); }
+
+.pse-trustmap-item-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-accent-quiet);
+  color: var(--pse-accent);
+}
+
+.pse-trustmap-item-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-trustmap-item-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
+
+@media (min-width: 640px) { .pse-trustmap-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pse-trustmap-items { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* ── Hero metadata ────────────────────────────────────────────────────────
+ * Three terms as a divided strip — label above figure, mono figures, one
+ * hairline between cells. It replaces a dot-separated sentence with the way a
+ * product actually states its own terms.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-hero-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  width: 100%;
+  max-width: 31rem;
+  margin: 0;
+  border-block: 1px solid var(--pse-rule-2);
+}
+
+.pse-hero-meta > div { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.85rem 0; }
+.pse-hero-meta > div + div { padding-left: 1.1rem; border-left: 1px solid var(--pse-rule-2); }
+.pse-hero-meta > div + div::before { content: none; }
+
+.pse-hero-meta dt {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-hero-meta dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+/* ── The closing band ─────────────────────────────────────────────────────
+ * One decision, with the first unit drawn beside it so the close is still a
+ * product surface rather than a pair of buttons on a coloured band.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-close-side { display: flex; flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+.pse-close-art { display: flex; color: var(--pse-ink-3); transition: color var(--pse-t) var(--pse-ease); }
+.pse-close-side:hover .pse-close-art { color: var(--pse-ink-2); }
+
+@media (min-width: 900px) {
+  .pse-close-side { align-items: flex-end; }
+}
+
+/* ── FAQ ──────────────────────────────────────────────────────────────────
+ * The accordion, re-composed as a numbered record: the index states the row's
+ * place in the set, which is what makes a long list scannable.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-faq { box-shadow: var(--pse-ring), var(--pse-lift); }
+
+.pse-faq-q {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 13px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pse-faq-index {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-faq-text { font-size: 1rem; font-weight: 450; letter-spacing: -0.012em; line-height: 1.45; }
+.pse-faq-q[aria-expanded='true'] .pse-faq-index { color: var(--pse-accent); }
+.pse-faq-a { padding-left: 4.15rem; }
+
+@media (max-width: 560px) {
+  .pse-faq-q { grid-template-columns: minmax(0, 1fr) 13px; }
+  .pse-faq-index { display: none; }
+  .pse-faq-a { padding-left: 1.15rem; }
+}
+
+/* ── The loader ───────────────────────────────────────────────────────────
+ * An application state, not a page — and the product's brand anchor when there
+ * is genuinely nothing to show yet. A brand plate carrying the emblem, the
+ * product name, one indeterminate rail and one honest sentence naming the real
+ * stage. The plate catches a slow sheen so the surface reads as working.
+ *
+ * WHAT IS DELIBERATELY ABSENT: no percentage, no bar that fills, no scan, no
+ * terminal, no counter, no step list, no "boot sequence", no invented
+ * infrastructure status. The duration genuinely is not known, so the rail never
+ * claims a position in a sequence, and the sheen never claims progress.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-loader {
+  gap: 1.5rem;
+  max-width: 26rem;
+  padding-block: clamp(2.5rem, 7vw, 4rem);
+}
+
+.pse-loader-plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--pse-r-lg);
+  background: linear-gradient(180deg, var(--pse-surface-2), var(--pse-surface));
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+  overflow: hidden;
+}
+
+.pse-loader-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(105deg, transparent 34%, color-mix(in srgb, var(--pse-accent) 20%, transparent) 50%, transparent 66%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-loader-plate::after { animation: pse-loader-sheen 2.9s var(--pse-ease) infinite; }
+}
+
+@keyframes pse-loader-sheen {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
+}
+
+.pse-loader-id { display: inline-flex; align-items: baseline; gap: 0.5rem; }
+.pse-loader-name { font-size: 1.125rem; }
+
+.pse-loader-sub {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-loader-track { width: 208px; height: 3px; }
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+ * The sheen does not run at all — the plate simply sits there, lit by its own
+ * ring, which is the honest static form of "in progress".
+ * ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .pse-loader-plate::after { content: none; }
+  .pse-floatcard,
+  .pse-console-stage:hover .pse-floatcard { transform: none; }
+}

@@ -5,15 +5,17 @@ import { gbp, gbpHour, usePseDocumentTitle } from '../../components/psemine/pseC
 import { PSEmineLogo, PSEmineMark } from '../../components/psemine/PSEBrand';
 import { PseTierModule } from '../../components/psemine/PseMechanism';
 import {
-  CampaignRail,
-  CapacityGauge,
-  FlowPipeline,
-  HeroSpecimen,
-  PaymentSpecimen,
+  CapacityInstrument,
+  FlowRail,
+  HeroConsole,
+  LifecycleRail,
+  PaymentConsole,
   Reveal,
+  StatementPanel,
   Stat,
   StatGrid,
-  TrustGrid,
+  ToolFamily,
+  TrustMap,
   type PseFlowStep,
   type PseTierView,
 } from '../../components/psemine/PseInstruments';
@@ -39,26 +41,30 @@ import {
  * (`PSEMineEntry`) sends a signed-in visitor to the console before this page is
  * mounted at all.
  *
- * COMPOSITION — the page is a product demonstration, not an article.
- *   Hero (copy + application specimen)
- *     01 · the purchase pipeline
- *     02 · the equipment family
- *     03 · the capacity instrument + how a referral qualifies
- *     04 · the campaign rail
- *     05 · the payment specimen + what a quote gives you
- *     06 · the settlement lifecycle
- *     07 · the trust grid
- *     08 · questions
- *     09 · the close
- *   Almost every section carries a real object — a gauge, a rail, a pipeline, a
- *   specimen, a grid of figures — because an instrument says what a paragraph
- *   has to spell out. Prose carries the argument; the objects carry the product.
+ * COMPOSITION — the page is a product, not an article.
+ *
+ *   Hero ............. proposition left, application window right, one floating
+ *                      tile overlapping the window's lower edge
+ *   01 the purchase ... reading column left, the purchase rail right
+ *   02 the tool family  full-bleed equipment specification, one panel
+ *   03 capacity ....... the capacity instrument right, the referral rail left
+ *   04 the campaign .... a full-width lifecycle rail the reader can step through
+ *   05 payment ......... the purchase console left, the quote terms right
+ *   06 settlement ...... a full-width statement, denomination change drawn
+ *   07 security ........ a full-width relationship map, then the reading columns
+ *   08 questions ....... head left, the accordion right
+ *   09 the close ....... one band, one decision
+ *
+ * The composition alternates deliberately — full-bleed instrument, then
+ * asymmetric split, then full-bleed — because nine sections that each open with
+ * a heading over a paragraph is what makes a page read as a document. Every
+ * section also carries a real object: a gauge, a rail, a console, a statement, a
+ * map. Prose carries the argument; the objects carry the product.
  *
  * COPY RULE: the page describes the product, never the system behind it.
  */
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-const MAX_TIER_RATE = Math.max(...TOOLS.map(t => t.hourlyRateGBP));
 
 const isContinuous = (t: (typeof TOOLS)[number]) => t.operating.model === 'continuous';
 
@@ -67,21 +73,11 @@ const TIERS: ReadonlyArray<PseTierView> = TOOLS.map(t => ({
   tier: t.tier,
   name: t.name.replace(/ Miner$/, ''),
   rate: gbpHour(t.hourlyRateGBP),
+  rateValue: t.hourlyRateGBP,
   price: gbp(t.purchasePriceGBP),
   limit: t.maxPerUser,
   continuous: isContinuous(t),
 }));
-
-/** The share of the strongest tier, so the four capacity bars are comparable. */
-const tierWidth = (rate: number) => `${Math.round((rate / MAX_TIER_RATE) * 100)}%`;
-
-/** The four tiers read as an increasing gradient, not four identical blue bars. */
-const tierFill = (tier: number) =>
-  tier >= 4
-    ? 'linear-gradient(90deg, var(--pse-accent), var(--pse-cyan))'
-    : tier === 3
-      ? 'linear-gradient(90deg, var(--pse-accent), var(--pse-violet))'
-      : 'var(--pse-accent)';
 
 const NAV = [
   { href: '#how', label: 'How it works' },
@@ -94,29 +90,67 @@ const NAV = [
 
 /* ── Section furniture ──────────────────────────────────────────────────── */
 
+/**
+ * The section header. The number lives in a left index column that draws a
+ * hairline down the full height of the header, so the nine sections read as one
+ * continuous spine rather than nine unrelated blocks. On small screens the index
+ * folds up above the kicker.
+ */
+const SectionHead: React.FC<{
+  num: string;
+  kicker: string;
+  title: string;
+  lede?: React.ReactNode;
+}> = ({ num, kicker, title, lede }) => (
+  <Reveal className="pse-head">
+    <span className="pse-head-index" aria-hidden="true">
+      <span className="pse-head-num">{num}</span>
+    </span>
+    <div className="pse-head-text">
+      <p className="pse-kicker">{kicker}</p>
+      <h2 className="pse-h2">{title}</h2>
+      {lede && <p className="pse-body pse-measure">{lede}</p>}
+    </div>
+  </Reveal>
+);
+
+/** The header for a full-bleed instrument: index, kicker, title, then the object. */
 const Section: React.FC<{
   id: string;
   num: string;
   kicker: string;
   title: string;
   lede?: React.ReactNode;
-  band?: 'tint' | 'none';
-  wide?: boolean;
+  band?: 'tint';
+  /** The instrument, rendered full width under the header. */
   children: React.ReactNode;
-}> = ({ id, num, kicker, title, lede, band = 'none', wide = false, children }) => (
+  foot?: React.ReactNode;
+}> = ({ id, num, kicker, title, lede, band, children, foot }) => (
   <section id={id} className={`pse-section${band === 'tint' ? ' pse-band--tint' : ''}`}>
     <div className="pse-wrap">
-      <Reveal className={`pse-head${wide ? ' pse-head--wide' : ''}`}>
-        <p className="pse-kicker">
-          <span className="pse-kicker-num">{num}</span>
-          <span className="pse-kicker-text">{kicker}</span>
-        </p>
-        <h2 className="pse-h2">{title}</h2>
-        {lede && <p className="pse-body">{lede}</p>}
-      </Reveal>
-      <div className="mt-8 md:mt-10">{children}</div>
+      <SectionHead num={num} kicker={kicker} title={title} lede={lede} />
+      <div className="pse-section-object">{children}</div>
+      {foot && <div className="pse-section-foot">{foot}</div>}
     </div>
   </section>
+);
+
+/** An asymmetric split: the reading column on one side, the object on the other. */
+const Split: React.FC<{
+  /** Which side carries the object. */
+  object: 'start' | 'end';
+  /** How much of the row the object takes. */
+  weight?: 'even' | 'object-heavy';
+  className?: string;
+  children: React.ReactNode;
+}> = ({ object, weight = 'object-heavy', className = '', children }) => (
+  <div
+    className={`pse-split pse-split--object-${object}${weight === 'even' ? ' pse-split--even' : ''}${
+      className ? ` ${className}` : ''
+    }`}
+  >
+    {children}
+  </div>
 );
 
 const Denom: React.FC<{ tone?: string; children: React.ReactNode }> = ({ tone, children }) => (
@@ -140,6 +174,7 @@ const PURCHASE: ReadonlyArray<PseFlowStep> = [
     glyph: 'wallet',
     name: 'Pay with BNB',
     note: 'Request a quote, then send the exact BNB amount from your own wallet on BNB Smart Chain.',
+    denom: <Denom tone="bnb">BNB</Denom>,
   },
   {
     id: 'verify',
@@ -155,36 +190,72 @@ const PURCHASE: ReadonlyArray<PseFlowStep> = [
   },
 ];
 
-/* ── The settlement lifecycle ───────────────────────────────────────────── */
+/* ── The settlement statement ───────────────────────────────────────────── */
 
-const SETTLEMENT: ReadonlyArray<PseFlowStep> = [
+const SETTLEMENT = [
   {
     id: 'accrue',
-    glyph: 'accrue',
+    glyph: 'accrue' as const,
     name: 'Accrual',
+    unit: 'GBP',
     note: 'Live capacity accrues campaign earnings against a server-side checkpoint.',
-    denom: <Denom>GBP</Denom>,
   },
   {
     id: 'settle',
-    glyph: 'settle',
+    glyph: 'settle' as const,
     name: 'Settlement',
+    unit: 'GBP',
     note: 'Accrual stops at the end of the window and final balances are computed.',
-    denom: <Denom>GBP</Denom>,
   },
   {
     id: 'review',
-    glyph: 'review',
+    glyph: 'review' as const,
     name: 'Review',
+    unit: 'GBP',
     note: 'Each payout passes a review before anything is sent.',
-    denom: <Denom>GBP</Denom>,
   },
   {
     id: 'payout',
-    glyph: 'payout',
+    glyph: 'payout' as const,
     name: 'Payout',
+    unit: 'BNB',
     note: 'Settled GBP is disbursed to the payout wallet on the account.',
-    denom: <Denom tone="bnb">BNB</Denom>,
+    terminal: true,
+  },
+];
+
+/* ── The campaign phases ────────────────────────────────────────────────── */
+
+const PHASES = [
+  {
+    id: 'launch',
+    name: 'Launch',
+    note: 'Opens the campaign · units become available',
+    detail: 'The campaign opens and mining units become available to buy.',
+  },
+  {
+    id: 'mining',
+    name: 'Mining',
+    note: 'Capacity accrues · checkpointed server-side',
+    detail: 'Units operate and capacity accrues against a server-side checkpoint.',
+  },
+  {
+    id: 'settlement',
+    name: 'Settlement',
+    note: 'Accrual stops · final balances computed',
+    detail: 'Accrual stops at the end of the window and final balances are computed.',
+  },
+  {
+    id: 'payout',
+    name: 'Payout',
+    note: 'Disbursed in BNB · after review',
+    detail: 'Settled GBP is disbursed in BNB to payout wallets, after review.',
+  },
+  {
+    id: 'closed',
+    name: 'Closed',
+    note: 'Finished · records remain on the account',
+    detail: 'The campaign is finished. Records stay available on the account.',
   },
 ];
 
@@ -332,12 +403,13 @@ const FaqItem: React.FC<{ q: string; a: React.ReactNode; index: number }> = ({ q
         aria-controls={panelId}
         onClick={() => setOpen(v => !v)}
       >
-        <span>{q}</span>
+        <span className="pse-faq-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        <span className="pse-faq-text">{q}</span>
         <span className="pse-faq-sign" aria-hidden="true" />
       </button>
       {open && (
         <div id={panelId} role="region" aria-labelledby={buttonId} className="pse-faq-a">
-          <p className="pse-body pse-measure">{a}</p>
+          <p className="pse-body">{a}</p>
         </div>
       )}
     </div>
@@ -385,7 +457,9 @@ export const PSEMineLanding: React.FC = () => {
           </nav>
 
           <div className="pse-mast-actions">
-            <Link to="/mine/login" className="pse-mast-link">Sign in</Link>
+            <Link to="/mine/login" className="pse-mast-link">
+              Sign in
+            </Link>
             <CreateAccount size="sm" />
             <button
               type="button"
@@ -417,14 +491,16 @@ export const PSEMineLanding: React.FC = () => {
               ))}
             </nav>
             <div className="pse-drawer-actions">
-              <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block">Sign in</Link>
+              <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block">
+                Sign in
+              </Link>
               <CreateAccount />
             </div>
           </div>
         )}
       </header>
 
-      {/* ── Hero: the argument, and the product that answers it ──────────── */}
+      {/* ── Hero: the argument left, the product that answers it right ───── */}
       <section className="pse-wrap pse-hero">
         <Reveal className="pse-hero-copy">
           <span className="pse-chip">
@@ -444,14 +520,23 @@ export const PSEMineLanding: React.FC = () => {
             <a href="#how" className="pse-btn pse-btn--secondary pse-btn--lg">How it works</a>
           </div>
 
-          <div className="pse-hero-meta mt-8">
-            <span>{PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign</span>
-            <span>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}</span>
-            <span>Earnings in GBP</span>
-          </div>
+          <dl className="pse-hero-meta mt-9">
+            <div>
+              <dt>Campaign</dt>
+              <dd>{PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days</dd>
+            </div>
+            <div>
+              <dt>Network</dt>
+              <dd>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}</dd>
+            </div>
+            <div>
+              <dt>Earnings in</dt>
+              <dd>GBP</dd>
+            </div>
+          </dl>
         </Reveal>
 
-        <HeroSpecimen
+        <HeroConsole
           days={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}
           ceiling={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
           units={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
@@ -460,169 +545,113 @@ export const PSEMineLanding: React.FC = () => {
         />
       </section>
 
-      {/* ── 01 · The purchase ────────────────────────────────────────────── */}
-      <Section
-        id="how"
-        num="01"
-        kicker="The purchase"
-        wide
-        title="Four steps, in order."
-        lede="Every step below happens against an account record. This is the real sequence, drawn as a pipeline — it carries no live figure and no progress."
-      >
-        <FlowPipeline steps={PURCHASE} label="The PSEmine purchase sequence, in four steps" />
-        <p className="pse-small mt-6 pse-measure">
-          There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet, and every
-          paying action happens on your own wallet and on a live quote only.
-        </p>
-      </Section>
+      {/* ── 01 · The purchase: reading column left, the rail right ───────── */}
+      <section id="how" className="pse-section">
+        <div className="pse-wrap">
+          <Split object="end">
+            <div className="pse-split-text">
+              <SectionHead
+                num="01"
+                kicker="The purchase"
+                title="Four steps, in order."
+                lede="Every step below happens against an account record. This is the real sequence, drawn as a pipeline — it carries no live figure and no progress."
+              />
+              <p className="pse-small pse-measure pse-split-aside">
+                There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet, and
+                every paying action happens on your own wallet and on a live quote only.
+              </p>
+            </div>
+            <FlowRail steps={PURCHASE} label="The PSEmine purchase sequence, in four steps" />
+          </Split>
+        </div>
+      </section>
 
-      {/* ── 02 · The equipment family ────────────────────────────────────── */}
+      {/* ── 02 · The tool family: one full-bleed equipment specification ─── */}
       <Section
         id="tools"
         num="02"
         kicker="The tool family"
         band="tint"
-        wide
         title="One product line, four units."
         lede="Each tier has a fixed price, a fixed capacity per hour and an ownership limit. The price is paid in BNB at the rate quoted when you request the quote, so a unit's price never drifts with the market."
+        foot={
+          <p className="pse-small">
+            Session units mine in fixed operating cycles and stop between them until they are restarted — nothing accrues
+            between sessions, and a restart takes a short delay before the next session begins. Holding the maximum of
+            every tier gives {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of unit capacity.
+          </p>
+        }
       >
-        <div className="pse-tools">
-          {TOOLS.map((tool, i) => (
-            <Reveal
-              key={tool.id}
-              as="article"
-              className="pse-tool"
-              delay={i * 70}
-            >
-              <div className="pse-tool-top">
-                <div>
-                  <span className="pse-tool-name">{tool.name}</span>
-                  <span className="pse-tool-tier">Tier {tool.tier}</span>
-                </div>
-                <span className="pse-chip" data-tone={isContinuous(tool) ? 'live' : undefined}>
-                  <span className="pse-chip-dot" aria-hidden="true" />
-                  {isContinuous(tool) ? 'Continuous' : 'Session'}
-                </span>
+        <ToolFamily tiers={TIERS} />
+      </Section>
+
+      {/* ── 03 · The capacity instrument: the object right, the rail left ── */}
+      <section id="capacity" className="pse-section">
+        <div className="pse-wrap">
+          <Split object="end" weight="even">
+            <div className="pse-split-text">
+              <SectionHead
+                num="03"
+                kicker="Capacity model"
+                title="Capacity is a rate, and it has a hard ceiling."
+                lede="Two sources add capacity: the units you own, and referrals that actually qualify. Both are bounded, and both are computed server-side."
+              />
+              <p className="pse-micro pse-split-aside mt-8">How a referral qualifies</p>
+              <ol className="pse-ladder">
+                {[
+                  ['Registered', 'Signed up with your referral code. Nothing is credited at this stage.'],
+                  ['Wallet connected', 'Connected a BNB Smart Chain wallet to their own account.'],
+                  ['Unit purchased', 'Bought a mining unit with their own funds.'],
+                  ['Mining active', 'The unit is operating inside the campaign.'],
+                  ['Qualified', 'All four stages verified — capacity is added from here, not before.'],
+                ].map(([name, note], i, all) => (
+                  <li key={name} className="pse-ladder-step" data-final={i === all.length - 1 ? 'true' : undefined}>
+                    <span className="pse-ladder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                    <span>
+                      <span className="pse-ladder-name">{name}</span>
+                      <span className="pse-ladder-note">{note}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <p className="pse-small pse-measure mt-7">
+                Referral capacity accrues only while you have a unit actually operating, and no capacity is credited
+                retroactively for a referral that qualifies late.
+              </p>
+            </div>
+
+            <Reveal className="pse-panel pse-panel--raised" delay={60}>
+              <div className="pse-panel-head">
+                <span className="pse-h3">Capacity composition</span>
+                <span className="pse-micro">£ per hour</span>
               </div>
-
-              <PseTierModule tier={tool.tier} continuous={isContinuous(tool)} width={96} />
-
-              <div className="pse-tool-cap">
-                <span className="pse-tool-rate">
-                  {gbpHour(tool.hourlyRateGBP).replace('/hour', '')}
-                  <span className="pse-tool-rate-unit">/hour</span>
-                </span>
-                <span className="pse-tool-track">
-                  <span
-                    className="pse-tool-fill"
-                    style={{ '--pse-w': tierWidth(tool.hourlyRateGBP), '--pse-fill': tierFill(tool.tier) } as React.CSSProperties}
-                  />
-                </span>
-              </div>
-
-              <div className="pse-tool-meta">
-                <span>
-                  <span className="pse-tool-meta-key">Price</span>
-                  <span className="pse-tool-meta-val">{gbp(tool.purchasePriceGBP)}</span>
-                </span>
-                <span>
-                  <span className="pse-tool-meta-key">Ownership limit</span>
-                  <span className="pse-tool-meta-val">{tool.maxPerUser} / account</span>
-                </span>
-              </div>
-
-              <div className="pse-tool-foot">
-                <span>{isContinuous(tool) ? 'No restart required' : 'Manual restart between sessions'}</span>
+              <div className="pse-panel-body">
+                <CapacityInstrument
+                  ceiling={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
+                  units={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
+                  referrals={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
+                />
               </div>
             </Reveal>
-          ))}
+          </Split>
         </div>
+      </section>
 
-        <p className="pse-small mt-7 pse-measure">
-          Session units mine in fixed operating cycles and stop between them until they are restarted — nothing accrues
-          between sessions, and a restart takes a short delay before the next session begins. Holding the maximum of
-          every tier gives {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of unit capacity.
-        </p>
-      </Section>
-
-      {/* ── 03 · The capacity instrument ─────────────────────────────────── */}
-      <Section
-        id="capacity"
-        num="03"
-        kicker="Capacity model"
-        wide
-        title="Capacity is a rate, and it has a hard ceiling."
-        lede="Two sources add capacity: the units you own, and referrals that actually qualify. Both are bounded, and both are computed server-side."
-      >
-        <div className="pse-columns pse-columns--weighted">
-          <Reveal className="pse-panel pse-panel--raised" delay={40}>
-            <div className="pse-panel-head">
-              <span className="pse-h3">Capacity composition</span>
-              <span className="pse-micro">£ per hour</span>
-            </div>
-            <div className="pse-panel-body">
-              <CapacityGauge
-                ceiling={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
-                units={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
-                referrals={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
-              />
-            </div>
-          </Reveal>
-
-          <Reveal delay={120}>
-            <p className="pse-micro mb-4">How a referral qualifies</p>
-            <ol className="pse-ladder">
-              {[
-                ['Registered', 'Signed up with your referral code. Nothing is credited at this stage.'],
-                ['Wallet connected', 'Connected a BNB Smart Chain wallet to their own account.'],
-                ['Unit purchased', 'Bought a mining unit with their own funds.'],
-                ['Mining active', 'The unit is operating inside the campaign.'],
-                ['Qualified', 'All four stages verified — capacity is added from here, not before.'],
-              ].map(([name, note], i, all) => (
-                <li key={name} className="pse-ladder-step" data-final={i === all.length - 1 ? 'true' : undefined}>
-                  <span className="pse-ladder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                  <span>
-                    <span className="pse-ladder-name">{name}</span>
-                    <span className="pse-ladder-note">{note}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </Reveal>
-        </div>
-
-        <p className="pse-small mt-7 pse-measure">
-          Referral capacity accrues only while you have a unit actually operating, and no capacity is credited
-          retroactively for a referral that qualifies late.
-        </p>
-      </Section>
-
-      {/* ── 04 · The campaign rail ───────────────────────────────────────── */}
+      {/* ── 04 · The campaign lifecycle: a rail the reader can step through ─ */}
       <Section
         id="campaign"
         num="04"
         kicker="Campaign lifecycle"
         band="tint"
-        wide
         title={`A ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day window with a defined end.`}
         lede="Mining is only live while the campaign is. Each phase changes what happens to accrual, and the record of it is kept."
       >
-        <Reveal className="pse-panel" delay={40}>
-          <div className="pse-panel-body">
-            <CampaignRail
-              days={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}
-              phases={[
-                { id: 'launch', name: 'Launch', note: 'The campaign opens and mining units become available to buy.' },
-                { id: 'mining', name: 'Mining', note: 'Units operate and capacity accrues against a server-side checkpoint.' },
-                { id: 'settlement', name: 'Settlement', note: 'Accrual stops at the end of the window and final balances are computed.' },
-                { id: 'payout', name: 'Payout', note: 'Settled GBP is disbursed in BNB to payout wallets, after review.' },
-                { id: 'closed', name: 'Closed', note: 'The campaign is finished. Records stay available on the account.' },
-              ]}
-            />
-          </div>
-        </Reveal>
+        <LifecycleRail
+          days={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}
+          phases={PHASES.map(p => ({ id: p.id, name: p.name, note: p.note, detail: p.detail }))}
+        />
 
-        <Reveal className="mt-6" delay={120}>
+        <Reveal className="mt-8" delay={120}>
           <StatGrid cols={3}>
             <Stat label="Campaign length" value={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} unit="days" note="Dated from launch" />
             <Stat label="Clock" value="Server" note="Never the browser's" />
@@ -631,105 +660,106 @@ export const PSEMineLanding: React.FC = () => {
         </Reveal>
       </Section>
 
-      {/* ── 05 · The purchase interface ──────────────────────────────────── */}
-      <Section
-        id="payment"
-        num="05"
-        kicker="Payment"
-        wide
-        title="You pay in BNB, at a quoted rate."
-        lede="There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain."
-      >
-        <div className="pse-columns">
-          <PaymentSpecimen
-            unitName={TOOLS[0].name}
-            price={gbp(TOOLS[0].purchasePriceGBP)}
-            network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-            asset="BNB"
+      {/* ── 05 · Payment: the purchase console left, the quote terms right ─ */}
+      <section id="payment" className="pse-section">
+        <div className="pse-wrap">
+          <SectionHead
+            num="05"
+            kicker="Payment"
+            title="You pay in BNB, at a quoted rate."
+            lede="There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain."
           />
+          <Split object="start" className="pse-section-object">
+            <PaymentConsole tier={TIERS[0]} network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} asset="BNB" />
 
-          <Reveal delay={120}>
-            <p className="pse-micro mb-4">What a quote gives you</p>
-            <StatGrid cols={3}>
-              <Stat label="Price" value="Fixed" note="Set in GBP, not floating with the market" />
-              <Stat label="Amount" value="BNB" note="Exact amount at the rate of that quote" />
-              <Stat label="Destination" value="On the quote" note="The only address you ever pay" />
-              <Stat label="Time limit" value="Counted" note="The quote shows what is left of its own window" />
-            </StatGrid>
+            <Reveal delay={120}>
+              <p className="pse-micro mb-4">What a quote gives you</p>
+              <StatGrid cols={2}>
+                <Stat label="Price" value="Fixed" note="Set in GBP, not floating with the market" />
+                <Stat label="Amount" value="BNB" note="Exact amount at the rate of that quote" />
+                <Stat label="Destination" value="On the quote" note="The only address you ever pay" />
+                <Stat label="Time limit" value="Counted" note="The quote shows what is left of its own window" />
+              </StatGrid>
 
-            <p className="pse-small mt-6 pse-measure">
-              A purchase that is never paid, is paid late, or is paid an incorrect amount is recorded as expired or
-              underpaid and reviewed — never auto-corrected by the browser.
-            </p>
-            <p className="pse-small mt-3 pse-measure">
-              The specimen beside you is an illustration of the flow, not a live quote: prices, rates and ownership
-              limits are locked, but the BNB amount of any purchase is issued per quote.
-            </p>
-          </Reveal>
+              <p className="pse-small pse-measure mt-6">
+                A purchase that is never paid, is paid late, or is paid an incorrect amount is recorded as expired or
+                underpaid and reviewed — never auto-corrected by the browser.
+              </p>
+              <p className="pse-small pse-measure mt-3">
+                The specimen beside you is an illustration of the flow, not a live quote: prices, rates and ownership
+                limits are locked, but the BNB amount of any purchase is issued per quote.
+              </p>
+            </Reveal>
+          </Split>
         </div>
-      </Section>
+      </section>
 
-      {/* ── 06 · The settlement lifecycle ────────────────────────────────── */}
+      {/* ── 06 · Settlement: a full-bleed statement, one denomination change ─ */}
       <Section
         id="payout"
         num="06"
         kicker="Settlement and payout"
         band="tint"
-        wide
         title="Earnings are settled in GBP, then paid in BNB."
-        lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance that can be moved — the pipeline below shows exactly where the denomination changes."
+        lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance that can be moved — the statement below shows exactly where the denomination changes."
       >
-        <FlowPipeline steps={SETTLEMENT} label="The PSEmine settlement lifecycle, from accrual to payout" />
+        <StatementPanel steps={SETTLEMENT} />
 
-        <div className="pse-columns mt-8">
-          <p className="pse-small pse-measure">
+        <Split object="start" weight="even" className="mt-8">
+          <p className="pse-small">
             Set your payout wallet before the campaign&apos;s wallet-change cutoff. After it, the address on file is the
             one that is paid — the cutoff exists so a settled balance cannot be redirected.
           </p>
-          <p className="pse-small pse-measure">
+          <p className="pse-small">
             Campaign earnings are not withdrawable mid-campaign. Accrual becomes payable only once settlement finalises
             it, and both the purchase and the payout are written to the chain, so each direction is checkable rather than
             taken on trust.
           </p>
-        </div>
+        </Split>
       </Section>
 
-      {/* ── 07 · Security ────────────────────────────────────────────────── */}
+      {/* ── 07 · Security: one relationship map, then the reading columns ── */}
       <Section
         id="security"
         num="07"
         kicker="Security and transparency"
-        wide
         title="What is fixed, and what you can check."
         lede="These are properties of the product, not claims about it — each one holds whether or not you take our word for it."
       >
-        <TrustGrid items={TRUST} />
+        <TrustMap items={TRUST} />
 
-        <div className="pse-columns mt-8">
-          <p className="pse-body pse-measure">
+        <Split object="start" weight="even" className="mt-8">
+          <p className="pse-body">
             Prices, hourly rates, ownership limits and the capacity ceiling are locked: they are the same for every
             account and do not move with the market or with how much anyone holds. A unit&apos;s hourly capacity is
             confirmed when the purchase activates, and every change to an account is written to that account&apos;s
             activity record.
           </p>
-          <p className="pse-body pse-measure">
+          <p className="pse-body">
             You keep your own keys. PSEmine never takes custody of funds, and never asks you to send anything anywhere
             other than the address printed on a live quote. A unit purchase goes from your wallet to the
             campaign&apos;s address for that purchase, and a payout goes to the payout wallet you set.
           </p>
+        </Split>
+      </Section>
+
+      {/* ── 08 · Questions: head left, the accordion right ──────────────── */}
+      <section id="faq" className="pse-section pse-band--tint">
+        <div className="pse-wrap">
+          <Split object="end" weight="even">
+            <div className="pse-split-text pse-faq-head">
+              <SectionHead num="08" kicker="Questions" title="The questions this product actually raises." />
+            </div>
+            <Reveal className="pse-faq" delay={60}>
+              {FAQ.map((item, i) => (
+                <FaqItem key={item.q} q={item.q} a={item.a} index={i} />
+              ))}
+            </Reveal>
+          </Split>
         </div>
-      </Section>
+      </section>
 
-      {/* ── 08 · Questions ───────────────────────────────────────────────── */}
-      <Section id="faq" num="08" kicker="Questions" wide title="The questions this product actually raises.">
-        <Reveal className="pse-faq" delay={40}>
-          {FAQ.map((item, i) => (
-            <FaqItem key={item.q} q={item.q} a={item.a} index={i} />
-          ))}
-        </Reveal>
-      </Section>
-
-      {/* ── 09 · The close ───────────────────────────────────────────────── */}
+      {/* ── 09 · The close ──────────────────────────────────────────────── */}
       <section className="pse-section pse-band--lift">
         <div className="pse-wrap pse-close">
           <Reveal className="max-w-[52ch]">
@@ -740,15 +770,20 @@ export const PSEMineLanding: React.FC = () => {
               price, the hourly capacity and the ownership limit are shown before you sign anything.
             </p>
           </Reveal>
-          <Reveal className="pse-hero-cta shrink-0" delay={100}>
-            <CreateAccount />
-            <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg">Sign in</Link>
-            <Link to="/mine/guide" className="pse-btn pse-btn--secondary pse-btn--lg">Read the guide</Link>
+          <Reveal className="pse-close-side" delay={100}>
+            <span className="pse-close-art" aria-hidden="true">
+              <PseTierModule tier={TIERS[0].tier} width={168} />
+            </span>
+            <div className="pse-hero-cta">
+              <CreateAccount />
+              <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg">Sign in</Link>
+              <Link to="/mine/guide" className="pse-btn pse-btn--secondary pse-btn--lg">Read the guide</Link>
+            </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="pse-foot">
         <div className="pse-wrap pse-foot-grid">
           <div className="space-y-3">

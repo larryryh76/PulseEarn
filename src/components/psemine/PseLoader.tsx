@@ -12,9 +12,13 @@
  * finished.
  *
  * WHAT IT IS
- * The identity, one indeterminate rail, one honest sentence naming the state,
- * and — only after the wait has actually become unusual — one sentence saying so
- * and a real way out. That is the whole component.
+ * A brand plate carrying the emblem, the product name, one indeterminate rail,
+ * one honest sentence naming the state, and — only after the wait has actually
+ * become unusual — one sentence saying so and a real way out. That is the whole
+ * component. The plate is the composition rather than a decoration: it is the
+ * same brand anchor the navigation and the authentication family carry, at the
+ * size the state deserves, and its one slow sheen is what makes the surface read
+ * as working without ever claiming a position.
  *
  * WHAT IT DELIBERATELY IS NOT
  * No percentage, no bar that fills, no scan, no terminal, no counter, no step
@@ -111,9 +115,13 @@ export const PseLoader: React.FC<{
       aria-live={live ? 'polite' : undefined}
       aria-busy="true"
     >
+      <span className="pse-loader-plate">
+        <PSEmineMark size={40} decorative />
+      </span>
+
       <span className="pse-loader-id">
-        <PSEmineMark size={26} decorative />
         <span className="pse-loader-name">PSEmine</span>
+        <span className="pse-loader-sub">Campaign mining</span>
       </span>
 
       <span className="pse-loader-track" aria-hidden="true">

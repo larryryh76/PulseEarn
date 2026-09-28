@@ -372,53 +372,57 @@
 .pse-link:hover { color: var(--pse-ink); border-bottom-color: var(--pse-ink-3); }
 
 .pse-measure { max-width: 62ch; }
+
+/* probe-mid */
 .pse-measure-tight { max-width: 46ch; }
 
-/* ── Section header ──────────────────────────────────────────────────────── */
-.pse-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-width: 48ch;
-}
+/* ── Section header ───────────────────────────────────────────────────────
+ * The section number lives in a left index column that draws a hairline down
+ * the full height of the header. Nine headers aligned to that column read as
+ * ONE continuous spine down the page rather than nine unrelated blocks — which
+ * is the cheapest cure for the stack-of-sections feeling. Below 768px the index
+ * folds above the kicker instead of spending a whole column on it.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
 
-.pse-head--wide { max-width: 64ch; }
+.pse-head-text { display: grid; gap: 0.7rem; max-width: 62ch; }
+
+.pse-head-index { display: none; }
 
 .pse-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  align-self: flex-start;
-  padding: 0.25rem 0.6rem 0.25rem 0.35rem;
-  border: 1px solid var(--pse-rule);
-  border-radius: 999px;
-  background: var(--pse-inset);
-}
-
-.pse-kicker-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 18px;
-  padding-inline: 4px;
-  border-radius: 999px;
-  background: var(--pse-accent-quiet);
-  color: var(--pse-accent);
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.pse-kicker-text {
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--pse-ink-2);
+  color: var(--pse-ink-3);
+}
+
+@media (min-width: 768px) {
+  .pse-head { grid-template-columns: 3.5rem minmax(0, 1fr); gap: 1.75rem; }
+
+  .pse-head-index {
+    position: relative;
+    display: block;
+    font-family: var(--pse-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--pse-accent);
+  }
+
+  /* The spine: one hairline per section, all on the same column, fading out
+     toward the object below rather than stopping dead. */
+  .pse-head-index::before {
+    content: '';
+    position: absolute;
+    left: 0.3125rem;
+    top: 1.2rem;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--pse-accent) 40%, transparent), var(--pse-rule-2));
+  }
 }
 
 /* ── Reveal ───────────────────────────────────────────────────────────────
@@ -781,21 +785,56 @@
  * INSTRUMENTS
  * ════════════════════════════════════════════════════════════════════════ */
 
-/* ── Capacity gauge ──────────────────────────────────────────────────────
- * One shared track width across every row, so the rows are proportional to the
- * same maximum and can be read against each other. The stacked bar at the top
- * states the composition in one object.
+/* ── Capacity instrument ─────────────────────────────────────────────────
+ * The bar and its axis are one object: the stack states the composition, the
+ * marker states where the composition actually ends, and the axis prints the
+ * scale every row below is drawn against. One shared denominator, so the three
+ * rows can be read against each other — which is the whole point of an
+ * instrument.
  * ─────────────────────────────────────────────────────────────────────── */
 .pse-gauge { display: flex; flex-direction: column; gap: 1.1rem; }
 
+.pse-gauge-bar { position: relative; }
+
 .pse-gauge-stack {
   display: flex;
-  height: 10px;
+  height: 12px;
   border-radius: 3px;
   overflow: hidden;
   background: var(--pse-inset);
   box-shadow: 0 0 0 1px var(--pse-rule-2);
 }
+
+/* The marker is the ceiling made visible: it sits at the total, so the headroom
+   to the top of the scale is legible rather than implied. */
+.pse-gauge-marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: var(--pse-pos, 100%);
+  width: 1px;
+  background: var(--pse-ink-3);
+  opacity: 0.6;
+  transition: left 820ms var(--pse-ease) 140ms;
+}
+
+.pse-gauge[data-inview='false'] .pse-gauge-marker { left: 0; }
+
+.pse-gauge-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.45rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-3);
+}
+
+.pse-gauge-axis-mid { letter-spacing: 0.11em; text-transform: uppercase; opacity: 0.7; }
 
 .pse-gauge-seg {
   width: var(--pse-w, 0%);
@@ -867,29 +906,22 @@
 
 .pse-gauge-divide { height: 1px; background: var(--pse-rule-2); }
 
-.pse-gauge-eq {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  border: 1px solid var(--pse-rule);
-  background: var(--pse-inset);
-  color: var(--pse-ink-3);
-  font-family: var(--pse-mono);
-  font-size: 0.75rem;
-  line-height: 1;
-}
+/* Inside the hero console the instrument is one module among several, so it
+   loses a little air without losing any of its information. */
+.pse-gauge--compact { gap: 0.85rem; }
+.pse-gauge--compact .pse-gauge-stack { height: 10px; }
+.pse-gauge--compact .pse-gauge-rows { gap: 0.7rem; }
 
-/* ── Campaign rail ───────────────────────────────────────────────────────
- * A lifecycle drawn as a rail with nodes. There is deliberately NO marker of
- * "where we are now": a public page cannot know a campaign position, so the
- * instrument shows the phases and their order, not a fabricated progress.
+/* ── Campaign lifecycle ──────────────────────────────────────────────────
+ * A lifecycle drawn as a rail of real tabs. There is deliberately NO marker of
+ * "where we are now": a public page cannot know a campaign's position, so the
+ * rail states the phases and their order — true for everyone — and lets the
+ * reader step through what each phase changes. Arrow keys walk it, because a
+ * rail that switches a panel is a tab set and should behave like one.
  * ─────────────────────────────────────────────────────────────────────── */
-.pse-rail { display: flex; flex-direction: column; gap: 1.5rem; }
+.pse-lifecycle { display: flex; flex-direction: column; gap: 1.5rem; }
 
-.pse-rail-head {
+.pse-lifecycle-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -897,179 +929,238 @@
   gap: 0.6rem 1rem;
 }
 
-.pse-rail-scale {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.pse-lifecycle-scale {
   font-family: var(--pse-mono);
   font-size: 0.75rem;
   color: var(--pse-ink-3);
 }
 
-.pse-rail-steps {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  margin: 0;
-  padding: 0 0 0 1.6rem;
-  list-style: none;
-}
+.pse-lifecycle-rail { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 
-.pse-rail-step {
+.pse-lifecycle-tab {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0 0 1.35rem;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0 0 1.3rem 1.75rem;
+  background: none;
+  border: 0;
+  border-radius: var(--pse-r-sm);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-rail-step:last-child { padding-bottom: 0; }
+.pse-lifecycle-tab:last-child { padding-bottom: 0; }
 
-/*
- * The connector is drawn per step — from this node to the next — rather than as
- * one line behind the rail, so the rail can read as a sequence that is being
- * laid down: each segment extends in turn. Vertical on mobile, horizontal from
- * 768px, and always ending at the next node rather than at the rail's edge.
- */
-.pse-rail-step:not(:last-child)::after {
+/* The connector is drawn per step, from this node to the next, and each segment
+   extends in turn — so the rail reads as a sequence being laid down rather than
+   as a line that happened to be there. */
+.pse-lifecycle-tab:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: calc(-1.6rem + 5px);
-  top: 19px;
+  left: 5px;
+  top: 12px;
   bottom: 0;
   width: 1px;
   background: var(--pse-rule);
   transform-origin: top center;
-  transform: scaleY(1);
   transition: transform 520ms var(--pse-ease);
-  transition-delay: calc(var(--pse-i, 0) * 120ms);
+  transition-delay: calc(var(--pse-i, 0) * 110ms);
 }
 
-.pse-rail-step:first-child:not(:last-child)::after { background: linear-gradient(180deg, var(--pse-accent), var(--pse-rule)); }
+.pse-lifecycle[data-inview='false'] .pse-lifecycle-tab::after { transform: scaleY(0); }
 
-.pse-rail[data-inview='false'] .pse-rail-step::after { transform: scaleY(0); }
-
-.pse-rail-node {
+.pse-lifecycle-node {
   position: absolute;
-  left: -1.6rem;
-  top: 5px;
+  left: 0;
+  top: 3px;
   width: 11px;
   height: 11px;
   border-radius: 999px;
   border: 1px solid var(--pse-rule-strong);
   background: var(--pse-surface);
   box-shadow: 0 0 0 3px var(--pse-canvas);
+  transition: border-color var(--pse-t) var(--pse-ease), background-color var(--pse-t) var(--pse-ease);
 }
 
-.pse-rail-step[data-phase='launch'] .pse-rail-node { border-color: var(--pse-accent); background: var(--pse-accent); }
-.pse-rail-step[data-phase='payout'] .pse-rail-node { border-color: var(--pse-cyan); background: var(--pse-cyan); }
-
-.pse-rail-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
-.pse-rail-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); max-width: 34ch; }
-
-@media (min-width: 768px) {
-  .pse-rail-steps {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0 1.1rem;
-    padding: 0;
-  }
-
-  .pse-rail-step { padding: 1.9rem 0 0; }
-  .pse-rail-node { left: 0; top: 0; }
-
-  .pse-rail-step:not(:last-child)::after {
-    left: 16px;
-    top: 5px;
-    bottom: auto;
-    height: 1px;
-    width: calc(100% + 1.1rem - 16px);
-    background: var(--pse-rule);
-    transform-origin: left center;
-    transform: scaleX(1);
-  }
-
-  .pse-rail-step:first-child:not(:last-child)::after { background: linear-gradient(90deg, var(--pse-accent), var(--pse-rule)); }
-  .pse-rail-step[data-phase='payout']:not(:last-child)::after { background: linear-gradient(90deg, var(--pse-rule), var(--pse-cyan)); }
-
-  .pse-rail[data-inview='false'] .pse-rail-step::after { transform: scaleX(0); }
+.pse-lifecycle-idx {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  color: var(--pse-ink-3);
 }
 
-/* ── Pipeline ────────────────────────────────────────────────────────────
- * A sequence of stages with connectors. Used for the purchase pipeline and for
- * the settlement lifecycle, because both are genuinely ordered.
- * ─────────────────────────────────────────────────────────────────────── */
-.pse-flow {
+.pse-lifecycle-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink-2);
+  transition: color var(--pse-t) var(--pse-ease);
+}
+
+.pse-lifecycle-tab:hover .pse-lifecycle-name { color: var(--pse-ink); }
+
+.pse-lifecycle-tab[aria-selected='true'] .pse-lifecycle-name { color: var(--pse-ink); }
+.pse-lifecycle-tab[aria-selected='true'] .pse-lifecycle-node { border-color: var(--pse-accent); background: var(--pse-accent); }
+.pse-lifecycle-tab[data-phase='payout'][aria-selected='true'] .pse-lifecycle-node { border-color: var(--pse-cyan); background: var(--pse-cyan); }
+
+/* The panel is a surface, not a paragraph: the phase figure, what the phase
+   does, and the machine-readable note, in one instrument. */
+.pse-lifecycle-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
+  padding: 1.15rem;
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
+
+.pse-lifecycle-panel-idx {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  color: var(--pse-accent);
+}
+
+.pse-lifecycle-panel-body { display: grid; gap: 0.4rem; }
+
+.pse-lifecycle-panel-name { font-size: 1.0625rem; font-weight: 500; letter-spacing: -0.02em; color: var(--pse-ink); }
+
+.pse-lifecycle-panel-note {
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-lifecycle-panel { animation: pse-panel-in 240ms var(--pse-ease); }
+}
+
+@keyframes pse-panel-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* From tablet the phases run across the page, nodes on one line and connectors
+   drawn horizontally between them. */
+@media (min-width: 768px) {
+  .pse-lifecycle-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 1rem; }
+
+  .pse-lifecycle-tab { padding: 1.85rem 0.6rem 0.4rem; }
+  .pse-lifecycle-node { left: 0.6rem; top: 0; }
+
+  .pse-lifecycle-tab:not(:last-child)::after {
+    left: calc(0.6rem + 16px);
+    top: 5px;
+    bottom: auto;
+    height: 1px;
+    width: calc(100% + 1rem - 16px - 0.6rem);
+    transform-origin: left center;
+  }
+
+  .pse-lifecycle[data-inview='false'] .pse-lifecycle-tab::after { transform: scaleX(0); }
+  .pse-lifecycle-tab:hover { background: var(--pse-inset); }
+
+  .pse-lifecycle-panel {
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+
+  .pse-lifecycle-panel-note { grid-column: 2; }
+}
+
+/* ── Flow rail ───────────────────────────────────────────────────────────
+ * An ordered sequence drawn as a rail: a node per stage holding the stage's own
+ * glyph, an index, and the connector that ties it to the next. Deliberately
+ * VERTICAL at every width, because it is used inside an asymmetric column where
+ * four side-by-side cards would be a squeeze — and because a vertical rail with
+ * drawn connectors is a composition, while a row of cards is a component grid.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-railflow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-  counter-reset: pse-flow;
 }
 
-@media (min-width: 640px) { .pse-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .pse-flow { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; } }
-
-.pse-flow-step {
+.pse-railflow-step {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
-  border-radius: var(--pse-r-sm);
-  background: var(--pse-surface);
-  box-shadow: var(--pse-ring);
-  transition: background-color var(--pse-t) var(--pse-ease), box-shadow var(--pse-t) var(--pse-ease), transform var(--pse-t) var(--pse-ease);
+  gap: 0.4rem;
+  padding: 0 1.5rem 1.5rem 2.75rem;
 }
 
-.pse-flow-step:hover {
+.pse-railflow-step:last-child { padding-bottom: 0; }
+
+.pse-railflow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 36px;
+  bottom: 2px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--pse-rule), var(--pse-rule-2));
+  transform-origin: top center;
+  transition: transform 520ms var(--pse-ease);
+  transition-delay: calc(var(--pse-i, 0) * 110ms);
+}
+
+.pse-railflow-step:first-child:not(:last-child)::after {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pse-accent) 55%, transparent), var(--pse-rule-2));
+}
+
+.pse-railflow[data-inview='false'] .pse-railflow-step::after { transform: scaleY(0); }
+
+.pse-railflow-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 31px;
+  height: 31px;
+  border-radius: var(--pse-r-xs);
   background: var(--pse-surface-2);
-  box-shadow: var(--pse-ring-strong), var(--pse-lift);
-  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px var(--pse-rule);
+  color: var(--pse-ink-2);
+  transition: color var(--pse-t) var(--pse-ease), box-shadow var(--pse-t) var(--pse-ease);
 }
 
-@media (min-width: 1024px) {
-  /* Desktop: the steps become one strip joined by drawn connectors. */
-  .pse-flow { gap: 0; border-radius: var(--pse-r); overflow: hidden; box-shadow: var(--pse-ring); }
-  .pse-flow-step { border-radius: 0; box-shadow: none; background: var(--pse-surface); }
-  .pse-flow-step + .pse-flow-step { border-left: 1px solid var(--pse-rule-2); }
-  .pse-flow-step:hover { background: var(--pse-surface-2); box-shadow: none; transform: none; }
-
-  /* The connector: a short accent tick on the shared edge, drawn on hover. */
-  .pse-flow-step + .pse-flow-step::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 50%;
-    width: 1px;
-    height: 0;
-    background: var(--pse-accent);
-    transform: translateY(-50%);
-    transition: height var(--pse-t) var(--pse-ease);
-  }
-
-  .pse-flow-step + .pse-flow-step:hover::before { height: 42%; }
+.pse-railflow-step:hover .pse-railflow-node {
+  color: var(--pse-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-accent) 40%, transparent);
 }
 
-.pse-flow-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-
-.pse-flow-index {
+.pse-railflow-index {
+  position: absolute;
+  right: 0;
+  top: 0.3rem;
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.11em;
   color: var(--pse-ink-3);
 }
 
-.pse-flow-glyph { display: flex; color: var(--pse-ink-2); transition: color var(--pse-t) var(--pse-ease); }
-.pse-flow-step:hover .pse-flow-glyph { color: var(--pse-accent); }
-
-.pse-flow-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
-.pse-flow-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
-.pse-flow-denom { margin-top: auto; padding-top: 0.35rem; }
+.pse-railflow-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-railflow-note { font-size: 0.8125rem; line-height: 1.55; color: var(--pse-ink-2); }
+.pse-railflow-denom { padding-top: 0.3rem; }
 
 /* ── Ladder: a vertical stepped list with nodes (referral qualification) ── */
 .pse-ladder {
@@ -1129,140 +1220,244 @@
 .pse-ladder-name { display: block; font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
 .pse-ladder-note { display: block; font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
 
-/* ── Tool family ─────────────────────────────────────────────────────────
- * One equipment family: a shared chassis with a different interior per tier,
- * so the four read as one product line at increasing sophistication.
+/* ── The equipment family ────────────────────────────────────────────────
+ * Not four cards: ONE panel, addressed as a financial equipment system. A
+ * bespoke instrument is drawn per tier, the capacity column is proportional
+ * across the whole family, and price and ownership limit are aligned figures so
+ * the four rows can be compared by scanning a column. A labelled header row
+ * prints the column meanings, which is what makes it a specification rather
+ * than a list.
+ *
+ * Below the tablet breakpoint the same markup becomes a horizontal reel of
+ * self-contained units, because a spec table squeezed into a phone is not a
+ * mobile design.
  * ─────────────────────────────────────────────────────────────────────── */
-.pse-tools {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1px;
-  background: var(--pse-rule-2);
+.pse-family {
   border-radius: var(--pse-r);
-  overflow: hidden;
-  box-shadow: var(--pse-ring);
-}
-
-@media (min-width: 1024px) { .pse-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-
-/* Below the desktop grid the family becomes a deliberate horizontal reel
-   rather than four stacked cards. */
-@media (max-width: 767px) {
-  .pse-tools {
-    display: flex;
-    grid-template-columns: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-  .pse-tools::-webkit-scrollbar { display: none; }
-  .pse-tool { flex: 0 0 78%; scroll-snap-align: start; }
-}
-
-.pse-tool {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1.15rem;
   background: var(--pse-surface);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+  overflow: hidden;
+}
+
+.pse-family-head { display: none; }
+
+.pse-family-list { margin: 0; padding: 0; list-style: none; }
+
+/* The drawn instrument: the family's chassis is `currentColor`, so the row's
+   hover state moves the whole machine, and only the ACTIVE cells answer. */
+.pse-tool-module { display: block; color: var(--pse-ink-3); transition: color var(--pse-t) var(--pse-ease); }
+.pse-equip-cell, .pse-equip-mast, .pse-equip-crest { transition: opacity var(--pse-t) var(--pse-ease); }
+
+.pse-unit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  padding: 1.35rem;
   transition: background-color var(--pse-t) var(--pse-ease);
 }
 
-.pse-tool:hover { background: var(--pse-surface-2); }
+.pse-unit + .pse-unit { border-top: 1px solid var(--pse-rule-2); }
 
-.pse-tool-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.pse-unit-art { display: flex; align-items: center; }
+.pse-unit:hover { background: var(--pse-surface-2); }
+.pse-unit:hover .pse-tool-module { color: var(--pse-ink-2); }
 
-.pse-tool-module { display: block; color: var(--pse-ink-2); transition: color var(--pse-t) var(--pse-ease); }
-.pse-tool:hover .pse-tool-module { color: var(--pse-ink); }
+.pse-unit-id { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
 
-.pse-tool-name { display: block; font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
-
-.pse-tool-tier {
-  display: block;
-  margin-top: 0.15rem;
+.pse-unit-tier {
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
   font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-unit-name { margin: 0; font-size: 1.0625rem; font-weight: 500; letter-spacing: -0.02em; color: var(--pse-ink); }
+
+/* Operating mode is a state, so it is the one thing in the row that carries
+   colour — and only when the tier is genuinely continuous. */
+.pse-unit-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-unit-mode[data-mode='continuous'] { color: var(--pse-cyan); }
+
+.pse-unit-cap { display: flex; flex-direction: column; gap: 0.45rem; }
+
+.pse-unit-cap-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-unit-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: var(--pse-ink);
+}
+
+.pse-unit-rate-unit { font-family: var(--pse-font); font-size: 0.8125rem; font-weight: 400; letter-spacing: 0; color: var(--pse-ink-3); }
+
+.pse-unit-track {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--pse-inset);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-unit-fill {
+  display: block;
+  height: 100%;
+  width: var(--pse-w, 0%);
+  border-radius: 3px;
+  background: var(--pse-accent);
+  transition: width 780ms var(--pse-ease) 120ms;
+}
+
+/* A tier's fill is a gradient only where the tier genuinely spans two of the
+   product's own accents — the geometry carries the tier, colour only confirms.*/
+.pse-unit-fill[data-tier='3'] { background: linear-gradient(90deg, var(--pse-accent), var(--pse-violet)); }
+.pse-unit-fill[data-tier='4'] { background: linear-gradient(90deg, var(--pse-accent), var(--pse-cyan)); }
+
+.pse-unit[data-inview='false'] .pse-unit-fill { width: 0; }
+
+.pse-unit-share { font-family: var(--pse-mono); font-size: 0.6875rem; color: var(--pse-ink-3); }
+
+.pse-unit-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.pse-unit-meta-cell { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+
+.pse-unit-meta-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-unit-meta-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.9375rem;
+  letter-spacing: -0.018em;
+  color: var(--pse-ink);
+  white-space: nowrap;
+}
+
+.pse-family-hint {
+  margin: 0.85rem 0 0;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
-.pse-tool-cap { display: flex; flex-direction: column; gap: 0.45rem; }
+@media (min-width: 640px) {
+  .pse-family-hint { display: none; }
 
-.pse-tool-rate {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  font-size: 1.375rem;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: var(--pse-ink);
+  .pse-unit {
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 1rem 1.5rem;
+    padding: 1.5rem;
+  }
+
+  .pse-unit-art { align-items: flex-start; padding-top: 0.1rem; }
+  .pse-unit-meta { padding-top: 0.95rem; border-top: 1px solid var(--pse-rule-2); max-width: 24rem; }
 }
 
-.pse-tool-rate-unit { font-family: var(--pse-font); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; color: var(--pse-ink-3); }
+@media (min-width: 1024px) {
+  .pse-family-head {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 0.7rem 1.35rem;
+    border-bottom: 1px solid var(--pse-rule);
+    background: var(--pse-inset);
+    font-family: var(--pse-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--pse-ink-3);
+  }
 
-.pse-tool-track {
-  display: block;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--pse-inset);
-  overflow: hidden;
+  .pse-unit {
+    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 1.15rem 1.35rem;
+  }
+
+  /* `display: contents` puts price and ownership limit on the same grid columns
+     as the header row above them, which is what makes the column readable. */
+  .pse-unit-art { align-items: center; }
+  .pse-unit-meta { display: contents; }
 }
 
-.pse-tool-fill {
-  display: block;
-  height: 100%;
-  width: var(--pse-w, 0%);
-  border-radius: 3px;
-  background: var(--pse-fill, var(--pse-accent));
-  transition: width 760ms var(--pse-ease) 140ms;
+@media (max-width: 639px) {
+  .pse-family { background: none; box-shadow: none; overflow: visible; border-radius: 0; }
+
+  .pse-family-list {
+    display: flex;
+    gap: 0.85rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-inline: calc(var(--pse-gutter) * -1);
+    padding: 0 var(--pse-gutter) 0.5rem;
+  }
+
+  .pse-family-list::-webkit-scrollbar { display: none; }
+
+  .pse-unit {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
+    border-radius: var(--pse-r);
+    background: var(--pse-surface);
+    box-shadow: var(--pse-ring), var(--pse-lift);
+  }
+
+  .pse-unit + .pse-unit { border-top: 0; }
 }
 
-.pse-tool[data-inview='false'] .pse-tool-fill { width: 0; }
+/* ── The application specimen ──────────────────────────────────────────── */
+/* A window of PSEmine. The composition is what makes it read as a product and
+   not as a card: a title bar, a narrow instrument rail carrying a miniature of
+   every unit in the family, the campaign figures, the capacity instrument and
+   the tier roster — with ONE floating tile overlapping the lower edge, so the
+   console sits in front of the page rather than on it. That single overlap is
+   the whole depth system; nothing else on the page overlaps anything. */
+.pse-console-stage { position: relative; }
+.pse-console { display: flex; flex-direction: column; }
 
-.pse-tool-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-top: auto;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-tool-meta-key { display: block; font-size: 0.625rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pse-ink-3); }
-
-.pse-tool-meta-val {
-  display: block;
-  margin-top: 0.15rem;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
-  letter-spacing: -0.015em;
-  color: var(--pse-ink);
-}
-
-.pse-tool-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--pse-ink-3);
-}
-
-/* ── Specimen: a window of the application ─────────────────────────────── */
-.pse-spec { display: flex; flex-direction: column; }
-
-.pse-spec-bar {
+.pse-console-bar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -1270,29 +1465,41 @@
   border-bottom: 1px solid var(--pse-rule-2);
 }
 
-.pse-spec-lights { display: inline-flex; gap: 5px; }
-.pse-spec-lights > i { width: 8px; height: 8px; border-radius: 999px; background: var(--pse-rule); }
-.pse-spec-lights > i:first-child { background: color-mix(in srgb, var(--pse-ink-3) 55%, transparent); }
+.pse-console-lights { display: inline-flex; gap: 5px; }
+.pse-console-lights > i { width: 7px; height: 7px; border-radius: 999px; background: var(--pse-rule); }
+.pse-console-lights > i:first-child { background: color-mix(in srgb, var(--pse-ink-3) 55%, transparent); }
 
-.pse-spec-title {
+.pse-console-title {
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--pse-ink-2);
+  color: var(--pse-ink);
 }
 
-.pse-spec-body { display: flex; flex-direction: column; gap: 1.1rem; padding: 1.1rem; }
+.pse-console-crumb {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+}
 
-.pse-spec-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.pse-console-bar .pse-chip { margin-left: auto; }
 
-.pse-spec-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.pse-console-body { display: grid; grid-template-columns: minmax(0, 1fr); }
+.pse-console-rail { display: none; }
 
-.pse-spec-field-key {
+.pse-console-main { display: flex; flex-direction: column; gap: 1.15rem; padding: 1.15rem; }
+
+.pse-console-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+.pse-console-field { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.pse-console-key {
+  font-family: var(--pse-mono);
   font-size: 0.625rem;
   font-weight: 500;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--pse-ink-3);
 }

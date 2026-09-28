@@ -7,6 +7,11 @@ import './index.css'
 // scoped to `.pse` so it never restyles PulseEarn. The authenticated console is
 // still the minimal functional presentation and gets its own phase.
 import './styles/psemine.css'
+// The landing page's art-direction layer: the composed surfaces it is built from
+// (asymmetric split, application window tail, purchase console, settlement
+// statement, trust map) plus the branded loader. Loaded after psemine.css so the
+// handful of re-compositions it carries sit later in the cascade by construction.
+import './styles/psemine-product.css'
 // The authentication family's own additions to that layer (brand lockup at the
 // task, the form-as-instrument surface, the password quality meter). Loaded after
 // psemine.css so its overrides sit later in the cascade by construction.

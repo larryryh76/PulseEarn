@@ -6,28 +6,42 @@
  * "create account" to "verify email" stays inside one product rather than
  * meeting three unrelated forms.
  *
- * COMPOSITION — one column, one axis.
+ * COMPOSITION — a product surface, not a form on an empty page.
  *
  *   slim bar:  [ PSEmine ]                              About PSEmine
- *   ─────────────────────────────────────────────────────────────────
- *              (vertically centred, max 392px wide)
- *                     Sign in
- *                     one line of supporting copy
- *                     [ field ]
- *                     [ field ]
- *                     [ primary action ]
- *                     secondary action
- *                     ────────  or  ────────
- *                     alternate provider
- *                     cross-link to the sibling surface
- *   ─────────────────────────────────────────────────────────────────
- *                     security reassurance
+ *   ─────────────────────────────────────────────────────────────────────
+ *   from 1024px:                            │  Sign in
+ *     ┌───────────────────────────────┐     │  one line of supporting copy
+ *     │  calibration rail             │     │  [ field ]
+ *     │     ┌──────┐                  │     │  [ field ]
+ *     │     │ mark │  precision plate │     │  [ primary action ]
+ *     │     └──────┘                  │     │  secondary action
+ *     │  PSEmine · Campaign mining    │     │  ──────  or  ──────
+ *     │  (faint emblem watermark)     │     │  alternate provider
+ *     └───────────────────────────────┘     │  cross-link
+ *   ─────────────────────────────────────────────────────────────────────
+ *                                           security reassurance
  *
- * There is deliberately NO secondary visual panel, no product artwork and no
- * card around the form. A sign-in page is a task, not a marketing surface: a
- * panel wide enough to be worth its space would have to be filled with product
- * terms, and a border around the form would only add a box to a page whose
- * hierarchy already comes from the typography and the field rhythm.
+ * The brand panel is a real surface at the same ladder position as the rest of
+ * the product (surface, ring, one lift) and it carries artwork rather than
+ * information: a precision plate holding the emblem, the lockup, a calibration
+ * rail with ticks, and the emblem again as a faint watermark. That is what makes
+ * the screen read as this product's screen — and it is deliberately ARIA-hidden,
+ * because it repeats the product's own name decoratively and states nothing a
+ * person needs in order to sign in.
+ *
+ * Below 1024px the panel folds into a compact brand strip above the form and the
+ * form becomes the full-bleed column, because on a phone the form is the task
+ * and a decorative panel would only spend the scarce axis on itself.
+ *
+ * AUTHENTICATION CONTENT CONTRACT (enforced here)
+ *   allowed ·  identity, the product name and its descriptor, fields, password
+ *              control, primary and secondary actions, cross-navigation,
+ *              loading/error/success state, one concise security reassurance
+ *   banned  ·  wallet balance, mining capacity, tool marketplace, campaign
+ *              statistics or position, referral information, earnings, platform
+ *              metrics, internal architecture, access/entitlement explanations,
+ *              campaign, settlement or payout education
  *
  * THE PLANE
  * The public surfaces render on the product's own plane — always dark graphite,
@@ -36,14 +50,6 @@
  * `embedded` variant renders inside the console, which already provides chrome
  * and the application theme, so it stays unplaned on purpose. The auth family's
  * own additions to that layer are in src/styles/psemine-auth.css.
- *
- * AUTHENTICATION CONTENT CONTRACT (enforced here)
- *   allowed ·  identity, welcome copy, fields, password control, primary and
- *              secondary actions, cross-navigation, loading/error/success state,
- *              one concise security reassurance
- *   banned  ·  wallet balance, mining capacity, tool marketplace, campaign
- *              statistics, referral information, earnings, platform metrics,
- *              internal architecture, access/entitlement explanations
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -55,6 +61,36 @@ const LockGlyph: React.FC = () => (
     <rect x="2.5" y="6" width="9" height="6.5" rx="1.75" stroke="currentColor" strokeWidth="1.2" />
     <path d="M5 6V4.25a2 2 0 1 1 4 0V6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
   </svg>
+);
+
+/**
+ * The brand panel. Decorative by contract, so it is `aria-hidden`: it carries the
+ * mark, the lockup and the art, and never a figure, a state or an instruction.
+ */
+const PseAuthBrandPanel: React.FC = () => (
+  <aside className="pse-auth-panel" aria-hidden="true">
+    <span className="pse-auth-panel-rail">
+      <span className="pse-auth-panel-tick" />
+      <span className="pse-auth-panel-tick" />
+      <span className="pse-auth-panel-tick" />
+      <span className="pse-auth-panel-tick" />
+      <span className="pse-auth-panel-node" />
+    </span>
+
+    <span className="pse-auth-panel-watermark">
+      <PSEmineMark size={280} tone="mono" decorative />
+    </span>
+
+    <span className="pse-auth-panel-lockup">
+      <span className="pse-auth-plate">
+        <PSEmineMark size={48} decorative />
+      </span>
+      <span className="pse-auth-panel-wordmark">
+        <span className="pse-auth-panel-name">PSEmine</span>
+        <span className="pse-auth-panel-sub">Campaign mining</span>
+      </span>
+    </span>
+  </aside>
 );
 
 export const PseAuthFrame: React.FC<{
@@ -91,36 +127,41 @@ export const PseAuthFrame: React.FC<{
       )}
 
       <main className={isPage ? 'pse-auth-main' : 'pse-wrap py-14'}>
-        <div className="pse-auth-col mx-auto w-full">
-          {/* The bar carries the lockup for navigation; this anchors it at the
-              task, for a person who landed straight on this route. The embedded
-              variant sits inside the console's own chrome, so it needs neither. */}
-          {isPage && (
-            <span className="pse-auth-brand">
-              <PSEmineMark size={20} decorative />
-              <span className="pse-auth-brand-name">PSEmine</span>
-            </span>
-          )}
+        {isPage && <PseAuthBrandPanel />}
 
-          <header>
-            <h1 className="pse-auth-title">{title}</h1>
-            <p className="pse-auth-sub">{lede}</p>
-          </header>
+        <div className={isPage ? 'pse-auth-formwrap' : ''}>
+          <div className="pse-auth-col mx-auto w-full">
+            {/* The panel carries the lockup from 1024px; below that the form
+                anchors it at the task, for a person who landed straight on this
+                route. The embedded variant sits inside the console's own chrome,
+                so it needs neither. */}
+            {isPage && (
+              <span className="pse-auth-brand">
+                <PSEmineMark size={20} decorative />
+                <span className="pse-auth-brand-name">PSEmine</span>
+              </span>
+            )}
 
-          <div className="mt-7">{children}</div>
+            <header>
+              <h1 className="pse-auth-title">{title}</h1>
+              <p className="pse-auth-sub">{lede}</p>
+            </header>
 
-          {footer && <div className="mt-5">{footer}</div>}
+            <div className="mt-7">{children}</div>
 
-          {isPage && (
-            <div className="pse-auth-foot">
-              <p className="pse-reassure">
-                <LockGlyph />
-                <span>
-                  PSEmine never asks for your private key or seed phrase, and never holds your funds.
-                </span>
-              </p>
-            </div>
-          )}
+            {footer && <div className="mt-5">{footer}</div>}
+
+            {isPage && (
+              <div className="pse-auth-foot">
+                <p className="pse-reassure">
+                  <LockGlyph />
+                  <span>
+                    PSEmine never asks for your private key or seed phrase, and never holds your funds.
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

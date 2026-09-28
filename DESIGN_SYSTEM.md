@@ -8,232 +8,260 @@
 
 ## 1. Direction
 
-**A disciplined financial/wallet product, presented on paper.** PSEmine sells a
-bounded, dated earning instrument, so it is presented the way a serious financial
-product presents one: one primary axis, money as the loudest element in its own
-block, one functional accent, and rhythm from tonal bands.
+**A financial instrument, presented on graphite.** PSEmine sells a bounded,
+dated earning instrument, so it is presented the way a serious financial product
+presents one: one axis, money as the loudest element in its own block, one
+functional accent, and rhythm from luminance steps rather than from rules.
 
-### The public plane is always light
+The unit of design is **the instrument**, not the card. A capacity gauge, a
+lifecycle rail, an ordered pipeline, an application specimen and a grid of
+figures say what a paragraph has to spell out. A page assembled from headings,
+paragraphs and separators reads as a document however well it is typeset; a page
+assembled from instruments reads as a product.
+
+### Plane: the product is always dark
 
 The application defaults to dark (`index.html` adds `dark` to `<html>`), and the
-previous token set was declared for both themes — so every PSEmine public surface
-silently inherited near-black and read as a console. That was the whole defect.
+token set is declared for both themes — so a public surface that simply inherits
+the app theme silently becomes whatever the operator's theme preference is.
 
-The product therefore owns a **plane**. `src/styles/psemine.css` scopes its dark
-tokens to `.dark .pse:not(.pse-plane)`:
+The product therefore owns a **plane**. `.pse-plane` in `src/styles/psemine.css`
+declares the product's own dark tokens and applies them unconditionally:
 
 | Surface | Class | Palette |
 | --- | --- | --- |
-| `/mine`, auth family, loader | `.pse.pse-plane` | always light, `color-scheme: light` |
+| `/mine`, auth family, loader | `.pse.pse-surface.pse-plane` | deep graphite, `color-scheme: dark` |
 | authenticated console, inline loader/failure primitives | `.pse` alone | follows the application theme |
 
-A marketing or sign-in surface belongs to the product, not to the application's
-theme default. The operating console belongs to the operator, so it stays on the
-app theme. This one selector is the boundary, and deleting it restores the defect.
+A marketing or sign-in surface belongs to the product, not to the operator's
+theme preference. The console belongs to the operator, so it stays on the app
+theme. `color-scheme: dark` on the plane makes the browser's own controls
+(caret, autofill, scrollbars) match it.
 
-### Composition before decoration
-
-A public page is built from four devices and nothing else:
-
-1. **Bands** — paper, tint, ink. Rhythm comes from tone changes, not from borders.
-2. **One measure** — a 1140px shell; prose never exceeds ~62ch.
-3. **Rules** — a single hairline weight, used *inside* dense data, plus a 2px
-   accent edge where a section is genuinely a sequence.
-4. **Two type roles** — Inter for language, JetBrains Mono (tabular) for data.
-
-**There are exactly two real cards in the whole public surface:** the hero
-product specimen and the tool family. Everything else is type, rules and band
-tone. This is the single rule that prevents the failure this system was written to
-correct.
-
-### Why the three earlier directions failed
+### Why the earlier directions failed
 
 | Attempt | What it got wrong |
 | --- | --- |
-| 1 | An ink-and-hairline ledger in a teal that had no relationship to the product's own mark, wearing a placeholder logo. Restraint, but no identity. |
-| 2 | Recovered the identity, then (a) put campaign statistics, tool prices, capacity ceilings and referral terms **on the sign-in page**, and (b) wrapped nearly every block in a bordered panel. Identity without composition. |
-| 3 | Inherited the application's dark default, so the public product rendered as a dark documentation surface — a landing that looked like the manual for a console. Direction without a plane. |
+| 1 | An ink-and-hairline ledger in a teal unrelated to the product's own mark, wearing a placeholder logo. Restraint, no identity. |
+| 2 | Recovered the identity, then put campaign statistics, tool prices, capacity ceilings and referral terms **on the sign-in page**, and wrapped nearly every block in a bordered panel. Identity, no page ownership. |
+| 3 | Inherited the application's dark default and answered it with full-width prose, rules between every section and term/value rows — a landing page that read as the manual for a console. Direction, no composition. |
+| 4 | Swinging the whole product to paper to escape the dark default. Readable, but a light document with dark-mode code in it is not a fintech product. |
 
-## 2. Page content contracts
+## 2. Two stylesheets
+
+| File | Owns |
+| --- | --- |
+| `src/styles/psemine.css` | The product's visual language — tokens, plane, type roles, surfaces, instruments, landing, masthead, loader, auth shell. Loaded by `src/main.tsx`. |
+| `src/styles/psemine-auth.css` | The authentication family's additions only: brand lockup at the task, the form-as-instrument surface, the password-quality meter. Loaded **after** `psemine.css`, so its four overrides sit later in the cascade by construction rather than by `!important`. |
+
+Everything is scoped to `.pse`, so neither file can restyle PulseEarn.
+
+## 3. Page content contracts
 
 **The hardest rule in this document.** A route may contain only what belongs to
-it, and that is verified against the rendered DOM (`scripts/pse-a11y-check.mjs`,
-`scripts/pse-design-audit.mjs`).
+it, and that is verified against the rendered DOM, not by eye.
 
 ### `/mine` — PUBLIC LANDING ONLY
-- **Allowed** brand, proposition, explanation, tool family, capacity, campaign
-  lifecycle, payment, settlement and payout, security and transparency, FAQ, CTA.
+
+- **Allowed** brand, proposition, the purchase sequence, the tool family,
+  capacity, the campaign lifecycle, payment, settlement and payout, security and
+  transparency, FAQ, calls to action.
 - **Banned** every personal or live figure — balance, accrued earnings, capacity
   held, referral count, campaign position or days remaining, purchase status,
   quote, wallet or payout address, transaction hash, payout record, activity
   history — plus any account setting, console or admin control, internal
   architecture, entitlement/access explanation, or fabricated activity or metric.
-- **The landing reads nothing.** It holds no session and makes no request: the
-  route guard (`PSEMineEntry`) sends a signed-in visitor to the console before the
-  page mounts, so the page can only ever be the static explanation of the product.
-  Its only figures come from the locked economics in `src/types/psemine.ts`.
-- The hero object is a **product specimen** — a labelled illustration of the
-  product's own capacity model, never a readout of anyone's account.
+- **The landing reads nothing.** No session, no request, no campaign record: it
+  renders the locked economics from `src/types/psemine.ts` and nothing else, and
+  `PSEMineEntry` sends a signed-in visitor to the console before the page mounts.
+  There is therefore no code path by which account state could reach it.
+- Every specimen is **labelled as a specimen**. Nothing on the page is a readout.
 
 ### `/mine/login` — AUTHENTICATION ONLY
-- **Allowed** identity, welcome copy, email, password, password visibility, sign
-  in, forgot password, sign-up navigation, verification messaging,
+
+- **Allowed** identity, welcome copy, email, password, password visibility,
+  primary action, forgot-password, sign-up navigation, verification messaging,
   loading/error/success state, one concise security reassurance.
 - **Banned** wallet dashboard, mining capacity, tool marketplace, campaign
   statistics, referrals, earnings, platform metrics, architecture explanations,
   access/entitlement explanations.
 
-### `/mine/signup` — ACCOUNT CREATION ONLY
-- **Allowed** identity, account fields, password requirements, referral code (the
-  real flow), terms and privacy links, create account, sign-in navigation,
-  validation, loading/error state.
-- **Banned** dashboard information, wallet balance, mining earnings, campaign
-  statistics, tool cards, referral statistics, architecture.
+### `/mine/signup`, `/mine/forgot-password`, `/mine/verify-email`
 
-### `/mine/forgot-password` and `/mine/verify-email`
-Recovery and verification only. No product marketing, no campaign terms, no
-capacity or tool content.
+Account creation; recovery; verification. Nothing else — no product marketing, no
+campaign terms, no capacity or tool content on any of the three.
 
 **Cross-page leakage is a defect.** If an element does not belong to the route it
 is on, it is removed — never relocated, duplicated or replaced, and never hidden
 with `display: none` or opacity.
 
-## 3. Brand
+## 4. Brand
 
-The mark is **recovered, not invented**: the faceted PSE emblem that was live
-across the shell, console, public page and authentication family immediately
-before the first design purge (`38d7a5f:src/components/psemine/PSEBrand.tsx`).
-Geometry unchanged — five facets on one diagonal: an electric-blue blade, a light
-upper facet notched by an inner cut, a steel side facet, a cyan crest.
+The mark is **recovered, not invented**: the faceted PSE emblem live across the
+shell, console, public page and authentication family immediately before the first
+design purge (`38d7a5f:src/components/psemine/PSEBrand.tsx`, re-exported by
+`pse.tsx`). Geometry unchanged — five facets on one diagonal: a blue blade, a
+light upper facet notched by an inner cut, a steel side facet, a cyan crest.
 
-Only its implementation changed: `--pse-brand-*` tokens resolved per plane instead
-of hard-coded dark hexes; `aria-hidden` instead of an empty `role="img"` label; a
-`mono` treatment for single-colour contexts; geometric-precision rendering so the
-facet edges stay crisp at 18px. The favicon (`public/psemine-mark.svg`) is the
-same facets on a solid ink plate, because a transparent emblem loses its light
-facet against light browser chrome.
+- **One mark, no competing identities.** Masthead, auth bar, auth brand lockup,
+  hero-free landing, console, loader, footer, favicon — the same drawing at
+  different sizes.
+- **Flat fills only**, all from `--pse-brand-*` tokens, so the emblem survives
+  16px, print and engraving. No gradient, glow or shadow on the mark.
+- `tone="mono"` renders the whole emblem in one colour with the facets separated
+  by opacity, for print, engraving and disabled states.
+- `decorative` emits `aria-hidden`; a labelled mark emits `role="img"` +
+  `aria-label`. Never an empty `role="img"`.
+- The favicon (`public/psemine-mark.svg`) is the same facets on a solid ink plate.
+- The mark's **cyan is brand-only** — never an interface colour.
 
-- **One mark, no competing identities.** Hero, auth bar, console, loader, footer,
-  favicon — same drawing at different sizes.
-- **Flat fills only.** No gradient, glow or shadow on the mark: it has to survive
-  16px, print and engraving.
-- **The crest is the only animated facet, and nothing animates it today.** `live`
-  marks a running campaign, but no public surface may state a live position, so
-  the capability sits unused on the mark with the default off.
-- The mark's **cyan is brand-only**. It is never used as an interface colour.
-
-## 4. Typography
+## 5. Typography
 
 | Role | Family | Used for |
 | --- | --- | --- |
-| Language | **Inter** | headings, prose, buttons, field labels |
-| Data | **JetBrains Mono**, `tnum` | every rate, price, term label, clause index, column head, status tag |
+| Language | **Inter** | headings, prose, buttons, field labels, units |
+| Data | **JetBrains Mono**, `tnum` | every rate, price, figure, campaign length, clause index, status label |
 
 Both are already loaded by `index.html`; this adds no font request.
 
-- **Authority comes from size and tracking, not weight.** Display and h2 are
-  **weight 400**, never 600+. Display tracking is `-0.032em`; h2 `-0.024em`.
-- **Body carries slight positive tracking** (`0.003em`), which reads airier at
-  16px and contrasts with the tight display sizes.
-- Scale: display `clamp(2.125rem, 1.4rem + 2.85vw, 3.5rem)` · h2
-  `clamp(1.5rem, 1.28rem + .9vw, 2rem)` · h3 `.9375rem` · lead
+- **Authority comes from size and tracking, not weight.** Display `500` at
+  `-0.035em`; h2 `500` at `-0.026em`. Nothing in the public surface is set
+  heavier than 500 except a kicker index.
+- Scale: display `clamp(2.25rem, 1.5rem + 3vw, 3.75rem)` · h2
+  `clamp(1.5rem, 1.3rem + .85vw, 2.0625rem)` · h3 `1rem` · lead
   `clamp(1.0625rem, 1rem + .25vw, 1.1875rem)` · body `1rem` · small `.875rem` ·
-  label `.75rem` (mono, `0.09em`, uppercase).
-- **Money is its own role** (`pse-metric`): mono, tabular, `500` weight, tracking
-  `-0.035em`, clamped to `1.75–2.25rem`, with the unit (`/ hour`) beside it as a
-  quieter `.875rem` in `--pse-ink-3`. A figure is the loudest thing in its own
-  block and never repeats its currency word.
-- Every figure carries `font-variant-numeric: tabular-nums` as well as `tnum`.
+  micro `.6875rem` (mono, `0.1em`, uppercase).
+- **Money is its own role** (`pse-metric`): mono, tabular, `500`, `-0.035em`,
+  clamped `1.5–1.9375rem`, with the unit beside it as a quieter `.8125rem` in
+  `--pse-ink-3`. A figure is the loudest thing in its own block and never repeats
+  its currency word.
+- Every figure carries `font-variant-numeric: tabular-nums` **and** `tnum`.
 - Headings use `text-wrap: balance`; prose uses `pretty`.
-- Field labels are **plain** (13px/500 Inter), not mono-uppercase: a label is
-  language, not data.
+- Field labels are **plain** (Inter, 13px/500): a label is language, not data.
 
-## 5. Colour
+## 6. Colour
 
-| Token | Job | Light plane | Console (dark) |
+| Token | Job | Plane (dark) | Console (app theme) |
 | --- | --- | --- | --- |
-| `--pse-paper` | page | `#ffffff` | `#0b0d11` |
-| `--pse-band` / `--pse-band-2` | tint band, deeper tint | `#f7f8fa` / `#eef0f3` | `#12141a` / `#171a21` |
-| `--pse-ink-bg` | ink band | `#0d0f13` | `#05070a` |
-| `--pse-ink` / `-2` / `-3` | primary, secondary, label ink | `#0e1116` / `#545d69` / `#5b6472` | `#f2f4f7` / `#a7afbb` / `#8a93a1` |
-| `--pse-rule` / `-2` / `-strong` | structure | `rgba(16,19,24,.13 / .075 / .26)` | `rgba(255,255,255,.16 / .08 / .3)` |
-| `--pse-accent` | **interaction and state only** | `#1c47c9` | `#6b93ff` |
-| `--pse-good` / `-warn` / `-danger` | reported outcomes | `#0f6240` / `#7d4b00` / `#a51f19` | `#4cc38a` / `#e0a03a` / `#f2685c` |
+| `--pse-canvas` | page | `#08090b` | `#ffffff` |
+| `--pse-surface` / `-2` / `-3` | raised steps | `#0f1115` / `#14171d` / `#191d24` | `#ffffff` / `#f7f8fa` / `#eef0f3` |
+| `--pse-band` | band tone | `#0c0e12` | `#f7f8fa` |
+| `--pse-inset` | inner fill | `rgba(255,255,255,.045)` | `rgba(16,19,24,.04)` |
+| `--pse-ink` / `-2` / `-3` | primary, secondary, label | `#f2f4f8` / `#a3abba` / `#838c99` | `#0e1116` / `#545d69` / `#5b6472` |
+| `--pse-rule` / `-2` / `-strong` | structure | `rgba(255,255,255,.11/.06/.2)` | `rgba(16,19,24,.13/.075/.26)` |
+| `--pse-accent` / `-solid` | **interaction and state** | `#6f9bff` / `#2f5cf5` | `#1c47c9` |
+| `--pse-cyan` | referral capacity, payout node | `#2fc9e6` | `#0d7c94` |
+| `--pse-violet` | Advanced tier gradient only | `#8b6cff` | `#5b46d9` |
+| `--pse-good` / `-warn` / `-danger` | reported outcomes | `#34d399` / `#f0b24a` / `#f87171` | semantic greens/ambers/reds |
+| `--pse-bnb` | **payment context only** | `#f0b90b` | `#8a6a00` |
 
-- **Accent is never decoration.** It marks the clause index, a focus ring, a real
-  proportion, the primary button and a live state.
-- **One accent.** No second interface hue; the retired cyan is brand-only, which
-  is why the interface reads calmer.
-- **Text ink is near-black with a cool cast**, never pure `#000`.
-- **Label ink clears WCAG AA (4.5:1) on paper, on the tint band and on the deeper
-  tint**, because it is used at 11–13px.
-- **The ink band re-maps the token set for its own subtree**, so every descendant
-  — headings, prose, rules, tags, buttons — adapts with no override.
-- `color-scheme: light` on the plane makes the browser's own controls (caret,
-  autofill, scrollbars) match it instead of the OS dark default.
+- **Accent is never decoration.** It marks a kicker index, a focus ring, a real
+  proportion, the primary button, a live state, and the one hairline at the top
+  of an auth instrument.
+- **Restraint over saturation.** Cyan is functional in exactly two places
+  (referral capacity, the payout node); violet exists only inside the Advanced
+  tier's capacity gradient; BNB yellow appears only where the payment asset is
+  named. No colour is used because a section wanted one.
+- **Label ink clears AA on every surface it is used on**, because it is used at
+  11–13px.
+- Buttons, tags and chips carry a dot, a word or a glyph as well as a tone —
+  **colour is never the sole carrier of meaning.**
 
-## 6. Space, radius, elevation
+## 7. Space, radius, elevation
 
-- Shell `1140px`; gutters 20 / 32 / 40px at 0 / 768 / 1120px.
-- **Section rhythm:** `padding-block: clamp(56px, 7.5vw, 104px)`.
-- **Sections are separated by space and band tone — never by a rule between every
-  pair.** A rule between each section is what turns a page into a stack of boxes.
-- Radii: **12px** controls, cards and the specimen; 6px tags. Never a pill.
-- **Whisper-only elevation:** one shadow in the entire public surface, on the hero
-  specimen (`0 4px 24px rgba(16,19,24,.05)`). Everything else is flat.
-- Borders are 1px, plus a 2px top edge on a stage.
+- Shell `1180px`; gutters 20 / 32 / 40px at 0 / 768 / 1120px.
+- **Section rhythm:** `padding-block: clamp(64px, 8vw, 116px)`.
+- **Sections are separated by space and a luminance band — never by a rule
+  between every pair.** A rule between each section is what turns a page into a
+  stack of boxes; a 2% luminance step is enough to read a new chapter.
+- Radii: `6px` tags/keys · `10px` small controls · `14px` panels, inputs, tools ·
+  `20px` the auth instrument. Never a pill, except the kicker chip.
+- **Elevation is light, not shadow.** A panel is a translucent step up with a
+  shadow-as-border ring (`--pse-ring`) and an inner top highlight (`--pse-lift`),
+  locked to two levels. A glow is never used to fake depth.
+- One atmosphere behind the whole page: a single very wide, very low wash
+  (`--pse-glow`), not a stack of decorative gradients.
 
-## 7. Components
+## 8. Components
 
 | Component | Rule |
 | --- | --- |
-| Band (`pse-band--tint` / `--ink`) | Full-width tone change. The only rhythm device. |
-| Section head (`pse-head`) | Kicker (index + name) → h2 → optional lede, capped at 46ch/62ch. |
-| Card (`pse-card`) | Two exist. 1px border, 12px radius, head/body/foot strips. |
-| Spec row (`pse-row`) | Term left, tabular figure right, hairline between. **Proportional columns, both may wrap** — an `auto` figure column clips the term at 390px. |
-| Metric (`pse-metric`) | One money figure per block, with its unit beside it. |
-| Proportion bar (`pse-bar`) | 4–6px. Only ever a real fraction of a real maximum. `--split` composes two real segments, and a `pse-legend` beside it labels both, so colour is never the only carrier of meaning. |
-| Tool family (`pse-tools`) | One ruled table, four members. Shared grammar: the same unit drawing with tier-many filled bays (`PseTierMark`), plus the Elite's continuous crest. Not four cards. |
-| Input (`pse-input`) | 48px, 12px radius, accent border plus a 3px accent-quiet ring on focus. |
+| Panel (`pse-panel`) | The one raised surface. `--raised` adds the ring and lift. Head/body/foot strips carry hairlines. |
+| Section head (`pse-head`) | Kicker chip (index + name) → h2 → optional lede, 48ch / 64ch wide. |
+| Stat (`pse-stat`) | Label, tabular figure, optional unit and note. `StatGrid` is 1 → 3/4 columns at 720px. **Not every number is a hero statistic.** |
+| Capacity gauge (`pse-gauge`) | One shared denominator. A stacked two-segment bar states the composition; three rows below are proportional to the same ceiling. Real fractions only. |
+| Campaign rail (`pse-rail`) | Phases with nodes and drawn connectors. **No "you are here"** — a public page cannot know a campaign's position. Vertical on mobile, horizontal from 768px. |
+| Pipeline (`pse-flow`) | Ordered steps with glyphs, indices, connectors and an optional denomination marker. 1 → 2 → 4 columns. Hover lifts the step and accents its glyph. |
+| Specimen (`pse-spec`) | A window of the application: a title bar, instrument fields, and a footer that labels it a specimen. |
+| Tool module (`PseTierModule`) | One drawing, tier-many filled bays; Elite adds the continuous crest. Four members of one family, never four identical cards. |
+| Tool family (`pse-tools`) | 1 column (horizontal scroll) on mobile → 2 at 480px → 4 at 1024px. Each member: name + `Tier n`, a Session/Continuous chip, the module, the rate with a proportional bar, price and ownership limit, and an operating note. |
+| Trust grid (`pse-trust`) | 1 → 2 → 4 columns of glyph, name and claim. |
+| Input (`pse-input`) | 48px, `14px` radius, accent border plus a 3px accent-quiet ring on focus. Invalid fields get the danger edge. |
 | Password control | Toggle inside the field so the field never grows; 44px target. |
+| Meter (`pse-meter`) | 3px rail, four bands, driven by the real input, coloured from the semantic set. Reports a band, never a score or a percentage; `aria-hidden` because the sentence beside it says the same thing. |
 | Field error | Printed under **its own** field, `role="alert"`, referenced by `aria-describedby`; focus moves to the first invalid field. |
-| Tag (`pse-tag`) | Mono, uppercase, 6px radius, dot. The **word** carries the meaning. |
+| Chip / tag (`pse-chip`, `pse-tag`) | Mono, uppercase, small radius, dot. The **word** carries the meaning. |
+| Button (`pse-btn`) | 48px (`--lg`) or 44px (`--sm`). Solid accent for the primary action, ringed inset for secondary. The arrow glyph shifts 3px on hover — the only decorative movement allowed. |
 | FAQ (`pse-faq`) | Ruled rows, drawn plus/minus, `aria-expanded` + `aria-controls`. |
-| Masthead (`pse-mast`) | Sticky, translucent paper. Section anchors are a **desktop-only** affordance (`≥900px`); on small screens the bar carries the brand and the two real actions, because five anchors at 390px is either three wrapped rows or a sliver. |
+| Masthead (`pse-mast`) | Sticky, translucent graphite. Section anchors are a **desktop-only** affordance (≥960px); below that the bar is brand + one menu control, and navigation lives in a drawer with Sign in / Create account. Five anchors at 390px is either three wrapped rows or a sliver. |
 
-## 8. Authentication composition
+## 9. Landing composition
 
-**One column, one axis. No split screen, no card, no artwork.** A panel wide enough
-to be worth its space would have to carry product terms to fill it, and a sign-in
-page must contain only authentication; a border around the form would add a box to
-a page whose hierarchy already comes from type and field rhythm.
+```
+masthead ─ brand · anchors · Sign in · Create account · ☰
+hero ───── proposition + primary/secondary CTA + meta
+           ▸ HeroSpecimen (campaign length · capacity ceiling ·
+             capacity gauge · the four tiers)
+01  the purchase ── four-step pipeline
+02  the tool family ── four modules with real locked economics
+03  capacity ── the gauge + how a referral qualifies
+04  campaign ── the lifecycle rail + three figures
+05  payment ── the purchase specimen + what a quote gives you
+06  settlement ── accrual → settle → review → payout
+07  security ── four trust claims + what is locked
+08  questions ── FAQ
+09  the close ── one CTA pair, then the footer
+```
+
+**The hero is asymmetric by intent:** the argument on the left, the product's own
+capacity model on the right. The first viewport carries the brand, the
+proposition, the primary CTA and a real object — never a wall of navigation.
+
+## 10. Authentication composition
+
+**One column, one axis. No split screen, no artwork, no marketing panel.**
 
 ```
 [ PSEmine ]                                    About PSEmine
 ───────────────────────────────────────────────────────────
-                  (vertically centred)
+                    (vertically centred)
+                     ▣ PSEmine
                      Sign in
               Enter your email and password to continue.
               [ Email ]
-              [ Password                        👁 ]
-              [               Sign in               ]
-                    Forgot your password?
-                    ─────────  or  ─────────
-              [          Continue with Google        ]
+              [ Password                         👁 ]
+              [                Sign in              ]
+                     Forgot your password?
+                     ─────────  or  ─────────
+              [         Continue with Google        ]
                  New to PSEmine? Create an account
 ───────────────────────────────────────────────────────────
   🔒 PSEmine never asks for your private key or seed phrase.
 ```
 
-Form column `392px`, fields 48px, primary action 48px full-width.
+- **Mobile:** full-bleed column, max `392px`. **Tablet and up:** the same column
+  becomes an instrument — `452px`, `20px` radius, raised surface, ring + lift, and
+  one accent hairline across the top edge. That hairline is the only colour on the
+  screen until a control is used.
+- Fields 48px, primary action 48px full-width.
+- **Action order is deliberate:** the primary action, then whatever qualifies it
+  (the reset link, or on sign-up the terms line), then the provider divider, then
+  the alternate provider. An exception somebody has to read belongs above the
+  divider, not after an unrelated button.
+- At 390×844 the bar, brand lockup, heading, welcome line, both fields and the
+  primary action are above the fold.
 
-**Action order is deliberate:** the primary action, then whatever qualifies it
-(the reset link, or on sign-up the terms line), then the provider divider, then
-the alternate provider. An exception somebody has to read belongs above the
-divider, not after an unrelated button. At 390×844 the bar, heading, welcome line,
-both fields and the primary action are above the fold.
-
-## 9. Loader
+## 11. Loader
 
 **An application state, not a page.** Identity, one indeterminate rail, one honest
 sentence.
@@ -246,7 +274,7 @@ sentence.
 | `campaign` | "Loading campaign state" (inline, in a panel that is re-reading) |
 | `data` | "Loading your account" |
 | slow (8s) | "Still working. A slow connection is usually the reason." |
-| stalled (25s) | states the wait is longer than it should be, and offers a real retry (only if the caller has one) plus a reload |
+| stalled (25s) | states that the wait is longer than it should be, and offers a real retry (only when the caller has one) plus a reload |
 | failure | `PseLoadFailure`: the real title and message, retry only when `error.retryable` |
 | verification required | **not a loader** — the route guard navigates |
 | onboarding required | **not a loader** — the route guard navigates |
@@ -254,30 +282,55 @@ sentence.
 
 The rail is indeterminate in the literal sense: it shows that work is happening
 and never a position in a sequence. No percentage, no filling bar, no scan, no
-terminal, no counter, no step list, no boot sequence, no invented diagnostics. It
-must read correctly at 390×844 and 1440×900 — the identity and the status are
-centred, the rail is capped at 168px (55vw on small screens), and nothing overflows.
+terminal, no counter, no step list, no boot sequence, no invented diagnostics. The
+identity and the status are centred, the rail is capped at 168px (55vw on small
+screens), and it reads correctly at 390×844 and 1440×900.
 
-## 10. Motion
+## 12. Motion
 
-Three moving things only: a 140ms colour/border transition on controls, the
-loader's 1.6s indeterminate rail, and the crest's live pulse (currently unset).
-No scroll reveal, no parallax, no counting numbers. `prefers-reduced-motion:
-reduce` stops all of it — the rail becomes one static centred segment, never a
-filled bar.
+Six moving things, each one explaining hierarchy or state:
 
-## 11. Prohibited
+| Motion | Why |
+| --- | --- |
+| `Reveal` — one-shot viewport entrance (`opacity` + 18px rise) | a section arrives once, so the eye reads it as new |
+| Gauge fill, 820ms | a measurement reads as a measurement only once it has settled |
+| Rail connector draw | a rail reads as a sequence once it is drawn |
+| Tool capacity bar fill | proportional to the tier, animates once |
+| 140–220ms control transitions (border, colour, background, lift) | affordance |
+| Loader's 1.6s indeterminate rail | work is happening |
 
-Generic dark SaaS · generic crypto dashboard · cyberpunk or terminal aesthetics ·
-glassmorphism · gradients · glow · drop shadows beyond the one specimen shadow ·
-decorative grids · fake charts · fake metrics · a percentage or progress bar for
-an unknown duration · billboard-scale display type · pill buttons · emoji as icons ·
-a bordered box around every block · centred everything · colour as the sole carrier
-of meaning · animation without meaning · invented logos · architecture copy in the
+Elements are **visible by default** and only hidden once an `IntersectionObserver`
+is present to bring them back, so a failed observer can never leave the page
+blank. No scroll-jacking, no parallax, no counting numbers, no looping decoration,
+no fake mining or blockchain activity.
+
+`prefers-reduced-motion: reduce` stops all of it — reveals resolve immediately,
+bars sit at their true values, and the loader rail becomes one static centred
+segment, never a filled bar.
+
+## 13. Responsive
+
+| Viewport | Composition |
+| --- | --- |
+| 390×844 | brand + one menu control; drawer navigation; hero stacked; one tool per column; vertical rail; stacked figures; full-bleed auth column |
+| 430×932 | as above with more breathing room |
+| 768×1024 | masthead still compact; hero two columns; rail horizontal; 2-up tools and trust; the auth column becomes a surface |
+| 1440×900 | 1180px shell; 4-up tools and trust; 4-step pipeline with no gaps |
+
+No horizontal overflow at any of the four. Touch targets ≥44px.
+
+## 14. Prohibited
+
+Generic dark SaaS · crypto casinò styling · cyberpunk or terminal aesthetics ·
+glassmorphism · gradient stacks · neon glow · a shadow per element · decorative
+grids · fake charts · fake metrics · **a percentage or progress bar for an unknown
+duration** · billboard display type · pill buttons · emoji as icons · a bordered
+box around every block · centred everything · colour as the sole carrier of
+meaning · animation without meaning · invented logos · architecture copy in the
 UI · **a personal or live figure on a public route** · **a payment or payout
 address printed publicly** · **any content on a route where it does not belong**.
 
-## 12. Known divergences (recorded, not fixed here)
+## 15. Known divergences (recorded, not fixed here)
 
 - `src/types/psemine.ts` mirrors `QUOTE_EXPIRATION_MINUTES: 10` while the backend
   holds `QUOTE_TTL_MINUTES = 15`. The UI deliberately never prints a quote
@@ -286,6 +339,8 @@ address printed publicly** · **any content on a route where it does not belong*
   `references/pro-rules.md`, which the sync does not pull; only `SKILL.md` and
   `src/` are present. The skill's searchable data (`src/data/*.csv`,
   `src/scripts/search.py`) is present and was used.
+- The open-design MCP server is not registered in this environment; the design
+  systems were read directly from `.agents/skills/open-design/design-systems/`.
 - The public guide (`/mine/guide`) is a non-target surface: its copy was corrected
   but its presentation was not rebuilt to this system.
 - The authenticated console is outside this system entirely; it uses the

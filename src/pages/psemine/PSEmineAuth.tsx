@@ -20,10 +20,10 @@ import { mapAuthError } from '../../utils/errors';
  *     access, and only then applies the onboarding gate.
  *
  * WHAT CHANGED, AND WHY
- *   • PLANE. These surfaces render on the always-light public plane (see
- *     src/styles/psemine.css), so a sign-in page no longer inherits the
- *     application's dark default and reads as a product surface rather than a
- *     console.
+ *   • PLANE. These surfaces render on the product's own plane — always dark
+ *     graphite, whatever the application theme is (see src/styles/psemine.css
+ *     and src/styles/psemine-auth.css), so a sign-in page is unmistakably part
+ *     of the same product as the landing page rather than a page of the console.
  *   • CONTENT. Nothing about the campaign, the tools, capacity, referrals or
  *     earnings appears on any authentication surface. A sign-in page explains
  *     itself and nothing else.
@@ -56,18 +56,23 @@ const EyeGlyph: React.FC<{ off?: boolean }> = ({ off = false }) => (
   </svg>
 );
 
-/** Password quality, computed from the real input and never shown when empty. */
+/**
+ * Password quality, computed from the real input and rendered only once there
+ * is one. Four bands on one rail: a band is reported, never a score, and the
+ * rail is `aria-hidden` because the sentence below already says the same thing
+ * in words — a screen reader should not hear it twice.
+ */
 const STRENGTH_STEPS = ['Weak', 'Fair', 'Good', 'Strong'] as const;
 
 const StrengthMeter: React.FC<{ label: string }> = ({ label }) => {
   const step = Math.max(1, STRENGTH_STEPS.indexOf(label as (typeof STRENGTH_STEPS)[number]) + 1);
   return (
-    <div className="mt-2" aria-live="polite">
-      <div className="pse-bar" aria-hidden="true">
+    <div className="mt-2.5" aria-live="polite">
+      <span className="pse-meter" data-step={step} aria-hidden="true">
         <span style={{ width: `${(step / STRENGTH_STEPS.length) * 100}%` }} />
-      </div>
-      <p className="pse-small mt-1.5">
-        Password strength: <span className="pse-strong">{label}</span>
+      </span>
+      <p className="pse-small mt-2">
+        Password quality: <span className="pse-strong">{label}</span>
       </p>
     </div>
   );
@@ -617,8 +622,8 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   const location = useLocation();
 
   // This loader renders INSIDE the console shell, so it follows the console's
-  // theme rather than the public plane: the plane marks which surface you are on
-  // (see src/styles/psemine.css), and this one is already the console.
+  // theme rather than the public plane: the plane marks which surface you are
+  // on (see src/styles/psemine.css), and this one is already the console.
   if (loading) {
     return (
       <div className="pse pse-surface flex min-h-[60vh] items-center justify-center">

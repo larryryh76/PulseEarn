@@ -1,251 +1,249 @@
 /**
- * PSEmine product art — two bespoke drawings, both specific to this product.
+ * PSEmine product art — the drawn vocabulary of the product.
  *
- * 1. THE MECHANISM — the six stages, in order:
- *      TOOLS → CAPACITY → TIME → CAMPAIGN EARNINGS → SETTLEMENT → BNB PAYOUT
- *    Drawn rather than illustrated, because the mechanism IS the product. A stock
- *    photograph, a 3D cube, a fake hashrate readout or an animated chart would
- *    each communicate less and claim more. Every station is a schematic of
- *    something the backend really does.
+ * Three families, all specific to PSEmine, and all drawn rather than the result
+ * of a stock icon set or a photograph:
  *
- * 2. THE TOOL FAMILY MARK — one drawing grammar shared by all four tools, with
- *    the tier carried by TOPOLOGY (how many bays of the unit are filled), never
- *    by colour or size alone. This is what makes Starter / Builder / Advanced /
- *    Elite read as one product line of equipment rather than four unrelated
- *    cards. The Elite additionally carries a crest bar, because it is the one
- *    tier that runs continuously.
+ * 1. GLYPHS (`PseGlyph`)
+ *    One idea per glyph, 24×24, one stroke weight. They label the stages of a
+ *    pipeline and the claims in the trust grid. Each draws exactly what it
+ *    names, because a sequence reads faster when the marks are literal: a quote,
+ *    a wallet, a verification, an activation; accrual, settlement, review, a
+ *    payout; a server, a chain, an audit trail, a shield.
  *
- * HONESTY: the mechanism is a diagram, not a readout. It carries no number, no
- * live state and no progress, because it knows nothing about a particular
- * visitor. Every figure a visitor sees near it comes from the locked economics
- * or from the campaign record, never from here.
+ * 2. THE EQUIPMENT FAMILY (`PseTierModule`)
+ *    One chassis, four interiors. Every tier is the same drawn machine — body,
+ *    base rail, side vent — and the tier is carried by the *interior topology*:
+ *    how many cells are populated and how they are arranged. Starter is one
+ *    cell, Builder two stacked, Advanced a 2×2 block, Elite four across the rail
+ *    with a continuous-duty crest above it. So the four tools read as one
+ *    product line of increasing sophistication rather than four unrelated
+ *    objects, and the difference is legible at 88px without any colour help.
  *
- * Rendering is CSS grids rather than one fixed-size SVG, so both compose from
- * 390px to 1440px instead of being scaled into illegibility.
+ * 3. THE TIER RATE CELL (`PseTierCell`)
+ *    The compact roster form used inside the hero specimen.
+ *
+ * HONESTY. Nothing here is a readout. No glyph carries a number, a live state or
+ * progress, because none of them knows anything about a particular visitor. The
+ * accent colour is used to mark the single element each glyph or module is
+ * actually about — never as decoration.
  */
 import React from 'react';
 
-export type PseFlowStageId = 'tools' | 'capacity' | 'time' | 'earnings' | 'settlement' | 'payout';
+/* ═══════════════════ GLYPHS ═══════════════════ */
 
-/** Shared frame for the station glyphs: 30×30, one accent element each. */
-const Glyph: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
-  <svg width="30" height="30" viewBox="0 0 32 32" fill="none" role="img" aria-label={label}>
-    {children}
+export type PseGlyphName =
+  | 'select' | 'wallet' | 'verify' | 'activate'
+  | 'accrue' | 'settle' | 'review' | 'payout'
+  | 'server' | 'chain' | 'audit' | 'shield';
+
+const S = 'currentColor';
+const A = 'var(--pse-accent)';
+const C = 'var(--pse-cyan)';
+
+/** 24×24, one stroke weight, round joins. `aria-hidden` — the label is the text. */
+export const PseGlyph: React.FC<{ name: PseGlyphName; size?: number; className?: string }> = ({
+  name,
+  size = 22,
+  className,
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+    shapeRendering="geometricPrecision"
+    className={className}
+  >
+    {name === 'select' && (
+      <>
+        <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2" stroke={S} strokeWidth="1.3" opacity="0.45" />
+        <rect x="13" y="3.5" width="7.5" height="7.5" rx="2" stroke={S} strokeWidth="1.3" opacity="0.45" />
+        <rect x="3.5" y="13" width="7.5" height="7.5" rx="2" stroke={S} strokeWidth="1.3" opacity="0.45" />
+        <rect x="13" y="13" width="7.5" height="7.5" rx="2" fill={A} />
+      </>
+    )}
+
+    {name === 'wallet' && (
+      <>
+        <path
+          d="M3.5 8.2c0-1 .8-1.7 1.7-1.7h11.6c1 0 1.7.8 1.7 1.7v7.6c0 1-.8 1.7-1.7 1.7H5.2c-1 0-1.7-.8-1.7-1.7V8.2Z"
+          stroke={S}
+          strokeWidth="1.3"
+        />
+        <path d="M3.5 10.5h17" stroke={S} strokeWidth="1.3" opacity="0.35" />
+        <circle cx="16.4" cy="14.4" r="1.7" fill={A} />
+      </>
+    )}
+
+    {name === 'verify' && (
+      <>
+        <path
+          d="M12 3.2l7 2.6v5.4c0 4-2.9 7.4-7 8.9-4.1-1.5-7-4.9-7-8.9V5.8l7-2.6Z"
+          stroke={S}
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path d="M8.8 11.9l2.3 2.3 4.2-4.4" stroke={A} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    )}
+
+    {name === 'activate' && (
+      <>
+        <circle cx="12" cy="12" r="8.2" stroke={S} strokeWidth="1.3" />
+        <path d="M12 7.4v5.2" stroke={A} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M8.4 10.4a5 5 0 1 0 7.2 0" stroke={S} strokeWidth="1.3" strokeLinecap="round" opacity="0.4" />
+      </>
+    )}
+
+    {name === 'accrue' && (
+      <>
+        <path d="M3.5 20.5h17" stroke={S} strokeWidth="1.3" strokeLinecap="round" opacity="0.3" />
+        <rect x="5" y="14.5" width="3.4" height="6" rx="1" fill={S} opacity="0.3" />
+        <rect x="10.3" y="10.5" width="3.4" height="10" rx="1" fill={S} opacity="0.5" />
+        <rect x="15.6" y="5.5" width="3.4" height="15" rx="1" fill={A} />
+      </>
+    )}
+
+    {name === 'settle' && (
+      <>
+        <path d="M3.5 8.5h11M3.5 15.5h11" stroke={S} strokeWidth="1.3" strokeLinecap="round" opacity="0.35" />
+        <path d="M14.5 8.5h2.2a3.5 3.5 0 0 1 3.5 3.5M14.5 15.5h2.2a3.5 3.5 0 0 0 3.5-3.5" stroke={S} strokeWidth="1.3" opacity="0.5" />
+        <path d="M19.2 12h1.8" stroke={A} strokeWidth="1.7" strokeLinecap="round" />
+      </>
+    )}
+
+    {name === 'review' && (
+      <>
+        <path d="M2.8 12S5.8 6.8 12 6.8 21.2 12 21.2 12 18.2 17.2 12 17.2 2.8 12 2.8 12Z" stroke={S} strokeWidth="1.3" strokeLinejoin="round" opacity="0.5" />
+        <circle cx="12" cy="12" r="2.9" stroke={A} strokeWidth="1.5" />
+        <path d="M14.4 14.4l3.2 3.2" stroke={S} strokeWidth="1.3" strokeLinecap="round" opacity="0.55" />
+      </>
+    )}
+
+    {name === 'payout' && (
+      <>
+        <path d="M3.5 7.5h11.5v9H3.5z" stroke={S} strokeWidth="1.3" strokeLinejoin="round" opacity="0.5" />
+        <circle cx="7.6" cy="12" r="1.5" fill={S} opacity="0.4" />
+        <path d="M14 12h6.5" stroke={C} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M17.6 8.9L20.9 12l-3.3 3.1" stroke={C} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    )}
+
+    {name === 'server' && (
+      <>
+        <rect x="3.5" y="4" width="17" height="6" rx="2" stroke={S} strokeWidth="1.3" />
+        <rect x="3.5" y="14" width="17" height="6" rx="2" stroke={S} strokeWidth="1.3" opacity="0.5" />
+        <circle cx="7.2" cy="7" r="1.1" fill={A} />
+        <circle cx="7.2" cy="17" r="1.1" fill={S} opacity="0.35" />
+        <path d="M12 7h5M12 17h5" stroke={S} strokeWidth="1.2" strokeLinecap="round" opacity="0.3" />
+      </>
+    )}
+
+    {name === 'chain' && (
+      <>
+        <rect x="3.5" y="8.5" width="8.5" height="7" rx="2" stroke={S} strokeWidth="1.3" opacity="0.5" />
+        <rect x="12" y="8.5" width="8.5" height="7" rx="2" stroke={S} strokeWidth="1.3" />
+        <path d="M9.5 12h5" stroke={A} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M12 3.4v2.6M12 18v2.6" stroke={S} strokeWidth="1.2" strokeLinecap="round" opacity="0.3" />
+      </>
+    )}
+
+    {name === 'audit' && (
+      <>
+        <path d="M5 3.5h9l5 5v12H5z" stroke={S} strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M14 3.5v5h5" stroke={S} strokeWidth="1.3" strokeLinejoin="round" opacity="0.4" />
+        <path d="M8.2 15.2l1.8 1.8 3.6-3.8" stroke={A} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    )}
+
+    {name === 'shield' && (
+      <>
+        <path
+          d="M12 3.2l7.5 2.8v5.2c0 4.2-3.1 7.8-7.5 9.4-4.4-1.6-7.5-5.2-7.5-9.4V6l7.5-2.8Z"
+          stroke={S}
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path d="M12 8.4v4.2M12 15.4v.1" stroke={A} strokeWidth="1.7" strokeLinecap="round" />
+      </>
+    )}
   </svg>
 );
 
-const STRUCTURE = 'currentColor';
-const ACCENT = 'var(--pse-accent)';
+/* ═══════════════════ THE EQUIPMENT FAMILY ═══════════════════ */
 
-/**
- * Station glyphs. Each draws only the single idea its station states — no station
- * repeats another's drawing, and the accent marks the one quantity or direction
- * that the station is actually about.
- */
-export const PseFlowGlyph: React.FC<{ stage: PseFlowStageId }> = ({ stage }) => {
-  switch (stage) {
-    case 'tools':
-      return (
-        <Glyph label="A mining tool unit">
-          <rect x="4.5" y="8" width="23" height="16" rx="3" stroke={STRUCTURE} strokeWidth="1.4" />
-          <rect x="9" y="13" width="3" height="6" rx="1" fill={ACCENT} />
-          <rect x="14" y="13" width="3" height="6" rx="1" fill={ACCENT} opacity="0.35" />
-          <rect x="19" y="13" width="3" height="6" rx="1" fill={ACCENT} opacity="0.35" />
-        </Glyph>
-      );
-    case 'capacity':
-      return (
-        <Glyph label="Ascending capacity">
-          <path d="M4.5 26h23" stroke={STRUCTURE} strokeWidth="1.4" strokeLinecap="round" opacity="0.4" />
-          <rect x="7" y="19" width="4" height="7" rx="1" fill={STRUCTURE} opacity="0.3" />
-          <rect x="14" y="13.5" width="4" height="12.5" rx="1" fill={STRUCTURE} opacity="0.55" />
-          <rect x="21" y="7.5" width="4" height="18.5" rx="1" fill={ACCENT} />
-        </Glyph>
-      );
-    case 'time':
-      return (
-        <Glyph label="A bounded campaign period">
-          <circle cx="16" cy="16" r="10.5" stroke={STRUCTURE} strokeWidth="1.4" opacity="0.5" />
-          <path
-            d="M16 5.5v2.5M26.5 16h-2.5M16 26.5v-2.5M5.5 16h2.5"
-            stroke={STRUCTURE}
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            opacity="0.5"
-          />
-          <path d="M16 16V9.5" stroke={STRUCTURE} strokeWidth="1.4" strokeLinecap="round" opacity="0.4" />
-          <path d="M16 16h7.5" stroke={ACCENT} strokeWidth="1.8" strokeLinecap="round" />
-        </Glyph>
-      );
-    case 'earnings':
-      return (
-        <Glyph label="A server-side accrual ledger">
-          <rect x="5.5" y="5" width="21" height="22" rx="2.5" stroke={STRUCTURE} strokeWidth="1.4" opacity="0.5" />
-          <path
-            d="M10 11.5h7M10 16h4.5M10 20.5h7"
-            stroke={STRUCTURE}
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            opacity="0.4"
-          />
-          <rect x="19" y="13.5" width="3" height="7" rx="1" fill={ACCENT} />
-        </Glyph>
-      );
-    case 'settlement':
-      return (
-        <Glyph label="Final balances reconciled">
-          <path d="M5 10.5h6.5M5 21.5h6.5" stroke={STRUCTURE} strokeWidth="1.4" strokeLinecap="round" opacity="0.4" />
-          <path d="M11.5 10.5h2a5 5 0 0 1 5 5M11.5 21.5h2a5 5 0 0 0 5-5" stroke={STRUCTURE} strokeWidth="1.4" opacity="0.5" />
-          <path d="M19.5 16h7" stroke={ACCENT} strokeWidth="1.8" strokeLinecap="round" />
-        </Glyph>
-      );
-    case 'payout':
-      return (
-        <Glyph label="A payout sent to the configured wallet">
-          <path d="M4.5 12.5h12v11h-12z" stroke={STRUCTURE} strokeWidth="1.4" strokeLinejoin="round" opacity="0.5" />
-          <path
-            d="M7.5 10.5v-2h12v11h-3"
-            stroke={STRUCTURE}
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-            opacity="0.35"
-          />
-          <circle cx="10.5" cy="18" r="1.6" fill={ACCENT} />
-          <path
-            d="M19.5 16h7M23 12.5l3.5 3.5-3.5 3.5"
-            stroke={ACCENT}
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Glyph>
-      );
-  }
-};
-
-/** The six stations, in order. Labels are product facts, not marketing. */
-export const PSE_FLOW_STATIONS: ReadonlyArray<{
-  id: PseFlowStageId;
-  index: string;
-  name: string;
-  note: string;
-}> = [
-  {
-    id: 'tools',
-    index: '01',
-    name: 'Tools',
-    note: 'You buy mining units with BNB. A verified payment activates the unit on your account.',
-  },
-  {
-    id: 'capacity',
-    index: '02',
-    name: 'Capacity',
-    note: 'Each unit carries a fixed capacity in GBP per hour, capped by the tier’s ownership limit.',
-  },
-  {
-    id: 'time',
-    index: '03',
-    name: 'Time',
-    note: 'Capacity only earns while the campaign runs and while the unit is inside a live session.',
-  },
-  {
-    id: 'earnings',
-    index: '04',
-    name: 'Earnings',
-    note: 'Earnings accrue in GBP, on the server, against a checkpoint. Nothing is credited by the browser.',
-  },
-  {
-    id: 'settlement',
-    index: '05',
-    name: 'Settlement',
-    note: 'When the campaign ends, accrual stops and final balances are computed for settlement.',
-  },
-  {
-    id: 'payout',
-    index: '06',
-    name: 'BNB payout',
-    note: 'Settled GBP is disbursed in BNB to the payout wallet on your account, after review.',
-  },
-];
-
-/**
- * The mechanism: six stations in sequence, each carrying its drawn idea, its
- * position, its name and one sentence about what really happens there.
- *
- * It marks no station as "current" and carries no figure, because nothing here
- * knows where a particular visitor is. The real campaign position is stated in
- * words by the section that reads the campaign record.
- */
-export const PseFlowRail: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <ol className={`pse-stages ${className}`} aria-label="How PSEmine works, in six stages">
-    {PSE_FLOW_STATIONS.map(station => (
-      <li key={station.id} className="pse-stage">
-        <span className="pse-stage-top">
-          <span className="pse-stage-glyph" aria-hidden="true">
-            <PseFlowGlyph stage={station.id} />
-          </span>
-          <span className="pse-stage-num">{station.index}</span>
-        </span>
-        <span className="pse-stage-name">{station.name}</span>
-        <span className="pse-stage-note">{station.note}</span>
-      </li>
-    ))}
-  </ol>
+/** Body, base rail, vent. Shared by every tier — this is the family grammar. */
+const CHASSIS = (
+  <>
+    <rect x="5" y="11" width="78" height="34" rx="6" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
+    <path d="M9 45h70" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.22" />
+    <path d="M76 18.5h3.4M76 24h3.4M76 29.5h3.4M76 35h3.4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.28" />
+  </>
 );
 
-/* ═══════════════════ THE TOOL FAMILY MARK ═══════════════════ */
-
-const BAY_COUNT = 4;
-const BAY_X = [5.4, 17.0, 28.6, 40.2];
+/**
+ * Interior cells per tier. Fewer, larger cells at the bottom of the family and
+ * a populated rail at the top: the arrangement itself is the tier identity.
+ */
+const INTERIOR: Record<number, ReadonlyArray<{ x: number; y: number; w: number; h: number; fill?: string; opacity?: number }>> = {
+  1: [{ x: 26, y: 21, w: 42, h: 14, fill: 'var(--pse-accent)' }],
+  2: [
+    { x: 24, y: 16, w: 46, h: 9, fill: 'var(--pse-accent)', opacity: 0.55 },
+    { x: 24, y: 30, w: 46, h: 9, fill: 'var(--pse-accent)' },
+  ],
+  3: [
+    { x: 17, y: 16, w: 24, h: 9, fill: 'var(--pse-accent)' },
+    { x: 47, y: 16, w: 22, h: 9, fill: 'var(--pse-violet)', opacity: 0.85 },
+    { x: 17, y: 30, w: 24, h: 9, fill: 'var(--pse-accent)', opacity: 0.75 },
+    { x: 47, y: 30, w: 22, h: 9, fill: 'var(--pse-violet)', opacity: 0.5 },
+  ],
+  4: [
+    { x: 12, y: 20, w: 14, h: 16, fill: 'var(--pse-accent)' },
+    { x: 30, y: 20, w: 14, h: 16, fill: 'var(--pse-accent)', opacity: 0.8 },
+    { x: 48, y: 20, w: 14, h: 16, fill: 'var(--pse-cyan)', opacity: 0.75 },
+    { x: 66, y: 20, w: 9, h: 16, fill: 'var(--pse-cyan)' },
+  ],
+};
 
 /**
- * One unit, four bays. The tier is carried by how many bays are filled, so the
- * four tools share one silhouette and still read as different machines. The
- * Elite — the only tier that runs without restarts — carries a crest bar.
+ * One drawn mining unit. The tier changes the interior and, at the top of the
+ * family, adds the continuous-duty crest — the one visual claim Elite makes
+ * about itself, and one the product actually honours.
  */
-export const PseTierMark: React.FC<{
+export const PseTierModule: React.FC<{
   tier: number;
   /** Continuous-operation tier (Elite). */
   continuous?: boolean;
   width?: number;
   className?: string;
-}> = ({ tier, continuous = false, width = 54, className = '' }) => {
-  const filled = Math.max(0, Math.min(BAY_COUNT, tier));
+}> = ({ tier, continuous = false, width = 88, className }) => {
+  const cells = INTERIOR[Math.min(4, Math.max(1, tier))] ?? INTERIOR[1];
   return (
     <svg
       width={width}
-      height={(width * 30) / 54}
-      viewBox="0 0 54 30"
+      height={(width * 56) / 88}
+      viewBox="0 0 88 56"
       fill="none"
       aria-hidden="true"
-      className={`pse-tier-glyph ${className}`}
+      focusable="false"
+      shapeRendering="geometricPrecision"
+      className={`pse-tool-module ${className || ''}`}
     >
-      {/* The unit: one silhouette shared by every tier. */}
-      <rect x="1" y="5" width="52" height="20" rx="4" stroke="currentColor" strokeWidth="1.2" opacity="0.45" />
-
-      {/* Bays. Empty bays stay drawn, so the family reads as one product line. */}
-      {BAY_X.map((x, i) => {
-        const on = i < filled;
-        return (
-          <rect
-            key={x}
-            x={x}
-            y="9.6"
-            width="8.4"
-            height="10.8"
-            rx="2"
-            fill={on ? 'var(--pse-accent)' : 'none'}
-            stroke={on ? 'none' : 'currentColor'}
-            strokeWidth={on ? 0 : 1}
-            opacity={on ? 1 : 0.3}
-          />
-        );
-      })}
-
-      {/* The continuous-duty crest. */}
-      {continuous && <rect x="15" y="0.8" width="24" height="2.4" rx="1.2" fill="var(--pse-accent)" />}
+      {continuous && (
+        <>
+          <rect x="30" y="3" width="28" height="3" rx="1.5" fill="var(--pse-cyan)" />
+          <path d="M22 7.5h44" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.3" />
+        </>
+      )}
+      {CHASSIS}
+      {cells.map((c, i) => (
+        <rect key={i} x={c.x} y={c.y} width={c.w} height={c.h} rx="2.5" fill={c.fill} opacity={c.opacity ?? 1} />
+      ))}
     </svg>
   );
 };
 
-export default PseFlowRail;
+export default PseTierModule;

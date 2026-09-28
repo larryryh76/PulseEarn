@@ -7,6 +7,10 @@ import './index.css'
 // scoped to `.pse` so it never restyles PulseEarn. The authenticated console is
 // still the minimal functional presentation and gets its own phase.
 import './styles/psemine.css'
+// The authentication family's own additions to that layer (brand lockup at the
+// task, the form-as-instrument surface, the password quality meter). Loaded after
+// psemine.css so its overrides sit later in the cascade by construction.
+import './styles/psemine-auth.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

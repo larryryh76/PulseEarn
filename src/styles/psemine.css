@@ -1,81 +1,83 @@
 /* ============================================================================
  * PSEmine — the product's own visual layer.
  *
- * SCOPE: everything is nested under `.pse`. The authenticated console applies
- * `.pse` (tokens + type roles) and keeps following the application theme; the
- * four PUBLIC surfaces apply `.pse-plane` as well and are always light. Nothing
- * here reaches the rest of the application; the app theme lives in
- * src/index.css and is untouched.
+ * SCOPE. Everything is nested under `.pse`. The four PUBLIC surfaces carry
+ * `.pse-plane` as well and are always the dark product surface; the
+ * authenticated console applies `.pse` alone and keeps following the
+ * application theme. Nothing here reaches the rest of the application; the app
+ * theme lives in src/index.css and is untouched.
  *
- * WHY THE PUBLIC PLANE IS LIGHT
- * -----------------------------
- * index.html defaults the application to dark. Because the previous tokens were
- * declared for both themes, PSEmine's landing, authentication and loader
- * inherited that default and rendered as a near-black documentation surface —
- * the specific failure this file now exists to prevent. A public financial
- * product is a *product surface*, not a console: it is presented on paper, in
- * daylight, the way the category leaders present theirs, while the operating
- * console stays on the application's own theme.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DIRECTION — a dark, instrumented financial product.
  *
- *   .pse-plane   → landing, authentication, loader. Always light.
- *   .pse (alone) → the console, plus inline loading/failure primitives that
- *                  render inside it. Follows the app theme.
+ * THE SURFACE IS THE DESIGN. This is darkness as the native medium, not a light
+ * design inverted: an almost-black canvas where structure comes from
+ * semi-transparent white hairlines and from luminance steps between surfaces,
+ * never from coloured fills. Three blue-ish surfaces stack — canvas, raised
+ * panel, lifted module — and each step is a few percent of white opacity. That
+ * is the whole elevation model.
+ *   • borrowed from the Linear reference: luminance stepping over shadows,
+ *     whisper-thin `rgba(255,255,255,.06–.10)` borders, translucent surfaces
+ *     (`rgba(255,255,255,.02–.05)`) rather than solid fills, and one chromatic
+ *     accent reserved for interaction.
+ *   • borrowed from the Vercel reference: the shadow-as-border ring
+ *     (`0 0 0 1px rgba(255,255,255,.08)`) instead of a CSS border on raised
+ *     modules, the multi-layer stack that ends in an *inner top highlight* so a
+ *     panel reads as lit from above, and the pipeline as the way to draw a
+ *     sequence of stages.
+ *   • borrowed from the Premium/Dashboard references: 150–250ms purposeful
+ *     transitions on stable easing, and explicit hover / focus-visible / active
+ *     / disabled / loading states for every control.
+ *
+ * THREE WEIGHTS, STRICT ROLES. 400 reads, 500 interacts and labels, 600
+ * announces. Negative tracking scales with size and relaxes to zero by 16px.
  *
  * COMPOSITION BEFORE DECORATION. A public page is built from four devices:
- *   1. BANDS   — paper / tint / ink. Rhythm comes from tone, not from borders.
- *   2. A MEASURE — one 1120px shell; prose never exceeds ~62ch.
- *   3. RULES    — one hairline weight, plus a 2px edge where a section is
- *                 genuinely a sequence.
- *   4. TYPE     — two roles: Inter for language, JetBrains Mono (tabular) for data.
+ *   1. INSTRUMENTS — gauge, rail, pipeline, specimen, stat block. The page is a
+ *      product demonstration, so most sections contain a real object rather than
+ *      a paragraph.
+ *   2. ONE MEASURE — a 1180px shell; prose never exceeds ~62ch.
+ *   3. RINGS — one hairline weight. Sections are separated by SPACE, not by a
+ *      rule between every pair.
+ *   4. TWO TYPE ROLES — Inter for language, JetBrains Mono (tabular) for data.
  *
- * There are exactly TWO real cards in the whole public surface: the hero
- * product specimen and the tool family. Everything else is type, rules and band
- * tone.
- *
- * TRANSFERRED CRAFT (principles only, from the synced fintech references in
- * .agents/ — never their brand colours, layouts or assets):
- *   • Headline authority comes from size and tracking, not weight. Display weight
- *     is 400, never 600+; tracking is negative on display, positive on body.
- *   • Dense data, generous chrome: financial figures sit close together inside
- *     generously spaced frames.
- *   • Money is set in tabular figures, at a size that makes it the loudest thing
- *     in its own block.
- *   • One functional accent. Accent marks interaction and state, never mood.
- *   • Depth from band contrast. Shadows are whisper-level and used once.
- *   • Conservative radii (12px controls and cards), never pills.
+ * Cards are used to establish hierarchy, never to wrap every block.
  * ========================================================================== */
 
-/* ── Tokens — the light plane ─────────────────────────────────────────────── */
-.pse {
-  /* Surfaces: paper, one tint band, one deeper tint, one ink band. */
-  --pse-paper: #ffffff;
-  --pse-band: #f7f8fa;
-  --pse-band-2: #eef0f3;
-  --pse-inset: rgba(16, 19, 24, 0.04);
-  --pse-ink-bg: #0d0f13;
+/* ── Tokens ───────────────────────────────────────────────────────────────── */
 
-  /* Text: near-black with a cool cast, never pure #000. */
+/* Light console (the app theme is light and we are outside the product plane). */
+.pse {
+  --pse-canvas: #ffffff;
+  --pse-surface: #ffffff;
+  --pse-surface-2: #f7f8fa;
+  --pse-surface-3: #eef0f3;
+  --pse-band: #f7f8fa;
+  --pse-inset: rgba(16, 19, 24, 0.04);
+  --pse-glow: none;
+
   --pse-ink: #0e1116;
   --pse-ink-2: #545d69;
-  /* Label ink is set dark enough to clear WCAG AA (4.5:1) on paper, on the tint
-     band and on the deeper tint — it is used at 11–12px. */
   --pse-ink-3: #5b6472;
 
   --pse-rule: rgba(16, 19, 24, 0.13);
   --pse-rule-2: rgba(16, 19, 24, 0.075);
   --pse-rule-strong: rgba(16, 19, 24, 0.26);
+  --pse-hair: rgba(16, 19, 24, 0.08);
 
-  /* One functional accent. */
   --pse-accent: #1c47c9;
-  --pse-accent-hover: #16389f;
+  --pse-accent-solid: #1c47c9;
+  --pse-accent-solid-hover: #16389f;
   --pse-accent-quiet: rgba(28, 71, 201, 0.1);
   --pse-on-accent: #ffffff;
 
+  --pse-cyan: #0d7c94;
+  --pse-violet: #5b46d9;
   --pse-good: #0f6240;
   --pse-warn: #7d4b00;
   --pse-danger: #a51f19;
+  --pse-bnb: #8a6a00;
 
-  /* The recovered emblem's facets — brand only, never interface colour. */
   --pse-brand-blade: #2f6bff;
   --pse-brand-top: #0e1116;
   --pse-brand-side: rgba(16, 19, 24, 0.34);
@@ -85,12 +87,25 @@
   --pse-font: 'Inter', system-ui, -apple-system, sans-serif;
   --pse-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --pse-shell: 1140px;
+  --pse-shell: 1180px;
   --pse-gutter: 20px;
-  --pse-section-y: clamp(56px, 7.5vw, 104px);
-  --pse-r: 12px;
-  --pse-r-sm: 6px;
-  --pse-shadow: 0 4px 24px rgba(16, 19, 24, 0.05);
+  --pse-section-y: clamp(64px, 8vw, 116px);
+  --pse-r-xs: 6px;
+  --pse-r-sm: 10px;
+  --pse-r: 14px;
+  --pse-r-lg: 20px;
+
+  /* One easing, three durations. Nothing animates on its own easing curve. */
+  --pse-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --pse-t-fast: 160ms;
+  --pse-t: 220ms;
+  --pse-t-slow: 620ms;
+
+  /* Elevation is a ring plus a whisper of depth — never a dark-on-dark blur. */
+  --pse-ring: 0 0 0 1px var(--pse-hair);
+  --pse-ring-strong: 0 0 0 1px var(--pse-rule);
+  --pse-lift: 0 1px 2px rgba(16, 19, 24, 0.04), 0 12px 32px -12px rgba(16, 19, 24, 0.16);
+  --pse-lift-2: 0 2px 4px rgba(16, 19, 24, 0.05), 0 32px 64px -24px rgba(16, 19, 24, 0.22);
 
   color: var(--pse-ink);
   font-family: var(--pse-font);
@@ -108,57 +123,110 @@
 }
 
 /*
- * The console only. `:not(.pse-plane)` is what keeps the public surfaces light
- * even though the application default is dark — it is the single line that
- * decides which PSEmine surface follows the app theme.
+ * The console, when the application theme is dark. `:not(.pse-plane)` is what
+ * keeps the product surface independent of the application's theme — it is the
+ * single line that decides which PSEmine surface follows the app.
  */
 .dark .pse:not(.pse-plane) {
-  --pse-paper: #0b0d11;
-  --pse-band: #12141a;
-  --pse-band-2: #171a21;
+  --pse-canvas: #08090b;
+  --pse-surface: #0f1115;
+  --pse-surface-2: #14171d;
+  --pse-surface-3: #191d24;
+  --pse-band: #0c0e12;
   --pse-inset: rgba(255, 255, 255, 0.045);
-  --pse-ink-bg: #05070a;
 
-  --pse-ink: #f2f4f7;
-  --pse-ink-2: #a7afbb;
-  --pse-ink-3: #8a93a1;
+  --pse-ink: #f2f4f8;
+  --pse-ink-2: #a3abba;
+  --pse-ink-3: #838c99;
 
-  --pse-rule: rgba(255, 255, 255, 0.16);
-  --pse-rule-2: rgba(255, 255, 255, 0.08);
-  --pse-rule-strong: rgba(255, 255, 255, 0.3);
+  --pse-rule: rgba(255, 255, 255, 0.11);
+  --pse-rule-2: rgba(255, 255, 255, 0.06);
+  --pse-rule-strong: rgba(255, 255, 255, 0.2);
+  --pse-hair: rgba(255, 255, 255, 0.08);
 
-  --pse-accent: #6b93ff;
-  --pse-accent-hover: #89a9ff;
-  --pse-accent-quiet: rgba(107, 147, 255, 0.16);
-  --pse-on-accent: #08122b;
+  --pse-accent: #6f9bff;
+  --pse-accent-solid: #2f5cf5;
+  --pse-accent-solid-hover: #2450e6;
+  --pse-accent-quiet: rgba(111, 155, 255, 0.16);
+  --pse-on-accent: #ffffff;
 
-  --pse-good: #4cc38a;
-  --pse-warn: #e0a03a;
-  --pse-danger: #f2685c;
+  --pse-cyan: #2fc9e6;
+  --pse-violet: #8b6cff;
+  --pse-good: #34d399;
+  --pse-warn: #f0b24a;
+  --pse-danger: #f87171;
+  --pse-bnb: #f0b90b;
 
   --pse-brand-blade: #4c82ff;
   --pse-brand-top: #eef0f3;
   --pse-brand-side: rgba(255, 255, 255, 0.34);
-  --pse-brand-cut: #0b0d11;
+  --pse-brand-cut: #08090b;
   --pse-brand-crest: #22d3ee;
 
-  --pse-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 32px 64px -24px rgba(0, 0, 0, 0.75);
 }
 
-/* ── Surface, shell, sections ─────────────────────────────────────────────── */
 /*
- * The public plane. `color-scheme: light` is deliberate: it makes the browser
- * paint its own controls (carets, autofill, scrollbars) light too, so the form
- * controls match the surface instead of the operating system's dark default.
+ * THE PRODUCT SURFACE — landing, authentication, loader. Always dark graphite,
+ * regardless of the application theme, because this is the product's own
+ * identity rather than a reflection of the operator's theme preference.
+ *
+ * Luminance stepping: canvas #08090b → surface #0f1115 → raised #14171d, each a
+ * few percent of white over the last. Elevation is read as light, not as shadow.
  */
 .pse-plane {
-  background: var(--pse-paper);
+  --pse-canvas: #08090b;
+  --pse-surface: #0f1115;
+  --pse-surface-2: #14171d;
+  --pse-surface-3: #1a1e26;
+  --pse-band: #0b0d11;
+  --pse-inset: rgba(255, 255, 255, 0.04);
+  --pse-glow: radial-gradient(120% 100% at 50% 0%, rgba(47, 92, 245, 0.1) 0%, rgba(8, 9, 11, 0) 62%);
+
+  --pse-ink: #f2f4f8;
+  --pse-ink-2: #a3abba;
+  --pse-ink-3: #838c99;
+
+  --pse-rule: rgba(255, 255, 255, 0.11);
+  --pse-rule-2: rgba(255, 255, 255, 0.06);
+  --pse-rule-strong: rgba(255, 255, 255, 0.2);
+  --pse-hair: rgba(255, 255, 255, 0.08);
+
+  --pse-accent: #6f9bff;
+  --pse-accent-solid: #2f5cf5;
+  --pse-accent-solid-hover: #2450e6;
+  --pse-accent-quiet: rgba(111, 155, 255, 0.16);
+  --pse-on-accent: #ffffff;
+
+  --pse-cyan: #2fc9e6;
+  --pse-violet: #8b6cff;
+  --pse-good: #34d399;
+  --pse-warn: #f0b24a;
+  --pse-danger: #f87171;
+  --pse-bnb: #f0b90b;
+
+  --pse-brand-blade: #4c82ff;
+  --pse-brand-top: #eef0f3;
+  --pse-brand-side: rgba(255, 255, 255, 0.34);
+  --pse-brand-cut: #08090b;
+  --pse-brand-crest: #22d3ee;
+
+  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 40px 80px -32px rgba(0, 0, 0, 0.85);
+
+  background: var(--pse-canvas);
   color: var(--pse-ink);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
+/* A very low, very wide wash behind the whole page — one atmosphere, not a
+   decorative gradient stack. */
+.pse-plane.pse-surface { background-image: var(--pse-glow); background-repeat: no-repeat; }
+
+/* ── Shell, surface, sections ─────────────────────────────────────────────── */
 .pse-surface {
-  background: var(--pse-paper);
+  background: var(--pse-canvas);
   color: var(--pse-ink);
 }
 
@@ -177,37 +245,17 @@
   min-height: 100vh;
 }
 
-/*
- * Sections are separated by SPACE and by BAND TONE — not by lines. Two adjacent
- * sections are further apart than a section's own internal blocks, which is all
- * the separation a page needs; drawing a rule between every pair is what turns a
- * page into a stack of boxes.
- */
-.pse-section { padding-block: var(--pse-section-y); }
+/* Sections are separated by SPACE and by a surface step — never by a rule
+   between every pair. A rule between each section is what turns a page into a
+   stack of boxes; a 2% luminance step is enough to read a new chapter. */
+.pse-section { padding-block: var(--pse-section-y); position: relative; }
 
-/* ── Bands: the rhythm device ─────────────────────────────────────────────── */
 .pse-band--tint { background: var(--pse-band); }
 
-/*
- * The ink band re-maps the token set for its own subtree, so every descendant —
- * headings, prose, rules, tags, buttons — adapts without a single override.
- */
-.pse-band--ink {
-  background: var(--pse-ink-bg);
-  color: #f6f7f9;
-  --pse-ink: #f6f7f9;
-  --pse-ink-2: rgba(246, 247, 249, 0.72);
-  --pse-ink-3: rgba(246, 247, 249, 0.64);
-  --pse-rule: rgba(255, 255, 255, 0.18);
-  --pse-rule-2: rgba(255, 255, 255, 0.09);
-  --pse-rule-strong: rgba(255, 255, 255, 0.32);
-  --pse-accent: #96b2ff;
-  --pse-accent-hover: #b6c9ff;
-  --pse-accent-quiet: rgba(150, 178, 255, 0.18);
-  --pse-on-accent: #0a1533;
-  --pse-band: rgba(255, 255, 255, 0.05);
-  --pse-band-2: rgba(255, 255, 255, 0.08);
-  --pse-inset: rgba(255, 255, 255, 0.07);
+/* A soft top edge instead of a hard border, so a band reads as lit. */
+.pse-band--lift {
+  background: var(--pse-band);
+  border-top: 1px solid var(--pse-rule-2);
 }
 
 /* ── Type roles ───────────────────────────────────────────────────────────── */
@@ -219,61 +267,59 @@
   text-wrap: balance;
 }
 
-/* Authority from size and tracking, not weight. */
+/* Authority from size and tracking, not weight. 600 announces, once. */
 .pse-display {
-  font-size: clamp(2.125rem, 1.4rem + 2.85vw, 3.5rem);
-  font-weight: 400;
-  line-height: 1.05;
-  letter-spacing: -0.032em;
+  font-size: clamp(2.25rem, 1.5rem + 3vw, 3.75rem);
+  font-weight: 500;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
 }
 
 .pse-h2 {
-  font-size: clamp(1.5rem, 1.28rem + 0.9vw, 2rem);
-  font-weight: 400;
-  line-height: 1.16;
-  letter-spacing: -0.024em;
+  font-size: clamp(1.5rem, 1.3rem + 0.85vw, 2.0625rem);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.026em;
 }
 
-/* The only sub-heading step. One is enough: display → h2 → h3. */
 .pse-h3 {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 500;
   line-height: 1.35;
-  letter-spacing: -0.008em;
+  letter-spacing: -0.012em;
 }
 
-/*
- * Money. A figure is the loudest thing in its own block, is always tabular, and
- * never carries a currency word twice — the unit sits beside it, quieter.
- */
+/* A figure is the loudest thing in its own block, always tabular, and never
+   repeats its unit — the unit sits beside it, quieter. */
 .pse-metric {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
   color: var(--pse-ink);
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  font-size: clamp(1.75rem, 1.42rem + 1.15vw, 2.25rem);
+  font-size: clamp(1.5rem, 1.28rem + 0.95vw, 1.9375rem);
   font-weight: 500;
   line-height: 1.05;
   letter-spacing: -0.035em;
 }
 
+.pse-metric--sm { font-size: 1.1875rem; letter-spacing: -0.025em; }
+
 .pse-metric-unit {
-  font-size: 0.875rem;
+  font-family: var(--pse-font);
+  font-size: 0.8125rem;
   font-weight: 400;
-  letter-spacing: 0.004em;
+  letter-spacing: 0;
   color: var(--pse-ink-3);
 }
 
-/* Body carries slight positive tracking — it reads airier at 16px than the
-   zero-tracking default and contrasts with the tight display sizes. */
 .pse-lead {
   font-size: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
   line-height: 1.55;
-  letter-spacing: 0.003em;
+  letter-spacing: -0.005em;
   color: var(--pse-ink-2);
   text-wrap: pretty;
 }
@@ -281,14 +327,15 @@
 .pse-body {
   font-size: 1rem;
   line-height: 1.62;
-  letter-spacing: 0.003em;
+  letter-spacing: -0.003em;
   color: var(--pse-ink-2);
   text-wrap: pretty;
 }
 
 .pse-small {
   font-size: 0.875rem;
-  line-height: 1.58;
+  line-height: 1.55;
+  letter-spacing: -0.002em;
   color: var(--pse-ink-2);
   text-wrap: pretty;
 }
@@ -296,218 +343,309 @@
 /* Data label: a term, a column head, a clause index. Mono, tracked, uppercase. */
 .pse-micro {
   font-family: var(--pse-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
 .pse-strong { color: var(--pse-ink); font-weight: 500; }
 
-/* Every financial figure. Tabular so columns of numbers align. */
 .pse-figure {
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--pse-ink);
 }
 
 .pse-link {
   color: var(--pse-accent);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-  text-decoration-thickness: 1px;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--pse-accent) 40%, transparent);
+  padding-bottom: 1px;
+  transition: border-color var(--pse-t-fast) var(--pse-ease), color var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-link:hover { text-decoration-thickness: 2px; }
+.pse-link:hover { color: var(--pse-ink); border-bottom-color: var(--pse-ink-3); }
 
-/* The measure for prose. Headings and paragraphs both stop here, which is what
-   creates the single primary axis. */
 .pse-measure { max-width: 62ch; }
-.pse-measure-tight { max-width: 44ch; }
+.pse-measure-tight { max-width: 46ch; }
 
 /* ── Section header ──────────────────────────────────────────────────────── */
 .pse-head {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  max-width: 46ch;
+  max-width: 48ch;
 }
 
-.pse-head--wide { max-width: 62ch; }
+.pse-head--wide { max-width: 64ch; }
 
 .pse-kicker {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.25rem;
+  gap: 0.55rem;
+  align-self: flex-start;
+  padding: 0.25rem 0.6rem 0.25rem 0.35rem;
+  border: 1px solid var(--pse-rule);
+  border-radius: 999px;
+  background: var(--pse-inset);
 }
 
 .pse-kicker-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--pse-accent-quiet);
+  color: var(--pse-accent);
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--pse-accent);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .pse-kicker-text {
   font-family: var(--pse-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--pse-ink-3);
+  color: var(--pse-ink-2);
 }
 
-/* ── Cards — used twice in the public product, deliberately ──────────────── */
-.pse-card {
-  border: 1px solid var(--pse-rule);
+/* ── Reveal ───────────────────────────────────────────────────────────────
+ * Motion explains hierarchy: a section enters once, slightly late, and never
+ * loops. Elements are visible by default, so a failed observer can never leave
+ * content invisible — `data-inview="false"` is what arms the transition.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-reveal { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-reveal {
+    transition:
+      opacity var(--pse-t-slow) var(--pse-ease),
+      transform var(--pse-t-slow) var(--pse-ease);
+    transition-delay: var(--pse-delay, 0ms);
+  }
+  .pse-reveal[data-inview='false'] { opacity: 0; transform: translateY(18px); }
+}
+
+/* ── Surface system ───────────────────────────────────────────────────────
+ * A panel is a translucent step up from the canvas with a shadow-as-border
+ * ring and an inner top highlight, so it reads as lit from above rather than
+ * as a rectangle drawn on top. Elevation is locked to two levels.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-panel {
+  position: relative;
   border-radius: var(--pse-r);
-  background: var(--pse-paper);
-  overflow: hidden;
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring);
 }
 
-.pse-card--raised { box-shadow: var(--pse-shadow); }
+.pse-panel--raised {
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
 
-.pse-card-head {
+/* The instrument surface: a specimen of the application, allowed one more step. */
+.pse-panel--instrument {
+  background: linear-gradient(180deg, var(--pse-surface-3) 0%, var(--pse-surface) 100%);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+}
+
+.pse-panel-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.7rem 1.1rem;
   border-bottom: 1px solid var(--pse-rule-2);
-  background: var(--pse-band);
 }
 
-.pse-card-body { padding: 1.25rem; }
+.pse-panel-body { padding: 1.1rem; }
 
-.pse-card-foot {
-  padding: 0.875rem 1.25rem;
+.pse-panel-foot {
+  padding: 0.7rem 1.1rem;
   border-top: 1px solid var(--pse-rule-2);
-  background: var(--pse-band);
+  background: var(--pse-inset);
 }
 
-/* ── Spec rows: term left, figure right, hairline between ────────────────── */
-.pse-rows { display: flex; flex-direction: column; }
+.pse-panel-split { border-top: 1px solid var(--pse-rule-2); }
 
-.pse-row {
+/* ── Stat blocks ──────────────────────────────────────────────────────────
+ * Compact financial data: a small label, a tabular figure, an optional unit or
+ * note. Not every number becomes a hero statistic — only the metric role does.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-stats {
   display: grid;
-  /* Proportional, not `auto`: an auto figure column takes its full width and
-     squeezes the term into a sliver at 390px, which clips the term instead of
-     wrapping it. Both columns get space and both may wrap. */
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+  overflow: hidden;
+}
+
+@media (min-width: 720px) { .pse-stats--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 720px) { .pse-stats--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.pse-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  background: var(--pse-surface);
+}
+
+.pse-stat-label { font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pse-ink-3); }
+
+.pse-stat-value {
+  display: flex;
   align-items: baseline;
-  gap: 0.3rem 1.5rem;
-  padding-block: 0.7rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-row:first-child { border-top: 0; padding-top: 0; }
-.pse-row:last-child { padding-bottom: 0; }
-
-.pse-row-key {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--pse-ink-2);
-}
-
-.pse-row-val {
+  gap: 0.3rem;
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  text-align: right;
-  overflow-wrap: anywhere;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
   color: var(--pse-ink);
 }
 
-/* Modifier only: it changes the voice from figure to prose, nothing else. */
-.pse-row-val--muted {
-  font-family: var(--pse-font);
-  color: var(--pse-ink-2);
-}
+.pse-stat-unit { font-family: var(--pse-font); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; color: var(--pse-ink-3); }
 
-/* ── Status tag ──────────────────────────────────────────────────────────── */
-.pse-tag {
+.pse-stat-note { font-size: 0.75rem; line-height: 1.45; color: var(--pse-ink-3); }
+
+/* ── Chips ───────────────────────────────────────────────────────────────
+ * Pills are for labels and states only — never for an action button.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.2rem 0.5rem;
+  min-height: 26px;
+  padding: 0.2rem 0.6rem;
   border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-sm);
+  border-radius: 999px;
+  background: var(--pse-inset);
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--pse-ink-2);
   white-space: nowrap;
 }
 
-.pse-tag-dot {
-  width: 5px;
-  height: 5px;
-  flex: none;
-  border-radius: 50%;
-  background: currentColor;
+.pse-chip-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: currentColor; }
+
+.pse-chip[data-tone='live'] { color: var(--pse-accent); border-color: color-mix(in srgb, var(--pse-accent) 34%, transparent); }
+.pse-chip[data-tone='good'] { color: var(--pse-good); border-color: color-mix(in srgb, var(--pse-good) 34%, transparent); }
+.pse-chip[data-tone='hold'] { color: var(--pse-warn); border-color: color-mix(in srgb, var(--pse-warn) 34%, transparent); }
+.pse-chip[data-tone='danger'] { color: var(--pse-danger); border-color: color-mix(in srgb, var(--pse-danger) 34%, transparent); }
+.pse-chip[data-tone='bnb'] { color: var(--pse-bnb); border-color: color-mix(in srgb, var(--pse-bnb) 34%, transparent); }
+.pse-chip[data-tone='violet'] { color: var(--pse-violet); border-color: color-mix(in srgb, var(--pse-violet) 34%, transparent); }
+
+/* The legacy tag name stays because the console's failure primitives use it. */
+.pse-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--pse-rule);
+  border-radius: 999px;
+  background: var(--pse-inset);
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
 }
 
-.pse-tag[data-tone='live'] { color: var(--pse-accent); border-color: color-mix(in srgb, var(--pse-accent) 40%, transparent); }
-.pse-tag[data-tone='good'] { color: var(--pse-good); border-color: color-mix(in srgb, var(--pse-good) 40%, transparent); }
-.pse-tag[data-tone='hold'] { color: var(--pse-warn); border-color: color-mix(in srgb, var(--pse-warn) 40%, transparent); }
-.pse-tag[data-tone='danger'] { color: var(--pse-danger); border-color: color-mix(in srgb, var(--pse-danger) 40%, transparent); }
+.pse-tag-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: currentColor; }
+
+.pse-tag[data-tone='live'] { color: var(--pse-accent); border-color: color-mix(in srgb, var(--pse-accent) 34%, transparent); }
+.pse-tag[data-tone='good'] { color: var(--pse-good); border-color: color-mix(in srgb, var(--pse-good) 34%, transparent); }
+.pse-tag[data-tone='hold'] { color: var(--pse-warn); border-color: color-mix(in srgb, var(--pse-warn) 34%, transparent); }
+.pse-tag[data-tone='danger'] { color: var(--pse-danger); border-color: color-mix(in srgb, var(--pse-danger) 34%, transparent); }
 .pse-tag[data-tone='idle'] { color: var(--pse-ink-3); }
 
-/* ── Controls ────────────────────────────────────────────────────────────── */
+/* ── Controls ───────────────────────────────────────────────────────────── */
 .pse-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   min-height: 44px;
-  padding: 0.7rem 1.25rem;
-  border: 1px solid var(--pse-accent);
-  border-radius: var(--pse-r);
-  background: var(--pse-accent);
+  padding: 0.68rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-accent-solid);
   color: var(--pse-on-accent);
   font-family: var(--pse-font);
   font-size: 0.9375rem;
   font-weight: 500;
-  letter-spacing: 0.004em;
+  letter-spacing: -0.008em;
   line-height: 1.2;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease;
+  transition:
+    background-color var(--pse-t-fast) var(--pse-ease),
+    border-color var(--pse-t-fast) var(--pse-ease),
+    color var(--pse-t-fast) var(--pse-ease),
+    box-shadow var(--pse-t) var(--pse-ease),
+    transform var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-btn:hover { background: var(--pse-accent-hover); border-color: var(--pse-accent-hover); }
+.pse-btn:hover {
+  background: var(--pse-accent-solid-hover);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-accent) 30%, transparent), 0 10px 24px -12px var(--pse-accent);
+}
+
+.pse-btn:active { transform: translateY(1px); }
 
 .pse-btn:disabled,
-.pse-btn[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
+.pse-btn[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
-.pse-btn--lg { min-height: 48px; padding: 0.8rem 1.5rem; font-size: 1rem; }
+.pse-btn--lg { min-height: 48px; padding: 0.8rem 1.4rem; font-size: 1rem; }
 
+/* A ghost control: nearly transparent white, ring border — the default
+   secondary action in a dark instrumented product. */
 .pse-btn--secondary {
-  background: transparent;
-  border-color: var(--pse-rule-strong);
+  background: var(--pse-inset);
+  border-color: var(--pse-rule);
   color: var(--pse-ink);
 }
 
-.pse-btn--secondary:hover { background: var(--pse-inset); border-color: var(--pse-ink-3); }
+.pse-btn--secondary:hover {
+  background: color-mix(in srgb, var(--pse-ink) 9%, transparent);
+  border-color: var(--pse-rule-strong);
+  box-shadow: none;
+}
 
 .pse-btn--block { width: 100%; }
 
-/* Smaller type and padding — never a smaller target. 44px is the floor. */
-.pse-btn--sm { padding: 0.5rem 0.85rem; font-size: 0.875rem; }
+.pse-btn--sm { min-height: 44px; padding: 0.45rem 0.8rem; font-size: 0.8125rem; }
 
-/* ── Inputs — real financial-product controls ────────────────────────────── */
+.pse-btn-arrow {
+  display: inline-flex;
+  transition: transform var(--pse-t) var(--pse-ease);
+}
+
+.pse-btn:hover .pse-btn-arrow { transform: translateX(3px); }
+
+/* ── Inputs ─────────────────────────────────────────────────────────────── */
 .pse-field { display: block; }
 
 .pse-label {
@@ -518,48 +656,43 @@
   margin-bottom: 0.4rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  letter-spacing: 0.004em;
+  letter-spacing: -0.005em;
   color: var(--pse-ink-2);
 }
 
-.pse-label-hint {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--pse-ink-3);
-}
+.pse-label-hint { font-size: 0.75rem; font-weight: 400; color: var(--pse-ink-3); }
 
 .pse-input {
   width: 100%;
   min-height: 48px;
   padding: 0.7rem 0.875rem;
-  border: 1px solid var(--pse-rule-strong);
-  border-radius: var(--pse-r);
-  background: var(--pse-paper);
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-surface-2);
   color: var(--pse-ink);
   font-family: var(--pse-font);
   font-size: 1rem;
   line-height: 1.4;
-  letter-spacing: 0.004em;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  letter-spacing: -0.005em;
+  transition: border-color var(--pse-t-fast) var(--pse-ease), box-shadow var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
 }
 
 .pse-input::placeholder { color: var(--pse-ink-3); }
-.pse-input:hover { border-color: var(--pse-ink-3); }
+.pse-input:hover { border-color: var(--pse-rule-strong); }
 
 .pse-input:focus {
   border-color: var(--pse-accent);
+  background: var(--pse-surface-3);
   box-shadow: 0 0 0 3px var(--pse-accent-quiet);
   outline: none;
 }
 
-.pse-input:disabled { background: var(--pse-inset); opacity: 0.6; cursor: not-allowed; }
+.pse-input:disabled { background: var(--pse-inset); opacity: 0.55; cursor: not-allowed; }
 
 .pse-input[aria-invalid='true'] { border-color: var(--pse-danger); }
 .pse-input[aria-invalid='true']:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--pse-danger) 18%, transparent); }
 
-/* Password control: the toggle sits inside the field, so the field never grows. */
 .pse-input-wrap { position: relative; display: block; }
-
 .pse-input-wrap .pse-input { padding-right: 3.5rem; }
 
 .pse-input-toggle {
@@ -573,10 +706,11 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: none;
   color: var(--pse-ink-3);
   cursor: pointer;
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
 }
 
 .pse-input-toggle:hover { color: var(--pse-ink); background: var(--pse-inset); }
@@ -591,74 +725,14 @@
   color: var(--pse-danger);
 }
 
-/* ── Proportion bars — only ever a real fraction of a real maximum ───────── */
-.pse-bar {
-  position: relative;
-  display: flex;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--pse-rule-2);
-  overflow: hidden;
-}
-
-.pse-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--pse-accent);
-  transition: width 220ms ease;
-}
-
-/*
- * A composition bar: two or more segments that together make the whole. Each
- * segment is labelled in the legend beside it, so colour is never the only thing
- * carrying the meaning.
- */
-.pse-bar--split { height: 6px; }
-
-.pse-bar--split > span + span {
-  background: var(--pse-ink-3);
-  opacity: 0.45;
-}
-
-.pse-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.25rem;
-  margin-top: 0.7rem;
-}
-
-.pse-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.8125rem;
-  color: var(--pse-ink-2);
-}
-
-.pse-legend-key {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 2px;
-  background: var(--pse-accent);
-}
-
-.pse-legend-key--quiet { background: var(--pse-ink-3); opacity: 0.45; }
-
-.pse-legend-val {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--pse-ink);
-}
-
 /* ── Notices ────────────────────────────────────────────────────────────── */
 .pse-notice {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.7rem 0.85rem;
-  border-radius: 10px;
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
   background: var(--pse-inset);
   font-size: 0.875rem;
   line-height: 1.5;
@@ -667,474 +741,17 @@
 
 .pse-notice-title { color: var(--pse-ink); font-weight: 500; }
 
-.pse-notice[data-tone='good'] { color: var(--pse-good); background: color-mix(in srgb, var(--pse-good) 9%, transparent); }
+.pse-notice[data-tone='good'] { color: var(--pse-good); border-color: color-mix(in srgb, var(--pse-good) 26%, transparent); background: color-mix(in srgb, var(--pse-good) 10%, transparent); }
 .pse-notice[data-tone='good'] .pse-notice-title { color: var(--pse-good); }
-.pse-notice[data-tone='danger'] { color: var(--pse-danger); background: color-mix(in srgb, var(--pse-danger) 8%, transparent); }
+.pse-notice[data-tone='danger'] { color: var(--pse-danger); border-color: color-mix(in srgb, var(--pse-danger) 26%, transparent); background: color-mix(in srgb, var(--pse-danger) 9%, transparent); }
 .pse-notice[data-tone='danger'] .pse-notice-title { color: var(--pse-danger); }
-.pse-notice[data-tone='hold'] { color: var(--pse-warn); background: color-mix(in srgb, var(--pse-warn) 10%, transparent); }
+.pse-notice[data-tone='hold'] { color: var(--pse-warn); border-color: color-mix(in srgb, var(--pse-warn) 26%, transparent); background: color-mix(in srgb, var(--pse-warn) 10%, transparent); }
 
-/* ── Asset marker ───────────────────────────────────────────────────────── */
-.pse-asset {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  color: var(--pse-ink);
-}
-
-.pse-asset-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 2px;
-  background: var(--pse-accent);
-  transform: rotate(45deg);
-}
-
-/* ── Focus visibility — never removed ──────────────────────────────────── */
-.pse a:focus-visible,
-.pse button:focus-visible,
-.pse select:focus-visible,
-.pse [tabindex]:focus-visible {
-  outline: 2px solid var(--pse-accent);
-  outline-offset: 2px;
-  border-radius: var(--pse-r-sm);
-}
-
-/* ============================================================================
- * BRAND
- * The recovered faceted emblem. The crest facet is the only part that animates,
- * and only to state a running campaign.
- * ========================================================================== */
-.pse-mark { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.pse-mark-glyph { flex: none; display: block; }
-
-.pse-wordmark { display: flex; flex-direction: column; min-width: 0; line-height: 1.12; }
-
-.pse-wordmark-name {
-  font-family: var(--pse-font);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  letter-spacing: -0.024em;
-  color: var(--pse-ink);
-}
-
-.pse-wordmark-sub {
-  font-size: 0.6875rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: var(--pse-ink-3);
-}
-
-@keyframes pse-crest-live {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.32; }
-}
-
-.pse-mark-crest-live { animation: pse-crest-live 2.4s ease-in-out infinite; }
-
-/* ============================================================================
- * LOADER — an application state, not a page.
- *
- * The duration genuinely is not known, so the presentation does not imply that it
- * is: one indeterminate rail, one honest sentence naming the state, and an
- * escalation that only ever states a fact. No percentage, no filling bar, no
- * scan, no counter, no step list, no invented diagnostics.
- * ========================================================================== */
-.pse-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.1rem;
-  max-width: 24rem;
-  margin-inline: auto;
-  padding-block: clamp(2rem, 6vw, 3rem);
-  text-align: center;
-}
-
-.pse-loader-id { display: inline-flex; align-items: center; gap: 0.55rem; }
-
-.pse-loader-name {
-  font-family: var(--pse-font);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  letter-spacing: -0.024em;
-  color: var(--pse-ink);
-}
-
-.pse-loader-track {
-  position: relative;
-  width: 168px;
-  max-width: 55vw;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--pse-rule-2);
-  overflow: hidden;
-}
-
-.pse-loader-track > i {
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 38%;
-  border-radius: 2px;
-  background: var(--pse-accent);
-  animation: pse-indeterminate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-}
-
-@keyframes pse-indeterminate {
-  0% { transform: translateX(-102%); }
-  100% { transform: translateX(266%); }
-}
-
-.pse-loader-label {
-  font-size: 0.9375rem;
-  font-weight: 400;
-  letter-spacing: 0.004em;
-  color: var(--pse-ink-2);
-}
-
-.pse-loader-note {
-  max-width: 24rem;
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--pse-ink-3);
-}
-
-.pse-loader-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-@keyframes pse-dot {
-  0%, 80%, 100% { opacity: 0.22; }
-  40% { opacity: 1; }
-}
-
-.pse-loader-dots { display: inline-flex; gap: 6px; }
-
-.pse-loader-dots > i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--pse-ink-2);
-  animation: pse-dot 1.4s ease-in-out infinite;
-}
-
-.pse-loader-dots > i:nth-child(2) { animation-delay: 0.18s; }
-.pse-loader-dots > i:nth-child(3) { animation-delay: 0.36s; }
-
-/* Inline variant: one line of state, for a panel that is re-reading. */
-.pse-loader-inline { display: flex; align-items: center; gap: 0.6rem; }
-
-/* ============================================================================
- * AUTHENTICATION — a wallet-grade sign-in, single column, single axis.
- *
- * The composition is deliberately NOT a split screen. A secondary marketing
- * panel would have to carry product terms to be worth its width, and a sign-in
- * page must contain only authentication.
- * ========================================================================== */
-.pse-auth {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--pse-paper);
-}
-
-.pse-auth-bar { border-bottom: 1px solid var(--pse-rule-2); }
-
-.pse-auth-bar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 60px;
-}
-
-.pse-auth-main {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2.75rem var(--pse-gutter) 3.5rem;
-}
-
-.pse-auth-col { width: 100%; max-width: 392px; }
-
-.pse-auth-title {
-  font-size: 1.75rem;
-  font-weight: 400;
-  line-height: 1.18;
-  letter-spacing: -0.026em;
-  color: var(--pse-ink);
-}
-
-.pse-auth-sub {
-  margin-top: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.55;
-  letter-spacing: 0.004em;
-  color: var(--pse-ink-2);
-}
-
-.pse-auth-foot {
-  border-top: 1px solid var(--pse-rule-2);
-  margin-top: 2rem;
-  padding-top: 1.25rem;
-}
-
-/* The "or" divider between provider and email form. */
-.pse-auth-or {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  font-size: 0.8125rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-auth-or::before,
-.pse-auth-or::after {
-  content: '';
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--pse-rule);
-}
-
-.pse-reassure {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--pse-ink-3);
-}
-
-.pse-reassure svg { flex: none; margin-top: 0.1rem; }
-
-/* ============================================================================
- * MECHANISM — six stations, in order
- * ========================================================================== */
-.pse-stages {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@media (min-width: 600px) { .pse-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .pse-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 1240px) { .pse-stages { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-
-.pse-stage {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding: 1.35rem 1.25rem 1.5rem;
-  border-top: 2px solid var(--pse-rule);
-  border-left: 1px solid var(--pse-rule-2);
-}
-
-.pse-stage:first-child { border-left: 0; }
-
-.pse-stage-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-
-.pse-stage-glyph { display: flex; align-items: center; height: 30px; color: var(--pse-ink); }
-
-.pse-stage-num {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--pse-accent);
-}
-
-.pse-stage-name {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  color: var(--pse-ink);
-}
-
-.pse-stage-note {
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--pse-ink-2);
-  text-wrap: pretty;
-}
-
-/* ============================================================================
- * TOOL FAMILY — one product line, four members.
- * A single ruled table, not four cards. Shared grammar: the same unit drawing
- * with tier-many filled bays; the differences are real (capacity, price, limit).
- * ========================================================================== */
-.pse-tools {
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r);
-  overflow: hidden;
-  background: var(--pse-paper);
-}
-
-.pse-tools-head { display: none; }
-
-.pse-tool {
-  display: grid;
-  gap: 0.875rem;
-  padding: 1.25rem;
-  border-top: 1px solid var(--pse-rule-2);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: 'id id' 'cap cap' 'price limit';
-}
-
-.pse-tool:first-child { border-top: 0; }
-
-.pse-tool-id { grid-area: id; display: flex; align-items: center; gap: 0.875rem; }
-.pse-tool-cap { grid-area: cap; }
-.pse-tool-price { grid-area: price; }
-.pse-tool-limit { grid-area: limit; }
-
-.pse-cell-label {
-  display: block;
-  margin-bottom: 0.2rem;
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-cell-value {
-  display: block;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9375rem;
-  color: var(--pse-ink);
-}
-
-.pse-tool-rate {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.25rem;
-  font-weight: 500;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--pse-ink);
-}
-
-.pse-tool-rate-unit {
-  font-size: 0.8125rem;
-  font-weight: 400;
-  letter-spacing: 0.004em;
-  color: var(--pse-ink-3);
-}
-
-@media (min-width: 880px) {
-  .pse-tools-head,
-  .pse-tool {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.05fr) minmax(0, 0.6fr) minmax(0, 0.7fr);
-    grid-template-areas: 'id cap price limit';
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1rem 1.5rem;
-  }
-
-  .pse-tools-head {
-    padding-block: 0.75rem;
-    border-bottom: 1px solid var(--pse-rule-2);
-    background: var(--pse-band);
-  }
-
-  /* The header row is the only place the column labels appear on desktop. */
-  .pse-tools-head .pse-cell-label { margin-bottom: 0; }
-  .pse-tool .pse-cell-label { display: none; }
-}
-
-.pse-tools-head-cell { grid-area: id; }
-.pse-tools-head .pse-tools-head-cell:nth-child(2) { grid-area: cap; }
-.pse-tools-head .pse-tools-head-cell:nth-child(3) { grid-area: price; }
-.pse-tools-head .pse-tools-head-cell:nth-child(4) { grid-area: limit; }
-
-.pse-tool-tagline {
-  display: none;
-  margin-top: 0.15rem;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: var(--pse-ink-3);
-}
-
-@media (min-width: 1120px) { .pse-tool-tagline { display: block; } }
-
-.pse-tier-glyph { flex: none; display: block; color: var(--pse-ink-3); }
-
-/* ============================================================================
- * SPLITS AND LADDERS — divided by a rule, never by boxes
- * ========================================================================== */
-.pse-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2.5rem;
-}
-
-@media (min-width: 1024px) {
-  .pse-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3.5rem; }
-  .pse-split > * + * { padding-left: 3.5rem; border-left: 1px solid var(--pse-rule-2); }
-}
-
-.pse-ladder {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pse-ladder-step {
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
-  gap: 0.75rem;
-  padding-block: 0.7rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-ladder-step:first-child { border-top: 0; padding-top: 0; }
-.pse-ladder-step:last-child { padding-bottom: 0; }
-
-.pse-ladder-num {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: var(--pse-accent);
-}
-
-.pse-ladder-name {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  color: var(--pse-ink);
-}
-
-.pse-ladder-note {
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--pse-ink-2);
-  text-wrap: pretty;
-}
-
-/* An inset block for a value the user must copy or verify. */
+/* An inset block for a value that must be copied or verified. */
 .pse-code {
-  padding: 0.875rem 1rem;
-  border-radius: 10px;
-  background: var(--pse-band);
+  padding: 0.8rem 0.95rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-inset);
   border: 1px solid var(--pse-rule-2);
 }
 
@@ -1147,9 +764,619 @@
   color: var(--pse-ink);
 }
 
+/* The console's loader/failure primitives still render `pse-card`. */
+.pse-card {
+  border-radius: var(--pse-r);
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring);
+  overflow: hidden;
+}
+
+.pse-card--raised { box-shadow: var(--pse-ring), var(--pse-lift); }
+.pse-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.8rem 1.1rem; border-bottom: 1px solid var(--pse-rule-2); }
+.pse-card-body { padding: 1.1rem; }
+.pse-card-foot { padding: 0.8rem 1.1rem; border-top: 1px solid var(--pse-rule-2); background: var(--pse-inset); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * INSTRUMENTS
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Capacity gauge ──────────────────────────────────────────────────────
+ * One shared track width across every row, so the rows are proportional to the
+ * same maximum and can be read against each other. The stacked bar at the top
+ * states the composition in one object.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-gauge { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.pse-gauge-stack {
+  display: flex;
+  height: 10px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--pse-inset);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+}
+
+.pse-gauge-seg {
+  width: var(--pse-w, 0%);
+  transition: width 820ms var(--pse-ease) 120ms;
+}
+
+.pse-gauge-seg--units { background: linear-gradient(180deg, var(--pse-accent), color-mix(in srgb, var(--pse-accent-solid) 85%, #000)); }
+.pse-gauge-seg--referrals { background: linear-gradient(180deg, var(--pse-cyan), color-mix(in srgb, var(--pse-cyan) 70%, #000)); }
+
+.pse-gauge[data-inview='false'] .pse-gauge-seg { width: 0; }
+
+.pse-gauge-rows { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.pse-gauge-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem 1rem;
+}
+
+.pse-gauge-key {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-gauge-key--total { color: var(--pse-ink); font-weight: 500; }
+
+.pse-gauge-swatch { width: 8px; height: 8px; flex: none; border-radius: 2px; background: var(--pse-accent); }
+.pse-gauge-swatch--referrals { background: var(--pse-cyan); }
+.pse-gauge-swatch--total { background: linear-gradient(90deg, var(--pse-accent) 60%, var(--pse-cyan)); }
+
+.pse-gauge-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.875rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pse-gauge-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--pse-inset);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-gauge-fill {
+  display: block;
+  height: 100%;
+  width: var(--pse-w, 0%);
+  border-radius: 3px;
+  transition: width 820ms var(--pse-ease) 180ms;
+}
+
+.pse-gauge-fill--units { background: var(--pse-accent); }
+.pse-gauge-fill--referrals { background: var(--pse-cyan); }
+.pse-gauge-fill--total { background: linear-gradient(90deg, var(--pse-accent-solid) 0%, var(--pse-accent) 60%, var(--pse-cyan) 100%); }
+
+.pse-gauge[data-inview='false'] .pse-gauge-fill { width: 0; }
+
+.pse-gauge-divide { height: 1px; background: var(--pse-rule-2); }
+
+.pse-gauge-eq {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--pse-rule);
+  background: var(--pse-inset);
+  color: var(--pse-ink-3);
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+/* ── Campaign rail ───────────────────────────────────────────────────────
+ * A lifecycle drawn as a rail with nodes. There is deliberately NO marker of
+ * "where we are now": a public page cannot know a campaign position, so the
+ * instrument shows the phases and their order, not a fabricated progress.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-rail { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.pse-rail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+}
+
+.pse-rail-scale {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-rail-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0 0 0 1.6rem;
+  list-style: none;
+}
+
+.pse-rail-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0 0 1.35rem;
+}
+
+.pse-rail-step:last-child { padding-bottom: 0; }
+
+/*
+ * The connector is drawn per step — from this node to the next — rather than as
+ * one line behind the rail, so the rail can read as a sequence that is being
+ * laid down: each segment extends in turn. Vertical on mobile, horizontal from
+ * 768px, and always ending at the next node rather than at the rail's edge.
+ */
+.pse-rail-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: calc(-1.6rem + 5px);
+  top: 19px;
+  bottom: 0;
+  width: 1px;
+  background: var(--pse-rule);
+  transform-origin: top center;
+  transform: scaleY(1);
+  transition: transform 520ms var(--pse-ease);
+  transition-delay: calc(var(--pse-i, 0) * 120ms);
+}
+
+.pse-rail-step:first-child:not(:last-child)::after { background: linear-gradient(180deg, var(--pse-accent), var(--pse-rule)); }
+
+.pse-rail[data-inview='false'] .pse-rail-step::after { transform: scaleY(0); }
+
+.pse-rail-node {
+  position: absolute;
+  left: -1.6rem;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  border: 1px solid var(--pse-rule-strong);
+  background: var(--pse-surface);
+  box-shadow: 0 0 0 3px var(--pse-canvas);
+}
+
+.pse-rail-step[data-phase='launch'] .pse-rail-node { border-color: var(--pse-accent); background: var(--pse-accent); }
+.pse-rail-step[data-phase='payout'] .pse-rail-node { border-color: var(--pse-cyan); background: var(--pse-cyan); }
+
+.pse-rail-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
+.pse-rail-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); max-width: 34ch; }
+
+@media (min-width: 768px) {
+  .pse-rail-steps {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0 1.1rem;
+    padding: 0;
+  }
+
+  .pse-rail-step { padding: 1.9rem 0 0; }
+  .pse-rail-node { left: 0; top: 0; }
+
+  .pse-rail-step:not(:last-child)::after {
+    left: 16px;
+    top: 5px;
+    bottom: auto;
+    height: 1px;
+    width: calc(100% + 1.1rem - 16px);
+    background: var(--pse-rule);
+    transform-origin: left center;
+    transform: scaleX(1);
+  }
+
+  .pse-rail-step:first-child:not(:last-child)::after { background: linear-gradient(90deg, var(--pse-accent), var(--pse-rule)); }
+  .pse-rail-step[data-phase='payout']:not(:last-child)::after { background: linear-gradient(90deg, var(--pse-rule), var(--pse-cyan)); }
+
+  .pse-rail[data-inview='false'] .pse-rail-step::after { transform: scaleX(0); }
+}
+
+/* ── Pipeline ────────────────────────────────────────────────────────────
+ * A sequence of stages with connectors. Used for the purchase pipeline and for
+ * the settlement lifecycle, because both are genuinely ordered.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pse-flow;
+}
+
+@media (min-width: 640px) { .pse-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pse-flow { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; } }
+
+.pse-flow-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring);
+  transition: background-color var(--pse-t) var(--pse-ease), box-shadow var(--pse-t) var(--pse-ease), transform var(--pse-t) var(--pse-ease);
+}
+
+.pse-flow-step:hover {
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring-strong), var(--pse-lift);
+  transform: translateY(-2px);
+}
+
+@media (min-width: 1024px) {
+  /* Desktop: the steps become one strip joined by drawn connectors. */
+  .pse-flow { gap: 0; border-radius: var(--pse-r); overflow: hidden; box-shadow: var(--pse-ring); }
+  .pse-flow-step { border-radius: 0; box-shadow: none; background: var(--pse-surface); }
+  .pse-flow-step + .pse-flow-step { border-left: 1px solid var(--pse-rule-2); }
+  .pse-flow-step:hover { background: var(--pse-surface-2); box-shadow: none; transform: none; }
+
+  /* The connector: a short accent tick on the shared edge, drawn on hover. */
+  .pse-flow-step + .pse-flow-step::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 50%;
+    width: 1px;
+    height: 0;
+    background: var(--pse-accent);
+    transform: translateY(-50%);
+    transition: height var(--pse-t) var(--pse-ease);
+  }
+
+  .pse-flow-step + .pse-flow-step:hover::before { height: 42%; }
+}
+
+.pse-flow-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+
+.pse-flow-index {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--pse-ink-3);
+}
+
+.pse-flow-glyph { display: flex; color: var(--pse-ink-2); transition: color var(--pse-t) var(--pse-ease); }
+.pse-flow-step:hover .pse-flow-glyph { color: var(--pse-accent); }
+
+.pse-flow-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-flow-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
+.pse-flow-denom { margin-top: auto; padding-top: 0.35rem; }
+
+/* ── Ladder: a vertical stepped list with nodes (referral qualification) ── */
+.pse-ladder {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-ladder-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0 0 1.1rem;
+}
+
+.pse-ladder-step:last-child { padding-bottom: 0; }
+
+/* The connector between nodes, drawn on the first column. */
+.pse-ladder-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--pse-rule);
+}
+
+.pse-ladder-num {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--pse-rule);
+  background: var(--pse-surface-2);
+  color: var(--pse-ink-2);
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.pse-ladder-step[data-final='true'] .pse-ladder-num {
+  border-color: color-mix(in srgb, var(--pse-accent) 45%, transparent);
+  background: var(--pse-accent-quiet);
+  color: var(--pse-accent);
+}
+
+.pse-ladder-name { display: block; font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
+.pse-ladder-note { display: block; font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
+
+/* ── Tool family ─────────────────────────────────────────────────────────
+ * One equipment family: a shared chassis with a different interior per tier,
+ * so the four read as one product line at increasing sophistication.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--pse-rule-2);
+  border-radius: var(--pse-r);
+  overflow: hidden;
+  box-shadow: var(--pse-ring);
+}
+
+@media (min-width: 1024px) { .pse-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Below the desktop grid the family becomes a deliberate horizontal reel
+   rather than four stacked cards. */
+@media (max-width: 767px) {
+  .pse-tools {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .pse-tools::-webkit-scrollbar { display: none; }
+  .pse-tool { flex: 0 0 78%; scroll-snap-align: start; }
+}
+
+.pse-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.15rem;
+  background: var(--pse-surface);
+  transition: background-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-tool:hover { background: var(--pse-surface-2); }
+
+.pse-tool-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+
+.pse-tool-module { display: block; color: var(--pse-ink-2); transition: color var(--pse-t) var(--pse-ease); }
+.pse-tool:hover .pse-tool-module { color: var(--pse-ink); }
+
+.pse-tool-name { display: block; font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+
+.pse-tool-tier {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-tool-cap { display: flex; flex-direction: column; gap: 0.45rem; }
+
+.pse-tool-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.375rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--pse-ink);
+}
+
+.pse-tool-rate-unit { font-family: var(--pse-font); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; color: var(--pse-ink-3); }
+
+.pse-tool-track {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--pse-inset);
+  overflow: hidden;
+}
+
+.pse-tool-fill {
+  display: block;
+  height: 100%;
+  width: var(--pse-w, 0%);
+  border-radius: 3px;
+  background: var(--pse-fill, var(--pse-accent));
+  transition: width 760ms var(--pse-ease) 140ms;
+}
+
+.pse-tool[data-inview='false'] .pse-tool-fill { width: 0; }
+
+.pse-tool-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-tool-meta-key { display: block; font-size: 0.625rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pse-ink-3); }
+
+.pse-tool-meta-val {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+.pse-tool-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+/* ── Specimen: a window of the application ─────────────────────────────── */
+.pse-spec { display: flex; flex-direction: column; }
+
+.pse-spec-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-spec-lights { display: inline-flex; gap: 5px; }
+.pse-spec-lights > i { width: 8px; height: 8px; border-radius: 999px; background: var(--pse-rule); }
+.pse-spec-lights > i:first-child { background: color-mix(in srgb, var(--pse-ink-3) 55%, transparent); }
+
+.pse-spec-title {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-2);
+}
+
+.pse-spec-body { display: flex; flex-direction: column; gap: 1.1rem; padding: 1.1rem; }
+
+.pse-spec-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+
+.pse-spec-field { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.pse-spec-field-key {
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-spec-field-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.9375rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+.pse-spec-roster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+
+@media (min-width: 560px) { .pse-spec-roster { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.pse-spec-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-inset);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+}
+
+.pse-spec-cell-name { font-size: 0.6875rem; font-weight: 500; color: var(--pse-ink-2); }
+.pse-spec-cell-rate { font-family: var(--pse-mono); font-size: 0.75rem; letter-spacing: -0.01em; color: var(--pse-ink); }
+
+/* ── Trust grid ─────────────────────────────────────────────────────────── */
+.pse-trust {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--pse-rule-2);
+  border-radius: var(--pse-r);
+  overflow: hidden;
+  box-shadow: var(--pse-ring);
+}
+
+@media (min-width: 640px) { .pse-trust { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pse-trust { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.pse-trust-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.15rem;
+  background: var(--pse-surface);
+  transition: background-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-trust-item:hover { background: var(--pse-surface-2); }
+
+.pse-trust-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-accent-quiet);
+  color: var(--pse-accent);
+}
+
+.pse-trust-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-trust-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
+
+/* ── Two-column composition ────────────────────────────────────────────── */
+.pse-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.75rem;
+}
+
+@media (min-width: 1024px) {
+  .pse-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.75rem; align-items: start; }
+  .pse-columns--weighted { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+}
+
 /* ── FAQ ────────────────────────────────────────────────────────────────── */
-.pse-faq { border-top: 1px solid var(--pse-rule); }
-.pse-faq-item { border-bottom: 1px solid var(--pse-rule-2); }
+.pse-faq { box-shadow: var(--pse-ring); border-radius: var(--pse-r); overflow: hidden; background: var(--pse-surface); }
+.pse-faq-item + .pse-faq-item { border-top: 1px solid var(--pse-rule-2); }
 
 .pse-faq-q {
   display: flex;
@@ -1158,23 +1385,23 @@
   gap: 1.5rem;
   width: 100%;
   min-height: 60px;
-  padding: 1.1rem 0;
+  padding: 1.05rem 1.15rem;
   background: none;
   border: 0;
   text-align: left;
   font-family: var(--pse-font);
   font-size: 1rem;
-  font-weight: 400;
-  letter-spacing: 0.004em;
+  font-weight: 450;
+  letter-spacing: -0.012em;
   line-height: 1.45;
   color: var(--pse-ink);
   cursor: pointer;
-  transition: color 140ms ease;
+  transition: background-color var(--pse-t-fast) var(--pse-ease), color var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-faq-q:hover { color: var(--pse-accent); }
+.pse-faq-q:hover { background: var(--pse-inset); }
 
-.pse-faq-sign { position: relative; flex: none; width: 14px; height: 14px; }
+.pse-faq-sign { position: relative; flex: none; width: 13px; height: 13px; color: var(--pse-ink-3); }
 
 .pse-faq-sign::before,
 .pse-faq-sign::after {
@@ -1187,18 +1414,19 @@
   background: currentColor;
 }
 
-.pse-faq-sign::after { transform: rotate(90deg); transition: transform 160ms ease; }
+.pse-faq-sign::after { transform: rotate(90deg); transition: transform var(--pse-t) var(--pse-ease); }
 .pse-faq-q[aria-expanded='true'] .pse-faq-sign::after { transform: rotate(0deg); }
+.pse-faq-q[aria-expanded='true'] .pse-faq-sign { color: var(--pse-accent); }
 
-.pse-faq-a { padding-bottom: 1.4rem; max-width: 68ch; }
+.pse-faq-a { padding: 0 1.15rem 1.3rem; max-width: 72ch; }
 
-/* ── Masthead, hero, closing band, footer ──────────────────────────────── */
+/* ── Masthead and mobile drawer ─────────────────────────────────────────── */
 .pse-mast {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: color-mix(in srgb, var(--pse-paper) 88%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
+  z-index: 30;
+  background: color-mix(in srgb, var(--pse-canvas) 78%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
   border-bottom: 1px solid var(--pse-rule-2);
 }
 
@@ -1206,18 +1434,12 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-height: 64px;
+  min-height: 60px;
 }
 
-/*
- * Section anchors are a desktop affordance. At 390px they would either wrap
- * into three rows or be squeezed into a sliver, so on small screens the bar
- * carries the brand and the two real actions instead — which is what a mobile
- * visitor of a marketing page actually needs.
- */
 .pse-mast-nav { display: none; }
 
-@media (min-width: 900px) {
+@media (min-width: 960px) {
   .pse-mast-nav { display: flex; align-items: center; gap: 0.15rem; margin-inline: auto; }
 }
 
@@ -1226,50 +1448,115 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  min-width: 44px;
-  padding-inline: 0.6rem;
+  padding-inline: 0.7rem;
+  border-radius: var(--pse-r-xs);
   font-size: 0.875rem;
-  letter-spacing: 0.004em;
+  font-weight: 500;
+  letter-spacing: -0.008em;
   color: var(--pse-ink-2);
   text-decoration: none;
-  transition: color 140ms ease;
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-mast-link:hover { color: var(--pse-ink); }
-.pse-mast-link[aria-current='page'] { color: var(--pse-ink); }
+.pse-mast-link:hover { color: var(--pse-ink); background: var(--pse-inset); }
 
 .pse-mast-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
 
-@media (min-width: 900px) {
-  .pse-mast-actions { margin-left: 0; gap: 0.75rem; }
+.pse-mast-actions .pse-mast-link { display: none; }
+@media (min-width: 960px) { .pse-mast-actions .pse-mast-link { display: inline-flex; } }
+
+/* One control on mobile: a menu button. Never a stack of rows. */
+.pse-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-inset);
+  color: var(--pse-ink);
+  cursor: pointer;
+  transition: background-color var(--pse-t-fast) var(--pse-ease), border-color var(--pse-t-fast) var(--pse-ease);
 }
 
-/* Hero: a 2-column composition on one axis — argument left, specimen right. */
-.pse-hero { display: grid; gap: 2.75rem; padding-block: clamp(2.5rem, 5.5vw, 4.75rem); }
+.pse-burger:hover { background: color-mix(in srgb, var(--pse-ink) 9%, transparent); border-color: var(--pse-rule-strong); }
+
+@media (min-width: 960px) { .pse-burger { display: none; } }
+
+.pse-drawer {
+  position: fixed;
+  inset: 60px 0 auto 0;
+  z-index: 29;
+  padding: 0.75rem var(--pse-gutter) 1.25rem;
+  background: var(--pse-surface);
+  border-bottom: 1px solid var(--pse-rule);
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.8);
+  transform-origin: top center;
+}
+
+/* The drawer is a small-screen affordance only; the desktop bar shows the nav. */
+@media (min-width: 960px) { .pse-drawer { display: none; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-drawer { animation: pse-drawer-in 260ms var(--pse-ease); }
+}
+
+@keyframes pse-drawer-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pse-drawer-nav { display: grid; gap: 0.15rem; }
+
+.pse-drawer-link {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding-inline: 0.75rem;
+  border-radius: var(--pse-r-xs);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--pse-ink);
+  text-decoration: none;
+}
+
+.pse-drawer-link:hover { background: var(--pse-inset); }
+
+.pse-drawer-actions { display: grid; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--pse-rule-2); }
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.pse-hero {
+  position: relative;
+  display: grid;
+  gap: 2.5rem;
+  padding-block: clamp(2.25rem, 4.5vw, 3.75rem) clamp(3rem, 6vw, 5rem);
+}
 
 @media (min-width: 1024px) {
   .pse-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
-    gap: 4.5rem;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 3.5rem;
     align-items: center;
-    padding-block: clamp(3.5rem, 7vw, 6.25rem);
+    padding-block: clamp(3rem, 5.5vw, 5rem) clamp(4rem, 7vw, 6.5rem);
   }
 }
 
+.pse-hero-copy { display: flex; flex-direction: column; align-items: flex-start; }
 .pse-hero-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; }
 
 .pse-hero-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 1rem;
+  gap: 0.5rem 1.1rem;
   font-family: var(--pse-mono);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
   color: var(--pse-ink-3);
 }
 
-.pse-hero-meta > * + * { position: relative; padding-left: 1rem; }
-
+.pse-hero-meta > * + * { position: relative; padding-left: 1.1rem; }
 .pse-hero-meta > * + *::before {
   content: '';
   position: absolute;
@@ -1282,20 +1569,8 @@
   transform: translateY(-50%);
 }
 
-/* The specimen's own header block: label above, money below. */
-.pse-spec-block { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.pse-spec-block + .pse-spec-block {
-  margin-top: 1.1rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-close {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-}
+/* ── Closing band and footer ────────────────────────────────────────────── */
+.pse-close { display: flex; flex-direction: column; gap: 1.75rem; }
 
 @media (min-width: 900px) {
   .pse-close { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 3rem; }
@@ -1322,9 +1597,210 @@
   font-size: 0.875rem;
   color: var(--pse-ink-2);
   text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease);
 }
 
-.pse-foot-link:hover { color: var(--pse-ink); text-decoration: underline; text-underline-offset: 0.25em; }
+.pse-foot-link:hover { color: var(--pse-ink); }
+
+/* ── Focus visibility — never removed ──────────────────────────────────── */
+.pse a:focus-visible,
+.pse button:focus-visible,
+.pse select:focus-visible,
+.pse input:focus-visible,
+.pse [tabindex]:focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 2px;
+  border-radius: var(--pse-r-xs);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * BRAND
+ * The recovered faceted emblem. The crest facet is the only part that animates,
+ * and only to state a running campaign.
+ * ════════════════════════════════════════════════════════════════════════ */
+.pse-mark { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.pse-mark-glyph { flex: none; display: block; }
+
+.pse-wordmark { display: flex; flex-direction: column; min-width: 0; line-height: 1.12; }
+
+.pse-wordmark-name {
+  font-family: var(--pse-font);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.026em;
+  color: var(--pse-ink);
+}
+
+.pse-wordmark-sub {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+@keyframes pse-crest-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.32; }
+}
+
+.pse-mark-crest-live { animation: pse-crest-live 2.4s ease-in-out infinite; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * LOADER — an application state, not a page.
+ *
+ * One indeterminate rail, one honest sentence, and an escalation that only ever
+ * states a fact. The duration genuinely is not known, so nothing here implies
+ * that it is. No percentage, no filling bar, no scan, no counter, no step list.
+ * ════════════════════════════════════════════════════════════════════════ */
+.pse-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.35rem;
+  max-width: 24rem;
+  margin-inline: auto;
+  padding-block: clamp(2rem, 6vw, 3rem);
+  text-align: center;
+}
+
+.pse-loader-id { display: inline-flex; align-items: center; gap: 0.55rem; }
+
+.pse-loader-name {
+  font-family: var(--pse-font);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.026em;
+  color: var(--pse-ink);
+}
+
+.pse-loader-track {
+  position: relative;
+  width: 168px;
+  max-width: 55vw;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-loader-track > i {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 38%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--pse-accent), transparent);
+  animation: pse-indeterminate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes pse-indeterminate {
+  0% { transform: translateX(-102%); }
+  100% { transform: translateX(266%); }
+}
+
+.pse-loader-label { font-size: 0.9375rem; font-weight: 400; letter-spacing: -0.006em; color: var(--pse-ink-2); }
+.pse-loader-note { max-width: 24rem; font-size: 0.8125rem; line-height: 1.55; color: var(--pse-ink-3); }
+.pse-loader-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem; }
+
+@keyframes pse-dot {
+  0%, 80%, 100% { opacity: 0.22; }
+  40% { opacity: 1; }
+}
+
+.pse-loader-dots { display: inline-flex; gap: 6px; }
+
+.pse-loader-dots > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--pse-ink-2);
+  animation: pse-dot 1.4s ease-in-out infinite;
+}
+
+.pse-loader-dots > i:nth-child(2) { animation-delay: 0.18s; }
+.pse-loader-dots > i:nth-child(3) { animation-delay: 0.36s; }
+
+.pse-loader-inline { display: flex; align-items: center; gap: 0.6rem; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * AUTHENTICATION — a wallet-grade sign-in, single column, single axis.
+ * ════════════════════════════════════════════════════════════════════════ */
+.pse-auth {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--pse-canvas);
+}
+
+.pse-auth-bar { border-bottom: 1px solid var(--pse-rule-2); }
+
+.pse-auth-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 60px;
+}
+
+.pse-auth-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.75rem var(--pse-gutter) 3.5rem;
+}
+
+.pse-auth-col { width: 100%; max-width: 400px; }
+
+/* On a larger screen the form becomes a defined surface rather than a column of
+   loose controls, which is what gives it the weight of a product screen. */
+@media (min-width: 768px) {
+  .pse-auth-col {
+    max-width: 440px;
+    padding: 1.75rem 1.75rem 1.5rem;
+    border-radius: var(--pse-r);
+    background: var(--pse-surface);
+    box-shadow: var(--pse-ring), var(--pse-lift);
+  }
+}
+
+.pse-auth-title {
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.028em;
+  color: var(--pse-ink);
+}
+
+.pse-auth-sub {
+  margin-top: 0.45rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  color: var(--pse-ink-2);
+}
+
+.pse-auth-foot { border-top: 1px solid var(--pse-rule-2); margin-top: 1.75rem; padding-top: 1.1rem; }
+
+.pse-auth-or {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-auth-or::before,
+.pse-auth-or::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--pse-rule-2); }
+
+.pse-reassure { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-3); }
+.pse-reassure svg { flex: none; margin-top: 0.1rem; }
 
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

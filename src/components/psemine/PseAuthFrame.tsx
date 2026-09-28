@@ -30,10 +30,12 @@
  * hierarchy already comes from the typography and the field rhythm.
  *
  * THE PLANE
- * The four public surfaces are always light (see src/styles/psemine.css): a
- * sign-in surface belongs to the product, not to the application's theme
- * default. The `embedded` variant renders inside the console, which does follow
- * the application theme, so it stays unplaned on purpose.
+ * The public surfaces render on the product's own plane — always dark graphite,
+ * regardless of the application's theme (see src/styles/psemine.css): a sign-in
+ * surface belongs to the product, not to the operator's theme preference. The
+ * `embedded` variant renders inside the console, which already provides chrome
+ * and the application theme, so it stays unplaned on purpose. The auth family's
+ * own additions to that layer are in src/styles/psemine-auth.css.
  *
  * AUTHENTICATION CONTENT CONTRACT (enforced here)
  *   allowed ·  identity, welcome copy, fields, password control, primary and
@@ -45,7 +47,7 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PSEmineLogo } from './PSEBrand';
+import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 
 /** A small lock. Meaningful, not decorative — it marks the reassurance line. */
 const LockGlyph: React.FC = () => (
@@ -90,6 +92,16 @@ export const PseAuthFrame: React.FC<{
 
       <main className={isPage ? 'pse-auth-main' : 'pse-wrap py-14'}>
         <div className="pse-auth-col mx-auto w-full">
+          {/* The bar carries the lockup for navigation; this anchors it at the
+              task, for a person who landed straight on this route. The embedded
+              variant sits inside the console's own chrome, so it needs neither. */}
+          {isPage && (
+            <span className="pse-auth-brand">
+              <PSEmineMark size={20} decorative />
+              <span className="pse-auth-brand-name">PSEmine</span>
+            </span>
+          )}
+
           <header>
             <h1 className="pse-auth-title">{title}</h1>
             <p className="pse-auth-sub">{lede}</p>

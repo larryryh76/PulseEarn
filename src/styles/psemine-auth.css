@@ -1,0 +1,102 @@
+/*
+ * PSEmine authentication family — the additions that only sign-in, create
+ * account, password reset and verification need.
+ *
+ * WHY THIS IS A SEPARATE FILE
+ * `src/styles/psemine.css` owns the product's visual language and is loaded by
+ * `src/main.tsx`; it is also consumed by the landing page, the loader and the
+ * console primitives. These four rules extend it for the auth surfaces only, so
+ * they live here and load immediately after it — which is what makes the
+ * overrides below safe: same specificity, later in the cascade, deliberately
+ * scoped to the auth family and to nothing else.
+ *
+ * The plane is NOT declared here. It comes from `.pse-plane` in psemine.css, so
+ * a sign-in surface and the landing page are the same product.
+ */
+
+/* ── The form as an instrument ──────────────────────────────────────────────
+ * On a phone the form is a full-bleed column: width is the scarce resource and
+ * a card would only eat it. From tablet up it becomes one of the product's own
+ * objects — a lifted surface with the shadow-as-border ring and the inner top
+ * highlight the rest of the product uses — because at that size the form needs
+ * a defined edge to read as a surface rather than as loose controls.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-auth-col { position: relative; width: 100%; max-width: 392px; }
+
+@media (min-width: 768px) {
+  .pse-auth-col {
+    max-width: 452px;
+    padding: 2rem 2rem 1.75rem;
+    border-radius: var(--pse-r-lg);
+    background: var(--pse-surface);
+    box-shadow: var(--pse-ring), var(--pse-lift-2);
+  }
+
+  /* One accent hairline across the top edge — the same mark every instrument
+     in the product carries, and the only colour on the screen until a control
+     is actually used. */
+  .pse-auth-col::before {
+    content: '';
+    position: absolute;
+    inset-inline: 12% 12%;
+    top: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--pse-accent), transparent);
+    opacity: 0.5;
+  }
+}
+
+/* ── Brand presence at the task itself ──────────────────────────────────────
+ * The bar carries the full lockup for navigation; this carries a quiet mark and
+ * the product name immediately above the task, so a person who landed straight
+ * on `/mine/login` still knows what they are signing into. Name only — no
+ * descriptor, because the descriptor is a product statement and this is a form.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.35rem;
+}
+
+.pse-auth-brand-name {
+  font-family: var(--pse-font);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink-2);
+}
+
+.pse-auth-title {
+  font-size: clamp(1.625rem, 1.5rem + 0.6vw, 1.9375rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+/* ── Password quality ───────────────────────────────────────────────────────
+ * Four steps on one rail, driven by the real input and shown only once there is
+ * an input. It reports a quality band, never a score and never a percentage,
+ * and the colour only moves through the semantic set the product already uses.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-meter {
+  display: block;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--pse-accent);
+  transition:
+    width var(--pse-t) var(--pse-ease),
+    background-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-meter[data-step='1'] > span { background: var(--pse-danger); }
+.pse-meter[data-step='2'] > span { background: var(--pse-warn); }
+.pse-meter[data-step='3'] > span { background: var(--pse-accent); }
+.pse-meter[data-step='4'] > span { background: var(--pse-good); }

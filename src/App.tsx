@@ -55,6 +55,7 @@ import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
 import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
 import { PSEmineAuth, PSEmineForgotPassword, PSEmineVerifyEmail, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
+import { PSEminePolicy } from './pages/psemine/PSEminePolicy'
 import { PSEMineAuthProvider } from './contexts/PSEMineAuthContext'
 import { PSEMineProvider } from './contexts/PSEMineContext'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
@@ -249,6 +250,20 @@ function App() {
           <Route path="/mine/guide/onboarding" element={<PSEmineProtectedRoute><PSEMineGuide onboarding /></PSEmineProtectedRoute>} />
           <Route path="/mine/me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
         </Route>
+
+        {/* PSEmine product documents. Public by design: the terms, the purchase
+            terms and the risk disclosure have to be readable BEFORE an account
+            exists, and they are reachable at every point where a person commits
+            to something (sign-up, a purchase, a payout wallet). */}
+        <Route path="/mine/terms" element={<PSEminePolicy doc="terms" />} />
+        <Route path="/mine/privacy" element={<PSEminePolicy doc="privacy" />} />
+        <Route path="/mine/cookies" element={<PSEminePolicy doc="cookies" />} />
+        <Route path="/mine/campaign-terms" element={<PSEminePolicy doc="campaign-terms" />} />
+        <Route path="/mine/purchase-terms" element={<PSEminePolicy doc="purchase-terms" />} />
+        <Route path="/mine/payout-policy" element={<PSEminePolicy doc="payout-policy" />} />
+        <Route path="/mine/referral-terms" element={<PSEminePolicy doc="referral-terms" />} />
+        <Route path="/mine/risk" element={<PSEminePolicy doc="risk" />} />
+        <Route path="/mine/support" element={<PSEminePolicy doc="support" />} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />

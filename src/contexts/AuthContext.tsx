@@ -28,8 +28,9 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { UserData } from '../types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
+import { RestoreSplash } from '../components/RestoreSplash';
 import {
   PULSE_EARN_PRODUCT,
   repairWelcomeBonusIfMissing,
@@ -490,30 +491,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            />
         )}
 
-        {/* Session-restoration splash. Deliberately PRODUCT-NEUTRAL: the shared
-            identity layer must not know which product a route belongs to, so it
-            renders one unbranded loading state. Product-branded loading belongs
-            to each product's own provider (e.g. PSEMineAuthProvider). */}
-        {isRestoring && !systemError ? (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            data-testid="identity-restore"
-            className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
-          >
-             <div className="flex flex-col items-center gap-3">
-                <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
-                   <motion.div
-                     initial={{ left: '-100%' }}
-                     animate={{ left: '100%' }}
-                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                     className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
-                   />
-                </div>
-                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
-             </div>
-          </motion.div>
-        ) : null}
+        {/* Session-restoration splash.
+
+            THIS IS THE WAIT A PERSON ACTUALLY SEES. The provider renders no
+            children until the shared identity resolves, so a route's own
+            loading state can never appear during restoration — which is why the
+            PSEmine branded loader was effectively unreachable and PSEmine
+            visitors watched a neutral PulseEarn-coloured bar instead.
+
+            The lifecycle is unchanged: same gate, same timeout, same failure
+            handling. Only the identity shown during the wait is route-scoped, so
+            `/mine/*` gets PSEmine's own loader and its plane while every other
+            route keeps the neutral splash exactly as it was. See
+            src/components/RestoreSplash.tsx. */}
+        {isRestoring && !systemError ? <RestoreSplash /> : null}
       </AnimatePresence>
       {!loading && !systemError && children}
     </AuthContext.Provider>

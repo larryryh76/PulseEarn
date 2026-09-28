@@ -101,10 +101,36 @@ export const PseLoading: React.FC<{ label?: string; stage?: PseLoadStage }> = ({
   <PseLoader variant="inline" stage={stage} label={label} />
 );
 
-/** Empty state: states the fact, never invents a row. */
-export const PseEmptyNote: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="py-3 text-sm text-text-secondary">{children}</p>
-);
+/**
+ * Empty state: states the fact, never invents a row.
+ *
+ * Two forms, and the difference is whether there is anything to do about it:
+ *
+ *   a bare note   a collection is empty and the reader only needed to know that.
+ *                 This is the original one-line form and is unchanged.
+ *   a titled state
+ *                 the emptiness has a reason and a next step, so the state gets a
+ *                 heading, the explanation, and the action that resolves it.
+ *
+ * The action is always a real destination inside the product — an empty state is
+ * never given a button that only dismisses itself.
+ */
+export const PseEmptyNote: React.FC<{
+  children: React.ReactNode;
+  /** Present when the empty collection has a name worth stating. */
+  title?: string;
+  /** The real next action, when one exists. */
+  action?: React.ReactNode;
+}> = ({ children, title, action }) => {
+  if (!title && !action) return <p className="py-3 text-sm text-text-secondary">{children}</p>;
+  return (
+    <div className="border-l-2 border-border py-2.5 pl-4">
+      {title && <p className="text-sm font-semibold text-text-primary">{title}</p>}
+      <p className="mt-1 max-w-[68ch] text-sm text-text-secondary">{children}</p>
+      {action && <div className="mt-3 flex flex-wrap items-center gap-2">{action}</div>}
+    </div>
+  );
+};
 
 /** Inline notice for a reported exception or a blocked action. */
 export const PseNotice: React.FC<{ tone?: 'info' | 'attention' | 'danger'; children: React.ReactNode }> = ({

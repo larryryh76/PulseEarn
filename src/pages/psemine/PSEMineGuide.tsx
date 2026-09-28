@@ -6,6 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { gbp, gbpHour, usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { PseButton, PseCell, PseNotice, PsePage, PseRow, PseSection, PseTable } from '../../components/psemine/PseBasics';
+import { PSE_DOC_LABEL, PSE_DOC_ORDER, PSE_DOC_PATH } from '../../components/psemine/pseDocs';
 import toast from 'react-hot-toast';
 
 /**
@@ -117,7 +118,22 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           <li><Link to="/mine/tools" className="underline">Mining tools</Link> — the catalogue and the purchase flow.</li>
           <li><Link to="/mine/wallet" className="underline">Wallet &amp; payouts</Link> — payout wallet and settlement.</li>
           <li><Link to="/mine/referrals" className="underline">Referrals</Link> — invite link and qualification.</li>
-          <li><Link to="/help" className="underline">Support</Link></li>
+          <li><Link to="/mine/support" className="underline">Support</Link></li>
+        </ul>
+      </PseSection>
+
+      {/* The guide explains the product; the documents are the product's own
+          statement of it. Both belong in the same place, and this is where a
+          reader who has just finished the explanation is standing. */}
+      <PseSection title="The documents">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+          {PSE_DOC_ORDER.map(id => (
+            <li key={id}>
+              <Link to={PSE_DOC_PATH[id]} className="underline">
+                {PSE_DOC_LABEL[id]}
+              </Link>
+            </li>
+          ))}
         </ul>
       </PseSection>
 

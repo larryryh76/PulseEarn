@@ -464,3 +464,44 @@ Divergences introduced by this layer:
   still live and still positioned by `psemine-product.css`.
 - `psemine-art.css` is the fourth stylesheet in `src/main.tsx`; load order is
   `psemine.css` → `psemine-product.css` → `psemine-auth.css` → `psemine-art.css`.
+
+## 17. Polish pass — lifecycle, documents, and the states around them
+
+This pass added no new visual language. It fixed a lifecycle defect, completed
+the product's document surfaces, and put the states a financial product needs
+where a person meets them.
+
+- **The loader was never broken; its presentation was unreachable.**
+  `AuthProvider` renders no children until the shared Firebase session and the
+  `users/{uid}` entitlement document resolve, so the wait a PSEmine visitor
+  actually saw was the shared **neutral** splash — a PulseEarn-coloured bar on
+  `#050507` — and never `PseLoader`. The lifecycle is unchanged: the same gate,
+  the same 30s timeout, the same failure handling. `src/components/RestoreSplash.tsx`
+  now selects the identity shown during that wait from the URL, so `/mine/*`
+  renders the product's own loader on the product's own plane and every other
+  route keeps the neutral splash byte-for-byte. This is the one shared-infrastructure
+  change of the pass, and it is presentation-only.
+- **`src/components/psemine/pseDocs.ts` is the document registry** — ids, order,
+  routes and labels, with no JSX — so the landing footer, the sign-up form, the
+authentication footer and the guide all name the same set. The prose lives in
+  `src/pages/psemine/PSEminePolicy.tsx`, keyed by stable section id, so a clause
+  can be reviewed and replaced on its own. Every document states its review
+  status, revision and date, and every figure in it is interpolated from
+  `src/types/psemine.ts` rather than retyped.
+- **`src/styles/psemine-docs.css`** is the fifth stylesheet and carries one
+  surface type only (the document). The footer grows a third column at ≥1024px
+  via `.pse-foot-grid--navs`; `.pse-foot-links` must stay single-column wherever
+  a nav shares its footer column with another nav, or a label ends up in a 44px
+  box with clipped text.
+- **Sign-up carries a real agreement control** that gates submission and moves
+  focus onto itself when it is the reason the form did not submit. It is not
+  persisted: `UserData` has no acceptance field and none was invented, so
+  recording it needs an account-model change outside presentation scope.
+- **Empty and failure states stay honest.** `PseEmptyNote` gained an optional
+  title and action; the action is always a real destination, never a dismissal.
+
+Deliberately not done here, and why: the authenticated purchase console
+(`PSEMineTools`) already renders quote, network, receiving address and
+verification state, but no route behind the identity gate can be rendered in this
+environment, so it was not restyled; wallet/network error states (`Wrong network`,
+`Quote expired`, `Session expired`) live in those same unverifiable paths.

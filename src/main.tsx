@@ -21,6 +21,10 @@ import './styles/psemine-auth.css'
 // printed scales and the rail geometries. Loaded last so a re-composition is
 // later in the cascade by construction rather than by specificity tricks.
 import './styles/psemine-art.css'
+// The document surface: PSEmine's terms, policies and support pages. One surface
+// type that nothing else renders, in its own layer so it adds no rules to the
+// landing page, authentication, the loader or the console.
+import './styles/psemine-docs.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

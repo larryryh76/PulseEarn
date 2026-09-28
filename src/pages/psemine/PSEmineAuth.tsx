@@ -78,6 +78,57 @@ const StrengthMeter: React.FC<{ label: string }> = ({ label }) => {
   );
 };
 
+/** The tick inside the agreement control. Drawn, never a font glyph. */
+const CheckGlyph: React.FC = () => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M2.5 6.4 4.6 8.5 9.5 3.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/**
+ * An agreement control, not decoration.
+ *
+ * The control is a real checkbox that gates submission, its name is the sentence
+ * beside it (so the agreement is announced rather than the word "checkbox"), and
+ * the sentence carries the documents themselves — the terms a person accepts are
+ * readable at the moment they accept them rather than only after signing in.
+ */
+const Agreement: React.FC<{
+  id: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  error?: string;
+  /** The checkbox itself, so an invalid submit can move focus onto it. */
+  controlRef?: React.RefObject<HTMLInputElement | null>;
+  children: React.ReactNode;
+}> = ({ id, checked, onChange, error, controlRef, children }) => (
+  <div className="pse-check" data-invalid={error ? 'true' : undefined}>
+    <label className="pse-check-control" htmlFor={id}>
+      <input
+        ref={controlRef}
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        aria-labelledby={`${id}-text`}
+        aria-describedby={error ? `${id}-error` : undefined}
+        aria-invalid={error ? true : undefined}
+      />
+      <span className="pse-check-box" aria-hidden="true">
+        <CheckGlyph />
+      </span>
+    </label>
+    <span className="pse-check-text" id={`${id}-text`}>
+      {children}
+    </span>
+    {error && (
+      <p className="pse-field-error pse-check-error" id={`${id}-error`} role="alert">
+        {error}
+      </p>
+    )}
+  </div>
+);
+
 /**
  * A labelled field with its own error slot. The error is rendered directly under
  * the control it belongs to and is referenced by `aria-describedby`, because a
@@ -107,7 +158,7 @@ const Field: React.FC<{
 
 /* ═══════════════════ SIGN IN / CREATE ACCOUNT ═══════════════════ */
 
-type FieldErrors = { username?: string; email?: string; password?: string };
+type FieldErrors = { username?: string; email?: string; password?: string; terms?: string };
 
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
   const isSignup = mode === 'signup';
@@ -119,6 +170,15 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   const [googlePending, setGooglePending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  /**
+   * The explicit agreement, held for the sign-up form only.
+   *
+   * It gates submission: an account cannot be created without it, so it is not a
+   * decorative formality. It is NOT sent anywhere, because the account model has
+   * no field for it — see the note on the control below.
+   */
+  const [agreed, setAgreed] = useState(false);
+  const termsRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -171,10 +231,11 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
     if (!email.trim()) next.email = 'Enter your email address.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = 'Enter a valid email address.';
     if (password.length < 8) next.password = 'Password must be at least 8 characters.';
+    if (isSignup && !agreed) next.terms = 'Accept the Terms of Service and the Privacy Policy to create an account.';
 
-    if (next.username || next.email || next.password) {
+    if (next.username || next.email || next.password || next.terms) {
       setFieldErrors(next);
-      const first = next.username ? usernameRef : next.email ? emailRef : passwordRef;
+      const first = next.username ? usernameRef : next.email ? emailRef : next.password ? passwordRef : termsRef;
       first.current?.focus();
       return;
     }
@@ -308,6 +369,30 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
           {isSignup && password.length > 0 && <StrengthMeter label={strength} />}
 
+          {isSignup && (
+            <Agreement
+              id="pse-signup-terms"
+              controlRef={termsRef}
+              checked={agreed}
+              onChange={v => { setAgreed(v); clearField('terms'); }}
+              error={fieldErrors.terms}
+            >
+              I agree to the PSEmine{' '}
+              <Link to="/mine/terms" className="pse-link">
+                Terms of Service
+              </Link>
+              , and I acknowledge the{' '}
+              <Link to="/mine/privacy" className="pse-link">
+                Privacy Policy
+              </Link>{' '}
+              and the{' '}
+              <Link to="/mine/risk" className="pse-link">
+                Risk Disclosure
+              </Link>
+              .
+            </Agreement>
+          )}
+
           {formError && (
             <p className="pse-notice" data-tone="danger" role="alert">
               <span className="pse-notice-title">{formError}</span>
@@ -320,8 +405,11 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
           {isSignup && (
             <p className="pse-small">
-              By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
-              <Link to="/privacy" className="pse-link">Privacy Policy</Link>.
+              Creating an account is free and charges nothing. Buying a unit is a separate decision you make later, and{' '}
+              <Link to="/mine/purchase-terms" className="pse-link">
+                the Purchase Terms
+              </Link>{' '}
+              set out how that works.
             </p>
           )}
 

@@ -4,6 +4,8 @@ import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { gbp, gbpHour, usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { PSEmineLogo, PSEmineMark } from '../../components/psemine/PSEBrand';
 import { PseTierModule } from '../../components/psemine/PseMechanism';
+import { PSE_DOC_LABEL, PSE_DOC_PATH } from '../../components/psemine/pseDocs';
+import { PsePolicyLinks } from './PSEminePolicy';
 import {
   CapacityInstrument,
   FlowRail,
@@ -181,6 +183,27 @@ const Split: React.FC<{
   >
     {children}
   </div>
+);
+
+/**
+ * The documents at the point of decision.
+ *
+ * A policy that only exists in the footer is a policy nobody reads before they
+ * spend money, so every section that commits the reader to something states the
+ * documents that govern it, right where the commitment is described.
+ */
+const DocLine: React.FC<{ label: string; docs: Array<'campaign-terms' | 'purchase-terms' | 'payout-policy' | 'referral-terms' | 'risk'> }> = ({
+  label,
+  docs,
+}) => (
+  <p className="pse-docline">
+    <span className="pse-docline-label">{label}</span>
+    {docs.map(id => (
+      <Link key={id} to={PSE_DOC_PATH[id]} className="pse-link pse-docline-link">
+        {PSE_DOC_LABEL[id]}
+      </Link>
+    ))}
+  </p>
 );
 
 const Denom: React.FC<{ tone?: string; children: React.ReactNode }> = ({ tone, children }) => (
@@ -591,6 +614,7 @@ export const PSEMineLanding: React.FC = () => {
                 There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet, and
                 every paying action happens on your own wallet and on a live quote only.
               </p>
+              <DocLine label="Before you begin" docs={['campaign-terms', 'risk']} />
             </div>
             <FlowRail steps={PURCHASE} label="The PSEmine purchase sequence, in four steps" />
           </Split>
@@ -651,6 +675,7 @@ export const PSEMineLanding: React.FC = () => {
                 Referral capacity accrues only while you have a unit actually operating, and no capacity is credited
                 retroactively for a referral that qualifies late.
               </p>
+              <DocLine label="Governs referrals" docs={['referral-terms']} />
             </div>
 
             <Reveal className="pse-panel pse-panel--raised" delay={60}>
@@ -731,6 +756,7 @@ export const PSEMineLanding: React.FC = () => {
                 The specimen beside you is an illustration of the flow, not a live quote: prices, rates and ownership
                 limits are locked, but the BNB amount of any purchase is issued per quote.
               </p>
+              <DocLine label="Governs a purchase" docs={['purchase-terms', 'campaign-terms']} />
             </Reveal>
           </Split>
         </div>
@@ -759,6 +785,8 @@ export const PSEMineLanding: React.FC = () => {
             taken on trust.
           </p>
         </Split>
+
+        <DocLine label="Governs a payout" docs={['payout-policy', 'risk']} />
       </Section>
 
       {/* ── 07 · Security: one relationship map, then the reading columns ── */}
@@ -829,7 +857,7 @@ export const PSEMineLanding: React.FC = () => {
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="pse-foot">
-        <div className="pse-wrap pse-foot-grid">
+        <div className="pse-wrap pse-foot-grid pse-foot-grid--navs">
           <div className="space-y-3">
             <span className="pse-mark">
               <PSEmineMark size={24} decorative />
@@ -843,19 +871,31 @@ export const PSEMineLanding: React.FC = () => {
               Units are bought with BNB, capacity is priced in GBP per hour, and settled earnings are paid out in BNB.
             </p>
           </div>
-          <nav className="pse-foot-links" aria-label="PSEmine footer">
-            <Link className="pse-foot-link" to="/mine/guide">Campaign guide</Link>
-            <Link className="pse-foot-link" to="/mine/signup">Create an account</Link>
-            <Link className="pse-foot-link" to="/mine/login">Sign in</Link>
-            <Link className="pse-foot-link" to="/help">Support</Link>
-            <Link className="pse-foot-link" to="/terms">Terms</Link>
-            <Link className="pse-foot-link" to="/privacy">Privacy</Link>
-          </nav>
+          {/* Two labelled columns rather than one undifferentiated list: a
+              person looking for "how do I start" and a person looking for
+              "what did I agree to" are asking different questions. */}
+          <div className="pse-foot-navs">
+            <nav className="pse-foot-links" aria-label="PSEmine">
+              <span className="pse-foot-col-head">Product</span>
+              <Link className="pse-foot-link" to="/mine/guide">Campaign guide</Link>
+              <Link className="pse-foot-link" to="/mine/signup">Create an account</Link>
+              <Link className="pse-foot-link" to="/mine/login">Sign in</Link>
+              <Link className="pse-foot-link" to="/mine/support">Support</Link>
+            </nav>
+            {/* The documents live in the footer, but they are not footer-only:
+                each one is also linked at the point in the page where a person
+                commits to the thing it covers. */}
+            <PsePolicyLinks className="pse-foot-links" heading="Policies" />
+          </div>
         </div>
         <div className="pse-wrap mt-8">
           <p className="pse-small max-w-[74ch]">
             No projected returns, no guaranteed earnings, no custody of your funds. Figures shown are PSEmine&apos;s
-            locked economics. PSEmine is not an investment product and does not promise a return.
+            locked economics. PSEmine is not an investment product and does not promise a return.{' '}
+            <Link to={PSE_DOC_PATH.risk} className="pse-link">
+              Read the risk disclosure
+            </Link>
+            .
           </p>
         </div>
       </footer>

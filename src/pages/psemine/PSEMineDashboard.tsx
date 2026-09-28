@@ -183,8 +183,19 @@ export const PSEMineDashboard: React.FC = () => {
           </PseNotice>
         )}
         {tools.length === 0 ? (
-          <PseEmptyNote>
-            No tools yet. {purchaseOpen ? <>Browse the <Link to="/mine/tools" className="underline">tool catalogue</Link> to begin.</> : 'Purchases are closed for the current campaign status.'}
+          <PseEmptyNote
+            title="No tools yet"
+            action={
+              purchaseOpen ? (
+                <Link to="/mine/tools" className="underline">
+                  Browse the tool catalogue
+                </Link>
+              ) : undefined
+            }
+          >
+            {purchaseOpen
+              ? 'Capacity comes from tools. A tool is bought with BNB from your own wallet, and its hourly capacity is added to the account when the purchase activates.'
+              : 'Purchases are closed for the current campaign status, so no tool can be acquired right now. Existing tools keep their recorded capacity.'}
           </PseEmptyNote>
         ) : (
           <PseTable head={['Tool', 'State', 'Rate', 'Session', 'Next event', 'Action']}>
@@ -257,7 +268,17 @@ export const PSEMineDashboard: React.FC = () => {
             {timeAgo(latestPurchase.createdAt)}. The full record lives in <Link to="/mine/activity" className="underline">activity</Link>.
           </p>
         ) : (
-          <PseEmptyNote>No purchases recorded on this account.</PseEmptyNote>
+          <PseEmptyNote
+            title="No purchases on this account"
+            action={
+              <Link to="/mine/tools" className="underline">
+                View the tool catalogue
+              </Link>
+            }
+          >
+            Nothing has been bought yet. A purchase appears here as soon as a BNB payment is verified against the chain
+            and its tool is activated — and its whole history stays readable in activity.
+          </PseEmptyNote>
         )}
       </PseSection>
 

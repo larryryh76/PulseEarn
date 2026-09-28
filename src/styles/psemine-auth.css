@@ -244,6 +244,118 @@
     background-color var(--pse-t) var(--pse-ease);
 }
 
+/* ── Agreement ─────────────────────────────────────────────────────────────
+ * A real control with a real hit area: the label is 44px tall, the checkbox it
+ * wraps is the focusable element, and the drawn box is the only thing that
+ * changes colour. Nothing here is decorative — the form will not submit without
+ * it (see PSEmineAuth.tsx), and the box is drawn rather than set in a font so it
+ * renders identically everywhere.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.15rem 0.6rem;
+}
+
+.pse-check-control {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 26px;
+  min-height: 44px;
+  padding-top: 5px;
+  cursor: pointer;
+}
+
+.pse-check-control input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pse-check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--pse-rule-strong);
+  background: var(--pse-surface-2);
+  color: var(--pse-on-accent);
+  transition:
+    background-color var(--pse-t-fast) var(--pse-ease),
+    border-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-check-box svg {
+  opacity: 0;
+  transition: opacity var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-check-control:hover .pse-check-box { border-color: var(--pse-ink-3); }
+
+.pse-check-control input:checked + .pse-check-box {
+  border-color: var(--pse-accent-solid);
+  background: var(--pse-accent-solid);
+}
+
+.pse-check-control input:checked + .pse-check-box svg { opacity: 1; }
+
+.pse-check-control input:focus-visible + .pse-check-box { border-color: var(--pse-accent); }
+
+.pse-check[data-invalid='true'] .pse-check-box { border-color: var(--pse-danger); }
+
+.pse-check-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+}
+
+.pse-check-error {
+  flex-basis: 100%;
+  padding-left: 2rem;
+}
+
+/* ── The documents at the task ─────────────────────────────────────────────
+ * Four links, one rule, and the same small type the footer's column headings
+ * use. An authentication screen stays quiet: it carries only what the person
+ * signing up is actually accepting.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-auth-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  margin-top: 1rem;
+}
+
+.pse-auth-docs .pse-link {
+  display: inline-flex;
+  align-items: center;
+  /* A real 44px target, not the inline-prose exception: these are standalone
+     navigations at the end of a form, so they get the product's control
+     geometry rather than the text-link one. */
+  min-height: 44px;
+  /* A short label ("Support") would otherwise be exactly 44px wide, i.e. on the
+     boundary of the product's own target rule. The padding makes every one of
+     these links comfortably clear of it in both axes. */
+  padding-inline: 0.3rem;
+  margin-inline: -0.3rem;
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-auth-docs .pse-link:hover { color: var(--pse-ink); }
+
 .pse-meter[data-step='1'] > span { background: var(--pse-danger); }
 .pse-meter[data-step='2'] > span { background: var(--pse-warn); }
 .pse-meter[data-step='3'] > span { background: var(--pse-accent); }

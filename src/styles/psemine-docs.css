@@ -1,0 +1,361 @@
+/*
+ * PSEmine product documents — the layer for the policy and support surfaces.
+ *
+ * WHY A SEPARATE STYLESHEET
+ * Everything here belongs to one surface type (a document), which nothing else in
+ * the product renders. Keeping it in its own file, loaded after the product
+ * layers in `src/main.tsx`, means the document surface can be reasoned about and
+ * replaced on its own, and that it adds no rules to the landing page, the
+ * authentication family, the loader or the console.
+ *
+ * WHAT IT REUSES
+ * All of the product's foundations come from `psemine.css`: the canvas, surface
+ * steps, hairlines, radii, type roles, notices, chips and footer. Nothing is
+ * re-declared here. This file only composes those into a document: a slim bar
+ * that returns to the product, a title plate carrying the review state and the
+ * revision, numbered clauses with their own anchors, and a contents rail.
+ *
+ * THE READER'S REAL QUESTION IS "IS THIS FINAL?", so the review state is part of
+ * the title plate rather than small print, and the revision and date sit beside
+ * it as machine facts in the figure face.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.pse-doc-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--pse-canvas);
+}
+
+/* ── Footer: two labelled columns ───────────────────────────────────────────
+ * The product's footer grid holds the brand and one column group. The group
+ * splits into a product list and a document list, each with its own heading, so
+ * a 13-link footer still reads as two short answers rather than one long list.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-foot-navs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.75rem 2.5rem;
+  align-content: start;
+}
+
+/* From 1024px the two-column footer becomes three — the brand, the product list
+   and the document list — and each list becomes a single column, because it now
+   owns a whole footer column instead of sharing one. Thirteen links in two
+   columns inside a third of the footer is what makes a footer look cramped; the
+   same thirteen in three columns read as three short answers.
+
+   Scoped with a modifier rather than to `.pse-foot-grid`, so the document pages'
+   own footer is untouched by it. */
+@media (min-width: 1024px) {
+  .pse-foot-grid--navs { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr) minmax(0, 1fr); }
+  .pse-foot-navs { display: contents; }
+  .pse-foot-navs .pse-foot-links { grid-template-columns: minmax(0, 1fr); }
+}
+
+.pse-foot-col-head {
+  grid-column: 1 / -1;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  padding-bottom: 0.35rem;
+}
+
+@media (min-width: 640px) {
+  .pse-foot-navs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Each list is one column once it is sharing the footer with another list: two
+     nested two-column grids inside one footer column is what turns a link into a
+     44px box with a clipped label. */
+  .pse-foot-navs .pse-foot-links { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* A single-column list, for a footer nav that is not part of the product/page
+   pair (the document pages' own footer). */
+.pse-foot-links--stack { grid-template-columns: minmax(0, 1fr); }
+
+/* ── The documents at the point of decision ────────────────────────────────
+ * One line under the paragraph that commits the reader to the thing the
+ * documents govern. It is a rule plus small tracked links, not a card: a card
+ * here would compete with the instrument above it.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-docline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1.1rem;
+  margin-top: 1.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-docline-label {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-docline-link {
+  font-size: 0.8125rem;
+}
+
+/* ── The bar ─────────────────────────────────────────────────────────────── */
+.pse-doc-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--pse-rule-2);
+  background: color-mix(in srgb, var(--pse-canvas) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.pse-doc-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 60px;
+}
+
+.pse-doc-bar-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.pse-doc-bar-back {
+  color: var(--pse-ink);
+}
+
+/* ── The document frame ──────────────────────────────────────────────────── */
+.pse-doc-main {
+  flex: 1;
+  padding-block: clamp(2.25rem, 5vw, 4rem) clamp(3rem, 7vw, 5.5rem);
+}
+
+.pse-doc {
+  display: block;
+}
+
+.pse-doc-head {
+  max-width: 46rem;
+}
+
+.pse-doc-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-doc-kicker-mark {
+  display: inline-flex;
+  color: var(--pse-ink-3);
+}
+
+.pse-doc-title {
+  margin-top: 1.1rem;
+  font-size: clamp(1.75rem, 1.5rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.032em;
+  color: var(--pse-ink);
+}
+
+.pse-doc-summary {
+  margin-top: 1rem;
+  max-width: 58ch;
+}
+
+.pse-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+  margin-top: 1.9rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-doc-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pse-doc-meta dt {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-doc-meta dd {
+  font-size: 0.875rem;
+  color: var(--pse-ink);
+}
+
+.pse-doc-head .pse-notice {
+  margin-top: 1.9rem;
+  max-width: 60ch;
+}
+
+/* ── The body: contents rail + numbered clauses ──────────────────────────── */
+.pse-doc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+  margin-top: clamp(2.5rem, 5vw, 3.75rem);
+  padding-top: clamp(1.75rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--pse-rule);
+}
+
+.pse-doc-toc ol {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.9rem;
+  list-style: none;
+  padding: 0;
+}
+
+.pse-doc-toc a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  padding: 0.45rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-doc-toc a > span:first-child {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-doc-toc a:hover,
+.pse-doc-toc a:focus-visible {
+  color: var(--pse-ink);
+}
+
+.pse-doc-clauses {
+  max-width: 46rem;
+}
+
+.pse-doc-clause {
+  padding-block: 1.9rem;
+  border-top: 1px solid var(--pse-rule-2);
+  scroll-margin-top: 84px;
+}
+
+.pse-doc-clause:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.pse-doc-clause-h {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  color: var(--pse-ink);
+}
+
+.pse-doc-clause-num {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+}
+
+.pse-doc-para {
+  margin-top: 0.85rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.pse-doc-list > li {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.62;
+  color: var(--pse-ink-2);
+}
+
+.pse-doc-bullet {
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-top: 0.6rem;
+  border-radius: 1px;
+  background: var(--pse-rule-strong);
+}
+
+.pse-doc-foot {
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+@media (min-width: 1024px) {
+  /* The document is centred as a block rather than pinned to the left edge of a
+     wider shell. A document whose text and contents rail both stop well short of
+     the right edge reads as a column that ran out, not as a designed page; a
+     centred block of one known width reads as a document. */
+  .pse-doc {
+    max-width: 62.5rem;
+    margin-inline: auto;
+  }
+
+  .pse-doc-body {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 4rem;
+  }
+
+  .pse-doc-toc {
+    position: sticky;
+    top: 84px;
+    align-self: start;
+  }
+}
+
+@media (max-width: 639px) {
+  /* On a phone the contents rail is still the fastest way into a long document,
+     so it is kept — it simply sits above the clauses and drops its sticky
+     behaviour, which would otherwise eat the scarce vertical axis. */
+  .pse-doc-toc {
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--pse-rule-2);
+  }
+
+  .pse-doc-bar-nav .pse-mast-link:not(.pse-doc-bar-back) {
+    display: none;
+  }
+
+  .pse-doc-meta {
+    gap: 1.25rem 1.75rem;
+  }
+}

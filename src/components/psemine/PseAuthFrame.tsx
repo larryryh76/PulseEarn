@@ -54,6 +54,26 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
+import { PSE_DOC_LABEL, PSE_DOC_PATH, type PseDocId } from './pseDocs';
+
+/**
+ * The documents that belong on an authentication surface: what a person is
+ * agreeing to, what is done with their data, what the product does not promise,
+ * and how to reach support. Deliberately four links and not the full document
+ * set — an authentication screen stays quiet, so it carries only what someone
+ * signing up is actually accepting.
+ */
+const AUTH_DOCS: readonly PseDocId[] = ['terms', 'privacy', 'risk', 'support'];
+
+const AuthDocuments: React.FC = () => (
+  <nav className="pse-auth-docs" aria-label="PSEmine policies">
+    {AUTH_DOCS.map(id => (
+      <Link key={id} to={PSE_DOC_PATH[id]} className="pse-link">
+        {PSE_DOC_LABEL[id]}
+      </Link>
+    ))}
+  </nav>
+);
 
 /** A small lock. Meaningful, not decorative — it marks the reassurance line. */
 const LockGlyph: React.FC = () => (
@@ -159,6 +179,10 @@ export const PseAuthFrame: React.FC<{
                     PSEmine never asks for your private key or seed phrase, and never holds your funds.
                   </span>
                 </p>
+                {/* One rule, then the documents. The reassurance above says what
+                    PSEmine will not do; this says what the reader can check for
+                    themselves, without turning a sign-in page into a footer. */}
+                <AuthDocuments />
               </div>
             )}
           </div>

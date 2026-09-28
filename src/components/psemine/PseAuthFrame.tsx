@@ -10,7 +10,7 @@
  *
  *   slim bar:  [ PSEmine ]                              About PSEmine
  *   ─────────────────────────────────────────────────────────────────
- *              (vertically centred)
+ *              (vertically centred, max 392px wide)
  *                     Sign in
  *                     one line of supporting copy
  *                     [ field ]
@@ -23,12 +23,17 @@
  *   ─────────────────────────────────────────────────────────────────
  *                     security reassurance
  *
- * There is deliberately NO secondary visual panel. A panel wide enough to be
- * worth its space would have to carry product marketing to fill it — and a
- * sign-in page must contain only authentication.
- * Everything previously printed beside the form (campaign status and duration,
- * purchase window, the tool tier range, the capacity and referral ceilings) has
- * been REMOVED and now lives on the landing page, where it belongs.
+ * There is deliberately NO secondary visual panel, no product artwork and no
+ * card around the form. A sign-in page is a task, not a marketing surface: a
+ * panel wide enough to be worth its space would have to be filled with product
+ * terms, and a border around the form would only add a box to a page whose
+ * hierarchy already comes from the typography and the field rhythm.
+ *
+ * THE PLANE
+ * The four public surfaces are always light (see src/styles/psemine.css): a
+ * sign-in surface belongs to the product, not to the application's theme
+ * default. The `embedded` variant renders inside the console, which does follow
+ * the application theme, so it stays unplaned on purpose.
  *
  * AUTHENTICATION CONTENT CONTRACT (enforced here)
  *   allowed ·  identity, welcome copy, fields, password control, primary and
@@ -62,14 +67,14 @@ export const PseAuthFrame: React.FC<{
    * `page` — a standalone full-page surface with its own bar (sign in, create
    * account, reset, verify).
    * `embedded` — the same language inside the console shell, which already
-   * provides chrome (the access gate renders inside it).
+   * provides chrome and the application theme (the access gate renders inside it).
    */
   variant?: 'page' | 'embedded';
 }> = ({ title, lede, children, footer, variant = 'page' }) => {
   const isPage = variant === 'page';
 
   return (
-    <div className={isPage ? 'pse pse-surface pse-auth' : 'pse pse-surface'}>
+    <div className={isPage ? 'pse pse-surface pse-plane pse-auth' : 'pse pse-surface'}>
       {isPage && (
         <header className="pse-auth-bar">
           <div className="pse-wrap pse-auth-bar-inner">

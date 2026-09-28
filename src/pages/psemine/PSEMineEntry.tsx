@@ -12,14 +12,16 @@ import { PseLoader } from '../../components/psemine/PseLoader';
  * `session` state), a signed-out visitor gets the public page, and a signed-in
  * account is pushed through the protected route into the console.
  *
- * Routing logic only — no presentation.
+ * Routing logic only — no presentation. Note the consequence for the landing: it
+ * is mounted ONLY for a signed-out visitor, which is why the public page holds no
+ * session state and can read no account at all.
  */
 export const PSEMineEntry: React.FC = () => {
   const { currentUser, loading } = usePSEMineAuth();
 
   if (loading) {
     return (
-      <div className="pse pse-surface pse-center-screen">
+      <div className="pse pse-surface pse-plane pse-center-screen">
         <PseLoader variant="page" stage="session" />
       </div>
     );

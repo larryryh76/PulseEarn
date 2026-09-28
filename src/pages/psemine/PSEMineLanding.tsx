@@ -1,13 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import {
-  campaignStatusView, gbp, gbpHour, toDateSafe, useCampaignClock, usePseDocumentTitle,
-} from '../../components/psemine/pseCore';
+import { gbp, gbpHour, usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { PSEmineLogo, PSEmineMark } from '../../components/psemine/PSEBrand';
 import { PseFlowRail, PseTierMark } from '../../components/psemine/PseMechanism';
-import { usePublicCampaign, type PublicCampaignState } from '../../components/psemine/psePublicCampaign';
 
 /**
  * PSEmine public page — `/mine`.
@@ -16,39 +12,40 @@ import { usePublicCampaign, type PublicCampaignState } from '../../components/ps
  *   allowed · brand, the product proposition, explanation, the tool family,
  *             capacity, the campaign lifecycle, payment, settlement and payout,
  *             security and transparency, FAQ, calls to action
- *   banned  · any wallet balance, mining balance, referral count, transaction or
- *             payout history, account setting, private wallet address, console
- *             control, admin control, internal architecture,
+ *   banned  · any personal figure of any kind — balance, accrued earnings,
+ *             capacity held, referral count, campaign position or days
+ *             remaining, purchase status, quote, wallet or payout address,
+ *             transaction hash, payout record, activity history, account
+ *             setting, console or admin control, internal architecture,
  *             entitlement/access explanation, fabricated activity or statistics
  *
- * Nothing on this page is read from a signed-in account. The only live figure is
- * the campaign's own public record, which is campaign-level, not personal — and
- * the specimen that shows it is labelled a specimen so it can never be mistaken
- * for the visitor's own position.
+ * THE PAGE READS NOTHING. It is deliberately static: it renders locked product
+ * economics from src/types/psemine.ts (the frontend mirror of
+ * api/psemine_core.py) and nothing else. There is no session, no campaign read
+ * and no request, so no account state can leak into it — and the route guard
+ * (`PSEMineEntry`) sends any signed-in visitor to the console before this page
+ * is mounted at all. The only function of the page is to explain the product.
  *
  * COMPOSITION
  *   Ten sections, each answering one real question (what / how / tools /
- *   capacity / campaign / payment / payout / security / FAQ / act). Rhythm comes
- *   from tonal bands, not borders. There are exactly TWO cards on the page: the
- *   hero product specimen and the tool family. Everything else is type, rules and
- *   band tone.
+ *   capacity / campaign / payment / settlement / security / FAQ / act). Rhythm
+ *   comes from tonal bands, not borders. There are exactly TWO cards on the
+ *   page: the hero product specimen and the tool family. Everything else is
+ *   type, rules and band tone.
  *
  * WHERE THE NUMBERS COME FROM
- *   • campaign status, duration, dates and the purchase flag — the server's public
- *     campaign contract via usePublicCampaign. If the read fails the page says so
- *     and offers a retry; nothing is defaulted in.
- *   • prices, hourly rates, ownership limits and the capacity ceilings — the
- *     locked economics in src/types/psemine.ts, the frontend mirror of
- *     api/psemine_core.py.
- *   No figure is invented, rounded up, or projected. There is no APY, no return,
- *   no count, no testimonial and no countdown urgency, because the product
- *   promises none of them.
+ *   Prices, hourly rates, ownership limits and the capacity ceilings are the
+ *   locked economics. No figure is invented, rounded up, projected or counted
+ *   from a live record. There is no APY, no return, no count, no testimonial and
+ *   no countdown urgency, because the product promises none of them.
  *
  * COPY RULE: the page describes the product, never the system behind it.
  */
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 const MAX_TIER_RATE = Math.max(...TOOLS.map(t => t.hourlyRateGBP));
+const MIN_PRICE = Math.min(...TOOLS.map(t => t.purchasePriceGBP));
+const MAX_PRICE = Math.max(...TOOLS.map(t => t.purchasePriceGBP));
 
 const isContinuous = (t: (typeof TOOLS)[number]) => t.operating.model === 'continuous';
 
@@ -86,7 +83,7 @@ const Section: React.FC<{
   </section>
 );
 
-/** A term/figure row. `value` is a node so a row can carry a loading or retry state. */
+/** A term/figure row. `value` is a node so a row can carry an asset marker. */
 const Row: React.FC<{ term: string; value: React.ReactNode; muted?: boolean }> = ({ term, value, muted }) => (
   <div className="pse-row">
     <span className="pse-row-key">{term}</span>
@@ -94,98 +91,87 @@ const Row: React.FC<{ term: string; value: React.ReactNode; muted?: boolean }> =
   </div>
 );
 
+/** The BNB asset marker. A word, a shape and a network — no logo plagiarism. */
+const BnbAsset: React.FC = () => (
+  <span className="pse-asset">
+    <span className="pse-asset-dot" aria-hidden="true" />
+    BNB · {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
+  </span>
+);
+
 /* ── The product specimen ───────────────────────────────────────────────── */
 
 /**
- * A bespoke PSEmine interface specimen — deliberately not a generic dashboard
- * screenshot. It shows the product's own figures (the capacity ceiling, the four
- * tiers and their rates) and the campaign's real public position, so the hero
- * states TOOLS → CAPACITY → TIME in one object.
+ * A bespoke PSEmine interface specimen — deliberately not a dashboard
+ * screenshot, and deliberately not a readout of anyone's account.
  *
- * It is labelled as a specimen because it is NOT the visitor's account: no
- * balance, no holdings, no activity.
+ * It states TOOLS → CAPACITY → EARNINGS → CAMPAIGN → SETTLEMENT in one object
+ * using the product's locked economics: the total capacity ceiling, the two real
+ * sources that compose it (units and qualified referrals), the tier count, the
+ * unit price range, the earnings denomination and the purchase/payout asset.
+ *
+ * It is labelled a specimen because it is not an account: there is no balance, no
+ * holding, no activity, no position and no address anywhere inside it.
  */
-const Specimen: React.FC<{ state: PublicCampaignState }> = ({ state }) => {
-  const { campaign, loading, refreshing, error, refresh } = state;
-  const clock = useCampaignClock(campaign);
-  const status = campaignStatusView(campaign?.status);
-
-  const campaignValue = loading ? (
-    <span className="pse-loader-inline" style={{ justifyContent: 'flex-end' }}>
-      <span className="pse-row-val">Reading…</span>
-    </span>
-  ) : error ? (
-    <span className="inline-flex flex-wrap items-center justify-end gap-2">
-      {error.retryable ? 'Not readable' : 'Unavailable'}
-      <button
-        type="button"
-        className="pse-btn pse-btn--secondary pse-btn--sm"
-        onClick={() => void refresh()}
-        disabled={refreshing}
-      >
-        {refreshing ? 'Retrying…' : 'Retry'}
-      </button>
-    </span>
-  ) : clock.dayNumber !== null ? (
-    `Day ${clock.dayNumber} of ${clock.totalDays}`
-  ) : (
-    `${clock.totalDays}-day campaign`
-  );
+const Specimen: React.FC = () => {
+  const unitShare =
+    (PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR / PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) * 100;
 
   return (
     <div className="pse-card pse-card--raised">
       <div className="pse-card-head">
         <span className="flex items-center gap-2.5">
           <PSEmineMark size={18} decorative />
-          <span className="pse-h3">Capacity register</span>
+          <span className="pse-h3">Capacity model</span>
         </span>
-        {!loading && !error && (
-          <span className="pse-tag" data-tone={status.live ? 'live' : 'idle'}>
-            <span className="pse-tag-dot" aria-hidden="true" />
-            {status.label}
-          </span>
-        )}
+        <span className="pse-tag" data-tone="idle">
+          <span className="pse-tag-dot" aria-hidden="true" />
+          {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign
+        </span>
       </div>
 
       <div className="pse-card-body">
-        <div className="pse-rows">
-          <Row term="Capacity ceiling" value={<>{gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}</>} />
-          <Row term="Campaign" value={campaignValue} />
-          <Row term="Mining units" value={`${TOOLS.length} tiers`} />
-          <Row term="Settlement" value="GBP, after the campaign" muted />
-          <Row
-            term="Purchase and payout"
-            value={
-              <span className="pse-asset">
-                <span className="pse-asset-dot" aria-hidden="true" />
-                BNB · {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-              </span>
-            }
-          />
+        <div className="pse-spec-block">
+          <p className="pse-micro">Capacity ceiling</p>
+          <p className="pse-metric">
+            £{PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR.toFixed(2)}
+            <span className="pse-metric-unit">/ hour</span>
+          </p>
         </div>
 
-        <div className="mt-6">
-          <p className="pse-micro mb-1">Capacity by tier</p>
-          <div>
-            {TOOLS.map(tool => (
-              <div
-                key={tool.id}
-                className="flex items-center gap-3 border-t py-2.5"
-                style={{ borderColor: 'var(--pse-rule-2)' }}
-              >
-                <PseTierMark tier={tool.tier} continuous={isContinuous(tool)} width={38} />
-                <span className="pse-small flex-1 min-w-0 truncate">{tool.name}</span>
-                <span className="pse-figure text-[0.8125rem]">{gbpHour(tool.hourlyRateGBP)}</span>
-              </div>
-            ))}
+        <div className="pse-spec-block">
+          <p className="pse-micro">What the ceiling is made of</p>
+          <div className="pse-bar pse-bar--split" aria-hidden="true">
+            <span style={{ width: `${unitShare}%` }} />
+            <span style={{ width: `${100 - unitShare}%` }} />
+          </div>
+          <div className="pse-legend">
+            <span className="pse-legend-item">
+              <span className="pse-legend-key" aria-hidden="true" />
+              Units
+              <span className="pse-legend-val">{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</span>
+            </span>
+            <span className="pse-legend-item">
+              <span className="pse-legend-key pse-legend-key--quiet" aria-hidden="true" />
+              Referrals
+              <span className="pse-legend-val">{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="pse-spec-block">
+          <div className="pse-rows">
+            <Row term="Mining units" value={`${TOOLS.length} tiers`} />
+            <Row term="Unit price range" value={`${gbp(MIN_PRICE)} – ${gbp(MAX_PRICE)}`} />
+            <Row term="Earnings denomination" value="GBP" />
+            <Row term="Purchase and payout" value={<BnbAsset />} />
           </div>
         </div>
       </div>
 
       <div className="pse-card-foot">
         <p className="pse-small">
-          Product specimen — figures are PSEmine&apos;s locked economics and the campaign&apos;s public record, not your
-          account.
+          Product specimen — PSEmine&rsquo;s locked economics, not your account.
         </p>
       </div>
     </div>
@@ -221,9 +207,9 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'How does the campaign timeline run?',
     a: (
       <>
-        The campaign runs for {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days from its start date. While it is active,
+        The campaign runs for {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days from its start date. While it is live,
         capacity accrues. When it ends, accrual stops, final balances are computed for settlement, and settled GBP is
-        disbursed in BNB to the payout wallet on your account. If the campaign is paused, nothing accrues during the
+        disbursed in BNB to the payout wallet on each account. If the campaign is paused, nothing accrues during the
         pause — the record of exactly when mining was live is kept server-side.
       </>
     ),
@@ -234,7 +220,7 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
       <>
         You request a quote for a unit. The price is fixed in GBP and converted to a BNB amount at the rate of that
         quote, and the quote is time-limited — the time left is shown on it. You then pay that exact amount from your own
-        wallet on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} to the receiving address the quote shows you. Once the
+        wallet on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}, to the address that quote prints for you. Once the
         transaction is confirmed on-chain it is verified and the unit is activated. If a quote expires, or a payment does
         not match it, the purchase is recorded as expired or underpaid rather than silently absorbed.
       </>
@@ -274,14 +260,13 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     ),
   },
   {
-    q: 'How does payout work?',
+    q: 'How does a payout work?',
     a: (
       <>
         Accrued GBP is campaign earnings, not a wallet balance. After settlement they are disbursed in BNB to the payout
         wallet configured on your account, and each payout passes a review before it is sent. Set your payout wallet
-        before settlement: there is a cutoff for wallet changes, after which the address on file at settlement is the
-        one that is paid. Every payment — your purchase and your payout — carries a BNB Smart Chain transaction hash you
-        can check on BscScan.
+        before the campaign&apos;s wallet-change cutoff: after it, the address on file is the one that is paid. Both the
+        purchase and the payout are written to the chain, so each direction is checkable rather than taken on trust.
       </>
     ),
   },
@@ -327,50 +312,22 @@ const FaqItem: React.FC<{ q: string; a: React.ReactNode; index: number }> = ({ q
 /* ── The page ───────────────────────────────────────────────────────────── */
 
 export const PSEMineLanding: React.FC = () => {
-  const { currentUser, loading: authLoading } = usePSEMineAuth();
-  // One read for the whole page: the hero specimen and the lifecycle section
-  // share this single request.
-  const campaignState = usePublicCampaign();
-  const { campaign } = campaignState;
-
   usePseDocumentTitle('Campaign mining on BNB Smart Chain');
 
-  const clock = useCampaignClock(campaign);
-  const chainId = campaign?.paymentChainId ?? PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID;
-  const receiver = campaign?.receiverWalletAddress || PSEMINE_CONSTANTS.DEFAULT_RECEIVER_WALLET;
-  const campaignLive = campaignStatusView(campaign?.status).live;
-  const campaignReadable = !campaignState.loading && !campaignState.error;
-
-  const startIso = toDateSafe(campaign?.startAt)?.toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-  const endIso = toDateSafe(campaign?.endAt)?.toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-
-  /** Primary call to action — one source, so the masthead and the closing band agree. */
-  const Cta: React.FC<{ size?: 'lg' | 'sm' }> = ({ size = 'lg' }) =>
-    authLoading ? (
-      <span className={`pse-btn pse-btn--secondary ${size === 'lg' ? 'pse-btn--lg' : 'pse-btn--sm'}`} aria-busy="true">
-        Checking session…
-      </span>
-    ) : currentUser ? (
-      <Link to="/mine/dashboard" className={`pse-btn ${size === 'lg' ? 'pse-btn--lg' : 'pse-btn--sm'}`}>
-        Open the console
-      </Link>
-    ) : (
-      <Link to="/mine/signup" className={`pse-btn ${size === 'lg' ? 'pse-btn--lg' : 'pse-btn--sm'}`}>
-        Create an account
-      </Link>
-    );
+  /** One source for the primary call to action, so the bar and the closing band agree. */
+  const CreateAccount: React.FC<{ size?: 'lg' | 'sm' }> = ({ size = 'lg' }) => (
+    <Link to="/mine/signup" className={`pse-btn ${size === 'lg' ? 'pse-btn--lg' : 'pse-btn--sm'}`}>
+      Create an account
+    </Link>
+  );
 
   return (
-    <div className="pse pse-surface min-h-screen">
+    <div className="pse pse-surface pse-plane min-h-screen">
       {/* ── Masthead ─────────────────────────────────────────────────────── */}
       <header className="pse-mast">
         <div className="pse-wrap pse-mast-inner">
           <Link to="/mine" aria-label="PSEmine home" className="inline-flex min-h-[44px] items-center">
-            <PSEmineLogo size={26} live={campaignLive} decorative />
+            <PSEmineLogo size={26} decorative />
           </Link>
 
           <nav className="pse-mast-nav" aria-label="Page sections">
@@ -382,12 +339,8 @@ export const PSEMineLanding: React.FC = () => {
           </nav>
 
           <div className="pse-mast-actions">
-            {!currentUser && (
-              <Link to="/mine/login" className="pse-mast-link">
-                Sign in
-              </Link>
-            )}
-            <Cta size="sm" />
+            <Link to="/mine/login" className="pse-mast-link">Sign in</Link>
+            <CreateAccount size="sm" />
           </div>
         </div>
       </header>
@@ -396,27 +349,27 @@ export const PSEMineLanding: React.FC = () => {
       <section className="pse-wrap pse-hero">
         <div>
           <p className="pse-micro">Campaign-based mining capacity</p>
-          <h1 className="pse-display mt-4">Capacity you hold for {clock.totalDays} days, settled and paid in BNB.</h1>
+          <h1 className="pse-display mt-4">
+            Capacity you hold for {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days, settled and paid in BNB.
+          </h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
             PSEmine is a limited campaign with a fixed price list. Acquire units. Build capacity. Accrue campaign
             earnings. Receive your eligible payout after settlement.
           </p>
 
           <div className="pse-hero-cta mt-7">
-            <Cta />
-            <a href="#how" className="pse-btn pse-btn--secondary pse-btn--lg">
-              How it works
-            </a>
+            <CreateAccount />
+            <a href="#how" className="pse-btn pse-btn--secondary pse-btn--lg">How it works</a>
           </div>
 
           <div className="pse-hero-meta mt-7">
-            <span>{clock.totalDays}-day campaign</span>
+            <span>{PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign</span>
             <span>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}</span>
             <span>Earnings in GBP</span>
           </div>
         </div>
 
-        <Specimen state={campaignState} />
+        <Specimen />
       </section>
 
       {/* ── 01 · What is PSEmine? ────────────────────────────────────────── */}
@@ -443,8 +396,8 @@ export const PSEMineLanding: React.FC = () => {
           <div className="pse-rows">
             <Row term="Campaign length" value={`${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days`} />
             <Row term="Earnings denomination" value="GBP" />
-            <Row term="Payment and payout asset" value="BNB" />
-            <Row term="Network" value={`${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain ${chainId}`} />
+            <Row term="Purchase and payout asset" value="BNB" />
+            <Row term="Network" value={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} />
             <Row term="Mining units available" value={`${TOOLS.length} tiers`} />
             <Row term="Capacity ceiling" value={gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} />
           </div>
@@ -459,7 +412,7 @@ export const PSEMineLanding: React.FC = () => {
         band="ink"
         wide
         title="Six stages, in order."
-        lede="Every stage below happens against your account record. This is a schematic of the real mechanism, not a readout: it carries no live figure and no progress."
+        lede="Every stage below happens against an account record. This is a schematic of the real mechanism, not a readout: it carries no live figure and no progress."
       >
         <PseFlowRail />
       </Section>
@@ -488,7 +441,7 @@ export const PSEMineLanding: React.FC = () => {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="pse-h3">{tool.name}</span>
-                    <span className="pse-tag" data-tone={isContinuous(tool) ? 'live' : 'idle'}>
+                    <span className="pse-tag" data-tone="idle">
                       <span className="pse-tag-dot" aria-hidden="true" />
                       {isContinuous(tool) ? 'Continuous' : 'Session'}
                     </span>
@@ -589,55 +542,32 @@ export const PSEMineLanding: React.FC = () => {
         num="05"
         kicker="Campaign lifecycle"
         wide
-        title={`A ${clock.totalDays}-day window with a defined end.`}
-        lede="Mining is only live while the campaign is. Each phase changes what happens to your accrual, and the record of that is kept."
+        title={`A ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day window with a defined end.`}
+        lede="Mining is only live while the campaign is. Each phase changes what happens to accrual, and the record of it is kept."
       >
-        <ol className="pse-rail" aria-label="Campaign lifecycle phases">
-          {clock.phases.map((phase, i) => (
-            <li key={phase.key} className="pse-rail-step" data-state={phase.state}>
-              <span className="pse-rail-state">
-                {phase.state === 'current' ? 'Current' : phase.state === 'done' ? 'Complete' : 'Later'}
-              </span>
-              <span className="pse-h3">{phase.label}</span>
-              <span className="pse-small">
-                {
-                  [
-                    'The campaign opens. Unit purchases become available.',
-                    'Units operate and capacity accrues on the server.',
-                    'Accrual stops. Final balances are computed for settlement.',
-                    'Settled GBP is disbursed in BNB to payout wallets, after review.',
-                    'The campaign is finished; records stay available.',
-                  ][i]
-                }
+        <ol className="pse-ladder" aria-label="The five phases of a PSEmine campaign">
+          {[
+            ['Launch', 'The campaign opens. Mining units become available to buy.'],
+            ['Mining', 'Units operate and capacity accrues against a server-side checkpoint.'],
+            ['Settlement', 'Accrual stops at the end of the window. Final balances are computed.'],
+            ['Payout', 'Settled GBP is disbursed in BNB to payout wallets, after review.'],
+            ['Closed', 'The campaign is finished. Records stay available on the account.'],
+          ].map(([name, note], i) => (
+            <li key={name} className="pse-ladder-step">
+              <span className="pse-ladder-num">{String(i + 1).padStart(2, '0')}</span>
+              <span>
+                <span className="pse-ladder-name">{name}</span>
+                <span className="pse-ladder-note block">{note}</span>
               </span>
             </li>
           ))}
         </ol>
 
-        <div className="pse-rows mt-8 max-w-[62ch]">
-          {campaignReadable ? (
-            <>
-              <Row
-                term="Campaign position"
-                value={clock.dayNumber !== null ? `Day ${clock.dayNumber} of ${clock.totalDays}` : 'Not reported'}
-              />
-              <Row
-                term="Time remaining"
-                value={clock.daysLeft !== null ? `${clock.daysLeft} days` : 'Not reported'}
-              />
-              <Row
-                term="Campaign window"
-                value={startIso && endIso ? `${startIso} → ${endIso}` : 'Dates not reported'}
-              />
-              <Row term="Unit purchases" value={campaign?.purchaseEnabled === true ? 'Open' : 'Closed'} />
-            </>
-          ) : (
-            <Row
-              term="Campaign record"
-              value={campaignState.loading ? 'Reading…' : 'Not readable from this view'}
-            />
-          )}
-        </div>
+        <p className="pse-small mt-7 pse-measure">
+          A campaign is dated from its start, and the campaign clock is the server&apos;s — never a browser&apos;s. If a
+          campaign is paused, accrual stops for every unit at once and resumes when the campaign does; the window of live
+          mining is recorded server-side, so nothing is credited for time that did not run.
+        </p>
       </Section>
 
       {/* ── 06 · How does BNB payment work? ──────────────────────────────── */}
@@ -656,8 +586,8 @@ export const PSEMineLanding: React.FC = () => {
             <ol className="pse-ladder">
               {[
                 ['Request a quote', "The GBP price is fixed and converted to a BNB amount at that quote's rate. The quote is time-limited."],
-                ['Pay the quoted amount', 'You send that exact amount from your own wallet to the receiving address the quote shows you.'],
-                ['On-chain verification', 'The transaction is verified on the chain, the hash recorded, and the amount and payer checked.'],
+                ['Pay the quoted amount', 'You send that exact amount from your own wallet to the address that quote prints for you.'],
+                ['On-chain verification', 'The payment is verified on the chain: the amount, the payer and the destination are all checked.'],
                 ['Activation', 'A verified purchase activates the unit, and its hourly capacity is added to your account.'],
               ].map(([name, note], i) => (
                 <li key={name} className="pse-ladder-step">
@@ -672,17 +602,18 @@ export const PSEMineLanding: React.FC = () => {
           </div>
 
           <div className="space-y-5">
-            <p className="pse-micro">Receiving address for unit purchases</p>
-            <div className="pse-code">
-              <p className="pse-code-value">{receiver}</p>
+            <p className="pse-micro">What a quote gives you</p>
+            <div className="pse-rows">
+              <Row term="Price" value="Fixed in GBP" />
+              <Row term="Amount to send" value="Exact BNB at the quoted rate" />
+              <Row term="Time limit" value="The quote itself shows what is left" />
+              <Row term="Where it is sent" value="The address printed on that quote" />
+              <Row term="Asset and network" value={<BnbAsset />} />
             </div>
             <p className="pse-small pse-measure">
-              Public by design: check the address before you sign anything. Every quote repeats it, and a payment sent
-              elsewhere cannot be recovered.
-            </p>
-            <p className="pse-small pse-measure">
-              A purchase that is never paid, is paid late, or is paid an incorrect amount is recorded as expired or
-              underpaid and reviewed — never auto-corrected by the browser.
+              Every paying action happens on your own wallet and on a live quote only. A purchase that is never paid, is
+              paid late, or is paid an incorrect amount is recorded as expired or underpaid and reviewed — never
+              auto-corrected by the browser.
             </p>
           </div>
         </div>
@@ -695,14 +626,14 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Settlement and payout"
         wide
         title="Earnings are settled in GBP, then paid in BNB."
-        lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance you can move."
+        lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance that can be moved."
       >
         <div className="pse-split">
           <div className="pse-rows">
             <Row term="What accrues" value="GBP, per hour of live capacity" />
-            <Row term="What is computed" value="Server-side, against a checkpoint" />
+            <Row term="Where it is computed" value="Server-side, against a checkpoint" />
             <Row term="When it settles" value="After the campaign ends" />
-            <Row term="How it is paid" value={`BNB on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}`} />
+            <Row term="How it is paid" value="BNB on BNB Smart Chain" />
             <Row term="Before it is sent" value="Payout review" />
             <Row term="Destination" value="The payout wallet on your account" />
           </div>
@@ -711,7 +642,7 @@ export const PSEMineLanding: React.FC = () => {
             <p className="pse-micro">What to know before settlement</p>
             <ul className="pse-body space-y-3">
               <li>
-                · Set your payout wallet before the wallet-change cutoff. After it, the address on file at settlement is
+                · Set your payout wallet before the campaign&apos;s wallet-change cutoff. After it, the address on file is
                 the one that is paid — the cutoff exists so a settled balance cannot be redirected.
               </li>
               <li>
@@ -719,8 +650,8 @@ export const PSEMineLanding: React.FC = () => {
                 finalises it.
               </li>
               <li>
-                · Every purchase and every payout carries a transaction hash, so both directions are checkable on-chain
-                instead of taken on trust.
+                · Both the purchase and the payout are written to the chain, so each direction is checkable rather than
+                taken on trust.
               </li>
             </ul>
           </div>
@@ -740,23 +671,24 @@ export const PSEMineLanding: React.FC = () => {
         <div className="pse-split">
           <div className="space-y-4">
             <p className="pse-body pse-measure">
-              You keep your own keys. PSEmine never takes custody of funds and never asks you to send anything to an
-              address other than the one printed on a live quote. Unit purchases go from your wallet to the campaign&apos;s
-              receiving address, and payouts go to the payout address you set.
+              You keep your own keys. PSEmine never takes custody of funds, and never asks you to send anything anywhere
+              other than the address printed on a live quote. A unit purchase goes from your wallet to the
+              campaign&apos;s address for that purchase, and a payout goes to the payout wallet you set.
             </p>
             <p className="pse-body pse-measure">
               Prices, hourly rates, ownership limits and the capacity ceiling are locked: they are the same for every
-              account and do not move with the market or with how much you hold. A unit&apos;s hourly capacity is
-              confirmed when the purchase activates, and every change to your account is written to its activity record.
+              account and do not move with the market or with how much anyone holds. A unit&apos;s hourly capacity is
+              confirmed when the purchase activates, and every change to an account is written to that account&apos;s
+              activity record.
             </p>
           </div>
 
           <div className="pse-rows">
             <Row term="Accrual and balances" value="Computed server-side" muted />
             <Row term="Unit prices and rates" value="Locked at activation" muted />
-            <Row term="Your wallet" value="Never held in custody" muted />
-            <Row term="Purchases and payouts" value="Verifiable on BscScan" muted />
-            <Row term="Activity" value="Recorded per account" muted />
+            <Row term="Custody of your funds" value="None — your wallet stays yours" muted />
+            <Row term="Both directions" value="Recorded on-chain" muted />
+            <Row term="Account changes" value="Written to the activity record" muted />
             <Row term="Payout destination" value="Yours, with a change cutoff" muted />
           </div>
         </div>
@@ -775,25 +707,17 @@ export const PSEMineLanding: React.FC = () => {
       <section className="pse-section pse-band--ink">
         <div className="pse-wrap pse-close">
           <div className="max-w-[52ch]">
-            <p className="pse-micro">{clock.daysLeft !== null ? `${clock.daysLeft} days remaining` : 'Campaign'}</p>
-            <h2 className="pse-h2 mt-3">
-              {currentUser ? 'Your mining console is ready.' : 'Open an account and choose your first unit.'}
-            </h2>
+            <p className="pse-micro">Open an account</p>
+            <h2 className="pse-h2 mt-3">Choose your first unit.</h2>
             <p className="pse-body mt-3">
               An account is free. You spend nothing until you choose a unit and pay for it from your own wallet — and the
               price, the hourly capacity and the ownership limit are shown before you sign anything.
             </p>
           </div>
           <div className="pse-hero-cta shrink-0">
-            <Cta />
-            {!currentUser && (
-              <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg">
-                Sign in
-              </Link>
-            )}
-            <Link to="/mine/guide" className="pse-btn pse-btn--secondary pse-btn--lg">
-              Read the guide
-            </Link>
+            <CreateAccount />
+            <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--lg">Sign in</Link>
+            <Link to="/mine/guide" className="pse-btn pse-btn--secondary pse-btn--lg">Read the guide</Link>
           </div>
         </div>
       </section>
@@ -820,8 +744,7 @@ export const PSEMineLanding: React.FC = () => {
         <div className="pse-wrap mt-8">
           <p className="pse-small max-w-[74ch]">
             No projected returns, no guaranteed earnings, no custody of your funds. Figures shown are PSEmine&apos;s
-            locked economics and the campaign&apos;s public record. PSEmine is not an investment product and does not
-            promise a return.
+            locked economics. PSEmine is not an investment product and does not promise a return.
           </p>
         </div>
       </footer>

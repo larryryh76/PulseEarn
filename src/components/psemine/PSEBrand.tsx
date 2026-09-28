@@ -21,9 +21,18 @@
  *      an empty `role="img"` label; `tone="mono"` renders the whole emblem in
  *      one colour with the facets separated by opacity, so it survives print,
  *      engraving and disabled states.
- *   3. IT COMPOSES. The mark is one SVG on a 48×48 grid with a 0.75 stroke at
- *      scale, so hero, auth, navigation, mobile and favicon all use the same
- *      drawing at different sizes — never a competing second mark.
+ *   3. IT COMPOSES. The mark is one SVG on a 48×48 grid, drawn flat, so hero,
+ *      auth, navigation, mobile, the loader and the favicon all use the same
+ *      drawing at different sizes — never a competing second mark. Geometry is
+ *      rendered at geometric precision so the facet edges stay crisp at 18px,
+ *      and every fill is a flat token: no gradient, no glow, no shadow, so the
+ *      emblem survives being printed, engraved or shown at 16px.
+ *
+ * THE CREST IS THE ONLY ANIMATED FACET, AND IT IS NOT ANIMATED TODAY. `live`
+ * pulses the capacity facet to mark a running campaign. No public surface may
+ * state a running campaign (a live position is account state and does not belong
+ * on the landing, in authentication or in a loader), so nothing sets it: the
+ * capability stays on the mark for the console, and the default is off.
  *
  * The wordmark is set in the product's own type roles (see DESIGN_SYSTEM.md):
  * the name in the interface family, the descriptor in the figure family, because
@@ -78,6 +87,7 @@ export const PSEmineMark: React.FC<{
       viewBox="0 0 48 48"
       fill="none"
       className={`pse-mark-glyph ${className || ''}`}
+      shapeRendering="geometricPrecision"
       role={labelled ? 'img' : undefined}
       aria-label={labelled ? title : undefined}
       aria-hidden={labelled ? undefined : true}

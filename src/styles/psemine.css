@@ -1,78 +1,91 @@
 /* ============================================================================
  * PSEmine — the product's own visual layer.
  *
- * SCOPE: everything is nested under `.pse`, which the PSEmine shell and the
- * PSEmine surfaces apply. Nothing here reaches the rest of the application; the
- * app theme lives in src/index.css and is untouched.
+ * SCOPE: everything is nested under `.pse`. The authenticated console applies
+ * `.pse` (tokens + type roles) and keeps following the application theme; the
+ * four PUBLIC surfaces apply `.pse-plane` as well and are always light. Nothing
+ * here reaches the rest of the application; the app theme lives in
+ * src/index.css and is untouched.
  *
- * DIRECTION — a disciplined financial/wallet product.
+ * WHY THE PUBLIC PLANE IS LIGHT
+ * -----------------------------
+ * index.html defaults the application to dark. Because the previous tokens were
+ * declared for both themes, PSEmine's landing, authentication and loader
+ * inherited that default and rendered as a near-black documentation surface —
+ * the specific failure this file now exists to prevent. A public financial
+ * product is a *product surface*, not a console: it is presented on paper, in
+ * daylight, the way the category leaders present theirs, while the operating
+ * console stays on the application's own theme.
  *
- * COMPOSITION BEFORE DECORATION. The page is built from four things only:
- *   1. BANDS   — paper / tint / ink. Rhythm comes from tone changes, not borders.
+ *   .pse-plane   → landing, authentication, loader. Always light.
+ *   .pse (alone) → the console, plus inline loading/failure primitives that
+ *                  render inside it. Follows the app theme.
+ *
+ * COMPOSITION BEFORE DECORATION. A public page is built from four devices:
+ *   1. BANDS   — paper / tint / ink. Rhythm comes from tone, not from borders.
  *   2. A MEASURE — one 1120px shell; prose never exceeds ~62ch.
- *   3. RULES    — one hairline weight (plus a 2px section accent where a section
- *                 is genuinely a sequence).
+ *   3. RULES    — one hairline weight, plus a 2px edge where a section is
+ *                 genuinely a sequence.
  *   4. TYPE     — two roles: Inter for language, JetBrains Mono (tabular) for data.
  *
- * There are exactly TWO real cards in the whole product's public surface: the
- * hero product specimen and the tool family. Everything else is text, rules and
- * band tone. An earlier pass made every element a bordered box; that is the
- * specific failure this file exists to prevent.
+ * There are exactly TWO real cards in the whole public surface: the hero
+ * product specimen and the tool family. Everything else is type, rules and band
+ * tone.
  *
- * TRANSFERRED CORAFT (principles only, from the synced fintech references —
- * never their brand colours, layouts or assets):
+ * TRANSFERRED CRAFT (principles only, from the synced fintech references in
+ * .agents/ — never their brand colours, layouts or assets):
  *   • Headline authority comes from size and tracking, not weight. Display weight
  *     is 400, never 600+; tracking is negative on display, positive on body.
  *   • Dense data, generous chrome: financial figures sit close together inside
  *     generously spaced frames.
- *   • One functional accent. Accent is never decorative.
+ *   • Money is set in tabular figures, at a size that makes it the loudest thing
+ *     in its own block.
+ *   • One functional accent. Accent marks interaction and state, never mood.
  *   • Depth from band contrast. Shadows are whisper-level and used once.
  *   • Conservative radii (12px controls and cards), never pills.
- *   • `tnum` on every financial figure.
  * ========================================================================== */
 
-/* ── Tokens ───────────────────────────────────────────────────────────────── */
+/* ── Tokens — the light plane ─────────────────────────────────────────────── */
 .pse {
   /* Surfaces: paper, one tint band, one deeper tint, one ink band. */
   --pse-paper: #ffffff;
-  --pse-band: #f6f7f9;
+  --pse-band: #f7f8fa;
   --pse-band-2: #eef0f3;
-  /* --pse-band-2 is the deeper tint, used for inset blocks. */
   --pse-inset: rgba(16, 19, 24, 0.04);
   --pse-ink-bg: #0d0f13;
 
   /* Text: near-black with a cool cast, never pure #000. */
-  --pse-ink: #101318;
-  --pse-ink-2: #5c6572;
+  --pse-ink: #0e1116;
+  --pse-ink-2: #545d69;
   /* Label ink is set dark enough to clear WCAG AA (4.5:1) on paper, on the tint
      band and on the deeper tint — it is used at 11–12px. */
-  --pse-ink-3: #616977;
+  --pse-ink-3: #5b6472;
 
   --pse-rule: rgba(16, 19, 24, 0.13);
   --pse-rule-2: rgba(16, 19, 24, 0.075);
-  --pse-rule-strong: rgba(16, 19, 24, 0.28);
+  --pse-rule-strong: rgba(16, 19, 24, 0.26);
 
   /* One functional accent. */
-  --pse-accent: #1e4fd8;
-  --pse-accent-hover: #1a44ba;
-  --pse-accent-quiet: rgba(30, 79, 216, 0.1);
+  --pse-accent: #1c47c9;
+  --pse-accent-hover: #16389f;
+  --pse-accent-quiet: rgba(28, 71, 201, 0.1);
   --pse-on-accent: #ffffff;
 
-  --pse-good: #146c43;
-  --pse-warn: #8a5200;
-  --pse-danger: #b3261e;
+  --pse-good: #0f6240;
+  --pse-warn: #7d4b00;
+  --pse-danger: #a51f19;
 
   /* The recovered emblem's facets — brand only, never interface colour. */
   --pse-brand-blade: #2f6bff;
-  --pse-brand-top: #101318;
+  --pse-brand-top: #0e1116;
   --pse-brand-side: rgba(16, 19, 24, 0.34);
   --pse-brand-cut: #ffffff;
-  --pse-brand-crest: #0e7c94;
+  --pse-brand-crest: #0d7c94;
 
   --pse-font: 'Inter', system-ui, -apple-system, sans-serif;
   --pse-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --pse-shell: 1120px;
+  --pse-shell: 1140px;
   --pse-gutter: 20px;
   --pse-section-y: clamp(56px, 7.5vw, 104px);
   --pse-r: 12px;
@@ -94,7 +107,12 @@
   .pse { --pse-gutter: 40px; }
 }
 
-.dark .pse {
+/*
+ * The console only. `:not(.pse-plane)` is what keeps the public surfaces light
+ * even though the application default is dark — it is the single line that
+ * decides which PSEmine surface follows the app theme.
+ */
+.dark .pse:not(.pse-plane) {
   --pse-paper: #0b0d11;
   --pse-band: #12141a;
   --pse-band-2: #171a21;
@@ -128,6 +146,17 @@
 }
 
 /* ── Surface, shell, sections ─────────────────────────────────────────────── */
+/*
+ * The public plane. `color-scheme: light` is deliberate: it makes the browser
+ * paint its own controls (carets, autofill, scrollbars) light too, so the form
+ * controls match the surface instead of the operating system's dark default.
+ */
+.pse-plane {
+  background: var(--pse-paper);
+  color: var(--pse-ink);
+  color-scheme: light;
+}
+
 .pse-surface {
   background: var(--pse-paper);
   color: var(--pse-ink);
@@ -151,8 +180,8 @@
 /*
  * Sections are separated by SPACE and by BAND TONE — not by lines. Two adjacent
  * sections are further apart than a section's own internal blocks, which is all
- * the separation a document needs; drawing a rule between every pair is what
- * turns a page into a stack of boxes.
+ * the separation a page needs; drawing a rule between every pair is what turns a
+ * page into a stack of boxes.
  */
 .pse-section { padding-block: var(--pse-section-y); }
 
@@ -165,17 +194,20 @@
  */
 .pse-band--ink {
   background: var(--pse-ink-bg);
-  color: var(--pse-ink-on, #f6f7f9);
+  color: #f6f7f9;
   --pse-ink: #f6f7f9;
-  --pse-ink-2: rgba(246, 247, 249, 0.7);
-  --pse-ink-3: rgba(246, 247, 249, 0.62);
+  --pse-ink-2: rgba(246, 247, 249, 0.72);
+  --pse-ink-3: rgba(246, 247, 249, 0.64);
   --pse-rule: rgba(255, 255, 255, 0.18);
   --pse-rule-2: rgba(255, 255, 255, 0.09);
   --pse-rule-strong: rgba(255, 255, 255, 0.32);
-  --pse-accent: #8fadff;
-  --pse-accent-hover: #aec3ff;
-  --pse-accent-quiet: rgba(143, 173, 255, 0.16);
+  --pse-accent: #96b2ff;
+  --pse-accent-hover: #b6c9ff;
+  --pse-accent-quiet: rgba(150, 178, 255, 0.18);
   --pse-on-accent: #0a1533;
+  --pse-band: rgba(255, 255, 255, 0.05);
+  --pse-band-2: rgba(255, 255, 255, 0.08);
+  --pse-inset: rgba(255, 255, 255, 0.07);
 }
 
 /* ── Type roles ───────────────────────────────────────────────────────────── */
@@ -189,10 +221,10 @@
 
 /* Authority from size and tracking, not weight. */
 .pse-display {
-  font-size: clamp(2rem, 1.35rem + 2.6vw, 3.25rem);
+  font-size: clamp(2.125rem, 1.4rem + 2.85vw, 3.5rem);
   font-weight: 400;
-  line-height: 1.06;
-  letter-spacing: -0.03em;
+  line-height: 1.05;
+  letter-spacing: -0.032em;
 }
 
 .pse-h2 {
@@ -208,6 +240,32 @@
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: -0.008em;
+}
+
+/*
+ * Money. A figure is the loudest thing in its own block, is always tabular, and
+ * never carries a currency word twice — the unit sits beside it, quieter.
+ */
+.pse-metric {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  color: var(--pse-ink);
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: clamp(1.75rem, 1.42rem + 1.15vw, 2.25rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.pse-metric-unit {
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.004em;
+  color: var(--pse-ink-3);
 }
 
 /* Body carries slight positive tracking — it reads airier at 16px than the
@@ -533,9 +591,10 @@
   color: var(--pse-danger);
 }
 
-/* ── Capacity bar — a real proportion of a real maximum ─────────────────── */
+/* ── Proportion bars — only ever a real fraction of a real maximum ───────── */
 .pse-bar {
   position: relative;
+  display: flex;
   height: 4px;
   border-radius: 2px;
   background: var(--pse-rule-2);
@@ -548,6 +607,49 @@
   border-radius: 2px;
   background: var(--pse-accent);
   transition: width 220ms ease;
+}
+
+/*
+ * A composition bar: two or more segments that together make the whole. Each
+ * segment is labelled in the legend beside it, so colour is never the only thing
+ * carrying the meaning.
+ */
+.pse-bar--split { height: 6px; }
+
+.pse-bar--split > span + span {
+  background: var(--pse-ink-3);
+  opacity: 0.45;
+}
+
+.pse-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 0.7rem;
+}
+
+.pse-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-legend-key {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+  background: var(--pse-accent);
+}
+
+.pse-legend-key--quiet { background: var(--pse-ink-3); opacity: 0.45; }
+
+.pse-legend-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--pse-ink);
 }
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
@@ -606,16 +708,16 @@
  * The recovered faceted emblem. The crest facet is the only part that animates,
  * and only to state a running campaign.
  * ========================================================================== */
-.pse-mark { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.pse-mark { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .pse-mark-glyph { flex: none; display: block; }
 
-.pse-wordmark { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.pse-wordmark { display: flex; flex-direction: column; min-width: 0; line-height: 1.12; }
 
 .pse-wordmark-name {
   font-family: var(--pse-font);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 500;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.024em;
   color: var(--pse-ink);
 }
 
@@ -635,27 +737,57 @@
 
 /* ============================================================================
  * LOADER — an application state, not a page.
+ *
+ * The duration genuinely is not known, so the presentation does not imply that it
+ * is: one indeterminate rail, one honest sentence naming the state, and an
+ * escalation that only ever states a fact. No percentage, no filling bar, no
+ * scan, no counter, no step list, no invented diagnostics.
  * ========================================================================== */
 .pse-loader {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.9rem;
-  max-width: 26rem;
+  gap: 1.1rem;
+  max-width: 24rem;
   margin-inline: auto;
-  padding-block: clamp(2.5rem, 8vw, 4.5rem);
+  padding-block: clamp(2rem, 6vw, 3rem);
   text-align: center;
 }
 
-.pse-loader-id { display: inline-flex; align-items: center; gap: 0.5rem; }
+.pse-loader-id { display: inline-flex; align-items: center; gap: 0.55rem; }
 
 .pse-loader-name {
   font-family: var(--pse-font);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 500;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.024em;
   color: var(--pse-ink);
+}
+
+.pse-loader-track {
+  position: relative;
+  width: 168px;
+  max-width: 55vw;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-loader-track > i {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 38%;
+  border-radius: 2px;
+  background: var(--pse-accent);
+  animation: pse-indeterminate 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes pse-indeterminate {
+  0% { transform: translateX(-102%); }
+  100% { transform: translateX(266%); }
 }
 
 .pse-loader-label {
@@ -670,6 +802,14 @@
   font-size: 0.8125rem;
   line-height: 1.55;
   color: var(--pse-ink-3);
+}
+
+.pse-loader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 @keyframes pse-dot {
@@ -697,7 +837,7 @@
  * AUTHENTICATION — a wallet-grade sign-in, single column, single axis.
  *
  * The composition is deliberately NOT a split screen. A secondary marketing
- * panel would have to carry campaign terms to be worth its width, and a sign-in
+ * panel would have to carry product terms to be worth its width, and a sign-in
  * page must contain only authentication.
  * ========================================================================== */
 .pse-auth {
@@ -714,7 +854,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 56px;
+  min-height: 60px;
 }
 
 .pse-auth-main {
@@ -722,16 +862,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem var(--pse-gutter) 4rem;
+  padding: 2.75rem var(--pse-gutter) 3.5rem;
 }
 
-.pse-auth-col { width: 100%; max-width: 384px; }
+.pse-auth-col { width: 100%; max-width: 392px; }
 
 .pse-auth-title {
-  font-size: 1.625rem;
+  font-size: 1.75rem;
   font-weight: 400;
-  line-height: 1.2;
-  letter-spacing: -0.022em;
+  line-height: 1.18;
+  letter-spacing: -0.026em;
   color: var(--pse-ink);
 }
 
@@ -936,7 +1076,7 @@
 .pse-tier-glyph { flex: none; display: block; color: var(--pse-ink-3); }
 
 /* ============================================================================
- * CAPACITY / PAYMENT / SECURITY — splits divided by a rule, never by boxes
+ * SPLITS AND LADDERS — divided by a rule, never by boxes
  * ========================================================================== */
 .pse-split {
   display: grid;
@@ -990,43 +1130,7 @@
   text-wrap: pretty;
 }
 
-/* Campaign lifecycle rail */
-.pse-rail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@media (min-width: 768px) { .pse-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-
-.pse-rail-step {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 1.15rem 0 1.25rem;
-  border-top: 2px solid var(--pse-rule-2);
-}
-
-@media (min-width: 768px) { .pse-rail-step { padding: 1.15rem 1.25rem 1.25rem 0; } }
-
-.pse-rail-step[data-state='done'] { border-top-color: var(--pse-rule-strong); }
-.pse-rail-step[data-state='current'] { border-top-color: var(--pse-accent); }
-
-.pse-rail-state {
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-rail-step[data-state='done'] .pse-rail-state { color: var(--pse-ink-2); }
-.pse-rail-step[data-state='current'] .pse-rail-state { color: var(--pse-accent); }
-
-/* An inset block for a value the user must copy or verify (receiver address). */
+/* An inset block for a value the user must copy or verify. */
 .pse-code {
   padding: 0.875rem 1rem;
   border-radius: 10px;
@@ -1093,20 +1197,29 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: color-mix(in srgb, var(--pse-paper) 92%, transparent);
+  background: color-mix(in srgb, var(--pse-paper) 88%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--pse-rule-2);
 }
 
 .pse-mast-inner {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1.75rem;
+  gap: 1rem;
   min-height: 64px;
 }
 
-.pse-mast-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.35rem; margin-inline: -0.5rem; }
+/*
+ * Section anchors are a desktop affordance. At 390px they would either wrap
+ * into three rows or be squeezed into a sliver, so on small screens the bar
+ * carries the brand and the two real actions instead — which is what a mobile
+ * visitor of a marketing page actually needs.
+ */
+.pse-mast-nav { display: none; }
+
+@media (min-width: 900px) {
+  .pse-mast-nav { display: flex; align-items: center; gap: 0.15rem; margin-inline: auto; }
+}
 
 .pse-mast-link {
   display: inline-flex;
@@ -1114,7 +1227,7 @@
   justify-content: center;
   min-height: 44px;
   min-width: 44px;
-  padding-inline: 0.5rem;
+  padding-inline: 0.6rem;
   font-size: 0.875rem;
   letter-spacing: 0.004em;
   color: var(--pse-ink-2);
@@ -1125,17 +1238,21 @@
 .pse-mast-link:hover { color: var(--pse-ink); }
 .pse-mast-link[aria-current='page'] { color: var(--pse-ink); }
 
-.pse-mast-actions { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+.pse-mast-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+
+@media (min-width: 900px) {
+  .pse-mast-actions { margin-left: 0; gap: 0.75rem; }
+}
 
 /* Hero: a 2-column composition on one axis — argument left, specimen right. */
-.pse-hero { display: grid; gap: 3rem; padding-block: clamp(2.5rem, 6vw, 5rem); }
+.pse-hero { display: grid; gap: 2.75rem; padding-block: clamp(2.5rem, 5.5vw, 4.75rem); }
 
 @media (min-width: 1024px) {
   .pse-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
     gap: 4.5rem;
     align-items: center;
-    padding-block: clamp(3.5rem, 7vw, 6.5rem);
+    padding-block: clamp(3.5rem, 7vw, 6.25rem);
   }
 }
 
@@ -1163,6 +1280,15 @@
   border-radius: 50%;
   background: currentColor;
   transform: translateY(-50%);
+}
+
+/* The specimen's own header block: label above, money below. */
+.pse-spec-block { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.pse-spec-block + .pse-spec-block {
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--pse-rule-2);
 }
 
 .pse-close {
@@ -1212,4 +1338,7 @@
 
   .pse-loader-dots > i { animation: none; opacity: 0.45; }
   .pse-mark-crest-live { animation: none; opacity: 1; }
+
+  /* A static, centred segment — still an honest "in progress", never a filled bar. */
+  .pse-loader-track > i { animation: none; transform: none; left: 31%; width: 38%; }
 }

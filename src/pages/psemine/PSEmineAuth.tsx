@@ -20,15 +20,23 @@ import { mapAuthError } from '../../utils/errors';
  *     access, and only then applies the onboarding gate.
  *
  * WHAT CHANGED, AND WHY
+ *   • PLANE. These surfaces render on the always-light public plane (see
+ *     src/styles/psemine.css), so a sign-in page no longer inherits the
+ *     application's dark default and reads as a product surface rather than a
+ *     console.
  *   • CONTENT. Nothing about the campaign, the tools, capacity, referrals or
- *     earnings appears on any authentication surface any more. A sign-in page
- *     explains itself and nothing else.
+ *     earnings appears on any authentication surface. A sign-in page explains
+ *     itself and nothing else.
+ *   • ORDER. The primary action, then whatever qualifies it (the password reset
+ *     link, or the terms line), then the provider divider, then the alternate
+ *     provider. The exception someone must read belongs above the divider, not
+ *     after an unrelated button.
  *   • FORM QUALITY. Real financial-product controls: plain labels, 48px fields,
  *     a password visibility control, an invalid state per field, the error
  *     printed under the field it belongs to, focus moved to the first invalid
  *     field, and a busy state on the primary action.
  *   • VALIDATION. The same two rules the previous implementation enforced
- *     (display name ≥ 2 characters, password ≥ 8 characters) now render against
+ *     (display name ≥ 2 characters, password ≥ 8 characters) render against
  *     their own fields instead of as one banner. The pre-flight checks and their
  *     order are unchanged — an invalid form still never reaches the provider.
  */
@@ -199,9 +207,14 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           : 'Enter your email and password to continue.'
       }
       footer={
-        <p className="pse-small">
-          {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
-          <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="pse-link">
+        <p className="pse-small flex flex-wrap items-center gap-x-1.5">
+          <span>{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
+          {/* A standalone navigation action, not an inline prose link — so it
+              keeps a real 44px target rather than the inline exception. */}
+          <Link
+            to={isSignup ? '/mine/login' : '/mine/signup'}
+            className="pse-link inline-flex min-h-[44px] items-center"
+          >
             {isSignup ? 'Sign in' : 'Create an account'}
           </Link>
         </p>
@@ -222,7 +235,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             <Field
               id="pse-signup-username"
               label="Display name"
-              hint="Shown to referrals"
+              hint="2 characters or more"
               error={fieldErrors.username}
             >
               <input
@@ -300,6 +313,13 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
           </button>
 
+          {isSignup && (
+            <p className="pse-small">
+              By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
+              <Link to="/privacy" className="pse-link">Privacy Policy</Link>.
+            </p>
+          )}
+
           {!isSignup && (
             <p className="text-center">
               <Link to="/mine/forgot-password" className="pse-link inline-flex min-h-[44px] items-center text-sm">
@@ -319,13 +339,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
         >
           {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Continue with Google'}
         </button>
-
-        {isSignup && (
-          <p className="pse-small">
-            By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
-            <Link to="/privacy" className="pse-link">Privacy Policy</Link>.
-          </p>
-        )}
       </div>
     </PseAuthFrame>
   );
@@ -603,9 +616,12 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   const { currentUser, userData, loading, isVerified, hasPSEmineAccess } = usePSEMineAuth();
   const location = useLocation();
 
+  // This loader renders INSIDE the console shell, so it follows the console's
+  // theme rather than the public plane: the plane marks which surface you are on
+  // (see src/styles/psemine.css), and this one is already the console.
   if (loading) {
     return (
-      <div className="pse pse-surface">
+      <div className="pse pse-surface flex min-h-[60vh] items-center justify-center">
         <PseLoader variant="page" stage="session" />
       </div>
     );

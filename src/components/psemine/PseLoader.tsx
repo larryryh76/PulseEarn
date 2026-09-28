@@ -3,33 +3,29 @@
  *
  * THE LOADER IS AN APPLICATION STATE, NOT A PAGE.
  *
- * It is therefore as small as it can be: the identity, one honest sentence
- * naming the state, three dots. Nothing else. There is no percentage, no
- * progress bar that fills, no scan, no terminal, no counter, no fake diagnostics
- * and no invented activity — the duration genuinely is not known, so the
- * presentation does not imply that it is.
+ * It appears only when the product genuinely has to wait for something real:
+ * session restore, the account record, access resolution, a campaign read, or a
+ * protected page's own data. When there is nothing to wait for it must not be
+ * rendered at all, and the two states that are *decisions* rather than waits —
+ * "verification required" and "onboarding required" — are resolved by the route
+ * guard navigating, so they never show a loader describing work that has already
+ * finished.
  *
- * STATE MACHINE
- * -------------
- * The label is chosen by the surface that actually knows the state, so the
- * wording can never mislead about what is happening:
+ * WHAT IT IS
+ * The identity, one indeterminate rail, one honest sentence naming the state,
+ * and — only after the wait has actually become unusual — one sentence saying so
+ * and a real way out. That is the whole component.
  *
- *   session   → "Preparing your account"      session restore
- *   identity  → "Confirming your identity"    account record being read
- *   access    → "Checking your access"        access resolution
- *   campaign  → "Loading campaign state"      campaign read (used inline)
- *   data      → "Loading your account"        records being read
- *   failure   → PseLoadFailure                a real error, with a real retry
- *   stalled   → the same state plus Retry / Reload
+ * WHAT IT DELIBERATELY IS NOT
+ * No percentage, no bar that fills, no scan, no terminal, no counter, no step
+ * list, no "boot sequence", no invented infrastructure status and no fake
+ * diagnostics. The duration is genuinely unknown, so nothing here pretends to
+ * know it: the rail is indeterminate in the literal sense — it never claims a
+ * position in a sequence.
  *
- * "verification required" and "onboarding required" are NOT loader states: the
- * route guard resolves those by navigating, so no loader is shown for them at
- * all. That is deliberate — a loader that says "loading" while a decision has
- * already been made is exactly the misleading messaging this avoids.
- *
- * ESCALATION IS HONEST. After 8s the loader says the wait is longer than usual;
- * after 25s it stops implying a fast answer is coming and offers a real retry or
- * a reload. A retry appears only when there is something to retry.
+ * ESCALATION IS HONEST. After 8s it says the wait is longer than usual; after
+ * 25s it stops implying a fast answer is coming and offers a real retry or a
+ * reload. A retry appears only when the caller has something to retry.
  */
 import React from 'react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
@@ -60,13 +56,6 @@ function useElapsed(ms: number, active: boolean): boolean {
   return elapsed;
 }
 
-/** A real step in a real lifecycle, supplied by the caller that owns that state. */
-export interface PseLoadStep {
-  id: string;
-  label: string;
-  state: 'done' | 'current' | 'pending';
-}
-
 const Dots: React.FC = () => (
   <span className="pse-loader-dots" aria-hidden="true">
     <i />
@@ -80,8 +69,6 @@ export const PseLoader: React.FC<{
   stage?: PseLoadStage;
   /** Explicit label, when the caller knows something more specific and true. */
   label?: string;
-  /** The real lifecycle, when the caller knows it. */
-  steps?: PseLoadStep[];
   /** `page` fills the viewport, `section` sits inside content, `inline` is one row. */
   variant?: 'page' | 'section' | 'inline';
   /** Re-runs the real operation behind this state. */
@@ -93,7 +80,6 @@ export const PseLoader: React.FC<{
 }> = ({
   stage = 'data',
   label,
-  steps,
   variant = 'section',
   onRetry,
   retrying = false,
@@ -104,6 +90,7 @@ export const PseLoader: React.FC<{
   const stalled = useElapsed(25000, true);
   const text = label || STAGE_LABEL[stage];
 
+  // One line of state, for a panel that is re-reading behind existing content.
   if (variant === 'inline') {
     return (
       <div className={`pse-loader-inline ${className}`}>
@@ -125,13 +112,15 @@ export const PseLoader: React.FC<{
       aria-busy="true"
     >
       <span className="pse-loader-id">
-        <PSEmineMark size={24} decorative />
+        <PSEmineMark size={26} decorative />
         <span className="pse-loader-name">PSEmine</span>
       </span>
 
-      <p className="pse-loader-label">{text}</p>
+      <span className="pse-loader-track" aria-hidden="true">
+        <i />
+      </span>
 
-      <Dots />
+      <p className="pse-loader-label">{text}</p>
 
       {(slow || stalled) && (
         <p className="pse-loader-note">
@@ -141,19 +130,8 @@ export const PseLoader: React.FC<{
         </p>
       )}
 
-      {steps && steps.length > 0 && (
-        <ol className="pse-loader-inline flex-wrap justify-center gap-x-4">
-          {steps.map(step => (
-            <li key={step.id} className="pse-small">
-              {step.state === 'done' ? '✓ ' : step.state === 'current' ? '· ' : '· '}
-              {step.label}
-            </li>
-          ))}
-        </ol>
-      )}
-
       {stalled && (
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="pse-loader-actions">
           {onRetry && (
             <button type="button" className="pse-btn pse-btn--secondary pse-btn--sm" onClick={onRetry} disabled={retrying}>
               {retrying ? 'Retrying…' : 'Retry'}

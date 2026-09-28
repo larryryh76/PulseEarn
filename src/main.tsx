@@ -16,6 +16,11 @@ import './styles/psemine-product.css'
 // task, the form-as-instrument surface, the password quality meter). Loaded after
 // psemine.css so its overrides sit later in the cascade by construction.
 import './styles/psemine-auth.css'
+// The art-direction layer for the public product surfaces: the instrument-plate
+// section header, the PSEmine application window, the equipment faces, the
+// printed scales and the rail geometries. Loaded last so a re-composition is
+// later in the cascade by construction rather than by specificity tricks.
+import './styles/psemine-art.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

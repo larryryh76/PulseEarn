@@ -7,15 +7,16 @@ import { PseTierModule } from '../../components/psemine/PseMechanism';
 import {
   CapacityInstrument,
   FlowRail,
-  HeroConsole,
   LifecycleRail,
   PaymentConsole,
+  PseAppWindow,
   Reveal,
   StatementPanel,
   Stat,
   StatGrid,
   ToolFamily,
   TrustMap,
+  type PseBuildRow,
   type PseFlowStep,
   type PseTierView,
 } from '../../components/psemine/PseInstruments';
@@ -39,27 +40,31 @@ import {
  * api/psemine_core.py) and nothing else. There is no session, no campaign read
  * and no request, so no account state can leak into it — and the route guard
  * (`PSEMineEntry`) sends a signed-in visitor to the console before this page is
- * mounted at all.
+ * mounted at all. Where the page draws a figure it is either a locked product
+ * constant or an EXAMPLE BUILD, labelled as such at the point it appears.
  *
  * COMPOSITION — the page is a product, not an article.
  *
- *   Hero ............. proposition left, application window right, one floating
- *                      tile overlapping the window's lower edge
+ *   Hero ............. proposition left, a window of the PSEmine application
+ *                      right, one floating tile overlapping the window's edge
  *   01 the purchase ... reading column left, the purchase rail right
- *   02 the tool family  full-bleed equipment specification, one panel
- *   03 capacity ....... the capacity instrument right, the referral rail left
- *   04 the campaign .... a full-width lifecycle rail the reader can step through
+ *   02 the tool family  full-bleed equipment plate on one printed scale
+ *   03 capacity ....... the capacity instrument right, the referral ladder left
+ *   04 the campaign .... a full-width lifecycle rail on a day axis
  *   05 payment ......... the purchase console left, the quote terms right
  *   06 settlement ...... a full-width statement, denomination change drawn
  *   07 security ........ a full-width relationship map, then the reading columns
  *   08 questions ....... head left, the accordion right
  *   09 the close ....... one band, one decision
  *
- * The composition alternates deliberately — full-bleed instrument, then
- * asymmetric split, then full-bleed — because nine sections that each open with
- * a heading over a paragraph is what makes a page read as a document. Every
- * section also carries a real object: a gauge, a rail, a console, a statement, a
- * map. Prose carries the argument; the objects carry the product.
+ * THE PLATE HEADER IS THE CONTINUITY DEVICE.
+ * Every section opens with a datum rule: a hairline across the whole shell with
+ * the section index sitting on it in a notch, the section's subject beside it and
+ * its count or unit at the far end. Nine of those stacked make one continuous
+ * spine running the length of the page — which is what stops nine sections from
+ * reading as nine unrelated blocks — while the title and the lede sit in two
+ * columns *below* the rule so the object underneath, not the heading, is what the
+ * eye lands on. A section still carries prose; a section is never only prose.
  *
  * COPY RULE: the page describes the product, never the system behind it.
  */
@@ -79,6 +84,26 @@ const TIERS: ReadonlyArray<PseTierView> = TOOLS.map(t => ({
   continuous: isContinuous(t),
 }));
 
+/**
+ * The example build drawn inside the hero window.
+ *
+ * A hypothetical configuration of units — Starter ×2, Builder ×1, Elite ×1 — and
+ * two qualified referrals. Every figure in the window is computed from it and from
+ * the product's locked rates; none of it is read from anywhere. It is labelled an
+ * example build in the window's own bar and footer, so it can never be taken for
+ * an account.
+ */
+const BUILD_COUNTS: Record<number, number> = { 1: 2, 2: 1, 3: 0, 4: 1 };
+const BUILD_REFERRALS = 2;
+
+const EXAMPLE_BUILD: ReadonlyArray<PseBuildRow> = TIERS.map(t => ({ ...t, count: BUILD_COUNTS[t.tier] ?? 0 }));
+
+const BUILD_TOOL_CAPACITY = EXAMPLE_BUILD.reduce((sum, row) => sum + row.count * row.rateValue, 0);
+const BUILD_REFERRAL_CAPACITY = BUILD_REFERRALS * PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR;
+
+/** The specimen conversion rate used by the purchase illustration. */
+const SPECIMEN_BNB_GBP = PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
+
 const NAV = [
   { href: '#how', label: 'How it works' },
   { href: '#tools', label: 'Tools' },
@@ -91,44 +116,49 @@ const NAV = [
 /* ── Section furniture ──────────────────────────────────────────────────── */
 
 /**
- * The section header. The number lives in a left index column that draws a
- * hairline down the full height of the header, so the nine sections read as one
- * continuous spine rather than nine unrelated blocks. On small screens the index
- * folds up above the kicker.
+ * The plate header. A datum rule runs the full width of the shell carrying the
+ * index, the subject and a right-aligned reading; the title and the lede sit in
+ * two columns below it. Stacked down the page, the rules form one spine.
+ *
+ * `meta` is a real property of the section — a count, a unit, a range — never a
+ * decorative label.
  */
-const SectionHead: React.FC<{
+const PlateHead: React.FC<{
   num: string;
   kicker: string;
   title: string;
+  meta?: string;
   lede?: React.ReactNode;
-}> = ({ num, kicker, title, lede }) => (
-  <Reveal className="pse-head">
-    <span className="pse-head-index" aria-hidden="true">
-      <span className="pse-head-num">{num}</span>
-    </span>
-    <div className="pse-head-text">
-      <p className="pse-kicker">{kicker}</p>
-      <h2 className="pse-h2">{title}</h2>
-      {lede && <p className="pse-body pse-measure">{lede}</p>}
+}> = ({ num, kicker, title, meta, lede }) => (
+  <Reveal className="pse-plate">
+    <div className="pse-plate-rule">
+      <span className="pse-plate-num" aria-hidden="true">{num}</span>
+      <span className="pse-plate-kicker">{kicker}</span>
+      {meta && <span className="pse-plate-meta">{meta}</span>}
+    </div>
+    <div className="pse-plate-text">
+      <h2 className="pse-plate-title">{title}</h2>
+      {lede && <p className="pse-body pse-plate-lede">{lede}</p>}
     </div>
   </Reveal>
 );
 
-/** The header for a full-bleed instrument: index, kicker, title, then the object. */
+/** The header for a full-bleed instrument: the plate, then the object. */
 const Section: React.FC<{
   id: string;
   num: string;
   kicker: string;
   title: string;
+  meta?: string;
   lede?: React.ReactNode;
   band?: 'tint';
   /** The instrument, rendered full width under the header. */
   children: React.ReactNode;
   foot?: React.ReactNode;
-}> = ({ id, num, kicker, title, lede, band, children, foot }) => (
+}> = ({ id, num, kicker, title, meta, lede, band, children, foot }) => (
   <section id={id} className={`pse-section${band === 'tint' ? ' pse-band--tint' : ''}`}>
     <div className="pse-wrap">
-      <SectionHead num={num} kicker={kicker} title={title} lede={lede} />
+      <PlateHead num={num} kicker={kicker} title={title} meta={meta} lede={lede} />
       <div className="pse-section-object">{children}</div>
       {foot && <div className="pse-section-foot">{foot}</div>}
     </div>
@@ -394,7 +424,7 @@ const FaqItem: React.FC<{ q: string; a: React.ReactNode; index: number }> = ({ q
   const panelId = `pse-faq-panel-${index}`;
   const buttonId = `pse-faq-q-${index}`;
   return (
-    <div className="pse-faq-item">
+    <div className="pse-faq-item" data-open={open ? 'true' : undefined}>
       <button
         id={buttonId}
         type="button"
@@ -536,12 +566,12 @@ export const PSEMineLanding: React.FC = () => {
           </dl>
         </Reveal>
 
-        <HeroConsole
+        <PseAppWindow
           days={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}
           ceiling={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
-          units={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
-          referrals={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
-          tiers={TIERS}
+          toolCapacity={BUILD_TOOL_CAPACITY}
+          referralCapacity={BUILD_REFERRAL_CAPACITY}
+          build={EXAMPLE_BUILD}
         />
       </section>
 
@@ -550,10 +580,11 @@ export const PSEMineLanding: React.FC = () => {
         <div className="pse-wrap">
           <Split object="end">
             <div className="pse-split-text">
-              <SectionHead
+              <PlateHead
                 num="01"
                 kicker="The purchase"
                 title="Four steps, in order."
+                meta="4 stages"
                 lede="Every step below happens against an account record. This is the real sequence, drawn as a pipeline — it carries no live figure and no progress."
               />
               <p className="pse-small pse-measure pse-split-aside">
@@ -566,13 +597,14 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 02 · The tool family: one full-bleed equipment specification ─── */}
+      {/* ── 02 · The tool family: one full-bleed equipment plate ─────────── */}
       <Section
         id="tools"
         num="02"
         kicker="The tool family"
         band="tint"
         title="One product line, four units."
+        meta={`${TIERS.length} units · £${TIERS[0].rateValue.toFixed(2)}–£${TIERS[TIERS.length - 1].rateValue.toFixed(2)}/hour`}
         lede="Each tier has a fixed price, a fixed capacity per hour and an ownership limit. The price is paid in BNB at the rate quoted when you request the quote, so a unit's price never drifts with the market."
         foot={
           <p className="pse-small">
@@ -590,10 +622,11 @@ export const PSEMineLanding: React.FC = () => {
         <div className="pse-wrap">
           <Split object="end" weight="even">
             <div className="pse-split-text">
-              <SectionHead
+              <PlateHead
                 num="03"
                 kicker="Capacity model"
                 title="Capacity is a rate, and it has a hard ceiling."
+                meta={`ceiling ${gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}`}
                 lede="Two sources add capacity: the units you own, and referrals that actually qualify. Both are bounded, and both are computed server-side."
               />
               <p className="pse-micro pse-split-aside mt-8">How a referral qualifies</p>
@@ -627,6 +660,7 @@ export const PSEMineLanding: React.FC = () => {
               </div>
               <div className="pse-panel-body">
                 <CapacityInstrument
+                  scale
                   ceiling={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
                   units={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
                   referrals={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
@@ -644,6 +678,7 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Campaign lifecycle"
         band="tint"
         title={`A ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day window with a defined end.`}
+        meta={`${PHASES.length} phases`}
         lede="Mining is only live while the campaign is. Each phase changes what happens to accrual, and the record of it is kept."
       >
         <LifecycleRail
@@ -663,14 +698,21 @@ export const PSEMineLanding: React.FC = () => {
       {/* ── 05 · Payment: the purchase console left, the quote terms right ─ */}
       <section id="payment" className="pse-section">
         <div className="pse-wrap">
-          <SectionHead
+          <PlateHead
             num="05"
             kicker="Payment"
             title="You pay in BNB, at a quoted rate."
+            meta="GBP → BNB"
             lede="There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain."
           />
           <Split object="start" className="pse-section-object">
-            <PaymentConsole tier={TIERS[0]} network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} asset="BNB" />
+            <PaymentConsole
+              tier={TIERS[0]}
+              network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
+              asset="BNB"
+              priceGBP={TOOLS[0].purchasePriceGBP}
+              rateGBP={SPECIMEN_BNB_GBP}
+            />
 
             <Reveal delay={120}>
               <p className="pse-micro mb-4">What a quote gives you</p>
@@ -701,6 +743,7 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Settlement and payout"
         band="tint"
         title="Earnings are settled in GBP, then paid in BNB."
+        meta="GBP → approved → BNB"
         lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance that can be moved — the statement below shows exactly where the denomination changes."
       >
         <StatementPanel steps={SETTLEMENT} />
@@ -724,6 +767,7 @@ export const PSEMineLanding: React.FC = () => {
         num="07"
         kicker="Security and transparency"
         title="What is fixed, and what you can check."
+        meta={`${TRUST.length} properties`}
         lede="These are properties of the product, not claims about it — each one holds whether or not you take our word for it."
       >
         <TrustMap items={TRUST} />
@@ -748,7 +792,7 @@ export const PSEMineLanding: React.FC = () => {
         <div className="pse-wrap">
           <Split object="end" weight="even">
             <div className="pse-split-text pse-faq-head">
-              <SectionHead num="08" kicker="Questions" title="The questions this product actually raises." />
+              <PlateHead num="08" kicker="Questions" title="The questions this product actually raises." meta={`${FAQ.length} answered`} />
             </div>
             <Reveal className="pse-faq" delay={60}>
               {FAQ.map((item, i) => (
@@ -772,7 +816,7 @@ export const PSEMineLanding: React.FC = () => {
           </Reveal>
           <Reveal className="pse-close-side" delay={100}>
             <span className="pse-close-art" aria-hidden="true">
-              <PseTierModule tier={TIERS[0].tier} width={168} />
+              <PseTierModule tier={TIERS[TIERS.length - 1].tier} continuous width={228} />
             </span>
             <div className="pse-hero-cta">
               <CreateAccount />

@@ -423,3 +423,44 @@ printed publicly** · **any content on a route where it does not belong**.
 - The loader's in-app timing is not directly observable here (the identity layer
   resolves before first paint), so its composition and CSS contract are verified
   while the live wait is not.
+
+## 16. Art-direction layer (`src/styles/psemine-art.css`)
+
+The rebuild that followed this record changed the public composition from a
+well-typeset document into an instrument, and it did so in a fourth stylesheet
+loaded after the other three. Two structural decisions are worth keeping:
+
+- **The plate header replaces the numbered heading block.** Every section opens
+  with a datum rule — a full-shell hairline carrying an index badge, the section
+  subject and a right-aligned reading — with the title and lede in two columns
+  *below* it, so the page's nine sections share one spine and the eye lands on the
+  instrument rather than on a heading over a paragraph. Prose is set at 15px and
+  never at display scale, which is the only budget the composition needs.
+- **The hero is an application window, not a card.** `PseAppWindow` composes an
+  application bar with the product's own navigation, a unit rail, a four-figure
+  strip in the product's units, the capacity instrument, the operating-signature
+  chart on a printed day axis, and the unit roster. Its figures describe an
+  EXAMPLE BUILD, labelled as such in the window's bar and footer.
+- **The window is a container, not a viewport.** `container-type: inline-size` on
+  `.pse-app` is what lets the rail, the two-instrument pair and the roster answer
+  for the window's own width — which ranges from 492px to 704px across the same
+  viewport widths, because the hero splits at 1024px. A viewport breakpoint
+  cannot express that, and the layout silently breaks when one is used.
+- **The family plate has two registers.** The `ELEVATION` (four units drawn large
+  on one datum, the section's artwork) and the `SPECIFICATION` (four rows of
+  aligned figures, each marked by a 96px `mark`). The row's `mark` is not a
+  smaller copy of the plate: below 132px the drawing drops its extrusion, its
+  calibration rail, its dimension line and its price, because five pixels of
+  annotation is noise pretending to be information.
+- **Printed scales.** `PseScale` states the range of the capacity instrument, the
+  equipment family and the campaign rail, so a bar is a measurement rather than a
+  decoration that happens to be a certain percentage wide.
+
+Divergences introduced by this layer:
+
+- `.pse-console*` and `.pse-roster*` in `psemine.css` and `psemine-product.css`
+  are now superseded by `.pse-app*` and are unused selectors, for the same
+  45KB-edit-tool reason recorded above. The `.pse-floatcard` overlap device is
+  still live and still positioned by `psemine-product.css`.
+- `psemine-art.css` is the fourth stylesheet in `src/main.tsx`; load order is
+  `psemine.css` → `psemine-product.css` → `psemine-auth.css` → `psemine-art.css`.

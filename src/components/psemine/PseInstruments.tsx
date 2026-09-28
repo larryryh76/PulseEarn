@@ -19,11 +19,20 @@
  * highlight, locked to two levels. Depth comes from layered surfaces, insets and
  * one deliberate overlap in the hero — never from a drop shadow stack.
  *
- * WHAT IS DELIBERATELY ABSENT
- * None of these instruments reads an account. They are constructed from the
- * product's locked economics (prices, rates, limits, ceilings, the campaign
- * length, the payment asset) and from nothing else: no balance, no position, no
- * countdown, no address, no status that claims to know where a visitor is. A
+ * THE HERO IS AN APPLICATION, NOT A CARD.
+ * `PseAppWindow` is a window of the PSEmine product: an application bar with its
+ * own navigation, a unit rail down the left edge, a key-figure strip, the
+ * capacity instrument, the operating-signature chart with a printed day axis,
+ * and the unit roster. It is dense on purpose — a financial product earns its
+ * credibility by showing meaningful figures compactly, and a rectangle holding
+ * two lines of text does not.
+ *
+ * HONESTY. The window shows an EXAMPLE BUILD, stated as such in the bar and in
+ * the window's footer: a hypothetical configuration of units, not an account.
+ * Its figures are computed from the product's locked economics, it reads
+ * nothing, and it carries no balance, no position, no countdown and no address.
+ * No instrument here reads an account: they are constructed from the locked
+ * prices, rates, limits, ceilings and the campaign length, and nothing else. A
  * specimen is labelled as a specimen, and an illustration of a flow never
  * contains a dead control — the only button in a specimen is a real link.
  *
@@ -31,8 +40,8 @@
  * `Reveal` arms a one-shot entrance through an IntersectionObserver. Elements
  * are visible by default and only become hidden when the observer is present, so
  * a failed observer can never leave the page blank; and the reduced-motion rules
- * in psemine.css mean a reader who asks for less motion sees everything
- * immediately, with the gauges already at their true values.
+ * mean a reader who asks for less motion sees everything immediately, with the
+ * gauges already at their true values.
  *
  * THE MOTION RULE: it explains hierarchy. A gauge fills once so you read it as a
  * measurement; a rail draws once so you read it as a sequence; a panel lifts on
@@ -42,7 +51,8 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PseGlyph, PseTierModule, type PseGlyphName } from './PseMechanism';
+import { PSEmineMark } from './PSEBrand';
+import { PseGlyph, PseOperatingSignature, PseScale, PseTierModule, type PseGlyphName } from './PseMechanism';
 
 /* ── Reveal ─────────────────────────────────────────────────────────────── */
 
@@ -77,7 +87,7 @@ export function useReveal<T extends HTMLElement>() {
   return { ref, inview };
 }
 
-type RevealTag = 'div' | 'ol' | 'ul' | 'li' | 'article' | 'section' | 'span';
+type RevealTag = 'div' | 'ol' | 'ul' | 'li' | 'article' | 'section' | 'span' | 'aside';
 
 /** Wraps children in a plain element that carries the reveal transition. */
 export const Reveal: React.FC<{
@@ -162,6 +172,9 @@ const GaugeRow: React.FC<{
  * object: units plus qualified referrals, and no more. A marker on that bar sits
  * at the total, so the ceiling is visibly the end of the scale rather than an
  * arbitrary full-width block.
+ *
+ * The optional scale ladder prints the axis below the rows, so the instrument
+ * reads as a measurement with a stated range rather than as three bars.
  */
 export const CapacityInstrument: React.FC<{
   /** The ceiling in £/hour, and the denominator for every row. */
@@ -171,7 +184,9 @@ export const CapacityInstrument: React.FC<{
   unitLabel?: string;
   referralLabel?: string;
   totalLabel?: string;
-  /** Tighter spacing for use inside the hero console. */
+  /** Print the axis under the rows. Off inside the hero window, where space is tight. */
+  scale?: boolean;
+  /** Tighter spacing for use inside the hero window. */
   compact?: boolean;
   className?: string;
 }> = ({
@@ -181,6 +196,7 @@ export const CapacityInstrument: React.FC<{
   unitLabel = 'Unit capacity',
   referralLabel = 'Referral capacity',
   totalLabel = 'Total capacity',
+  scale = false,
   compact = false,
   className = '',
 }) => {
@@ -219,6 +235,13 @@ export const CapacityInstrument: React.FC<{
         <div className="pse-gauge-divide" />
         <GaugeRow label={totalLabel} value={ceiling} pct="100%" fill="pse-gauge-fill--total" swatch="pse-gauge-swatch--total" total />
       </div>
+
+      {scale && (
+        <PseScale
+          className="pse-gauge-scale"
+          labels={['0', `£${(ceiling / 2).toFixed(2)}`, `£${ceiling.toFixed(2)}`]}
+        />
+      )}
     </Reveal>
   );
 };
@@ -278,14 +301,21 @@ export interface PseTierView {
 }
 
 /**
- * The tool family as one equipment specification.
+ * The tool family as one equipment specification, in TWO REGISTERS.
  *
- * Not four cards with different names: ONE panel — a product line, addressed as
- * a financial equipment system — with a bespoke instrument drawn per tier, a
- * capacity column that is proportional across the family, and the price and
- * ownership limit as aligned figures. Below the tablet breakpoint the same
- * markup becomes a horizontal reel of self-contained units, because a spec table
- * squeezed into a phone is not a mobile design.
+ *   ELEVATION  the product line drawn large, all four units on one datum, on a
+ *              lit ground. This is the family's artwork: it shows at a glance
+ *              that these are four machines of the same make and different size,
+ *              which is the claim the section is making.
+ *   SPECIFICATION  four rows of aligned figures — tier, capacity, price,
+ *              ownership — with a small mark per row, the capacity bars read
+ *              against ONE printed scale at the foot of the plate.
+ *
+ * Two registers keep the drawing from being four icons repeated eight times: the
+ * elevation is the art, the rows are the data, and neither is doing the other's
+ * job. Below the tablet breakpoint the rows become a horizontal reel of
+ * self-contained units, because a spec table squeezed into a phone is not a
+ * mobile design.
  */
 export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className?: string }> = ({
   tiers,
@@ -295,6 +325,20 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
 
   return (
     <div className={`pse-family${className ? ` ${className}` : ''}`}>
+      <div className="pse-family-elevation">
+        <span className="pse-family-elevation-key" aria-hidden="true">
+          Product line · elevation · one datum
+        </span>
+        <div className="pse-family-elevation-row" aria-hidden="true">
+          {tiers.map(t => (
+            <span key={t.tier} className="pse-family-elevation-cell">
+              <PseTierModule tier={t.tier} continuous={t.continuous} width={200} />
+              <span className="pse-family-elevation-tag">{`T${t.tier} · ${t.rate.replace('/hour', '/h')}`}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       <div className="pse-family-head" aria-hidden="true">
         <span className="pse-family-head-art">Unit</span>
         <span className="pse-family-head-id">Tier</span>
@@ -313,7 +357,7 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
             label={`${t.name} — ${t.rate}, ${t.price}, up to ${t.limit} per account`}
           >
             <div className="pse-unit-art">
-              <PseTierModule tier={t.tier} continuous={t.continuous} width={150} />
+              <PseTierModule tier={t.tier} continuous={t.continuous} width={96} />
             </div>
 
             <div className="pse-unit-id">
@@ -355,112 +399,197 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
         ))}
       </ul>
 
+      {/* One printed scale for the whole family, not four implied bars. */}
+      <div className="pse-family-scale">
+        <span className="pse-family-scale-key">Hourly capacity, read against the family&apos;s peak rate</span>
+        <PseScale labels={['0', `£${(max / 2).toFixed(2)}`, `£${max.toFixed(2)}`]} />
+      </div>
+
       {/* The reel has no scrollbar, so it says out loud that it scrolls. */}
       <p className="pse-family-hint">Swipe to compare the four units</p>
     </div>
   );
 };
 
-/* ── The hero specimen ──────────────────────────────────────────────────── */
+/* ── The hero: a window of the PSEmine application ──────────────────────── */
+
+/** One row of the example build inside the hero window. */
+export interface PseBuildRow extends PseTierView {
+  /** How many of this unit the example build holds. */
+  count: number;
+}
 
 /**
- * The hero specimen: a window of the PSEmine application.
+ * The PSEmine application window.
  *
- * This is the product's strongest visual identity, so it is art-directed rather
- * than generic: a title bar with its own state chip, a narrow instrument rail
- * down the left carrying a miniature of every unit in the family, the campaign
- * window and capacity ceiling as financial figures, the capacity instrument
- * itself, and the tier roster along the bottom. One floating tile overlaps its
- * lower edge, which is what makes the console read as a layered product surface
- * rather than a screenshot on a card.
+ * This is the product's strongest visual identity, so it is art-directed as an
+ * application rather than as a card: an application bar with the product's own
+ * navigation, a unit rail down the left edge carrying a mark for every tier in
+ * the family, a key-figure strip stated in the product's own units, the capacity
+ * instrument, the operating-signature chart with a printed day axis, and the
+ * unit roster with counts.
  *
- * It carries a specimen footer because it is an illustration of locked
- * economics, not a readout of an account — and there is nothing personal inside
- * it to mistake.
+ * The figures describe an EXAMPLE BUILD — a hypothetical configuration, printed
+ * in the bar and in the window's footer so it can never be mistaken for an
+ * account. Nothing in the window reads a session; the numbers are the product's
+ * locked rates applied to a stated build.
  */
-export const HeroConsole: React.FC<{
+export const PseAppWindow: React.FC<{
   days: number;
   ceiling: number;
-  units: number;
-  referrals: number;
-  tiers: ReadonlyArray<PseTierView>;
-}> = ({ days, ceiling, units, referrals, tiers }) => (
-  <Reveal className="pse-console-stage" delay={90}>
-    <div className="pse-panel pse-panel--instrument pse-console">
-      <div className="pse-console-bar">
-        <span className="pse-console-lights" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span className="pse-console-title">PSEmine</span>
-        <span className="pse-console-crumb">Campaign</span>
-        <span className="pse-chip" data-tone="live">
-          <span className="pse-chip-dot" aria-hidden="true" />
-          Locked economics
-        </span>
-      </div>
+  /** The example build's tool capacity in £/hour. */
+  toolCapacity: number;
+  /** The example build's referral capacity in £/hour. */
+  referralCapacity: number;
+  /** The example build, tier by tier. */
+  build: ReadonlyArray<PseBuildRow>;
+}> = ({ days, ceiling, toolCapacity, referralCapacity, build }) => {
+  const total = toolCapacity + referralCapacity;
+  const held = build.filter(row => row.count > 0);
 
-      <div className="pse-console-body">
-        <div className="pse-console-rail" aria-hidden="true">
-          {tiers.map(t => (
-            <span key={t.tier} className="pse-console-rail-cell">
-              <PseTierModule tier={t.tier} continuous={t.continuous} width={30} />
-            </span>
-          ))}
+  return (
+    <Reveal className="pse-console-stage" delay={90}>
+      <div className="pse-app">
+        <div className="pse-app-bar">
+          <span className="pse-app-brand">
+            <PSEmineMark size={15} decorative />
+            <span className="pse-app-word">PSEmine</span>
+          </span>
+          <span className="pse-app-nav" aria-hidden="true">
+            <span data-active="true">Overview</span>
+            <span>Units</span>
+            <span>Settlement</span>
+          </span>
+          <span className="pse-chip" data-tone="specimen">
+            <span className="pse-chip-dot" aria-hidden="true" />
+            Example build
+          </span>
         </div>
 
-        <div className="pse-console-main">
-          <div className="pse-console-fields">
-            <div className="pse-console-field">
-              <span className="pse-console-key">Campaign window</span>
-              <span className="pse-metric pse-metric--sm">
-                {days}
-                <span className="pse-metric-unit">days</span>
-              </span>
-            </div>
-            <div className="pse-console-field">
-              <span className="pse-console-key">Capacity ceiling</span>
-              <span className="pse-metric">
-                £{ceiling.toFixed(2)}
-                <span className="pse-metric-unit">/ hour</span>
-              </span>
-            </div>
-          </div>
-
-          <CapacityInstrument ceiling={ceiling} units={units} referrals={referrals} compact />
-
-          <div className="pse-roster">
-            {tiers.map(t => (
-              <span key={t.tier} className="pse-roster-cell">
-                <PseTierModule tier={t.tier} continuous={t.continuous} width={44} />
-                <span className="pse-roster-name">{t.name}</span>
-                <span className="pse-roster-rate">{t.rate.replace('/hour', '')}</span>
+        <div className="pse-app-body">
+          <div className="pse-app-rail" aria-hidden="true">
+            {build.map(row => (
+              <span key={row.tier} className="pse-app-rail-cell" data-held={row.count > 0 ? 'true' : undefined}>
+                <PseTierModule tier={row.tier} continuous={row.continuous} width={26} />
+                <span className="pse-app-rail-tag">{`T${row.tier}`}</span>
               </span>
             ))}
           </div>
+
+          <div className="pse-app-main">
+            {/* The key figures, in the product's own units. */}
+            <dl className="pse-app-kpi">
+              <div className="pse-app-kpi-cell">
+                <dt>Campaign</dt>
+                <dd>
+                  {days}
+                  <span className="pse-app-kpi-unit">days</span>
+                </dd>
+              </div>
+              <div className="pse-app-kpi-cell">
+                <dt>Tool capacity</dt>
+                <dd>
+                  £{toolCapacity.toFixed(2)}
+                  <span className="pse-app-kpi-unit">/hour</span>
+                </dd>
+              </div>
+              <div className="pse-app-kpi-cell">
+                <dt>Referral capacity</dt>
+                <dd className="pse-app-kpi-accent">
+                  +£{referralCapacity.toFixed(2)}
+                  <span className="pse-app-kpi-unit">/hour</span>
+                </dd>
+              </div>
+              <div className="pse-app-kpi-cell" data-lead="true">
+                <dt>Mining capacity</dt>
+                <dd>
+                  £{total.toFixed(2)}
+                  <span className="pse-app-kpi-unit">/hour</span>
+                </dd>
+              </div>
+            </dl>
+
+            {/* The two instruments sit side by side once the window is wide
+                enough to carry them, which is what keeps the specimen's
+                silhouette a WINDOW rather than a column. */}
+            <div className="pse-app-pair">
+              <section className="pse-app-block">
+                <header className="pse-app-block-head">
+                  <span className="pse-app-block-title">Capacity composition</span>
+                  <span className="pse-app-block-meta">ceiling £{ceiling.toFixed(2)}/hour</span>
+                </header>
+                <CapacityInstrument compact ceiling={ceiling} units={toolCapacity} referrals={referralCapacity} />
+              </section>
+
+              <section className="pse-app-block">
+                <header className="pse-app-block-head">
+                  <span className="pse-app-block-title">Capacity path</span>
+                  <span className="pse-app-block-legend">
+                    <span className="pse-app-legend" data-kind="continuous">
+                      <i aria-hidden="true" />
+                      Continuous
+                    </span>
+                    <span className="pse-app-legend" data-kind="session">
+                      <i aria-hidden="true" />
+                      Session
+                    </span>
+                  </span>
+                </header>
+                <div className="pse-app-chart">
+                  <PseOperatingSignature />
+                  <div className="pse-app-chart-axis" aria-hidden="true">
+                    <span>Day 0</span>
+                    <span>{Math.round(days / 3)}</span>
+                    <span>{Math.round((days * 2) / 3)}</span>
+                    <span>{days}</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section className="pse-app-block">
+              <header className="pse-app-block-head">
+                <span className="pse-app-block-title">Units</span>
+                <span className="pse-app-block-meta">{held.reduce((n, r) => n + r.count, 0)} held</span>
+              </header>
+              <ul className="pse-app-units">
+                {build.map(row => (
+                  <li key={row.tier} className="pse-app-unit" data-empty={row.count === 0 ? 'true' : undefined}>
+                    <span className="pse-app-unit-art" aria-hidden="true">
+                      <PseTierModule tier={row.tier} continuous={row.continuous} width={46} />
+                    </span>
+                    <span className="pse-app-unit-name">{row.name}</span>
+                    <span className="pse-app-unit-count">{`×${row.count}`}</span>
+                    <span className="pse-app-unit-rate">{row.rate.replace('/hour', '/h')}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
+
+        <div className="pse-app-foot">
+          <span className="pse-app-foot-dot" aria-hidden="true" />
+          Product specimen — an example build from PSEmine&apos;s locked economics, not your account.
         </div>
       </div>
 
-      <div className="pse-console-foot">
-        <span className="pse-console-foot-dot" aria-hidden="true" />
-        Product specimen — PSEmine&apos;s locked economics, not your account.
-      </div>
-    </div>
-
-    <div className="pse-floatcard">
-      <span className="pse-floatcard-key">Operating mode</span>
-      <span className="pse-floatcard-row">
-        <span className="pse-floatcard-term">Session</span>
-        <span className="pse-floatcard-val">Starter · Builder · Advanced</span>
-      </span>
-      <span className="pse-floatcard-row">
-        <span className="pse-floatcard-term">Continuous</span>
-        <span className="pse-floatcard-val">Elite</span>
-      </span>
-    </div>
-  </Reveal>
-);
+      <aside className="pse-floatcard">
+        <span className="pse-floatcard-key">Operating mode</span>
+        <span className="pse-floatcard-row">
+          <span className="pse-floatcard-term">Session</span>
+          <span className="pse-floatcard-val">Starter · Builder · Advanced</span>
+        </span>
+        <span className="pse-floatcard-row">
+          <span className="pse-floatcard-term">Continuous</span>
+          <span className="pse-floatcard-val">Elite</span>
+        </span>
+        <span className="pse-floatcard-rule" aria-hidden="true" />
+        <span className="pse-floatcard-note">Session units stop between sessions until restarted.</span>
+      </aside>
+    </Reveal>
+  );
+};
 
 /* ── The campaign lifecycle ─────────────────────────────────────────────── */
 
@@ -473,6 +602,11 @@ export const HeroConsole: React.FC<{
  * phases and read what each one changes, which is true for everyone — so the
  * rail is a real tab set: arrow keys walk it, `aria-selected` states the phase,
  * and the panel below carries the detail.
+ *
+ * The rail is drawn on one line above the tablet breakpoint, with the connector
+ * between nodes laid down progressively, and becomes a vertical ladder below it,
+ * because five nodes across a 390px screen is a squashed diagram, not a rail.
+ * The day axis under it places the phases against the campaign's real length.
  */
 export const LifecycleRail: React.FC<{
   days: number;
@@ -543,6 +677,12 @@ export const LifecycleRail: React.FC<{
         ))}
       </div>
 
+      {/* The phases placed against the campaign's real length. */}
+      <div className="pse-lifecycle-axis" aria-hidden="true">
+        <PseScale labels={['Day 0', `Day ${Math.round(days / 2)}`, `Day ${days}`]} />
+        <span className="pse-lifecycle-axis-note">Launch → accrual → settlement → payout, inside one window</span>
+      </div>
+
       <div
         id={`pse-phase-panel-${current.id}`}
         role="tabpanel"
@@ -575,8 +715,8 @@ const NetworkMark: React.FC<{ size?: number }> = ({ size = 18 }) => (
  * The payment specimen: a purchase as a modern wallet flow presents it.
  *
  * The amount hierarchy is the point — the price is fixed and stated in GBP, the
- * BNB amount is honestly described as issued per quote rather than printed as a
- * number nobody has been given, and the network and asset carry their own
+ * BNB amount is a specimen conversion at a stated rate (never a live quote and
+ * never a receiving address), and the network and asset carry their own
  * identity. The status rail names the four real states of a purchase; the first
  * is marked as the specimen's, because a specimen is at the moment it shows and
  * at no other. The only control on it is a real link into the product, so the
@@ -586,80 +726,94 @@ export const PaymentConsole: React.FC<{
   tier: PseTierView;
   network: string;
   asset: string;
-}> = ({ tier, network, asset }) => (
-  <Reveal className="pse-pay" delay={80}>
-    <div className="pse-pay-bar">
-      <span className="pse-pay-bar-title">Purchase</span>
-      <span className="pse-pay-bar-id">Unit · {tier.name}</span>
-      <span className="pse-chip" data-tone="bnb">
-        <span className="pse-chip-dot" aria-hidden="true" />
-        {asset}
-      </span>
-    </div>
+  /** The GBP price of the specimen purchase. */
+  priceGBP: number;
+  /** The specimen conversion rate, GBP per unit of the asset. */
+  rateGBP: number;
+}> = ({ tier, network, asset, priceGBP, rateGBP }) => {
+  const amount = priceGBP / rateGBP;
 
-    <div className="pse-pay-body">
-      <div className="pse-pay-unit">
-        <span className="pse-pay-unit-art">
-          <PseTierModule tier={tier.tier} continuous={tier.continuous} width={78} />
-        </span>
-        <span className="pse-pay-unit-id">
-          <span className="pse-micro">{`Tier ${String(tier.tier).padStart(2, '0')}`}</span>
-          <span className="pse-h3">{tier.name}</span>
-          <span className="pse-pay-unit-rate">{`${tier.rate} · ${tier.continuous ? 'continuous' : 'session'} duty`}</span>
+  return (
+    <Reveal className="pse-pay" delay={80}>
+      <div className="pse-pay-bar">
+        <span className="pse-pay-bar-title">Purchase</span>
+        <span className="pse-pay-bar-id">Unit · {tier.name}</span>
+        <span className="pse-chip" data-tone="bnb">
+          <span className="pse-chip-dot" aria-hidden="true" />
+          {asset}
         </span>
       </div>
 
-      <div className="pse-pay-amount">
-        <div className="pse-pay-amount-side">
-          <span className="pse-micro">Price · fixed</span>
-          <span className="pse-metric">{tier.price}</span>
-          <span className="pse-pay-amount-note">Set in GBP. It does not move with the market.</span>
+      <div className="pse-pay-body">
+        <div className="pse-pay-unit">
+          <span className="pse-pay-unit-art">
+            <PseTierModule tier={tier.tier} continuous={tier.continuous} width={86} />
+          </span>
+          <span className="pse-pay-unit-id">
+            <span className="pse-micro">{`Tier ${String(tier.tier).padStart(2, '0')}`}</span>
+            <span className="pse-h3">{tier.name}</span>
+            <span className="pse-pay-unit-rate">{`${tier.rate} · ${tier.continuous ? 'continuous' : 'session'} duty`}</span>
+          </span>
         </div>
 
-        <span className="pse-pay-amount-link" aria-hidden="true">
-          <span className="pse-pay-amount-line" />
-          <span className="pse-pay-amount-rate">quoted rate</span>
-          <span className="pse-pay-amount-line" />
-        </span>
+        <div className="pse-pay-amount">
+          <div className="pse-pay-amount-side">
+            <span className="pse-micro">Price · fixed</span>
+            <span className="pse-metric">{tier.price}</span>
+            <span className="pse-pay-amount-note">Set in GBP. It does not move with the market.</span>
+          </div>
 
-        <div className="pse-pay-amount-side">
-          <span className="pse-micro">Amount · {asset}</span>
-          <span className="pse-metric pse-pay-amount-quoted">—</span>
-          <span className="pse-pay-amount-note">Issued per quote: the exact amount at the rate of that quote, with a time limit.</span>
+          <span className="pse-pay-amount-link" aria-hidden="true">
+            <span className="pse-pay-amount-line" />
+            <span className="pse-pay-amount-rate">
+              {`1 ${asset} = £${rateGBP.toFixed(2)}`}
+              <span className="pse-pay-amount-rate-note">specimen rate</span>
+            </span>
+            <span className="pse-pay-amount-line" />
+          </span>
+
+          <div className="pse-pay-amount-side">
+            <span className="pse-micro">Amount · {asset}</span>
+            <span className="pse-metric pse-pay-amount-quoted">{amount.toFixed(8)}</span>
+            <span className="pse-pay-amount-note">
+              A specimen conversion. Your quote issues the exact amount at the rate of that quote, and shows what is
+              left of its own time limit.
+            </span>
+          </div>
         </div>
+
+        <div className="pse-pay-net">
+          <span className="pse-pay-net-mark">
+            <NetworkMark />
+          </span>
+          <span className="pse-pay-net-id">
+            <span className="pse-pay-net-name">{network}</span>
+            <span className="pse-pay-net-note">You send from your own wallet. PSEmine never holds your keys.</span>
+          </span>
+        </div>
+
+        <ol className="pse-pay-states" aria-label="The four states of a PSEmine purchase">
+          {['Quoted', 'Awaiting payment', 'Confirmed on-chain', 'Unit activated'].map((state, i) => (
+            <li key={state} className="pse-pay-state" data-active={i === 0 ? 'true' : undefined}>
+              <span className="pse-pay-state-node" aria-hidden="true" />
+              <span className="pse-pay-state-name">{state}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      <div className="pse-pay-net">
-        <span className="pse-pay-net-mark">
-          <NetworkMark />
-        </span>
-        <span className="pse-pay-net-id">
-          <span className="pse-pay-net-name">{network}</span>
-          <span className="pse-pay-net-note">You send from your own wallet. PSEmine never holds your keys.</span>
-        </span>
+      <div className="pse-pay-foot">
+        <Link className="pse-btn pse-btn--block" to="/mine/signup">
+          Open an account for a quote
+          <span className="pse-btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </Link>
+        <span className="pse-pay-foot-note">Illustration of the purchase flow — not a live quote.</span>
       </div>
-
-      <ol className="pse-pay-states" aria-label="The four states of a PSEmine purchase">
-        {['Quoted', 'Awaiting payment', 'Confirmed on-chain', 'Unit activated'].map((state, i) => (
-          <li key={state} className="pse-pay-state" data-active={i === 0 ? 'true' : undefined}>
-            <span className="pse-pay-state-node" aria-hidden="true" />
-            <span className="pse-pay-state-name">{state}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
-
-    <div className="pse-pay-foot">
-      <Link className="pse-btn pse-btn--block" to="/mine/signup">
-        Open an account for a quote
-        <span className="pse-btn-arrow" aria-hidden="true">
-          →
-        </span>
-      </Link>
-      <span className="pse-pay-foot-note">Illustration of the purchase flow — not a live quote.</span>
-    </div>
-  </Reveal>
-);
+    </Reveal>
+  );
+};
 
 /* ── The settlement statement ───────────────────────────────────────────── */
 
@@ -729,7 +883,7 @@ export const TrustMap: React.FC<{
   <Reveal className={`pse-trustmap${className ? ` ${className}` : ''}`} delay={60}>
     <div className="pse-trustmap-core">
       <span className="pse-trustmap-core-art" aria-hidden="true">
-        <PseTierModule tier={4} continuous width={54} />
+        <PseTierModule tier={4} continuous width={62} />
       </span>
       <span className="pse-trustmap-core-id">
         <span className="pse-trustmap-core-name">Your account record</span>

@@ -1,0 +1,893 @@
+/*
+ * PSEmine — the public surfaces' art-direction layer.
+ *
+ * WHY THIS FILE EXISTS, AND WHY IT IS SEPARATE
+ * `psemine.css` owns the tokens, the type roles, the surface ladder and the
+ * shared instruments. `psemine-product.css` owns the composed surfaces the
+ * landing page was first built from. This file owns the layer that turns the
+ * page from a typeset document into an instrument: the plate header, the
+ * PSEmine application window, the equipment faces, the printed scales and the
+ * rail geometries.
+ *
+ * It is loaded last, so a re-composition here is later in the cascade by
+ * construction rather than by specificity tricks, and every rule is scoped to a
+ * `.pse-` class — nothing here can reach PulseEarn or the authenticated console.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ART DIRECTION — THE INSTRUMENT PLATE.
+ *
+ * PSEmine is a capacity instrument, so the page is drawn the way an instrument
+ * is drawn:
+ *
+ *   DATUM      one hairline per section, carrying the index, the subject and a
+ *              reading. Nine of them stacked make one spine down the page — the
+ *              continuity device that stops nine sections reading as nine blocks.
+ *   SCALE      a printed tick ladder under the capacity instrument and the
+ *              equipment family, so a bar is a measurement with a stated range
+ *              rather than a decoration that happens to be 40% wide.
+ *   READING    every figure is mono, tabular, and paired with its unit.
+ *   SILHOUETTE the equipment family differs by topology, not by hue: a chassis,
+ *              two stacked stages, a 2×2 lattice, a four-column bank.
+ *   WINDOW     the hero is a window of the product, not a card: application bar,
+ *              unit rail, key-figure strip, capacity instrument, operating chart,
+ *              roster. Dense on purpose.
+ *
+ * The intensity budget is spent on the OBJECTS. Prose is set at 15px, the
+ * lede sits in a second column beside the title instead of under it, and the
+ * section title is the only thing at display scale — so the eye lands on the
+ * instrument, not on a heading over a paragraph.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/* ── Equipment faces ──────────────────────────────────────────────────────
+ * The drawn instruments are solid, not outline drawings: a front face, a top
+ * face that catches the light and a side face that falls away. The three values
+ * are declared per surface so the plate follows the product, and defaulted here
+ * so an SVG that loads before the layer still renders a body rather than a
+ * black fill.
+ * ───────────────────────────────────────────────────────────────────────── */
+/* Light console first, then the product surface — so the dark values win on
+   anything that carries `.pse-plane`, without a specificity trick. */
+.pse {
+  --pse-equip-face: rgba(16, 19, 24, 0.022);
+  --pse-equip-side: rgba(16, 19, 24, 0.05);
+  --pse-equip-top: rgba(16, 19, 24, 0.08);
+}
+
+.pse-plane,
+.dark .pse:not(.pse-plane) {
+  --pse-equip-face: rgba(255, 255, 255, 0.022);
+  --pse-equip-side: rgba(255, 255, 255, 0.05);
+  --pse-equip-top: rgba(255, 255, 255, 0.1);
+}
+
+.pse-equip-price {
+  font-family: var(--pse-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The plate answers the row it belongs to: the key cells brighten and the
+   capacity mast saturates, so hovering a unit reads the machine, not a border. */
+.pse-unit:hover .pse-equip-cell--key { opacity: 1; }
+.pse-unit:hover .pse-equip-mast { opacity: 1; }
+.pse-unit:hover .pse-equip-dim { opacity: 1; }
+.pse-equip-dim { transition: opacity var(--pse-t) var(--pse-ease); }
+
+/* ── The plate header ─────────────────────────────────────────────────────
+ * A datum rule across the full shell carrying the index, the subject and a
+ * right-aligned reading; the title and the lede in two columns BELOW it, so the
+ * instrument underneath is what the eye lands on.
+ *
+ * The rule is a hairline, not a box: nine bordered headers would be nine more
+ * cards, which is exactly the failure mode this replaces.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-plate { display: grid; gap: clamp(1.1rem, 2.2vw, 1.75rem); }
+
+.pse-plate-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--pse-rule);
+}
+
+.pse-plate-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 2rem;
+  height: 1.45rem;
+  padding-inline: 0.4rem;
+  border-radius: var(--pse-r-xs);
+  border: 1px solid color-mix(in srgb, var(--pse-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--pse-accent) 10%, transparent);
+  color: var(--pse-accent);
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.pse-plate-kicker {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--pse-ink);
+}
+
+.pse-plate-meta {
+  margin-left: auto;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* On a phone the reading drops to its own line rather than squeezing the
+   subject into two lines beside it. A datum can stack; it cannot crowd. */
+@media (max-width: 559px) {
+  .pse-plate-meta {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 2.85rem;
+    text-align: left;
+  }
+}
+
+.pse-plate-text { display: grid; gap: 0.9rem; }
+
+/* Authority from size and tracking — 500 announces the title, nothing shouts. */
+.pse-plate-title {
+  margin: 0;
+  max-width: 24ch;
+  font-family: var(--pse-font);
+  font-size: clamp(1.6875rem, 1.32rem + 1.5vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.032em;
+  color: var(--pse-ink);
+  text-wrap: balance;
+}
+
+/* The lede reads as a caption to the title, not as a second headline. */
+.pse-plate-lede {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 0.9375rem;
+  line-height: 1.62;
+  color: var(--pse-ink-2);
+}
+
+@media (min-width: 900px) {
+  .pse-plate-text {
+    grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+    gap: 3rem;
+    align-items: end;
+  }
+
+  .pse-plate-lede { padding-bottom: 0.35rem; }
+}
+
+/* Inside a split the header has one column: the object is already beside it. */
+.pse-split-text .pse-plate-text,
+.pse-faq-head .pse-plate-text {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem;
+}
+
+/* The object is the section. Space around it is set by the object's own scale,
+   never by a generic gap. */
+.pse-section-object { margin-top: clamp(1.75rem, 3vw, 2.75rem); }
+
+/* ── The PSEmine application window ───────────────────────────────────────
+ * A window of the product.
+ *
+ *   bar    the product's own navigation, brand and state — not browser chrome
+ *   rail   a mark for every unit in the family, held ones lit
+ *   kpi    four key figures in the product's own units
+ *   gauge  the capacity instrument
+ *   chart  the operating signature on a printed day axis
+ *   units  the roster, with counts
+ *
+ * The composition is what makes it a product: a rail, a figure strip, an
+ * instrument and a chart inside one frame reads as software; the same content
+ * inside one padded rectangle reads as a card containing text.
+ * ───────────────────────────────────────────────────────────────────────── */
+/*
+ * The window is its OWN responsive container.
+ *
+ * A viewport breakpoint cannot describe this object: the hero gives the window
+ * anything from 518px (a small desktop, where the hero has already split in two)
+ * to 704px (a tablet, where it has not), so the same viewport width can produce
+ * a window 36% wider than another. `container-type: inline-size` lets the window
+ * answer for its own width, which is the only measurement that decides whether a
+ * rail fits, whether two instruments fit side by side, and whether the roster
+ * can hold two columns — and it keeps those answers correct if the hero is ever
+ * re-proportioned.
+ */
+.pse-app {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  border-radius: var(--pse-r);
+  background: linear-gradient(180deg, var(--pse-surface-3) 0%, var(--pse-surface) 62%);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+  transition: box-shadow var(--pse-t) var(--pse-ease);
+}
+
+/* The specimen comes forward when the reader's pointer is on it — the one hover
+   on the page that moves the whole object rather than a control inside it. */
+.pse-console-stage:hover .pse-app { box-shadow: var(--pse-ring), var(--pse-lift-2), 0 0 0 1px rgba(255, 255, 255, 0.02); }
+
+.pse-app-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+}
+
+.pse-app-brand { display: inline-flex; align-items: center; gap: 0.45rem; flex: none; }
+
+.pse-app-word {
+  font-family: var(--pse-font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+.pse-app-nav {
+  display: none;
+  align-items: center;
+  gap: 0.15rem;
+  font-family: var(--pse-font);
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-app-nav > span {
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--pse-r-xs);
+  white-space: nowrap;
+}
+
+.pse-app-nav > span[data-active='true'] {
+  background: color-mix(in srgb, var(--pse-ink) 7%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pse-hair);
+  color: var(--pse-ink);
+}
+
+.pse-app-bar .pse-chip { margin-left: auto; font-size: 0.625rem; letter-spacing: 0.1em; }
+
+.pse-chip[data-tone='specimen'] { color: var(--pse-ink-2); border-color: var(--pse-rule); }
+
+.pse-app-body { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+
+.pse-app-rail { display: none; }
+
+.pse-app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  min-width: 0;
+}
+
+/* Key figures: quadrants of one instrument, divided by hairlines rather than
+   separated into four cards. */
+.pse-app-kpi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-inset);
+  box-shadow: var(--pse-ring);
+  overflow: hidden;
+}
+
+.pse-app-kpi-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-app-kpi-cell:nth-child(odd) { border-right: 1px solid var(--pse-rule-2); }
+.pse-app-kpi-cell:nth-last-child(-n + 2) { border-bottom: 0; }
+
+.pse-app-kpi dt {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-app-kpi dd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--pse-ink);
+}
+
+/* The lead figure of the strip. It is the product's headline rate, so it is
+   bigger — and it is the only one that is. */
+.pse-app-kpi-cell[data-lead='true'] dd { font-size: 1.375rem; color: var(--pse-ink); }
+.pse-app-kpi-cell[data-lead='true'] { background: color-mix(in srgb, var(--pse-accent) 7%, transparent); }
+
+.pse-app-kpi-accent { color: var(--pse-cyan); }
+
+.pse-app-kpi-unit {
+  font-family: var(--pse-font);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+/* The lead figure carries the unit on its own line rather than widening the
+   cell, so the four figures stay in the same rhythm. */
+.pse-app-kpi-cell[data-lead='true'] .pse-app-kpi-unit { font-size: 0.75rem; }
+
+/* Each instrument sits under its own hairline, so the window reads as separate
+   readouts grouped by a shared frame rather than as one long scroll. */
+.pse-app-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--pse-rule-2);
+  min-width: 0;
+}
+
+/* Two instruments side by side once the window is wide enough to carry them:
+   the specimen keeps a window's silhouette instead of becoming a column. */
+.pse-app-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; min-width: 0; }
+
+@container (min-width: 540px) {
+  .pse-app-pair { grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr); gap: 1.15rem; }
+
+  /* In a narrow column a title and its legend stack; side by side they collide
+     long before the column runs out of height. */
+  .pse-app-pair .pse-app-block-head { flex-direction: column; align-items: stretch; gap: 0.3rem; }
+  .pse-app-pair .pse-app-block-legend { justify-content: flex-start; }
+}
+
+.pse-app-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pse-app-block-title {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-2);
+}
+
+.pse-app-block-meta {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-app-block-legend { display: inline-flex; align-items: center; gap: 0.7rem; }
+
+.pse-app-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-app-legend > i { width: 12px; height: 2px; border-radius: 1px; background: var(--pse-accent); }
+.pse-app-legend[data-kind='session'] > i { background: var(--pse-ink-3); opacity: 0.7; }
+
+/* The chart sits in a recessed well with a printed axis under it, so it reads as
+   a readout inside the window rather than as an illustration pasted on it. */
+.pse-app-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem 0.6rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-inset);
+  box-shadow: var(--pse-ring);
+  min-width: 0;
+}
+
+.pse-signature {
+  display: block;
+  width: 100%;
+  height: 84px;
+  color: var(--pse-ink-3);
+}
+
+.pse-signature-line,
+.pse-signature-session { transition: opacity var(--pse-t-slow) var(--pse-ease); }
+
+.pse-app-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-app-units {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-app-unit {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--pse-r-xs);
+  background: color-mix(in srgb, var(--pse-ink) 3%, transparent);
+}
+
+.pse-app-unit[data-empty='true'] { background: none; box-shadow: inset 0 0 0 1px var(--pse-rule-2); }
+.pse-app-unit[data-empty='true'] .pse-app-unit-art { opacity: 0.4; }
+.pse-app-unit[data-empty='true'] .pse-app-unit-name,
+.pse-app-unit[data-empty='true'] .pse-app-unit-rate { color: var(--pse-ink-3); }
+
+.pse-app-unit-art { display: flex; color: var(--pse-ink-3); }
+
+.pse-app-unit-name {
+  font-size: 0.75rem;
+  letter-spacing: -0.005em;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pse-app-unit-count {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--pse-ink);
+}
+
+.pse-app-unit-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--pse-ink-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pse-app-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--pse-ink-3);
+}
+
+.pse-app-foot-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--pse-ink-3); opacity: 0.6; }
+
+/* The rail is a navigation column of the product, so it appears only when the
+   window is wide enough to carry one without squeezing the instrument. */
+@container (min-width: 460px) {
+  .pse-app-body { grid-template-columns: 50px minmax(0, 1fr); }
+
+  .pse-app-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.95rem 0;
+    border-right: 1px solid var(--pse-rule-2);
+    background: var(--pse-inset);
+  }
+
+  .pse-app-rail-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    opacity: 0.42;
+    transition: opacity var(--pse-t) var(--pse-ease);
+  }
+
+  .pse-app-rail-cell[data-held='true'] { opacity: 1; }
+  .pse-app-rail-cell .pse-tool-module { color: var(--pse-ink-3); }
+  .pse-app-rail-cell[data-held='true'] .pse-tool-module { color: var(--pse-ink-2); }
+
+  .pse-app-rail-tag {
+    font-family: var(--pse-mono);
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+    color: var(--pse-ink-3);
+  }
+
+  .pse-app-main { padding: 1.05rem 1.15rem 1.15rem; }
+  .pse-signature { height: 92px; }
+}
+
+@container (min-width: 520px) {
+  .pse-app-units { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container (min-width: 620px) {
+  .pse-app-nav { display: inline-flex; }
+}
+
+/* ── The floating tile: the one overlap on the page ───────────────────────
+ * It marks the specimen's operating modes. It is the only element that overlaps
+ * another surface — which is what makes the window sit in front of the page —
+ * and the window's footer RESERVES its corner so an overlap can never cover a
+ * sentence.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-floatcard { gap: 0.35rem; }
+
+.pse-floatcard-rule { height: 1px; margin-top: 0.35rem; background: var(--pse-rule-2); }
+
+.pse-floatcard-note {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--pse-ink-3);
+}
+
+@media (min-width: 1024px) {
+  .pse-app .pse-app-foot { padding-right: 16.5rem; }
+  .pse-console-stage:hover .pse-floatcard { transform: translateY(-3px); }
+}
+
+/* ── The printed scale ────────────────────────────────────────────────────
+ * A tick ladder. Labels sit at the ends and the midpoint, ticks land exactly on
+ * those positions, so the axis states its own range instead of implying one.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-scale {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-top: 1px solid var(--pse-rule);
+  padding-top: 0.45rem;
+}
+
+.pse-scale-cell { position: relative; display: flex; flex-direction: column; gap: 0.2rem; }
+.pse-scale-cell[data-edge='start'] { align-items: flex-start; }
+.pse-scale-cell:not([data-edge]) { align-items: center; }
+.pse-scale-cell[data-edge='end'] { align-items: flex-end; }
+
+.pse-scale-tick {
+  position: absolute;
+  top: -0.45rem;
+  width: 1px;
+  height: 5px;
+  background: var(--pse-rule-strong);
+}
+
+.pse-scale-cell[data-edge='start'] .pse-scale-tick { left: 0; }
+.pse-scale-cell:not([data-edge]) .pse-scale-tick { left: 50%; }
+.pse-scale-cell[data-edge='end'] .pse-scale-tick { right: 0; }
+
+.pse-scale-label {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-gauge-scale { margin-top: 0.35rem; }
+
+/* ── The equipment plate ──────────────────────────────────────────────────
+ * The family is a specification, so it ends with ONE printed scale the four
+ * capacity bars are read against, and the drawn instruments get the width they
+ * need to be legible as engineering drawings rather than as icons.
+ * ───────────────────────────────────────────────────────────────────────── */
+/* ── The elevation ────────────────────────────────────────────────────────
+ * The family's artwork: the four units drawn large, side by side, standing on
+ * the one datum their plates share — which is the whole argument of the section
+ * made visible before a word of it is read. It sits on a lit ground with the
+ * light falling from above, and it is the only place on the page where a drawing
+ * is the subject rather than a column in a table.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-family-elevation {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.35rem 1.35rem 1.15rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+  background:
+    radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--pse-accent) 9%, transparent) 0%, transparent 70%),
+    var(--pse-inset);
+}
+
+.pse-family-elevation-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-family-elevation-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  align-items: end;
+}
+
+.pse-family-elevation-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+/* Fluid: the plate is drawn once and fills its column, so the four units stay
+   on one scale at every width instead of each being sized independently. */
+.pse-family-elevation-cell .pse-tool-module {
+  width: 100%;
+  max-width: 208px;
+  height: auto;
+}
+
+.pse-family-elevation-cell .pse-tool-module { color: var(--pse-ink-2); }
+
+.pse-family-elevation-tag {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .pse-family-elevation-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; }
+}
+
+/* On a phone the elevation is a full-bleed band, exactly like the reel below it. */
+@media (max-width: 639px) {
+  .pse-family-elevation {
+    margin-inline: calc(var(--pse-gutter) * -1);
+    padding-inline: var(--pse-gutter);
+  }
+}
+
+.pse-family-scale {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.1rem 1.35rem 1.35rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+}
+
+.pse-family-scale-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+/* ── The specification row ────────────────────────────────────────────────
+ * From 640px the row is a real specification: four aligned columns of figures
+ * under a printed header, read DOWN the columns rather than across the row. The
+ * drawn mark shrinks to a column marker, because the ELEVATION above is what
+ * carries the artwork now — two registers, one drawing each, neither doing the
+ * other's job.
+ *
+ * Two things have to be cleared explicitly for this to work, and both are the
+ * kind of silent breakage a specification table must never have:
+ *   • the table band's `grid-template-areas`, or the items are placed by area
+ *     into three stacked rows and every row becomes 250px tall on a layout that
+ *     has room for one;
+ *   • the children's `grid-area` names, or — with no such named area left in the
+ *     template — they resolve to IMPLICIT lines and create implicit tracks,
+ *     which scrambles the row into columns nobody asked for.
+ * ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 640px) {
+  .pse-family-head,
+  .pse-unit {
+    grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1.15fr) 80px 92px;
+    grid-template-areas: none;
+    gap: 1rem;
+  }
+
+  .pse-family-head { padding: 0.7rem 1.15rem; }
+  .pse-unit { padding: 0.95rem 1.15rem; align-items: center; }
+
+  .pse-unit-art,
+  .pse-unit-id,
+  .pse-unit-cap,
+  .pse-unit-meta { grid-area: auto; }
+
+  .pse-unit-art { align-items: center; padding-top: 0; }
+  .pse-unit-meta { display: contents; }
+}
+
+@media (min-width: 900px) {
+  .pse-family-head,
+  .pse-unit { grid-template-columns: 108px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px; gap: 1.25rem; }
+
+  .pse-family-head { padding: 0.7rem 1.35rem; }
+  .pse-unit { padding: 0.95rem 1.35rem; }
+}
+
+/* ── The campaign rail ────────────────────────────────────────────────────
+ * The rail's horizontal geometry above the tablet breakpoint is already the
+ * product's own (`psemine.css`, 768px): five nodes on one line with the
+ * connectors drawn between them. What this layer adds is the two things that
+ * were missing — the node's halo takes the BAND's colour rather than the canvas
+ * colour, so it stops drawing a bright ring on a tinted section, and the phases
+ * get a printed day axis underneath, so the rail states the window it sits in
+ * instead of only the order of its phases.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-band--tint .pse-lifecycle-node { box-shadow: 0 0 0 3px var(--pse-band); }
+
+.pse-lifecycle-axis {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.pse-lifecycle-axis-note {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+}
+
+/* ── Payment specimen: the amount hierarchy ───────────────────────────────
+ * The converted amount is a machine fact, so it is mono, tabular and precise to
+ * the asset's own decimals — and the rate it came from is printed beside it.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-pay-amount-quoted { font-size: clamp(1.375rem, 1.1rem + 1.1vw, 1.75rem); }
+
+.pse-pay-amount-rate {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
+}
+
+.pse-pay-amount-rate-note {
+  font-size: 0.5rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+/* ── Hero: the object gets the room ───────────────────────────────────────
+ * The window is the strongest object on the page, so the hero gives it the
+ * larger column; the proposition holds the left without competing for width.
+ * ───────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .pse-hero { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); gap: 3rem; }
+
+  /* The window needs about 540px to carry two instruments side by side, and the
+     proposition needs a measure long enough not to break into a ladder of
+     three-word lines. Those two needs fix the split, and they fix the display
+     size with it: ~18 characters a line is the point where this headline reads
+     as three lines of sentence rather than four lines of column. */
+  .pse-hero .pse-display { font-size: clamp(2.25rem, 1.5rem + 2.4vw, 3.25rem); }
+}
+
+/* ── The hero's datum ─────────────────────────────────────────────────────
+ * A faint engineering grid behind the hero only, masked so it resolves out at
+ * the edges rather than stopping at a line. It costs a percent or two of white
+ * and it is the cheapest way to say "drawn instrument" rather than "marketing
+ * page" — the same move every instrumented product surface makes. It is one
+ * layer, it never moves, and it is behind everything.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-hero::before {
+  content: '';
+  position: absolute;
+  /* The shell's own box, never wider: a bleed of the gutter here would push the
+     document 20–32px past the viewport and give the page a horizontal scroll. */
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(to right, var(--pse-rule-2) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pse-rule-2) 1px, transparent 1px);
+  background-size: 68px 68px;
+  -webkit-mask-image: radial-gradient(120% 92% at 62% 18%, #000 0%, rgba(0, 0, 0, 0.35) 56%, transparent 78%);
+  mask-image: radial-gradient(120% 92% at 62% 18%, #000 0%, rgba(0, 0, 0, 0.35) 56%, transparent 78%);
+}
+
+.pse-hero > * { position: relative; z-index: 1; }
+
+@media (max-width: 767px) {
+  .pse-hero::before { background-size: 46px 46px; opacity: 0.4; }
+}
+
+/* ── Disclosure animation ─────────────────────────────────────────────────
+ * The FAQ answer is revealed rather than swapped, and the rule the question sits
+ * on brightens while it is open, so the row states its own state.
+ * ───────────────────────────────────────────────────────────────────────── */
+@keyframes pse-faq-open {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-faq-a { animation: pse-faq-open 200ms var(--pse-ease); }
+}
+
+.pse-faq-item[data-open='true'] .pse-faq-q { background: var(--pse-inset); }
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+ * Every entrance here is decorative; none of it carries information that is not
+ * already in the final state. So when a reader asks for less motion, the page is
+ * simply already finished.
+ * ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .pse-app,
+  .pse-app-rail-cell,
+  .pse-equip-cell,
+  .pse-equip-mast,
+  .pse-equip-dim,
+  .pse-signature-line,
+  .pse-signature-session,
+  .pse-floatcard { transition: none; }
+}

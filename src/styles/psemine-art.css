@@ -276,7 +276,7 @@
 
 .pse-app-bar .pse-chip { margin-left: auto; font-size: 0.625rem; letter-spacing: 0.1em; }
 
-.pse-chip[data-tone='specimen'] { color: var(--pse-ink-2); border-color: var(--pse-rule); }
+.pse-chip[data-tone='scenario'] { color: var(--pse-ink-2); border-color: var(--pse-rule); }
 
 .pse-app-body { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
 

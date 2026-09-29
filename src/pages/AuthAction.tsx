@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   applyActionCode,
   confirmPasswordReset,
   verifyPasswordResetCode
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
-import MainLayout from '../components/layout/MainLayout';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  hasPSE_MineAccess,
+  hasPulseEarnAccess,
+  resolveHomeRoute,
+} from '../engines/product/productRouting';
 import { Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
@@ -15,6 +20,7 @@ import toast from 'react-hot-toast';
 const AuthAction: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { userData } = useAuth();
   const mode = searchParams.get('mode');
   const actionCode = searchParams.get('oobCode');
 
@@ -22,6 +28,20 @@ const AuthAction: React.FC = () => {
   const [errorMessage, setError] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * WHERE THIS LANDS IS DECIDED BY ENTITLEMENT, NOT BY WHICH PRODUCT SENT THE
+   * EMAIL.
+   *
+   * Both products share this one Firebase action URL, so a PSEmine verification
+   * used to finish on a PulseEarn-branded page and then bounce its owner into the
+   * PulseEarn dashboard. One resolver now decides the destination, and the copy
+   * names no product it cannot verify.
+   */
+  const home = resolveHomeRoute(userData);
+  const isPseOnly = hasPSE_MineAccess(userData) && !hasPulseEarnAccess(userData);
+  const productLabel = isPseOnly ? 'PSEmine' : hasPulseEarnAccess(userData) ? 'PulseEarn' : null;
+  const destination = home ?? '/login';
 
   useEffect(() => {
     if (!mode || !actionCode) {
@@ -90,7 +110,10 @@ const AuthAction: React.FC = () => {
   };
 
   return (
-    <MainLayout>
+    /* A SHARED, UNBRANDED SURFACE. This route is upstream identity plumbing that
+       both products borrow, so it renders no product chrome: a PSEmine account
+       opening a verification link must not be shown PulseEarn navigation. */
+    <div className="min-h-screen bg-background">
       <div className="min-h-screen flex items-center justify-center px-6 py-20 relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
            <div className="absolute top-1/4 right-1/4 w-[35rem] h-[30rem] bg-primary/10 rounded-full blur-[160px]" />
@@ -122,15 +145,24 @@ const AuthAction: React.FC = () => {
                     {mode === 'verifyEmail' ? 'Verification Complete' : 'Password Reset'}
                   </h1>
                   <p className="text-text-secondary text-sm font-medium">
-                    Your request has been successfully processed by the PulseEarn node.
+                    {mode === 'verifyEmail'
+                      ? 'Your email address is verified. Continue to your account to finish setting it up.'
+                      : 'Your password has been updated. Sign in with your new password to continue.'}
                   </p>
                 </div>
                 <Button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(destination, { replace: true })}
                   className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold"
                 >
-                  Continue to Login
+                  {productLabel ? `Continue to ${productLabel}` : 'Continue'}
                 </Button>
+                {!productLabel && (
+                  <p className="text-xs text-text-tertiary">
+                    <Link to="/mine/login" className="underline">PSEmine sign in</Link>
+                    {' · '}
+                    <Link to="/login" className="underline">PulseEarn sign in</Link>
+                  </p>
+                )}
               </div>
             )}
 
@@ -181,11 +213,11 @@ const AuthAction: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-4">
                   <Button
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate(destination, { replace: true })}
                     variant="outline"
                     className="w-full py-4 rounded-xl text-xs uppercase tracking-widest font-bold"
                   >
-                    Back to Login
+                    {productLabel ? `Back to ${productLabel}` : 'Back to sign in'}
                   </Button>
                   <button
                     onClick={() => navigate('/support')}
@@ -199,7 +231,7 @@ const AuthAction: React.FC = () => {
           </div>
         </motion.div>
       </div>
-    </MainLayout>
+    </div>
   );
 };
 

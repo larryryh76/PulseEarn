@@ -455,6 +455,17 @@
   overscroll-behavior-x: contain;
 }
 
+/* A LEDGER IS A TABLE, NOT A STACK OF CARDS.
+ *
+ * The operations console and the account registers carry up to seven columns
+ * (case, reason, date, hash, amount, destination, actions). Below 768px those
+ * columns would otherwise be compressed into an unreadable strip. Instead the
+ * ledger keeps a working minimum column geometry and scrolls inside its own
+ * `.pse-ledger-wrap`, so the page itself never scrolls sideways. */
+@media (max-width: 767px) {
+  .pse-ledger { min-width: 620px; }
+}
+
 .pse-ledger {
   width: 100%;
   border-collapse: collapse;

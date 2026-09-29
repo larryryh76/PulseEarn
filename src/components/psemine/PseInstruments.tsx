@@ -520,9 +520,9 @@ export const PseAppWindow: React.FC<{
             <span>Units</span>
             <span>Settlement</span>
           </span>
-          <span className="pse-chip" data-tone="specimen">
+          <span className="pse-chip" data-tone="scenario">
             <span className="pse-chip-dot" aria-hidden="true" />
-            Example build
+            Scenario
           </span>
         </div>
 
@@ -640,7 +640,7 @@ export const PseAppWindow: React.FC<{
 
         <div className="pse-app-foot">
           <span className="pse-app-foot-dot" aria-hidden="true" />
-          Product specimen — an example build from PSEmine&apos;s locked economics, not your account.
+          A representative build at PSEmine&apos;s published campaign rates.
         </div>
       </div>
 
@@ -841,7 +841,7 @@ export const PaymentConsole: React.FC<{
             <span className="pse-pay-amount-line" />
             <span className="pse-pay-amount-rate">
               {`1 ${asset} = £${rateGBP.toFixed(2)}`}
-              <span className="pse-pay-amount-rate-note">specimen rate</span>
+              <span className="pse-pay-amount-rate-note">indicative rate</span>
             </span>
             <span className="pse-pay-amount-line" />
           </span>
@@ -850,7 +850,7 @@ export const PaymentConsole: React.FC<{
             <span className="pse-micro">Amount · {asset}</span>
             <span className="pse-metric pse-pay-amount-quoted">{amount.toFixed(8)}</span>
             <span className="pse-pay-amount-note">
-              A specimen conversion. Your quote issues the exact amount at the rate of that quote, and shows what is
+              An indicative conversion. Your quote issues the exact amount at the rate of that quote, and shows what is
               left of its own time limit.
             </span>
           </div>

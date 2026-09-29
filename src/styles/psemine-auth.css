@@ -204,6 +204,18 @@
  * ───────────────────────────────────────────────────────────────────────── */
 .pse-auth-col { position: relative; width: 100%; max-width: 392px; }
 
+/* DESKTOP COMPOSITION.
+ *
+ * The form column is the task and the brand panel is the composition. From
+ * 1024px the column is given enough measure that a 48px field, its plain label
+ * and its error line sit comfortably without the panel crowding them; the panel
+ * takes the remaining width. Below 1024px the panel folds into the compact brand
+ * strip above the form, so the column is already full-width there and this rule
+ * does not apply. */
+@media (min-width: 1024px) {
+  .pse-auth-col { max-width: 424px; }
+}
+
 @media (min-width: 768px) and (max-width: 1023px) {
   .pse-auth-col {
     max-width: 452px;

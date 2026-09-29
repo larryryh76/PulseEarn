@@ -59,6 +59,12 @@ import { PSEMineAuthProvider } from './contexts/PSEMineAuthContext'
 import { PSEMineProvider } from './contexts/PSEMineContext'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
+import {
+  hasPulseEarnAccess,
+  isOpsAccount,
+  resolveHomeRoute,
+  resolveNonPulseEarnRoute,
+} from './engines/product/productRouting'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
@@ -76,7 +82,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
+  const isOpsUser = isOpsAccount(userData);
+
+  // PRODUCT ISOLATION. Being signed in is not a PulseEarn entitlement. An account
+  // whose productAccess explicitly excludes PulseEarn (which is exactly what a
+  // PSEmine signup writes) is handed to its own product BEFORE any PulseEarn
+  // surface renders - including the daily-reward claim inside
+  // PulseEarnProductProvider. This runs ahead of the verification redirect so an
+  // unverified PSEmine account verifies inside PSEmine, not on /verify-email.
+  if (userData && !isOpsUser && !hasPulseEarnAccess(userData)) {
+    return <Navigate to={resolveNonPulseEarnRoute(userData)} replace />;
+  }
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
@@ -98,11 +114,12 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const role = userData?.role;
-  const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
+  const isOps = isOpsAccount(userData);
 
   if (!isOps) {
-    return <Navigate to="/dashboard" replace />;
+    // Whoever this is, send them to the product that actually owns them rather
+    // than assuming PulseEarn.
+    return <Navigate to={resolveHomeRoute(userData) ?? '/'} replace />;
   }
 
   return <>{children}</>;
@@ -112,8 +129,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    if (userData?.role === 'admin' || userData?.role === 'moderator') return <Navigate to="/admin" replace />;
-    return <Navigate to="/dashboard" replace />;
+    // ONE decision, from one place. An account with no product yet is left on the
+    // public page instead of being pushed into a product it does not belong to.
+    const home = resolveHomeRoute(userData);
+    if (home) return <Navigate to={home} replace />;
   }
   return <>{children}</>;
 };

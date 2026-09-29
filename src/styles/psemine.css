@@ -218,6 +218,15 @@
   background: var(--pse-canvas);
   color: var(--pse-ink);
   color-scheme: dark;
+
+  /* NO HORIZONTAL OVERFLOW, BY CONSTRUCTION.
+   * PSEmine is mobile-first, and the public plane carries full-bleed instruments
+   * and drawn art. `clip` (rather than `hidden`) contains anything that would
+   * otherwise push the page sideways WITHOUT creating a scroll container, so
+   * sticky headers and the fixed overlays are unaffected. Component-level
+   * overflow is still handled where it belongs: ledgers scroll inside
+   * `.pse-ledger-wrap`, and long identifiers wrap (see `.pse-fact-val`). */
+  overflow-x: clip;
 }
 
 /* A very low, very wide wash behind the whole page — one atmosphere, not a

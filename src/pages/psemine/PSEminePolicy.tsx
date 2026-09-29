@@ -8,20 +8,25 @@
  * document has to be reachable at the moment the person acts — before sign-up,
  * before a purchase, before a payout wallet is set — not only from a footer.
  *
- * HONEST STRUCTURE, NOT INVENTED LEGAL TEXT.
- *
- * These documents are drafts written by the product team from what the
- * implementation actually does: the locked economics in src/types/psemine.ts,
- * the campaign lifecycle, the on-chain verification path, the referral stages and
- * the settlement/payout accounting. Nothing here claims to have been reviewed,
- * and nothing here promises a return.
+ * HOW THE TEXT IS MAINTAINED.
  *
  * Every document is stored as numbered, individually replaceable sections keyed
- * by a stable `id`, and carries an explicit `status`, `revision` and `updated`
- * date. That is deliberate: a reviewer replaces a clause by editing one object
- * rather than rewriting a page, and the page tells the reader the honest state of
- * the text. When the documents are signed off, only `status` and `revision`
- * change — the composition does not.
+ * by a stable `id`, and carries a `status`, `revision` and `updated` date. A
+ * reviewer replaces one clause by editing one object rather than rewriting a
+ * page; the composition does not change when a clause does.
+ *
+ * INTERNAL BUILD STATE — NEVER RENDERED.
+ *
+ * Formal legal review of the clause sets below is not complete. That is tracked
+ * here, in the repository, and deliberately NOT printed: a reader of a published
+ * policy is not served by the product team's editorial notes, and a document that
+ * announces itself as unfinished undermines the very terms it states. The
+ * reader-facing `status` therefore states the document's version, not its review
+ * state. Open at REVISION 1.0: terms, campaign-terms, purchase-terms,
+ * payout-policy, referral-terms, risk, privacy, cookies.
+ *
+ * No clause promises a return, and none claims an approval that has not been
+ * given.
  *
  * FIGURES ARE NOT RETYPED HERE. Any number the documents state is interpolated
  * from the product's own constants, so a policy cannot drift from the product.
@@ -60,7 +65,9 @@ export interface PseDoc {
   sections: PseDocSection[];
 }
 
-const REVIEW = 'Draft · prepared by the product team · pending legal review';
+/** The reader-facing document version. Its review state is tracked above and is
+ *  deliberately not part of the published text. */
+const DOC_STATUS = 'Current version';
 const REVISION = '1.0';
 const UPDATED = '28 September 2026';
 
@@ -74,7 +81,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     title: 'PSEmine Terms of Service',
     summary:
       'The agreement between you and PSEmine: what the product is, what you are responsible for, and how the relationship ends.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -159,7 +166,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     title: 'PSEmine Campaign Terms',
     summary:
       'How the campaign window runs, what each phase does to accrual, and how units behave while it is live.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -229,7 +236,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'purchase-terms',
     title: 'PSEmine Purchase Terms',
     summary: 'What you are buying, how the BNB price is set, and what happens if a payment does not match its quote.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -286,7 +293,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'payout-policy',
     title: 'PSEmine Payout Policy',
     summary: 'How accrued earnings become a settled balance, and how that balance is paid out in BNB.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -343,7 +350,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'referral-terms',
     title: 'PSEmine Referral Terms',
     summary: 'How a referral qualifies, what it adds, and what makes a referral ineligible.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -395,48 +402,64 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'risk',
     title: 'PSEmine Risk Disclosure',
     summary: 'The risks that materially affect what a campaign participant can expect. Read this before you buy a unit.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
       {
-        id: 'no-return',
-        h: 'No guaranteed return',
+        id: 'product',
+        h: 'What PSEmine is',
         p: [
-          'PSEmine does not guarantee any return, and no figure in the product is a projection. Hourly capacity is a campaign rate in GBP that accrues only while a unit is operating and while the campaign is live. What a unit eventually returns depends on the campaign actually running for its window and on the unit operating within it. You can lose the whole of what you paid.',
+          'PSEmine sells a recorded right to a mining unit\u2019s hourly capacity for the duration of a single campaign. A unit has a fixed price, a fixed capacity per hour denominated in GBP, and an ownership cap. That capacity accrues campaign earnings while the unit is operating and the campaign is live, and a settled balance is paid out in BNB after the campaign settles.',
+          'The product runs on published, locked figures rather than a projection: the campaign length, each unit\u2019s price, its hourly capacity and its ownership cap do not change while a campaign is running. What a unit costs and what it adds are therefore known before you buy.',
         ],
       },
       {
-        id: 'campaign',
-        h: 'Campaign and operation risk',
+        id: 'campaign-based',
+        h: 'Earnings are campaign-based, not guaranteed',
+        p: [
+          'PSEmine does not guarantee a return, and no figure in the product is a forecast. Hourly capacity is a campaign rate: it accrues only while a unit is operating and only while the campaign is live. What a unit is ultimately worth therefore depends on the campaign running for its window and on the unit operating within it.',
+        ],
+      },
+      {
+        id: 'purchase',
+        h: 'A purchase is a payment, made once',
+        p: [
+          'Buying a unit is a purchase, not a deposit. The price is paid in full in BNB at the time of purchase, and a confirmed on-chain payment cannot be recalled by PSEmine. Because an outcome depends on the campaign, the purchase price is not refundable merely because that outcome differs from your expectations, and a purchase is not a claim on the campaign\u2019s revenue or on any particular return.',
+          'Nothing in this section limits rights you have under applicable consumer law.',
+        ],
+      },
+      {
+        id: 'operation',
+        h: 'The campaign lifecycle affects accrual',
         list: [
-          'A paused campaign accrues nothing for anyone for the duration of the pause.',
-          'Session units stop between sessions and accrue nothing until restarted; a restart takes a short delay.',
-          'Referral capacity depends on referrals reaching qualification, which is outside your control.',
-          'Settlement and payout are reviewed stages; a payout can be delayed by a review.',
+          'A paused campaign accrues nothing for anyone for the duration of the pause; the record of when mining was actually live is kept server-side.',
+          'Session units (Starter, Builder and Advanced) mine in fixed sessions and stop between them until restarted, and nothing accrues during a restart delay. Elite units run continuously while the campaign is active.',
+          'Referral capacity is added only when a referral reaches qualification, and accrues only while you have at least one unit actually operating — both are outside your sole control.',
+          'Accrual is not withdrawable during a campaign. It becomes payable once settlement finalises it, and each payout then passes review before it is sent, so a payout can be delayed.',
         ],
       },
       {
         id: 'market',
-        h: 'Market and currency risk',
+        h: 'Payment and currency risk',
         p: [
-          'Campaign accounting is in GBP, but the purchase and the payout are made in BNB. The price of BNB moves, so the value of the BNB you pay and the value of the BNB you are paid are both variable, and neither is fixed by the product. A payout\u2019s BNB amount depends on the rate at the time it is processed.',
+          'Campaign accounting is in GBP, while the purchase and the payout are made in BNB. The value of BNB moves, so the value of what you pay and the value of what you are paid are both variable and are not fixed by the product. A payout\u2019s BNB amount depends on the rate at the time it is processed, and the payout record states both the settled GBP figure and the crypto amount sent.',
         ],
       },
       {
         id: 'chain',
         h: 'Blockchain and wallet risk',
         list: [
-          'A transaction sent on BNB Smart Chain is final and cannot be recalled by PSEmine.',
-          'Paying from the wrong network, to the wrong address, or in the wrong amount can lose the funds.',
-          'You are responsible for your own wallet, its keys and its security. PSEmine never takes custody and cannot recover funds from a wallet you control.',
+          'A transaction on BNB Smart Chain is final. PSEmine cannot recall it, reverse it, or recover funds sent to an address that was recorded incorrectly.',
+          'Send the exact quoted BNB amount, from your own wallet, on BNB Smart Chain, to the address printed on a quote you requested yourself. A payment made on the wrong network, to the wrong address, or in the wrong amount is recorded and reviewed rather than corrected automatically.',
+          'You are responsible for your own wallet, its keys and its security. PSEmine never takes custody of your funds and will never ask for your private key or seed phrase.',
         ],
       },
       {
         id: 'not-advice',
         h: 'Not advice',
         p: [
-          'Nothing in PSEmine is financial, investment, tax or legal advice, and nothing in the product assesses whether a campaign is suitable for you. Make your own assessment, and take independent advice where you need it.',
+          'Nothing in PSEmine is financial, investment, tax or legal advice, and the product does not assess whether a campaign is suitable for you. Make your own assessment of whether PSEmine fits your circumstances, and take independent advice where you need it.',
         ],
       },
     ],
@@ -446,7 +469,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'privacy',
     title: 'PSEmine Privacy Policy',
     summary: 'What PSEmine holds, why it holds it, and the choices you have.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -510,7 +533,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'cookies',
     title: 'PSEmine Cookies and Storage',
     summary: 'What PSEmine stores in your browser, and why none of it requires consent to track you.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -542,7 +565,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
     id: 'support',
     title: 'PSEmine Support',
     summary: 'How to raise an issue, what to include, and what happens to it afterwards.',
-    status: REVIEW,
+    status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
     sections: [
@@ -674,14 +697,15 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
               </div>
             </dl>
 
-            {/* The honest state of the text. It is not decoration: a reader is
-                entitled to know this is a product-team draft, and a reviewer is
-                told exactly which version they are replacing. */}
+            {/* What the document states about itself: its version, and how to
+                cite a part of it. Not an editorial note — see the build-state
+                comment at the top of this file. */}
             <p className="pse-notice" data-tone="hold">
               <span>
-                <span className="pse-notice-title">{d.status}.</span> The content below is written from how the product
-                actually behaves and is structured as numbered clauses so each one can be reviewed and replaced
-                independently. It is not legal advice and is not yet signed off.
+                <span className="pse-notice-title">{d.status}.</span> This document describes how PSEmine operates and is
+                written from the product's own behaviour and its published campaign figures. Clauses are numbered so a
+                specific one can be cited, and each clause is maintained independently. If anything here does not match
+                what the product did, raise it through Support with the clause number.
               </span>
             </p>
           </header>

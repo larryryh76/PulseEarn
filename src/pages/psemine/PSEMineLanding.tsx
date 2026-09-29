@@ -276,8 +276,15 @@ const DocLine: React.FC<{ label: string; docs: Array<'campaign-terms' | 'purchas
 }) => (
   <p className="pse-docline">
     <span className="pse-docline-label">{label}</span>
+    {/* Adjacent, separately reachable document links rather than a link embedded
+        mid-sentence, so each one carries a real touch target on the small screens
+        this product is designed for. */}
     {docs.map(id => (
-      <Link key={id} to={PSE_DOC_PATH[id]} className="pse-link pse-docline-link">
+      <Link
+        key={id}
+        to={PSE_DOC_PATH[id]}
+        className="pse-link pse-docline-link inline-flex min-h-[44px] items-center"
+      >
         {PSE_DOC_LABEL[id]}
       </Link>
     ))}
@@ -737,7 +744,10 @@ export const PSEMineLanding: React.FC = () => {
           <div className="pse-hero-cta mt-8">
             <CreateAccount />
             <a href="#how" className="pse-btn pse-btn--secondary pse-btn--lg">How it works</a>
-            <a href="#tools" className="pse-link pse-hero-link">See the four units</a>
+            {/* A standalone navigation action beside the primary CTA, so it keeps a
+                real 44px touch target on the small screens this product is built
+                for rather than the inline-prose exception. */}
+            <a href="#tools" className="pse-link pse-hero-link inline-flex min-h-[44px] items-center">See the four units</a>
           </div>
 
           {/* The product at a glance, in the product's own terms — the four
@@ -961,8 +971,9 @@ export const PSEMineLanding: React.FC = () => {
               </dl>
 
               <p className="pse-quote-note">
-                The specimen beside you illustrates the flow; it is not a live quote. Prices, rates and ownership limits
-                are locked, but the BNB amount of any purchase is issued per quote, and expires with it.
+                The purchase flow beside you shows how a quote works. Prices, rates and ownership limits are locked for
+                the campaign, but the BNB amount of any purchase is issued per quote and expires with it — your own quote
+                states the exact amount you would send.
               </p>
 
               <DocLine label="Governs a purchase" docs={['purchase-terms', 'campaign-terms']} />
@@ -1100,7 +1111,7 @@ export const PSEMineLanding: React.FC = () => {
                   campaign rather than at a route a signed-out reader cannot
                   open. It is a text link, not a third button: three equally
                   weighted controls are not a hierarchy. */}
-              <a href="#campaign" className="pse-link">Read the campaign guide</a>
+              <a href="#campaign" className="pse-link inline-flex min-h-[44px] items-center">Read the campaign guide</a>
             </div>
           </Reveal>
         </div>

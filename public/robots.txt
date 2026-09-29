@@ -1,6 +1,49 @@
+# PulseEarn / PSEmine
+#
+# POLICY
+#   Public and indexable: the marketing home, the public product page
+#   (/mine) and the public product documents. Those are listed in sitemap.xml.
+#   Not indexable: the operations console, the authenticated application, and
+#   the PSEmine authentication family and console.
+#
+# IMPORTANT: robots.txt rules are PREFIX matches, not exact matches. Rules here
+# deliberately avoid bare prefixes that would also match a public page:
+#   `Disallow: /me`      would also block `/mine`      -> not used
+#   `Disallow: /support` would also block `/support-policy` -> not used
+# Those two routes are session-gated application routes; they render the app
+# shell and are not linked from any public page.
+
 User-agent: *
 Allow: /
+
+# Operations surface and API.
 Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://pulseearn.online/sitemap_index.xml
+# Authenticated application routes.
+Disallow: /dashboard
+Disallow: /tasks
+Disallow: /offerwalls
+Disallow: /predictions
+Disallow: /referrals
+Disallow: /wallet
+Disallow: /notifications
+Disallow: /verify-email
+Disallow: /auth/action
+
+# PSEmine console (the authenticated product).
+Disallow: /mine/dashboard
+Disallow: /mine/tools
+Disallow: /mine/wallet
+Disallow: /mine/referrals
+Disallow: /mine/activity
+Disallow: /mine/me
+Disallow: /mine/guide
+
+# PSEmine authentication family.
+Disallow: /mine/login
+Disallow: /mine/signup
+Disallow: /mine/forgot-password
+Disallow: /mine/verify-email
+
+Sitemap: https://www.pulseearn.online/sitemap_index.xml

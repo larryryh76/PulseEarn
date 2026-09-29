@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { resolveHomeRoute } from '../engines/product/productRouting';
 import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -69,7 +70,10 @@ const VerifyEmail: React.FC = () => {
       await auth.currentUser?.reload();
       if (auth.currentUser?.emailVerified) {
         toast.success('Email verified successfully!');
-        navigate('/dashboard');
+        // Product-aware: a PSEmine account continues into PSEmine. The PulseEarn
+        // guard already routes a PSEmine-only account to /mine/verify-email, so
+        // this is the fallback for an account that reaches here directly.
+        navigate(resolveHomeRoute(userData) ?? '/');
       } else {
         toast.error('Still pending verification.');
       }

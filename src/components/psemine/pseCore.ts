@@ -359,10 +359,103 @@ export function useEscapeKey(active: boolean, onEscape: () => void) {
  */
 const PSE_FAVICON = '/psemine-mark.svg';
 
-export function usePseDocumentTitle(title?: string) {
+/* ── Search discovery ─────────────────────────────────────────────────────
+ *
+ * WHY THIS LIVES HERE. The app is one static index.html behind a single-page
+ * bundle, so every route initially serves PULSEEARN's title, description and —
+ * critically — its canonical `<link rel="canonical" href="https://pulseearn.online">`.
+ * A crawler rendering /mine therefore saw the PulseEarn home page's metadata and
+ * a canonical pointing back at the homepage, which is exactly the signal that
+ * de-indexes a URL as a duplicate. PSEmine routes now own their own title,
+ * description, canonical and robots directive while they are mounted, and
+ * restore the previous values on unmount.
+ *
+ * INDEXING POLICY — a deliberate product decision, not an oversight:
+ *   indexable      the public product pages: /mine and the product documents.
+ *   NOT indexable  the authentication family and the authenticated console.
+ *                  Those are per-account surfaces and must never become public
+ *                  search content, so they carry `noindex, nofollow`.
+ *
+ * A `robots.txt` disallow alone is NOT sufficient here, because a disallowed URL
+ * cannot be crawled and its noindex can therefore never be read.
+ */
+/**
+ * THE CANONICAL ORIGIN — measured, not assumed.
+ *
+ * Production serves the site on the `www` host and answers the bare host with a
+ * 308 redirect:
+ *
+ *   GET https://pulseearn.online          -> 308  location: https://www.pulseearn.online/
+ *   GET https://www.pulseearn.online/     -> 200
+ *
+ * A canonical pointing at the bare host therefore points at a redirect, which is
+ * not a canonical at all — it is the page telling Google "the real version of me
+ * is elsewhere", and elsewhere is a 308. Every PSEmine URL is now emitted on the
+ * host that actually answers 200.
+ */
+export const SITE_ORIGIN = 'https://www.pulseearn.online';
+
+const PSE_LANDING_TITLE = 'PSEmine — 90-Day Mining Campaign';
+const PSE_LANDING_DESCRIPTION =
+  'PSEmine is a 90-day campaign mining product. Review the campaign terms, the fixed tool prices and hourly capacity, and how a purchase is verified on-chain and settled in BNB.';
+const PSE_DOC_DESCRIPTION =
+  'PSEmine product documentation: the terms, policies and risk disclosure that govern the 90-day campaign mining product.';
+
+/** The public, indexable PSEmine paths. Anything else under /mine is private. */
+const PSE_INDEXABLE_PATHS = new Set([
+  '/mine',
+  '/mine/terms',
+  '/mine/privacy',
+  '/mine/cookies',
+  '/mine/campaign-terms',
+  '/mine/purchase-terms',
+  '/mine/payout-policy',
+  '/mine/referral-terms',
+  '/mine/risk',
+  '/mine/support',
+]);
+
+/** Writes (or replaces) a meta tag; returns a function that restores it. */
+function setMeta(attr: 'name' | 'property', key: string, content: string) {
+  const existing = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+  const created = !existing;
+  const el = existing ?? document.createElement('meta');
+  if (created) { el.setAttribute(attr, key); document.head.appendChild(el); }
+  const previous = existing?.getAttribute('content') ?? null;
+  el.setAttribute('content', content);
+  return () => {
+    if (created) el.remove();
+    else if (previous !== null) el.setAttribute('content', previous);
+    else el.remove();
+  };
+}
+
+/** Writes (or replaces) the canonical link; returns a function that restores it. */
+function setCanonical(href: string) {
+  const existing = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  const created = !existing;
+  const link = existing ?? document.createElement('link');
+  if (created) { link.setAttribute('rel', 'canonical'); document.head.appendChild(link); }
+  const previous = existing?.getAttribute('href') ?? null;
+  link.setAttribute('href', href);
+  return () => {
+    if (created) link.remove();
+    else if (previous !== null) link.setAttribute('href', previous);
+  };
+}
+
+export function usePseDocumentTitle(title?: string, description?: string) {
   React.useEffect(() => {
     if (!title) return;
-    const fullTitle = `${title} · PSEmine`;
+
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
+    const isLanding = path === '/mine';
+    const indexable = PSE_INDEXABLE_PATHS.has(path);
+
+    const fullTitle = isLanding ? PSE_LANDING_TITLE : `${title} · PSEmine`;
+    const desc = description ?? (isLanding ? PSE_LANDING_DESCRIPTION : indexable ? PSE_DOC_DESCRIPTION : undefined);
+    const canonical = `${SITE_ORIGIN}${path}`;
+
     const previousTitle = document.title;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     const previousHref = icon?.getAttribute('href') ?? null;
@@ -374,9 +467,23 @@ export function usePseDocumentTitle(title?: string) {
       icon.setAttribute('type', 'image/svg+xml');
     }
 
+    const restores: Array<() => void> = [setCanonical(canonical)];
+    restores.push(setMeta('name', 'robots', indexable ? 'index, follow' : 'noindex, nofollow'));
+    restores.push(setMeta('property', 'og:type', 'website'));
+    restores.push(setMeta('property', 'og:title', fullTitle));
+    restores.push(setMeta('property', 'og:url', canonical));
+    restores.push(setMeta('name', 'twitter:title', fullTitle));
+    restores.push(setMeta('name', 'twitter:url', canonical));
+    if (desc) {
+      restores.push(setMeta('name', 'description', desc));
+      restores.push(setMeta('property', 'og:description', desc));
+      restores.push(setMeta('name', 'twitter:description', desc));
+    }
+
     return () => {
       if (document.title === fullTitle) document.title = previousTitle;
       if (swappedIcon && icon && previousHref) icon.setAttribute('href', previousHref);
+      for (let i = restores.length - 1; i >= 0; i -= 1) restores[i]();
     };
-  }, [title]);
+  }, [title, description]);
 }

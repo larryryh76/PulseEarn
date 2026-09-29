@@ -67,7 +67,9 @@
     content: '';
     position: absolute;
     inset: 2.25rem;
-    border: 1px solid var(--pse-rule-2);
+    /* At 7.5% this frame was invisible on the product's dark surface, which is
+       why the panel read as undrawn rather than as restrained. */
+    border: 1px solid var(--pse-rule);
     border-radius: var(--pse-r-lg);
   }
 
@@ -108,7 +110,7 @@
     position: absolute;
     right: -4.5rem;
     bottom: -3.5rem;
-    opacity: 0.05;
+    opacity: 0.085;
     color: var(--pse-ink);
     pointer-events: none;
   }
@@ -151,6 +153,42 @@
     letter-spacing: 0.11em;
     text-transform: uppercase;
     color: var(--pse-ink-3);
+  }
+
+  /* The legend under the lockup. The panel measured 2.5% content coverage in a
+   * 928×839 area, so the space it was given was never earning itself; these are
+   * published campaign facts, set quietly, never anything about an account. */
+  .pse-auth-panel-legend {
+    display: grid;
+    gap: 1px;
+    width: min(21rem, 100%);
+    border-radius: var(--pse-r-sm);
+    overflow: hidden;
+    background: var(--pse-rule-2);
+  }
+
+  .pse-auth-panel-legend-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--pse-surface);
+  }
+
+  .pse-auth-panel-legend-key {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--pse-ink-3);
+  }
+
+  .pse-auth-panel-legend-val {
+    font-family: var(--pse-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    letter-spacing: -0.012em;
+    color: var(--pse-ink);
+    white-space: nowrap;
   }
 
   .pse-auth-main { grid-template-columns: minmax(0, 1fr) minmax(0, 512px); }

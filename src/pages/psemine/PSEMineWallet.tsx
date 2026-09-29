@@ -7,8 +7,8 @@ import {
   campaignStatusView, fmtDateTime, gbp, gbpHour, payoutStatusView, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseField, PseInput, PseLoading,
-  PseNotice, PsePage, PseRow, PseSection, PseTable,
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseField, PseInput,
+  PseLoading, PseNotice, PsePage, PseRow, PseSection, PseTable,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
@@ -87,14 +87,14 @@ export const PSEMineWallet: React.FC = () => {
 
   if (loading && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseLoading label="Loading your wallet" />
       </div>
     );
   }
   if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
@@ -106,33 +106,35 @@ export const PSEMineWallet: React.FC = () => {
       objective="Campaign earnings are denominated in GBP and paid in BNB after settlement, to the payout wallet configured here."
       actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <PseSection title="Campaign and balances" meta={`Campaign status: ${campaignView.label}`}>
-        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-          {[
-            ['Accrued (campaign)', gbp(user.accruedGBP)],
-            ['Settlement-available', availableStr],
-            ['Total capacity', gbpHour(user.totalCapacityGBPPerHour ?? 0)],
-            ['Tool capacity', gbpHour(user.toolCapacityGBPPerHour ?? 0)],
-            ['Referral capacity', gbpHour(user.referralCapacityGBPPerHour ?? 0)],
-            ['Payout minimum', gbp(PAYOUT_REQUEST_MIN_GBP)],
-            ['Payout network', `${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} (chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID})`],
-          ].map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-              <dt className="text-sm text-text-secondary">{k}</dt>
-              <dd className="text-sm text-text-primary">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="text-xs text-text-tertiary">
+      <PseSection title="Campaign and balances" meta={`Campaign ${campaignView.label.toLowerCase()}`}>
+        <PseFacts cols={2}>
+          <PseFact label="Accrued (campaign)" value={gbp(user.accruedGBP)} />
+          <PseFact label="Settlement-available" value={availableStr} />
+          <PseFact label="Total capacity" value={gbpHour(user.totalCapacityGBPPerHour ?? 0)} />
+          <PseFact label="Tool capacity" value={gbpHour(user.toolCapacityGBPPerHour ?? 0)} />
+          <PseFact label="Referral capacity" value={gbpHour(user.referralCapacityGBPPerHour ?? 0)} />
+          <PseFact label="Payout minimum" value={gbp(PAYOUT_REQUEST_MIN_GBP)} />
+          <PseFact label="Payout network" value={`${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}`} text />
+        </PseFacts>
+        <p className="pse-block-note">
           {campaignView.detail} Accrued earnings are not withdrawable until the backend finalises settlement and reports
           a settlement-available figure.
         </p>
       </PseSection>
 
       <PseSection title="Connected wallet" meta={walletChainId ? `chain ${walletChainId}` : 'chain unread'}>
-        <p className="text-sm text-text-secondary">
+        <PseFacts cols={1}>
+          <PseFact
+            label="Connected in this browser"
+            value={connectedWallet || 'None'}
+            text={!connectedWallet}
+          />
+          <PseFact label="Payout wallet" value={payoutWallet || 'Not set'} text={!payoutWallet} />
+          <PseFact label="Provider" value={walletName || '—'} text />
+        </PseFacts>
+        <p className="pse-block-note">
           {connectedWallet
-            ? <>Connected in this browser: <span className="font-mono text-xs">{connectedWallet}</span>{walletName ? ` (${walletName})` : ''}</>
+            ? 'This wallet signs purchase payments in this browser. It is not the payout wallet.'
             : 'No wallet is connected in this browser. A connected wallet is required to sign a purchase payment.'}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -159,12 +161,8 @@ export const PSEMineWallet: React.FC = () => {
             No wallet detected. Open PSEmine in your wallet&apos;s browser (Trust, MetaMask) or install an extension.
           </PseNotice>
         )}
-        <p className="text-sm text-text-secondary">
-          Payout wallet (where settlement is paid):{' '}
-          {payoutWallet ? <span className="font-mono text-xs">{payoutWallet}</span> : 'not set'}
-        </p>
-        <p className="text-xs text-text-tertiary">
-          The payment wallet and the payout wallet are different things: payments are sent to the locked campaign
+        <p className="pse-block-note">
+          The payment wallet and the payout wallet are different things: payments are sent to the campaign&apos;s locked
           receiving address, payouts are sent to the payout wallet you configure here.
         </p>
       </PseSection>
@@ -215,7 +213,7 @@ export const PSEMineWallet: React.FC = () => {
         meta={
           <span>
             {withdrawals.length} record{withdrawals.length === 1 ? '' : 's'} ·{' '}
-            <button type="button" className="underline" onClick={() => void refreshFeed('withdrawals')}>Refresh</button>
+            <button type="button" className="pse-meta-action" onClick={() => void refreshFeed('withdrawals')}>Refresh</button>
           </span>
         }
       >
@@ -223,9 +221,16 @@ export const PSEMineWallet: React.FC = () => {
           <PseNotice tone="attention">The payout history could not be refreshed.</PseNotice>
         )}
         {withdrawals.length === 0 ? (
-          <PseEmptyNote>No payout requests yet.</PseEmptyNote>
+          <PseEmptyNote glyph="payout" title="No payout requests yet">
+            Payouts open once the campaign reaches settlement and the backend finalises your balance. When a request is
+            made it appears here with its status and, once paid, its transaction on BNB Smart Chain.
+          </PseEmptyNote>
         ) : (
-          <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Transaction']}>
+          <PseTable
+            head={['Requested', 'Status', 'Amount', 'Destination', 'Transaction']}
+            numeric={[2]}
+            caption="Payout requests on this account with their recorded status and transaction"
+          >
             {withdrawals.map(w => {
               const view = payoutStatusView(w.status);
               // The backend has reported both spellings across versions; tolerate
@@ -240,11 +245,11 @@ export const PSEMineWallet: React.FC = () => {
                 <PseRow key={w.id}>
                   <PseCell>{fmtDateTime(w.createdAt)}</PseCell>
                   <PseCell>{view.label}</PseCell>
-                  <PseCell>{amount !== null ? gbp(amount) : '—'}</PseCell>
+                  <PseCell numeric>{amount !== null ? gbp(amount) : '—'}</PseCell>
                   <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
                   <PseCell mono>
                     {tx ? (
-                      <a href={`https://bscscan.com/tx/${tx}`} target="_blank" rel="noreferrer" className="underline">
+                      <a href={`https://bscscan.com/tx/${tx}`} target="_blank" rel="noreferrer" className="pse-link">
                         {shortHash(tx)}
                       </a>
                     ) : '—'}
@@ -257,7 +262,7 @@ export const PSEMineWallet: React.FC = () => {
       </PseSection>
 
       <PseSection title="How settlement works">
-        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+        <ul className="pse-notes">
           <li>Accrual continues while the campaign is active and stops when the campaign ends.</li>
           <li>After settlement finalises your balance, a payout request becomes available for the settled amount.</li>
           <li>Requests are reviewed before payment; an approved payout is sent in BNB to your configured payout wallet.</li>
@@ -303,10 +308,11 @@ function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, 
         <PseNotice tone="attention">Set a payout wallet above before requesting your settlement.</PseNotice>
       ) : (
         <>
-          <p className="text-sm text-text-secondary">
-            Request up to {gbp(availableGBP)} from your settlement-available balance, paid to your configured payout
-            wallet{payoutWallet ? ` (${shortAddr(payoutWallet)})` : ''}.
-          </p>
+        <p className="pse-block-note">
+          Request up to {gbp(availableGBP)} from your settlement-available balance, paid to your configured payout
+          wallet{payoutWallet ? ` (${shortAddr(payoutWallet)})` : ''}. The requested amount stays denominated in GBP
+          until it is paid in BNB.
+        </p>
           <form
             onSubmit={async (e) => {
               e.preventDefault();

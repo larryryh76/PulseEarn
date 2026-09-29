@@ -316,8 +316,16 @@
   color: var(--pse-ink-3);
 }
 
+/* READING TEXT IS 400 (see the three-weight contract at the top of this file).
+ * These three classes carried no weight of their own, so body copy, the hero
+ * lede and the plate ledes inherited 500 — the interactive/label weight. The
+ * page was therefore set almost entirely in one weight and hierarchy rested on
+ * size alone, which is what makes a composition read as a template however good
+ * its scale is. Declaring the role here restores the contract: 400 reads, 500
+ * interacts and labels, 600 announces once. */
 .pse-lead {
   font-size: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  font-weight: 400;
   line-height: 1.55;
   letter-spacing: -0.005em;
   color: var(--pse-ink-2);
@@ -326,6 +334,7 @@
 
 .pse-body {
   font-size: 1rem;
+  font-weight: 400;
   line-height: 1.62;
   letter-spacing: -0.003em;
   color: var(--pse-ink-2);
@@ -1052,9 +1061,17 @@
 /* From tablet the phases run across the page, nodes on one line and connectors
    drawn horizontally between them. */
 @media (min-width: 768px) {
-  .pse-lifecycle-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 1rem; }
+  /* One equal column per phase, whatever the phase count is. A hard-coded five
+     columns was correct only for the five-phase campaign rail: the guide draws
+     four, and the fifth track left every phase narrower than its own label, so
+     the rail clipped its own text. */
+  .pse-lifecycle-rail {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0 1rem;
+  }
 
-  .pse-lifecycle-tab { padding: 1.85rem 0.6rem 0.4rem; }
+  .pse-lifecycle-tab { padding: 1.85rem 0.6rem 0.4rem; min-width: 0; }
   .pse-lifecycle-node { left: 0.6rem; top: 0; }
 
   .pse-lifecycle-tab:not(:last-child)::after {

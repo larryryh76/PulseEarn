@@ -1,0 +1,1544 @@
+/* ============================================================================
+ * PSEmine — the CONSOLE layer.
+ *
+ * The authenticated product surfaces: the shell chrome, page composition, the
+ * fact register, the ledger, empty states, dialogs, the notification sheet and
+ * the guide overlay.
+ *
+ * WHY THIS IS A SEPARATE LAYER. src/styles/psemine.css carries the product's
+ * tokens and the primitives the public surfaces are built from. This file adds
+ * only what the console needs beyond those, and it is loaded after psemine.css
+ * so a re-composition sits later in the cascade by construction rather than by
+ * specificity tricks.
+ *
+ * THE SAME LAWS AS THE PUBLIC SURFACES, because it is the same product:
+ *   • TOKENS ONLY. No colour is written here. The console follows the
+ *     application theme (see the `.pse` / `.dark .pse:not(.pse-plane)` rules in
+ *     psemine.css), so every value below resolves through --pse-* and the light
+ *     and dark consoles are the same drawing.
+ *   • ONE HAIRLINE. Structure comes from --pse-rule-2, never from a heavier
+ *     border. A ledger is separated by 1px rules, not by wrapping rows in cards.
+ *   • ELEVATION IS LUMINANCE, NOT SHADOW. Panels step up (canvas → surface →
+ *     surface-2); two lifts exist and nothing here invents a third.
+ *   • SPACE IS THE SEPARATOR. The campaign strip, the page head and each panel
+ *     are told apart by distance and by a surface step, not by a rule between
+ *     every pair.
+ *   • THE TABLE IS AN INSTRUMENT. Figures are tabular, right-aligned in numeric
+ *     columns and printed in the figure family, so a column can be scanned down
+ *     the page — which is the only reason a ledger is a table at all.
+ *
+ * DENSITY. The console is a working surface, so it runs a step tighter than the
+ * marketing page: 0.55–1.1rem of internal padding rather than 1.1rem everywhere,
+ * and a 0.9rem body step. Nothing here should read as a hero.
+ * ==========================================================================*/
+
+/* ── Shell ────────────────────────────────────────────────────────────────
+ * One column: bar, campaign strip, stage, foot. The stage grows, so a short
+ * page still puts the foot at the bottom of the viewport instead of floating it
+ * somewhere in the middle of the screen.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-console-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--pse-canvas);
+}
+
+.pse-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The console's one measure. 1120px rather than the page's 1180px: a console
+   reads better slightly tighter, and it keeps a ledger's numeric columns close
+   enough to compare without eye travel. */
+.pse-console-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 1.15rem var(--pse-gutter) 4rem;
+}
+
+/* ── Product bar ──────────────────────────────────────────────────────────
+ * The console's header. It is a bar, not a hero: brand, the sections, then the
+ * account controls. Below 960px the sections move into a sheet, because seven
+ * section names cannot be made to fit a phone by shrinking them.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--pse-canvas);
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem 1.25rem;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: var(--pse-gutter);
+  min-height: 56px;
+}
+
+.pse-bar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  color: var(--pse-ink);
+  text-decoration: none;
+}
+
+.pse-bar-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+}
+
+.pse-bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+/* ── Console navigation ───────────────────────────────────────────────────
+ * Text links on one line with a 2px indicator under the current one. No pill,
+ * no filled tab: at console density a filled chip competes with the figures
+ * below it, and the label is the only thing that needs to carry state.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-nav {
+  display: none;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.pse-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* 44px, not 40: the section names are the console's primary navigation and
+     they are tapped, not just read. */
+  min-height: 44px;
+  padding-inline: 0.65rem;
+  border-radius: var(--pse-r-xs);
+  color: var(--pse-ink-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-nav-link:hover { color: var(--pse-ink); background: var(--pse-inset); }
+
+/* The indicator, not a fill: the current section is stated once, quietly. */
+.pse-nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-nav-link[aria-current='page'] { color: var(--pse-ink); }
+.pse-nav-link[aria-current='page']::after { background: var(--pse-accent); }
+
+@media (min-width: 960px) {
+  .pse-nav { display: flex; margin-left: 0.5rem; }
+  .pse-nav-toggle { display: none; }
+}
+
+/* ── Icon control ─────────────────────────────────────────────────────────
+ * A 44px square for a single glyph: the notifications control, the mobile nav
+ * toggle, the sheet's close. The badge is a count of real unread records and
+ * nothing else.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--pse-r-xs);
+  background: none;
+  color: var(--pse-ink-2);
+  cursor: pointer;
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease), border-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-icon-btn:hover {
+  color: var(--pse-ink);
+  background: var(--pse-inset);
+  border-color: var(--pse-rule-2);
+}
+
+.pse-icon-btn-badge {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--pse-accent-solid);
+  color: var(--pse-on-accent);
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ── Campaign strip ───────────────────────────────────────────────────────
+ * The campaign's position, carried under the bar on every console route. It is
+ * a real instrument: the status the backend reports, the day inside the real
+ * window, the day rail drawn against that window, and the capacity the account
+ * actually holds. Nothing here is derived from a browser clock or estimated.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-strip {
+  position: sticky;
+  top: 56px;
+  z-index: 29;
+  background: var(--pse-band);
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-strip-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 0.5rem var(--pse-gutter);
+}
+
+.pse-strip-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-strip-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-strip-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink);
+}
+
+.pse-strip-rail {
+  position: relative;
+  flex: 1 1 120px;
+  min-width: 90px;
+  max-width: 260px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--pse-inset);
+  overflow: hidden;
+}
+
+.pse-strip-rail-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pse-w, 0%);
+  border-radius: 999px;
+  background: var(--pse-accent);
+  transition: width var(--pse-t-slow) var(--pse-ease);
+}
+
+.pse-strip-actions { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+
+/* ── Page head ────────────────────────────────────────────────────────────
+ * Title, one line stating the page's objective, then the page's own controls.
+ * The objective is the page's contract: it says what the surface is for, so the
+ * reader knows what to expect before reading any figure.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding-bottom: 1.05rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+@media (min-width: 768px) {
+  .pse-page-head { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
+}
+
+.pse-page-title {
+  font-size: 1.375rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.026em;
+  color: var(--pse-ink);
+}
+
+@media (min-width: 768px) {
+  .pse-page-title { font-size: 1.5rem; }
+}
+
+.pse-page-objective {
+  max-width: 68ch;
+  margin-top: 0.3rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* ── Panel ────────────────────────────────────────────────────────────────
+ * A console block: a lowercase term, an optional right-hand meta, then its
+ * content. The head is separated by a hairline, so a long page reads as a
+ * sequence of named registers rather than as a column of boxes.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-block { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.pse-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+/* A section heading must outrank the text it heads. The console used to set
+ * every heading at 11px mono caps — smaller than the 14px body under it — which
+ * is why every register carried the same weight and the page flattened into a
+ * wall of equally-labelled blocks. Headings are now sentence case at a size
+ * above body; the mono, letterspaced caps stay where they belong, on VALUES,
+ * states, chips and ledger columns, so the product's technical voice survives
+ * without letting labels outrank the content they label. */
+.pse-block-title {
+  font-family: var(--pse-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.014em;
+  text-transform: none;
+  color: var(--pse-ink);
+}
+
+.pse-block-meta {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-3);
+}
+
+.pse-block-note {
+  max-width: 74ch;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
+/* ── Fact register ────────────────────────────────────────────────────────
+ * Key/value pairs, in a grid whose cells are separated by the page's own
+ * hairline. This is the register that used to be an underlined <dl> on every
+ * console page: the values are now tabular and right-aligned in a column, so
+ * eight figures can be compared by scanning down rather than by reading across.
+ *
+ * Two columns from 720px, three where the caller asks for it.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-facts {
+  display: grid;
+  /* The track must be able to shrink below its content's min-content width.
+     Without this an implicit auto track grew to fit a 42-character wallet
+     address, the grid overflowed its column, and `overflow: hidden` then
+     CLIPPED the value on a 390px viewport instead of wrapping it. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+  overflow: hidden;
+}
+
+@media (min-width: 720px) {
+  .pse-facts--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pse-facts--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.pse-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--pse-surface-2);
+}
+
+.pse-fact-key {
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pse-ink-2);
+}
+
+.pse-fact-val {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex: none;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.875rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+  text-align: right;
+}
+
+/* A value that is a sentence (a wallet challenge, a next step) is language, not
+   a figure — it gets the interface family back and is allowed to wrap. */
+.pse-fact-val--text {
+  font-family: var(--pse-font);
+  font-size: 0.8125rem;
+  letter-spacing: -0.004em;
+  white-space: normal;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A hexadecimal address is one long token: let it break inside itself rather
+   than report a clipped string as if it were complete. */
+.pse-fact-val { min-width: 0; overflow-wrap: anywhere; }
+
+/* ── Ledger ───────────────────────────────────────────────────────────────
+ * The console's table. Column heads are printed in the data-label role, rows
+ * are separated by hairline rules, and numeric columns are tabular and
+ * right-aligned so the digits of one row line up under the digits of the last.
+ *
+ * It scrolls inside its own wrapper rather than pushing the page sideways, and
+ * only the first column wraps: a figure split across two lines is unreadable,
+ * while a tool name is not.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-ledger-wrap {
+  position: relative;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.pse-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--pse-ink);
+}
+
+.pse-ledger th {
+  padding: 0 0.9rem 0.45rem 0;
+  border-bottom: 1px solid var(--pse-rule);
+  text-align: left;
+  vertical-align: bottom;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-ledger td {
+  padding: 0.65rem 0.9rem 0.65rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+  vertical-align: top;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.pse-ledger th:last-child,
+.pse-ledger td:last-child { padding-right: 0; }
+
+/* The identifying column is the one that may wrap. */
+.pse-ledger td:first-child { white-space: normal; min-width: 9rem; }
+
+.pse-ledger tbody tr { transition: background-color var(--pse-t-fast) var(--pse-ease); }
+.pse-ledger tbody tr:hover { background: var(--pse-inset); }
+
+/* A figure. Tabular, right-aligned, in the figure family. */
+.pse-ledger .pse-num {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.012em;
+  text-align: right;
+  padding-right: 1.4rem;
+}
+
+.pse-ledger th.pse-num { text-align: right; }
+.pse-ledger th:last-child.pse-num,
+.pse-ledger td:last-child.pse-num { padding-right: 0; }
+
+/* A machine fact inside a cell: an address, a hash, a quote id. */
+.pse-ledger .pse-mono-cell {
+  font-family: var(--pse-mono);
+  font-size: 0.8125rem;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink-2);
+}
+
+.pse-ledger-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--pse-ink-3);
+  white-space: normal;
+}
+
+/* The row group's date, printed once above its rows. */
+.pse-ledger-day {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 1.05rem 0 0.3rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-ledger-day::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--pse-rule-2);
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────
+ * States the fact, gives it a reason and offers the one real next step. It is a
+ * mark and a rule, never an illustration: an empty collection is not a feature.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-empty {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: var(--pse-r-sm);
+  background: var(--pse-inset);
+  box-shadow: inset 0 0 0 1px var(--pse-rule-2);
+}
+
+.pse-empty-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+.pse-empty-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--pse-r-xs);
+  background: var(--pse-surface-2);
+  box-shadow: 0 0 0 1px var(--pse-rule-2);
+  color: var(--pse-ink-3);
+}
+
+.pse-empty-note {
+  max-width: 68ch;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-empty-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-top: 0.15rem; }
+
+/* One line, when the collection is empty and there is genuinely nothing to do
+   about it. Retained so a bare fact never has to be dressed as a state. */
+.pse-empty-note--bare {
+  padding-block: 0.6rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+}
+
+/* ── Danger control ───────────────────────────────────────────────────────
+ * The one destructive variant. It is an OUTLINE, not a filled red block: in a
+ * console where red also means "this figure is negative" and "this failed", a
+ * filled red button shouts at the same volume as the state it acts on.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--pse-danger) 42%, transparent);
+  color: var(--pse-danger);
+}
+
+.pse-btn--danger:hover {
+  background: color-mix(in srgb, var(--pse-danger) 10%, transparent);
+  border-color: var(--pse-danger);
+  box-shadow: none;
+}
+
+/* A text action that PERFORMS something rather than navigating (a refresh, a
+ * reveal). It carries the link role and it must also behave like one: laid out
+ * in the flow of the sentence around it, inheriting that sentence's type, with
+ * no button chrome. This is the difference between an interface and a set of
+ * boxes — a control in the middle of a line of text belongs in the line.
+ * ────────────────────────────────────────────────────────────────────────── */
+button.pse-link {
+  display: inline;
+  padding: 0 0 1px;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* A section's own control, sitting in the label row beside its name. Its hit
+   area is 44px; its footprint is the height of the text it sits next to, so the
+   register header stays a line rather than becoming a toolbar. */
+.pse-meta-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -0.85rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-meta-action:hover { color: var(--pse-ink); text-decoration: underline; }
+
+/* ── Pre-flight checks ────────────────────────────────────────────────────
+ * The conditions a payment has to satisfy before it can be signed, stated as a
+ * register rather than as a run of symbols. Each item carries a real state
+ * (satisfied / not satisfied yet), and the shape of the register is what makes
+ * a financial step readable at a glance instead of a paragraph to parse.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-checks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-checks-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pse-ink-2);
+}
+
+.pse-checks-item:last-child { border-bottom: 0; }
+
+.pse-checks-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 0.15rem;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--pse-rule);
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  line-height: 1;
+  color: var(--pse-ink-3);
+}
+
+.pse-checks-item[data-state='ok'] .pse-checks-mark {
+  color: var(--pse-good);
+  background: color-mix(in srgb, var(--pse-good) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-good) 40%, transparent);
+}
+
+.pse-checks-item[data-state='warn'] .pse-checks-mark {
+  color: var(--pse-warn);
+  background: color-mix(in srgb, var(--pse-warn) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pse-warn) 40%, transparent);
+}
+
+.pse-checks-item[data-state='warn'] { color: var(--pse-ink); }
+
+/* A select on the product's input surface. The native arrow is kept: a replaced
+   arrow is a control that lies about being a control, and on a phone the native
+   picker is the better picker. */
+.pse-input--select {
+  padding-right: 0.6rem;
+  appearance: auto;
+}
+
+/* ── Notes list ───────────────────────────────────────────────────────────
+ * A short list of rules or consequences — the things a reader has to know but
+ * that are not figures. Both the marker and the measure are controlled, so the
+ * list reads as part of the register above it rather than as loose prose.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-notes {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  list-style: disc;
+  max-width: 76ch;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+}
+
+.pse-notes li::marker { color: var(--pse-ink-3); }
+
+/* ── Scrim ────────────────────────────────────────────────────────────────
+ * One scrim for every overlay in the console (dialog, sheet, guide), so the
+ * three read as the same kind of interruption. Flat, never blurred: a blurred
+ * backdrop is glassmorphism, and it also makes the layer beneath unreadable
+ * exactly when the reader is trying to compare against it.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--pse-canvas) 72%, transparent);
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────────────
+ * A consequential action: what it is, what it affects, what it does, then the
+ * controls with the destructive one last. Never more than one dialog deep.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-dialog {
+  width: 100%;
+  max-width: 30rem;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.15rem;
+  border-radius: var(--pse-r);
+  background: var(--pse-surface-2);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+}
+
+.pse-dialog-title {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+  color: var(--pse-ink);
+}
+
+.pse-dialog-note { font-size: 0.875rem; line-height: 1.55; color: var(--pse-ink-2); }
+
+.pse-dialog-affected {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+}
+
+.pse-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+
+/* ── Sheet (notifications) ────────────────────────────────────────────────
+ * A right-hand panel over the console. It exists so the notification ledger can
+ * be read without leaving the page being worked on — which is the whole reason
+ * it is not a route.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 54;
+  background: color-mix(in srgb, var(--pse-canvas) 66%, transparent);
+}
+
+.pse-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(420px, 100%);
+  background: var(--pse-surface);
+  border-left: 1px solid var(--pse-rule-2);
+  box-shadow: -24px 0 60px -30px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-sheet { animation: pse-sheet-in 220ms var(--pse-ease); }
+  .pse-sheet-scrim { animation: pse-fade-in 180ms var(--pse-ease); }
+}
+
+@keyframes pse-sheet-in {
+  from { transform: translateX(14px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pse-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pse-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.7rem 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-sheet-body { overflow-y: auto; padding: 0.6rem 1.1rem 2rem; }
+
+.pse-sheet-row {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-sheet-row-title { font-size: 0.875rem; font-weight: 500; letter-spacing: -0.008em; color: var(--pse-ink); }
+.pse-sheet-row-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
+
+.pse-sheet-row-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.1rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-3);
+}
+
+/* ── Guide overlay ────────────────────────────────────────────────────────
+ * The guide is an application surface ON TOP of the product, not a page of
+ * documentation: a plate over the console, one concept at a time, one visual,
+ * a short explanation, and the stage rail stating where the reader is.
+ *
+ * Above 900px it is two columns — the rail, then the stage. Below that the rail
+ * becomes a progress line at the head of the plate and the plate itself becomes
+ * a full-height sheet, because a rail plus a stage on a phone is two scrolls
+ * fighting for one screen.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-guide-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--pse-canvas) 78%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pse-guide-scrim { animation: pse-fade-in 180ms var(--pse-ease); }
+}
+
+.pse-guide {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring), var(--pse-lift-2);
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .pse-guide {
+    width: min(1000px, 100% - 3rem);
+    height: min(800px, 100% - 4rem);
+    border-radius: var(--pse-r-lg);
+    box-shadow: var(--pse-ring), var(--pse-lift-2);
+  }
+}
+
+.pse-guide-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.7rem 0.7rem 1.15rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-guide-id { display: inline-flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.pse-guide-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.014em; color: var(--pse-ink); }
+
+.pse-guide-progress {
+  margin-left: auto;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+}
+
+.pse-guide-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 900px) {
+  .pse-guide-body { grid-template-columns: 244px minmax(0, 1fr); overflow: hidden; }
+}
+
+/* The rail: the eight concepts, with real completion state and no fake ticks. */
+.pse-guide-rail {
+  display: none;
+  margin: 0;
+  padding: 1.15rem;
+  list-style: none;
+  border-right: 1px solid var(--pse-rule-2);
+  background: var(--pse-band);
+  overflow-y: auto;
+}
+
+@media (min-width: 900px) {
+  .pse-guide-rail { display: block; }
+}
+
+.pse-guide-rail-item {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--pse-r-xs);
+  color: var(--pse-ink-2);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-guide-rail-item:hover { color: var(--pse-ink); background: var(--pse-inset); }
+
+.pse-guide-rail-item[aria-current='true'] { color: var(--pse-ink); background: var(--pse-inset); }
+
+.pse-guide-rail-num {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+}
+
+.pse-guide-rail-item[aria-current='true'] .pse-guide-rail-num { color: var(--pse-accent); }
+.pse-guide-rail-item[data-done='true'] .pse-guide-rail-num { color: var(--pse-good); }
+
+/* The stage: one concept, one visual, a short explanation, one action. */
+.pse-guide-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.15rem;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .pse-guide-stage { padding: 1.5rem 1.75rem; overflow-y: auto; }
+}
+
+/* THE VISUAL IS THE INSTRUMENT, NOT A FRAME AROUND IT.
+ * No well, no ring: the stage draws the product's own instrument, and several
+ * of them — the settlement statement, the tier roster, a fact register — bring
+ * their own surface. Framing those would be a panel inside a panel, which is
+ * how a product starts reading as a set of boxes instead of a surface; and the
+ * instruments that carry no chrome (the capacity gauge, the accrual and payment
+ * rails) are measurements, which need no frame to be legible.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-guide-visual {
+  min-width: 0;
+}
+
+.pse-guide-title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.22;
+  letter-spacing: -0.024em;
+  color: var(--pse-ink);
+  text-wrap: balance;
+}
+
+.pse-guide-lede {
+  max-width: 60ch;
+  font-size: 0.9375rem;
+  line-height: 1.58;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-guide-points {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 62ch;
+}
+
+.pse-guide-point {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+}
+
+.pse-guide-point-glyph {
+  padding-top: 0.15rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-guide-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.15rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-band);
+}
+
+.pse-guide-foot-note {
+  margin-right: auto;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  color: var(--pse-ink-3);
+}
+
+/* THE STAGE'S INSTRUMENTS, COMPACTED FOR THE PLATE.
+ *
+ * Inside the guide the campaign rail runs ACROSS at every width, including on a
+ * phone. The public page's vertical form is right for a page you are scrolling
+ * through, but here the rail is the stage's one visual: a four-step vertical
+ * rail measured 741px on a 390×844 screen, so the reader met the diagram and
+ * never reached the sentence that explains it. Four short phase names fit one
+ * line even at 390px, which is what makes the horizontal form the honest one
+ * here rather than a compromise.
+ *
+ * The rail keeps its real tab behaviour, its keyboard navigation and its
+ * connector animation; only the geometry changes.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-guide .pse-lifecycle-rail {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0 0.4rem;
+}
+
+.pse-guide .pse-lifecycle-tab {
+  padding: 1.6rem 0.2rem 0.3rem;
+  min-width: 0;
+}
+
+.pse-guide .pse-lifecycle-tab:last-child { padding-bottom: 0.3rem; }
+
+.pse-guide .pse-lifecycle-node { left: 0.15rem; top: 0; }
+
+.pse-guide .pse-lifecycle-tab:not(:last-child)::after {
+  left: calc(0.15rem + 16px);
+  top: 5px;
+  bottom: auto;
+  height: 1px;
+  width: calc(100% + 0.4rem - 16px - 0.15rem);
+  transform-origin: left center;
+}
+
+.pse-guide .pse-lifecycle-name { font-size: 0.8125rem; letter-spacing: -0.008em; }
+.pse-guide .pse-lifecycle-idx { font-size: 0.5625rem; letter-spacing: 0.08em; }
+
+.pse-guide .pse-lifecycle-panel {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.95rem;
+}
+
+.pse-guide .pse-lifecycle-panel-note { grid-column: auto; }
+
+/* The capacity instrument and the flow rail are already tight; they only need
+   the plate's smaller measure, not a different geometry. */
+.pse-guide .pse-gauge { gap: 0.9rem; }
+.pse-guide .pse-railflow-step { padding: 0 1.2rem 1.2rem 2.6rem; }
+
+/* The settlement statement, compacted for the plate.
+ *
+ * Its denomination side carries a note that says the same thing the stage's own
+ * lede says, and at the plate's width that repeated paragraph was setting the
+ * height of all four rows — measured at 717px, on a stage whose whole point is
+ * four lines. The note is dropped here because the sentence above the visual
+ * already states it; nothing is lost, and the instrument becomes readable in
+ * one look, which is what it is for. */
+.pse-guide .pse-statement { padding: 1rem; gap: 1rem; }
+.pse-guide .pse-statement-side-note { display: none; }
+.pse-guide .pse-statement-row { padding: 0.7rem 0; }
+
+/* A progress line for the rail below 900px, where the rail is not rendered. */
+.pse-guide-line {
+  display: block;
+  height: 2px;
+  background: var(--pse-inset);
+}
+
+.pse-guide-line-fill {
+  display: block;
+  height: 100%;
+  width: var(--pse-w, 0%);
+  background: var(--pse-accent);
+  transition: width var(--pse-t) var(--pse-ease);
+}
+
+@media (min-width: 900px) {
+  .pse-guide-line { display: none; }
+}
+
+/* A compact tier roster for the guide: four units, one datum, their rate and
+   their price. The elevation is the same drawing the family uses on the public
+   product page, at the size this plate can afford. */
+.pse-guide-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+  overflow: hidden;
+}
+
+@media (min-width: 560px) { .pse-guide-roster { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.pse-guide-roster-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.85rem 0.6rem;
+  background: var(--pse-surface-2);
+  text-align: center;
+}
+
+.pse-guide-roster-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink);
+}
+
+.pse-guide-roster-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink);
+}
+
+.pse-guide-roster-note {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+/* ── Verdict ──────────────────────────────────────────────────────────────
+ * The console's leading statement: the answer to "what is happening on this
+ * account right now", stated once, before any figure. Everything below it is
+ * detail; this is the sentence the whole page exists to deliver.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-verdict {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.15rem;
+  border-radius: var(--pse-r);
+  background: linear-gradient(180deg, var(--pse-surface-2) 0%, var(--pse-surface) 100%);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
+
+.pse-verdict-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+
+.pse-verdict-title {
+  font-size: 1.1875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.022em;
+  color: var(--pse-ink);
+}
+
+.pse-verdict-note {
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.58;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-verdict-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+/* ── Two-column console composition ───────────────────────────────────────
+ * The dominant relationship (equipment and referrals → capacity → accrual) on
+ * the left, at two thirds, with the supporting register beside it. Below 1024px
+ * it is one column: a console split in two at tablet width is two half-reads.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-split-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.15rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .pse-split-console { grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr); gap: 1.4rem; }
+}
+
+.pse-stack { display: flex; flex-direction: column; gap: 1.15rem; min-width: 0; }
+
+/* ── Console footer ───────────────────────────────────────────────────────
+ * The product's documents and the account, once, at the end of the product
+ * rather than repeated on every page.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-console-foot {
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-band);
+}
+
+.pse-console-foot-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 1.15rem var(--pse-gutter);
+  font-size: 0.8125rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-console-foot-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+
+/* Every document link is a real 44px target, and the row is held tight by
+   cancelling the extra height with a negative block margin — a footer of legal
+   links should be reachable with a thumb without becoming four stacked rules. */
+.pse-console-foot-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -0.7rem;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-console-foot-links a:hover { color: var(--pse-ink); text-decoration: underline; }
+
+/* ── The leading panel ────────────────────────────────────────────────────
+ * One panel on the dashboard carries the account's primary figure. It exists so
+ * the page has a single place the eye lands first: without it every register
+ * announced itself in the same 11px mono label and the composition flattened
+ * into a wall of equally-weighted blocks.
+ *
+ * The figure is the ONLY oversized type in the console. Everything else stays on
+ * the two type roles the system defines (read / interact), so the dominance is a
+ * single decision rather than a gradient of sizes.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-panel-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.014em;
+  color: var(--pse-ink);
+}
+
+.pse-lead {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.25rem 1.3rem 1.3rem;
+  border-radius: var(--pse-r);
+  background: linear-gradient(180deg, var(--pse-surface-2) 0%, var(--pse-surface) 72%);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+}
+
+.pse-lead-label {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-2);
+}
+
+.pse-lead-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: clamp(2rem, 5.2vw, 2.875rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--pse-ink);
+}
+
+.pse-lead-unit {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+.pse-lead-rate {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--pse-ink-2);
+}
+
+.pse-lead-rate b {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+.pse-lead-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-lead-fact {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.pse-lead-fact dt {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--pse-ink-3);
+}
+
+.pse-lead-fact dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.9375rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+.pse-lead-note {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
+/* ── Equipment rows ───────────────────────────────────────────────────────
+ * A list, not a six-column ledger. The dashboard answers "what do I own and
+ * what happens next"; the full record stays on the activity ledger.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-equip {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-equip-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-equip-row:last-child { border-bottom: 0; padding-bottom: 0.25rem; }
+.pse-equip-row:first-child { padding-top: 0.25rem; }
+
+.pse-equip-id {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pse-equip-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink);
+}
+
+.pse-equip-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-equip-next {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pse-ink-3);
+}
+
+.pse-equip-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+}
+
+.pse-headroom {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 1px;
+  border-radius: var(--pse-r-sm);
+  overflow: hidden;
+  background: var(--pse-rule-2);
+}
+
+.pse-headroom-cell {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--pse-surface-2);
+}
+
+.pse-headroom-key {
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--pse-ink-3);
+}
+
+.pse-headroom-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+/* ── Record feed ──────────────────────────────────────────────────────────
+ * The dashboard shows the recent records; the ledger page shows all of them.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-feed {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-feed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.15rem 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-feed-row:last-child { border-bottom: 0; }
+
+.pse-feed-title {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--pse-ink);
+}
+
+.pse-feed-meta {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--pse-ink-3);
+}
+
+.pse-feed-amount {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+ * Every transition here is a state statement, so the honest static form is the
+ * final state with no travel: the fills, the sheet and the scrim simply appear.
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .pse-sheet,
+  .pse-sheet-scrim,
+  .pse-guide-scrim,
+  .pse-strip-rail-fill,
+  .pse-guide-line-fill { animation: none; transition: none; }
+}

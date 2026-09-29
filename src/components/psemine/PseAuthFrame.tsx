@@ -55,6 +55,28 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 import { PSE_DOC_LABEL, PSE_DOC_PATH, type PseDocId } from './pseDocs';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
+import { gbp, gbpHour } from './pseCore';
+
+/**
+ * The legend under the lockup.
+ *
+ * The panel used to hold a plate, a wordmark and a watermark inside 928×839px,
+ * which measured at 2.5% coverage — read at a glance it was an empty room with a
+ * small mark in it, however carefully the frame was drawn. This is the smallest
+ * honest thing that can fill it: three published facts about the campaign, taken
+ * from the same constants the landing page and the guide print, so they cannot
+ * drift from the product. It states nothing about an account, which is why the
+ * panel can stay `aria-hidden`.
+ */
+const TOOL_RATES = Object.values(LOCKED_PSEMINE_TOOLS).map(t => t.hourlyRateGBP);
+const PANEL_LEGEND = [
+  { key: 'Campaign length', value: `${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days` },
+  { key: 'Capacity per tool', value: `${gbpHour(Math.min(...TOOL_RATES))}–${gbpHour(Math.max(...TOOL_RATES))}` },
+  { key: 'Accrued and settled in', value: 'GBP' },
+  { key: 'Paid in', value: PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME },
+  { key: 'Minimum tool price', value: gbp(Math.min(...Object.values(LOCKED_PSEMINE_TOOLS).map(t => t.purchasePriceGBP))) },
+];
 
 /**
  * The documents that belong on an authentication surface: what a person is
@@ -108,6 +130,14 @@ const PseAuthBrandPanel: React.FC = () => (
       <span className="pse-auth-panel-wordmark">
         <span className="pse-auth-panel-name">PSEmine</span>
         <span className="pse-auth-panel-sub">Campaign mining</span>
+      </span>
+      <span className="pse-auth-panel-legend">
+        {PANEL_LEGEND.map(row => (
+          <span className="pse-auth-panel-legend-row" key={row.key}>
+            <span className="pse-auth-panel-legend-key">{row.key}</span>
+            <span className="pse-auth-panel-legend-val">{row.value}</span>
+          </span>
+        ))}
       </span>
     </span>
   </aside>

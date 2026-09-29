@@ -505,3 +505,307 @@ Deliberately not done here, and why: the authenticated purchase console
 verification state, but no route behind the identity gate can be rendered in this
 environment, so it was not restyled; wallet/network error states (`Wrong network`,
 `Quote expired`, `Session expired`) live in those same unverifiable paths.
+
+## 18. The console layer (`src/styles/psemine-console.css`)
+
+THE CONSOLE WAS THE MISSING HALF. The public surfaces, the authentication family
+and the loader were rebuilt by the passes above; the authenticated product was
+still the pre-purge "minimal functional presentation", so the product had a
+finished front door and an unfinished room behind it. This pass gives the console
+the same vocabulary, and it is the same vocabulary rather than a second one:
+the console is composed from the primitives in `src/styles/psemine.css` that
+were already there (`.pse-panel`, `.pse-tag`, `.pse-notice`, `.pse-field`,
+`.pse-input`, `.pse-btn`, `.pse-gauge`, `.pse-railflow`, `.pse-ladder`,
+`.pse-lifecycle`) plus the six additions below.
+
+WHAT THE LAYER ADDS, AND WHY EACH ONE EXISTS:
+
+- **The product bar** (`.pse-bar`, `.pse-nav`, `.pse-nav-link`). Seven section
+  names with a 2px indicator under the current one — no pill, no filled tab,
+  because at console density a filled chip competes with the figures below it.
+  44px targets; below 960px the sections move into a sheet, because seven names
+  cannot be made to fit a phone by shrinking them.
+- **The campaign strip** (`.pse-strip`). The campaign's position on every
+  console route: the status the backend reports, the real day inside the real
+  window, a day rail drawn against that window, and the account's real capacity.
+  While the campaign read is in flight it says **"Reading campaign"** rather than
+  defaulting to "Scheduled" — an unknown status printed as a known one is the
+  quietest way a console can lie.
+- **The fact register** (`.pse-facts`, `.pse-fact`, `PseFacts`/`PseFact`). The
+  replacement for the underlined `<dl>` that used to appear on six console pages.
+  Cells are separated by the page's own hairline, the value is tabular and
+  right-aligned in a column so eight figures can be compared by scanning down,
+  and a value that is a sentence rather than a figure takes the text family back.
+- **The ledger** (`.pse-ledger`, `PseTable`'s `numeric` and `PseCell`'s `sub`).
+  Column heads in the data-label role, hairline rows, `td.pse-num` for figures
+  so the digits of one row sit under the digits of the last. It scrolls inside
+  its own wrapper and only the identifying column wraps: a figure split across
+  two lines is unreadable, a tool name is not.
+- **Empty, dialog, sheet** (`.pse-empty`, `.pse-dialog`, `.pse-sheet`) and one
+  shared **scrim** for all three overlays, so a dialog, the notification sheet
+  and the guide read as the same kind of interruption.
+- **The guide plate** (`.pse-guide*`), below.
+
+TWO RULES THAT LIVE HERE AND NOWHERE ELSE:
+
+- `button.pse-link` — a text action that performs something rather than
+  navigating (a refresh, a reveal) carries the link role **and behaves like a
+  link**, laid out in the flow of the sentence around it with no button chrome.
+  A control in the middle of a line of text belongs in the line.
+- `.pse-meta-action` — a section's own control in its label row. Its hit area is
+  44px; its footprint is the height of the text beside it, so a register header
+  stays a line instead of becoming a toolbar.
+
+## 19. The guide (`src/components/psemine/PseGuide.tsx`)
+
+AN OVERLAY, NOT A PAGE. `/mine/guide` and `/mine/guide/onboarding` render the
+console and the shell opens the guide's plate **over** it. Learning the product
+no longer costs the reader the product, the campaign strip stays visible beneath
+the plate, and finishing onboarding reveals a console that is already loaded
+rather than routing the reader to a page they have to trust is there.
+
+EIGHT CONCEPTS, IN THE PRODUCT'S OWN INSTRUMENTS: the campaign rail, the
+equipment family, the capacity instrument, the qualification ladder, the accrual
+rail, the settlement statement, the payment pipeline and a closing register. The
+guide teaches the interface by being the interface.
+
+ONBOARDING IS RECORDED IN THE ACCOUNT, ONCE. Completion writes
+`users/{uid}.onboardingCompleted` — the field the route guard reads — so a
+returning reader on another device is not shown the walkthrough again. **Skipping
+also records completion**: skipping without recording would send the guard
+straight back to the plate, which is a loop the reader cannot escape. Escape
+follows the same rule, which is why the onboarding plate has no dismiss that
+does not record.
+
+GEOMETRY FROM MEASUREMENT, NOT TASTE. The plate compacts the product's full-size
+instruments so each stage's visual and the sentence that explains it are on
+screen together:
+
+- the campaign rail runs **across at every width inside the guide**, because the
+  public page's vertical form measured 741px on a 390×844 screen — the reader
+  met the diagram and never reached the explanation;
+- the settlement statement drops its denomination side-note, which repeated the
+  stage's own lede and, at the plate's width, was setting the height of all four
+  rows (measured 717px);
+- `.pse-guide-visual` is **not** a frame. Several instruments bring their own
+  surface, and a framed panel inside a framed panel is how a product starts
+  reading as a set of boxes. The instruments that carry no chrome are
+  measurements, and a measurement needs no frame to be legible.
+
+`.pse-lifecycle-rail` was generalised to one equal column per phase
+(`grid-auto-flow: column`) in `src/styles/psemine.css`: the hard-coded five
+columns were correct only for the five-phase campaign rail, and the guide's four
+phases left every tab narrower than its own label.
+
+### Two defects found by measuring, and fixed
+
+- **`CapacityInstrument` printed the ceiling as its total.** The total row was
+  passed `ceiling` instead of `units + referrals`, so the instrument's loudest
+  figure — "Total capacity" — stated the campaign maximum instead of the
+  account's composition, in every place the instrument appears, including the
+  hero's application window on the landing page. It now prints the composition
+  and draws its bar against the same value as the marker above it. A financial
+  instrument that misstates its own total is the one kind of defect this product
+  cannot ship.
+- **Public surfaces linked into the console.** Making `/mine/guide` a protected
+  console route meant the landing's closing CTA, the landing footer and both
+  document pages were linking signed-out readers at a sign-in wall. Public
+  surfaces now point at the public explanation — `#campaign` on the landing — and
+  the document pages cross into it with a plain anchor, because a fragment has to
+  be honoured on load and a pushState navigation does not do that.
+
+## 20. Known divergences (continued)
+
+- **The console cannot be rendered in this environment.** No Firebase
+  credentials exist here, so no session can be created and every console route
+  correctly redirects to sign-in. The console's layout was therefore measured
+  through a **temporary development route** that rendered the real components
+  over fixture data; it was deleted before this pass was committed, and it is
+  never part of the product. What that leaves unverified: the shell's wiring (the
+  bar's navigation, the notification sheet's mark-read, the guide's completion
+  write) is verified by typecheck and by reading the code, not by running it.
+- **`pse-visual-check` reports `/mine/guide` and `/mine/login` as identical.**
+  That is the new behaviour and it is correct: `/mine/guide` is now a protected
+  console route, so an unauthenticated read of it lands on sign-in.
+- **Landing footer document links are 23px tall.** They are inline links in a
+  link column, which WCAG 2.5.8 exempts and `pse-a11y-check` reports as exempt;
+  making nine of them 44px would add roughly 200px to the page and loosen the
+  footer. The console footer's equivalent links ARE 44px, because that footer
+  shares a row with the account controls.
+- **The landing's own length** (measured 9,910px at 1440) is a consequence of
+  its nine-section structure, which this pass was explicitly forbidden from
+  changing. No section was added; none was removed.
+
+## 21. Hierarchy pass — what the console was getting wrong
+
+This pass began by making the rendered output actually inspectable, and that
+changed what could be judged. Three findings, all measured, all corrected here.
+
+**1. Reading text was set at the label weight.** `.pse-body`, `.pse-lead` and
+`.pse-plate-lede` declared a size and a colour but no weight, so they inherited
+`500` — the interactive/label weight — while §1 of this document states the
+contract *400 reads, 500 interacts and labels, 600 announces once*. The landing
+was therefore set in one weight and hierarchy rested on size alone, which is
+what makes a composition read as a template however good its scale is. The three
+reading classes now declare `font-weight: 400`. Display type still takes its
+authority from size and tracking, as §1 requires.
+
+**2. The console's section headings were smaller than its body text.** Every
+`.pse-block-title` was `11px` mono caps, so `Capacity` and `Settlement` sat
+*below* the 14px body under them and every register carried equal weight: eight
+sections, five ledger tables, one flat texture. Section headings are now
+sentence case at `0.9375rem/600`, above body. The mono letterspaced caps remain
+where they belong — values, states, chips and ledger columns — so the product's
+technical voice survives without letting labels outrank the content they label.
+
+**3. The dashboard had no dominant figure.** It was eight registers of equal
+weight, so the page answered everything and led with nothing. It is now: one
+verdict, **one hero figure** (accrued, at `clamp(2rem, 5.2vw, 2.875rem)` — the
+only oversized type in the console), the capacity instrument, an equipment list,
+a settlement position read from the backend's payout records, referrals, and the
+five most recent records. The six-column equipment table became a list; the
+four-column ownership table became a headroom strip. No figure was invented and
+no information was dropped — the full ledger still lives on `/mine/activity`.
+
+**4. The authentication panel was an empty room.** Measured, the brand panel
+covered 928×839px while carrying 2.5% content: a plate, a wordmark, four
+hairlines and a 5%-opacity watermark. Its frame was drawn at 7.5% alpha —
+invisible on this product's dark surface — so it read as undrawn rather than as
+restrained. The frame is now `--pse-rule`, the watermark is 8.5%, and the lockup
+is followed by a quiet legend of five **published** campaign facts taken from the
+same constants the landing and the guide print. It states nothing about an
+account, which is why the panel stays `aria-hidden`.
+
+**5. Long values were clipped on mobile.** `.pse-facts` used an implicit `auto`
+track, which grows to its content's min-content width; a 42-character wallet
+address therefore widened the grid past its column and `overflow: hidden` cut
+the value off at 390px. The track is now `minmax(0, 1fr)` and long values break
+inside themselves. `table.pse-ledger` still exceeds the viewport on mobile — it
+is inside `.pse-ledger-wrap { overflow-x: auto }`, which is the intended
+behaviour, and nothing is clipped.
+
+**How the output was inspected.** The rendering harness used here screenshots
+the real build and then decodes the PNG itself (zlib + scanlines) into
+per-cell maps: *ink* (fraction of pixels above a luminance threshold, which
+preserves text masses and fills at coarse resolution), *structure* (high-pass
+edges: borders, panels, alignment), *saturation* (where colour lives), plus a
+per-band ink profile for vertical rhythm and a DOM type-ramp dump. Two limits
+are worth stating plainly: hairline rules below roughly 13% alpha fall under the
+ink threshold and so read as empty, and no pixel map reveals letterform quality,
+kerning or type rendering. Two defects in this pass were found only because the
+maps were cross-checked against DOM geometry: a *page* that looked 2,271px blank
+was my own harness screenshotting without scrolling (scroll-reveal children were
+still at `opacity: 0`), and the auth form that looked flush to the viewport edge
+actually sits at x 992–1384.
+
+## 22. Landing composition pass — the chain, the plate, and the decision
+
+The information architecture is unchanged: the same sections, in the same order,
+with the same ids (plus `#campaign` restored to the menu, which had no way in).
+What changed is what each section *is*, section by section.
+
+### The product story is drawn once, not argued four times
+
+The page previously made the core relationship — units and qualified referrals
+become capacity, capacity becomes a rate, the rate accrues for 90 days, that
+accrues into a GBP settlement, the settlement is paid in BNB — in prose, in a
+ladder, in a gauge and in a lifecycle rail, none of which contained the whole
+sentence. `CapacityChain` (§03) is that sentence as one object: a full-width
+plate bounded by two hairlines, two sources carrying their own capacity token on
+their own left edge, and the four things capacity becomes, in order. The arrow
+between links is a rotated `→`: down the page below 1024px, across it above.
+
+Measured at 768px first: five columns of 118px left every note three lines deep
+and the source pair 112px taller than the step beside it, so the plate read as a
+ragged block. The chain therefore runs across the page only from 1024px, and
+stacks below it.
+
+### The specimen states the chain too
+
+`PseAppWindow` gained a `spine` — five links along the foot of the window, in the
+product's own units, ending in the payout asset, with the build's total as the
+only loud figure. It is inside the window's own container query (two columns by
+three below a 520px window, one row of five above), so it answers for the width
+the window actually has. The hero's terms strip became four decisions instead of
+three facts (campaign, unit price, capacity, settlement), two by two except while
+the hero is one full-width column.
+
+*Measured defect, fixed:* at 1440 the hero column is ~484px, so four cells of
+121px wrapped `£0.10 – £2.50/hour` and made one cell 21px taller than its three
+neighbours. Four across now applies only in the 640–1023px range.
+
+### The elevation is a plate, and it is drawn to capacity
+
+The equipment elevation drew four units at one width and captioned them with tier
+codes: a claim ("one product line, four units") that the table below already made
+and the drawing said nothing about. Now a unit's drawing width encodes its locked
+hourly rate (root-scaled, 56% → 100%), the caption prints the rate the encoding
+stands for, and the ground is *drawn* — the section claimed one datum and never
+showed one.
+
+*Measured defects, fixed:* the 208px cap on the SVG flattened Builder, Advanced
+and Elite to one width (Advanced and Elite both rendered 176px tall); the cap now
+sits on the wrapper at 18rem, and the four heights measure 118/147/176/204. The
+datum sat 12px below the drawings because a grid gap separated them; the datum
+now meets the row exactly at 1440 (both y=2250) and is drawn only where the four
+units share one ground — below 900px the row is two rows of two, each with its own
+floor, and one line under the second pair would claim something untrue.
+
+The radial accent wash behind the elevation is gone. It was the one piece of
+decoration on the page that stated nothing.
+
+### Ownership limits are a shape
+
+The per-account maximum was the only locked economic represented by a number
+alone. It now also has a form: five pips, three, three, two.
+
+### The lifecycle is a timeline
+
+Seven phases, not five, and named for what the product actually does: a campaign
+is *dated* before it is active. Each phase carries **when** it happens in campaign
+days, so the rail states a timeline rather than an order. Still no "now": no
+marker, no countdown, no progress, no live state.
+
+### Quote terms instead of four stat blocks
+
+The payment section's right column summarised what the specimen beside it already
+showed. It is now a quotation — titled head, ruled rows, note — stating the five
+rules a buyer agrees to, including the two failure modes the product records
+rather than absorbs (expired, underpaid).
+
+### The close is a decision, not three equal buttons
+
+The closing band drew one Elite unit beside three equally weighted controls. It
+now carries the whole price list — four rows, each a real link into sign-up, each
+stating price, hourly capacity and ownership limit — under one primary action,
+with the guide demoted to a text link.
+
+### Navigation states position
+
+The bar carries the network the product settles on (a fact, with no green dot and
+no "live"), and the menu marks the section the reader is in with a hairline and
+full ink. The drawer echoes the section indices the plates print. The FAQ's own
+header holds at 88px while its nine answers are read.
+
+*Measured defect, fixed:* the first attempt put `position: sticky` on the split's
+column, which is aligned `start` and therefore only as tall as the header — a
+sticky child had nowhere to travel. `align-self: stretch` on the column is what
+makes it work; verified holding at 88px at 1024/1280/1440.
+
+### What is deliberately still absent
+
+No new section, no section removed, no card added: the chain is a plate bounded by
+hairlines, and the elevation, the quote and the price list reuse the surface
+ladder already declared. Every figure on the page remains either a locked product
+constant or the 90-day campaign's own length. The page still reads nothing — no
+session, no campaign record, no request.
+
+### Limits of the evidence for this pass
+
+Collected against the running dev server at 390/430/768/1440: DOM geometry per
+object (rects, line counts, column counts), the computed type ramp, clipping and
+off-screen probes, and a decoded-PNG luminance map with a per-band ink profile.
+The map is what makes an unintentional hole or a mis-sized object visible; it
+does not show kerning, letterforms or type rendering, and no claim about those is
+made here. Contrast for every new text style was computed from its tokens rather
+than measured: the lightest new text is `--pse-ink-3` on `#08090b` at 5.79:1.

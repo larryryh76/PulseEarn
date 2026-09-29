@@ -165,6 +165,9 @@
   margin: 0;
   max-width: 52ch;
   font-size: 0.9375rem;
+  /* Reading text, per the three-weight contract: 500 is for labels and things
+     you interact with, not for a paragraph. */
+  font-weight: 400;
   line-height: 1.62;
   color: var(--pse-ink-2);
 }
@@ -890,4 +893,570 @@
   .pse-signature-line,
   .pse-signature-session,
   .pse-floatcard { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE LANDING PAGE — SECOND ART PASS.
+ *
+ * What this layer adds, and why each addition is a composition rather than a
+ * decoration:
+ *
+ *   THE CAMPAIGN CHAIN (§03)   the core product relationship drawn once, full
+ *                              width: two sources of capacity merging into one
+ *                              ceiling, and what the ceiling becomes. The page
+ *                              argued this in prose and smeared it across three
+ *                              sections; it is one object now.
+ *   THE SPECIMEN SPINE (hero)  the same grammar, at the specimen's own scale,
+ *                              along the foot of the application window.
+ *   THE ELEVATION, DRAWN TO    the family portrait sized by the locked hourly
+ *   CAPACITY (§02)             rate, standing on the datum the section claims.
+ *   QUOTE TERMS (§05)          a quotation object in place of four stat blocks.
+ *   THE PRICE LIST (§09)       the family at the point of decision, one primary
+ *                              action instead of three equal ones.
+ *   NAVIGATION                 the section the reader is in, and the campaign's
+ *                              network, stated in the bar.
+ *
+ * Every rule is scoped to a `.pse-` class, nothing here is `!important`, and
+ * every figure that appears in one of these objects comes from the product's
+ * locked economics or from the campaign's own length.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── The campaign chain ───────────────────────────────────────────────────
+ * A plate, not a card: two hairlines bound it top and bottom, no ring and no
+ * fill, so it reads as a drawn diagram on the page rather than as another
+ * module stacked on it.
+ *
+ * The two sources carry their own capacity token on their own left edge — the
+ * accent for units, the cyan that means "capacity from referrals" everywhere
+ * else in the product, for referrals — so the colour on this object is stating
+ * which source a number came from, which is the one thing colour is allowed to
+ * do here.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-chain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1.6rem;
+  margin: 0;
+  padding: 1.5rem 0;
+  list-style: none;
+  border-block: 1px solid var(--pse-rule-2);
+}
+
+.pse-chain-node { position: relative; display: grid; gap: 0.3rem; min-width: 0; }
+
+.pse-chain-label {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-chain-value {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: clamp(1.0625rem, 0.95rem + 0.55vw, 1.375rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--pse-ink);
+}
+
+.pse-chain-note { font-size: 0.75rem; line-height: 1.45; color: var(--pse-ink-3); }
+
+.pse-chain-sources { display: grid; gap: 0.55rem; }
+
+.pse-chain-source {
+  display: grid;
+  gap: 0.1rem;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--pse-rule-strong);
+}
+
+.pse-chain-source[data-tone='accent'] { border-left-color: var(--pse-accent); }
+.pse-chain-source[data-tone='cyan'] { border-left-color: var(--pse-cyan); }
+
+.pse-chain-source-label { font-size: 0.8125rem; letter-spacing: -0.005em; color: var(--pse-ink-2); }
+
+.pse-chain-source-value {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
+}
+
+/* The connector is a real arrow, rotated when the chain runs down a phone and
+   upright when it runs across the page: one glyph, two orientations. */
+.pse-chain-arrow {
+  position: absolute;
+  left: 0;
+  bottom: -1.35rem;
+  display: inline-flex;
+  color: var(--pse-ink-3);
+  font-family: var(--pse-mono);
+  font-size: 0.875rem;
+  line-height: 1;
+  transform: rotate(90deg);
+}
+
+/*
+ * The chain runs ACROSS the page only from 1024px.
+ *
+ * First measured at 768px: five columns of 118px each left every note wrapped to
+ * three lines and the source pair 112px taller than the step beside it, so the
+ * plate read as a ragged block rather than as a chain. Below 1024px it stacks --
+ * the arrow rotates into the gap between nodes -- which is the same diagram with
+ * the axis turned, not a fallback.
+ */
+@media (min-width: 1024px) {
+  .pse-chain {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 1.75rem;
+    padding-block: 1.85rem;
+  }
+
+  .pse-chain-arrow {
+    left: auto;
+    bottom: auto;
+    right: -1.1rem;
+    top: 0.1rem;
+    transform: none;
+  }
+}
+
+/* ── The specimen's campaign spine ────────────────────────────────────────
+ * Six links along the foot of the application window, in the product's own
+ * units, ending in the payout asset. It is inside the window's own container
+ * query, so it answers for the width the window actually has rather than for the
+ * viewport's: two columns by three when the window is narrow, one row of six
+ * with drawn connectors when there is room for a chain.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-app-spine {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+  margin: 0;
+  padding: 0.85rem 1rem 0.9rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: color-mix(in srgb, var(--pse-ink) 3%, transparent);
+  list-style: none;
+}
+
+.pse-app-spine-link { position: relative; display: grid; gap: 0.2rem; min-width: 0; }
+
+.pse-app-spine-label {
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-app-spine-value {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
+}
+
+/* The build's total is the loudest figure in the chain, and the only one. */
+.pse-app-spine-link[data-lead='true'] .pse-app-spine-value { font-size: 0.9375rem; color: var(--pse-ink); }
+.pse-app-spine-link[data-lead='true'] .pse-app-spine-label { color: var(--pse-ink-2); }
+
+@container (min-width: 520px) {
+  .pse-app-spine {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: 1.25rem;
+    padding: 0.8rem 1.15rem 0.85rem;
+  }
+
+  .pse-app-spine-link:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -1.05rem;
+    top: 0.1rem;
+    color: var(--pse-ink-3);
+    font-family: var(--pse-mono);
+    font-size: 0.8125rem;
+    line-height: 1;
+  }
+}
+
+/* ── The elevation, drawn to capacity ─────────────────────────────────────
+ * Three changes, all of them the difference between a picture and a plate:
+ *   • the drawings are sized by their locked hourly rate (the scale is computed
+ *     in `PseInstruments.tsx` and passed in as `--pse-elev`), so the portrait
+ *     states the hierarchy;
+ *   • the ground the four units stand on is DRAWN, because the section claims
+ *     one datum and previously never showed it;
+ *   • the captions sit under the datum on the same four columns, so each drawing
+ *     is labelled by the thing it is drawn from rather than by a tier code.
+ * The radial accent wash that used to light this plate is gone: it was the one
+ * piece of decoration on the page that stated nothing, and the elevation now
+ * carries its own information.
+ * ─────────────────────────────────────────────────────────────────────── */
+/* `gap: 0` plus explicit margins, because the DATUM has to meet the drawings
+   exactly: with a grid gap between them the four units floated 12px above the
+   ground they are supposed to stand on. */
+.pse-family-elevation {
+  background: var(--pse-inset);
+  gap: 0;
+}
+
+.pse-family-elevation-key { margin-bottom: 0.9rem; }
+
+.pse-family-elevation-row { align-items: end; }
+
+.pse-family-elevation-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* The drawing fills its own wrapper, and the wrapper is what the scale sizes.
+   The 208px cap the previous layer put on the SVG flattened the three larger
+   units to one width — measured: Advanced and Elite both rendered 176px tall, so
+   three of the four drawings stated the same capacity. The cap now sits on the
+   wrapper, high enough that every unit keeps its own size. */
+.pse-family-elevation-drawing {
+  display: block;
+  width: calc(100% * var(--pse-elev, 1));
+  max-width: 18rem;
+}
+
+.pse-family-elevation-drawing .pse-tool-module { width: 100%; max-width: none; height: auto; color: var(--pse-ink-2); }
+
+/* The ground is drawn only where the four units actually share one: on a phone
+   and on a tablet the row becomes two rows of two, each with its own floor, and
+   a single line under the second pair would claim something untrue. */
+.pse-family-elevation-datum { display: none; height: 1px; background: var(--pse-rule-strong); }
+
+@media (min-width: 900px) {
+  .pse-family-elevation-datum { display: block; }
+}
+
+.pse-family-elevation-caps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 1rem;
+  margin-top: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-family-elevation-cap { display: grid; gap: 0.1rem; min-width: 0; text-align: center; }
+
+.pse-family-elevation-tier {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  color: var(--pse-ink-3);
+}
+
+.pse-family-elevation-name { font-size: 0.875rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+
+.pse-family-elevation-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.6875rem;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink-2);
+}
+
+@media (min-width: 900px) {
+  .pse-family-elevation-caps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; }
+}
+
+/* ── The ownership limit, as a shape ─────────────────────────────────────
+ * Five pips, three, three, two. The one locked economic that appeared only as a
+ * figure now also has a form, so the four rows can be compared by looking rather
+ * than by reading. */
+.pse-unit-pips { display: inline-flex; gap: 3px; }
+.pse-unit-pips > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--pse-ink-3);
+  opacity: 0.6;
+}
+
+/* ── The lifecycle rail states WHEN ───────────────────────────────────────
+ * A rail of seven labels states an order. A rail of seven labels each carrying
+ * its own place in the campaign window states a timeline — which is the whole
+ * point of drawing a lifecycle on a day axis. */
+.pse-lifecycle-when {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.5625rem;
+  letter-spacing: 0.04em;
+  color: var(--pse-ink-3);
+}
+
+.pse-lifecycle-tab[aria-selected='true'] .pse-lifecycle-when { color: var(--pse-ink-2); }
+
+/* ── The quote terms plate ────────────────────────────────────────────────
+ * A quotation: a titled head, ruled rows of terms, and a note. It replaces a
+ * 2×2 stat grid that restated what the specimen beside it already showed, and it
+ * says something the specimen cannot — the five rules a buyer is agreeing to,
+ * including the two failure modes the product records rather than absorbs.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-quote-column { display: grid; gap: 1rem; align-content: start; }
+
+.pse-quote {
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+  box-shadow: var(--pse-ring), var(--pse-lift);
+  overflow: hidden;
+}
+
+.pse-quote-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.8rem 1.15rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+}
+
+.pse-quote-title {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--pse-ink);
+}
+
+.pse-quote-meta {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-quote-rows { margin: 0; }
+
+.pse-quote-row { display: grid; gap: 0.2rem; padding: 0.85rem 1.15rem; }
+.pse-quote-row + .pse-quote-row { border-top: 1px solid var(--pse-rule-2); }
+
+.pse-quote-term {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-quote-rule { margin: 0; font-size: 0.875rem; line-height: 1.55; color: var(--pse-ink-2); }
+
+.pse-quote-note {
+  margin: 0;
+  padding: 0.85rem 1.15rem;
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-inset);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+}
+
+.pse-quote-column .pse-docline { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* ── The closing price list ───────────────────────────────────────────────
+ * The family at the point of decision. Four rows, each its own real link into
+ * sign-up and each stating price, hourly capacity and ownership limit, under one
+ * primary action — instead of one large drawing beside three equally weighted
+ * buttons, which is a picture and three choices rather than a decision.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-pricelist { width: 100%; max-width: 30rem; }
+
+.pse-pricelist-head {
+  display: block;
+  margin-bottom: 0.65rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-pricelist-rows { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--pse-rule); }
+
+.pse-pricelist-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 54px;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-pricelist-row:hover { background: var(--pse-inset); }
+
+.pse-pricelist-art { display: flex; color: var(--pse-ink-3); }
+
+.pse-pricelist-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+
+.pse-pricelist-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink-2);
+  white-space: nowrap;
+}
+
+.pse-pricelist-unit { color: var(--pse-ink-3); }
+
+.pse-pricelist-price {
+  min-width: 3.6rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--pse-ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pse-close-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 1.1rem; }
+
+@media (min-width: 900px) {
+  .pse-close-actions { align-items: flex-end; }
+}
+
+/* ── The bar states where you are ─────────────────────────────────────────
+ * The product settles on BNB Smart Chain, and the bar says so once — as a fact,
+ * with no green dot and no "live". The nav marks the section the reader is in
+ * with a hairline under the label and the label at full ink; a nine-section page
+ * with a six-entry menu cannot leave the menu silent about position.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-mast-link { position: relative; }
+
+.pse-mast-link[data-active='true'] { color: var(--pse-ink); background: var(--pse-inset); }
+
+.pse-mast-link[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 7px;
+  height: 1px;
+  background: var(--pse-accent);
+}
+
+.pse-mast-chip {
+  display: none;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-mast-chip .pse-chip-dot { background: var(--pse-bnb); opacity: 0.85; }
+
+@media (min-width: 768px) {
+  .pse-mast-chip { display: inline-flex; }
+}
+
+.pse-drawer-link { gap: 0.7rem; }
+
+.pse-drawer-num {
+  flex: none;
+  min-width: 1.5rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--pse-ink-3);
+}
+
+/* ── The hero's terms strip ───────────────────────────────────────────────
+ * Three matters of fact became four decisions: how long, how much, how fast, and
+ * what it settles in. Two by two on a phone, one row of four from 640px, with the
+ * dividers following the grid rather than assuming a single row.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-hero-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 34rem; }
+
+.pse-hero-meta > div { padding-left: 0; border-left: 0; }
+.pse-hero-meta > div:nth-child(2n) { padding-left: 1.1rem; border-left: 1px solid var(--pse-rule-2); }
+.pse-hero-meta > div:nth-child(n + 3) { border-top: 1px solid var(--pse-rule-2); }
+
+.pse-hero-meta-unit {
+  margin-left: 0.3rem;
+  font-family: var(--pse-font);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+/* Four across only while the hero is ONE full-width column (640–1023). From
+   1024 the hero has split, its left column is ~480px wide, and four cells of
+   121px wrapped "£0.10 – £2.50/hour" onto two lines and made one cell taller
+   than the other three; two by two gives each term the room it needs. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .pse-hero-meta { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 44rem; }
+  .pse-hero-meta > div:nth-child(n + 3) { border-top: 0; }
+  .pse-hero-meta > div + div { padding-left: 1.1rem; border-left: 1px solid var(--pse-rule-2); }
+}
+
+@media (min-width: 1024px) {
+  .pse-hero-meta { max-width: 30rem; }
+}
+
+.pse-hero-link {
+  margin-inline-start: 0.4rem;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+/* ── The FAQ keeps its question in view ───────────────────────────────────
+ * Nine answers is a long read; the section's own header holds the top of the
+ * column while it is read, so the reader never loses the subject.
+ *
+ * `align-self: stretch` is what makes it work: the split aligns its items to
+ * `start`, so without it the header's own box is only as tall as the header and
+ * a sticky child would have nowhere to travel. */
+@media (min-width: 1024px) {
+  .pse-faq-head { align-self: stretch; }
+  .pse-faq-head .pse-plate { position: sticky; top: 88px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pse-pricelist-row { transition: none; }
 }

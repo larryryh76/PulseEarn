@@ -25,6 +25,11 @@ import './styles/psemine-art.css'
 // type that nothing else renders, in its own layer so it adds no rules to the
 // landing page, authentication, the loader or the console.
 import './styles/psemine-docs.css'
+// The authenticated console's own layer: shell chrome, the campaign strip, the
+// fact register, the ledger, empty states, dialogs, the notification sheet and
+// the guide overlay. Loaded last, for the same cascade reason as the layers
+// above it. It follows the application theme, so it writes no colour of its own.
+import './styles/psemine-console.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

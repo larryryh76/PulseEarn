@@ -233,7 +233,10 @@ export const CapacityInstrument: React.FC<{
           swatch="pse-gauge-swatch--referrals"
         />
         <div className="pse-gauge-divide" />
-        <GaugeRow label={totalLabel} value={ceiling} pct="100%" fill="pse-gauge-fill--total" swatch="pse-gauge-swatch--total" total />
+        {/* The total is the composition, NOT the ceiling. Printing the ceiling
+            here made the row state a maximum the account does not hold — the one
+            figure on the instrument that would always have been wrong. */}
+        <GaugeRow label={totalLabel} value={total} pct={`${totalPct}%`} fill="pse-gauge-fill--total" swatch="pse-gauge-swatch--total" total />
       </div>
 
       {scale && (
@@ -317,6 +320,20 @@ export interface PseTierView {
  * self-contained units, because a spec table squeezed into a phone is not a
  * mobile design.
  */
+/**
+ * The elevation is DRAWN TO CAPACITY.
+ *
+ * The section's claim is "one product line, four units, four sizes". The old
+ * elevation drew all four at the same width and captioned them with a tier code,
+ * so the drawing stated nothing the table below did not already say — it was
+ * wallpaper. Here a unit's drawing width ENCODES its locked hourly rate (a square
+ * root, so the two cheap tiers stay separable), and the caption prints the rate
+ * the encoding stands for. The family portrait therefore reads the hierarchy
+ * before a word of the specification is read, and it is honest: the size is a
+ * function of a locked product constant and of nothing else.
+ */
+const elevationScale = (rate: number, max: number) => 0.45 + 0.55 * Math.sqrt(rate / max);
+
 export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className?: string }> = ({
   tiers,
   className = '',
@@ -325,18 +342,34 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
 
   return (
     <div className={`pse-family${className ? ` ${className}` : ''}`}>
-      <div className="pse-family-elevation">
-        <span className="pse-family-elevation-key" aria-hidden="true">
-          Product line · elevation · one datum
+      <div className="pse-family-elevation" aria-hidden="true">
+        <span className="pse-family-elevation-key">
+          Product line · four units on one datum · drawn to capacity
         </span>
-        <div className="pse-family-elevation-row" aria-hidden="true">
+        <div className="pse-family-elevation-row">
           {tiers.map(t => (
             <span key={t.tier} className="pse-family-elevation-cell">
-              <PseTierModule tier={t.tier} continuous={t.continuous} width={200} />
-              <span className="pse-family-elevation-tag">{`T${t.tier} · ${t.rate.replace('/hour', '/h')}`}</span>
+              <span
+                className="pse-family-elevation-drawing"
+                style={{ '--pse-elev': elevationScale(t.rateValue, max) } as React.CSSProperties}
+              >
+                <PseTierModule tier={t.tier} continuous={t.continuous} width={200} />
+              </span>
             </span>
           ))}
         </div>
+        {/* The datum the four units stand on. The section claimed one datum and
+            never drew it; a plate that states a ground should show the ground. */}
+        <span className="pse-family-elevation-datum" />
+        <ul className="pse-family-elevation-caps">
+          {tiers.map(t => (
+            <li key={t.tier} className="pse-family-elevation-cap">
+              <span className="pse-family-elevation-tier">{`T${String(t.tier).padStart(2, '0')}`}</span>
+              <span className="pse-family-elevation-name">{t.name}</span>
+              <span className="pse-family-elevation-rate">{t.rate.replace('/hour', '/h')}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="pse-family-head" aria-hidden="true">
@@ -392,6 +425,14 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
               </span>
               <span className="pse-unit-meta-cell">
                 <span className="pse-unit-meta-key">Per account</span>
+                {/* The ownership limit as a shape, not only as a figure: five
+                    pips, three, three, two — the one locked economic that was
+                    represented by a number alone. */}
+                <span className="pse-unit-pips" aria-hidden="true">
+                  {Array.from({ length: t.limit }).map((_, i) => (
+                    <i key={i} />
+                  ))}
+                </span>
                 <span className="pse-unit-meta-val">{`${t.limit} max`}</span>
               </span>
             </div>
@@ -420,6 +461,23 @@ export interface PseBuildRow extends PseTierView {
 }
 
 /**
+ * One link of the specimen's campaign spine.
+ *
+ * The spine is how the window answers the question the page exists to answer:
+ * what does owning a unit actually become? It runs left to right along the
+ * bottom of the window — units, capacity, the campaign window, settlement, the
+ * payout asset — so the whole instrument chain is legible in one line, in the
+ * product's own units, before a paragraph is read.
+ */
+export interface PseAppSpineLink {
+  id: string;
+  label: string;
+  value: string;
+  /** Marks the link that carries the build's own total. */
+  lead?: boolean;
+}
+
+/**
  * The PSEmine application window.
  *
  * This is the product's strongest visual identity, so it is art-directed as an
@@ -443,7 +501,9 @@ export const PseAppWindow: React.FC<{
   referralCapacity: number;
   /** The example build, tier by tier. */
   build: ReadonlyArray<PseBuildRow>;
-}> = ({ days, ceiling, toolCapacity, referralCapacity, build }) => {
+  /** The campaign chain, drawn along the foot of the window. */
+  spine: ReadonlyArray<PseAppSpineLink>;
+}> = ({ days, ceiling, toolCapacity, referralCapacity, build, spine }) => {
   const total = toolCapacity + referralCapacity;
   const held = build.filter(row => row.count > 0);
 
@@ -568,6 +628,16 @@ export const PseAppWindow: React.FC<{
           </div>
         </div>
 
+        {/* The campaign spine: what a unit becomes, in the product's own units. */}
+        <ol className="pse-app-spine" aria-label="How this build becomes a payout">
+          {spine.map(link => (
+            <li key={link.id} className="pse-app-spine-link" data-lead={link.lead ? 'true' : undefined}>
+              <span className="pse-app-spine-label">{link.label}</span>
+              <span className="pse-app-spine-value">{link.value}</span>
+            </li>
+          ))}
+        </ol>
+
         <div className="pse-app-foot">
           <span className="pse-app-foot-dot" aria-hidden="true" />
           Product specimen — an example build from PSEmine&apos;s locked economics, not your account.
@@ -610,7 +680,7 @@ export const PseAppWindow: React.FC<{
  */
 export const LifecycleRail: React.FC<{
   days: number;
-  phases: ReadonlyArray<{ id: string; name: string; note: string; detail: React.ReactNode }>;
+  phases: ReadonlyArray<{ id: string; name: string; note: string; detail: React.ReactNode; when?: string }>;
   className?: string;
 }> = ({ days, phases, className = '' }) => {
   const [active, setActive] = React.useState(0);
@@ -673,6 +743,10 @@ export const LifecycleRail: React.FC<{
             <span className="pse-lifecycle-node" aria-hidden="true" />
             <span className="pse-lifecycle-idx" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
             <span className="pse-lifecycle-name">{phase.name}</span>
+            {/* WHEN the phase happens, in campaign days. A rail of seven labels
+                states an order; a rail of seven labels each carrying its own
+                place in the window states a timeline. */}
+            {phase.when && <span className="pse-lifecycle-when">{phase.when}</span>}
           </button>
         ))}
       </div>
@@ -902,5 +976,83 @@ export const TrustMap: React.FC<{
         </li>
       ))}
     </ul>
+  </Reveal>
+);
+
+/* ── The capacity chain ─────────────────────────────────────────────────── */
+
+/** A source of capacity: the units an account holds, or the referrals it qualified. */
+export interface PseChainSource {
+  label: string;
+  value: string;
+  tone: 'accent' | 'cyan';
+}
+
+/** One downstream link of the chain. */
+export interface PseChainStep {
+  id: string;
+  label: string;
+  value: string;
+  note?: string;
+}
+
+/**
+ * THE PRODUCT STORY, DRAWN ONCE.
+ *
+ * Two sources of capacity (owned units, qualified referrals), merging into one
+ * capacity, and then the four things that capacity becomes: a rate per hour, a
+ * campaign window, a settlement denomination, a payout asset. It is the same
+ * sentence the section is making, drawn as a plate instead of written as a
+ * paragraph — two rows with a bracket on the left, one arrow out of them, and the
+ * chain running to the payout.
+ *
+ * WHAT IT IS NOT: no infrastructure diagram, no pipeline of systems, no
+ * percentages, no health, no throughput, no fabricated telemetry. Every figure on
+ * it is a locked product constant or the campaign's own length, and the chain has
+ * no state of any kind — it cannot be read as a progress indicator because
+ * nothing on it can move.
+ *
+ * The bracket is drawn geometry, not an icon: the two sources carry a left edge in
+ * their own capacity token, and the arrow leaves the pair together.
+ */
+export const CapacityChain: React.FC<{
+  /** The two things capacity can come from, each with its locked maximum. */
+  sources: ReadonlyArray<PseChainSource>;
+  /** Everything the capacity then becomes, in order. */
+  steps: ReadonlyArray<PseChainStep>;
+  /** The label over the source pair. */
+  sourcesLabel: string;
+  /** An accessible name for the plate as a whole. */
+  label: string;
+  className?: string;
+}> = ({ sources, steps, sourcesLabel, label, className = '' }) => (
+  <Reveal as="ol" className={`pse-chain${className ? ` ${className}` : ''}`} label={label}>
+    <li className="pse-chain-node pse-chain-node--sources">
+      <span className="pse-chain-label">{sourcesLabel}</span>
+      <span className="pse-chain-sources">
+        {sources.map(source => (
+          <span key={source.label} className="pse-chain-source" data-tone={source.tone}>
+            <span className="pse-chain-source-label">{source.label}</span>
+            <span className="pse-chain-source-value">{source.value}</span>
+          </span>
+        ))}
+      </span>
+      <span className="pse-chain-arrow" aria-hidden="true">
+        →
+      </span>
+    </li>
+
+    {steps.map((step, i) => (
+      <li key={step.id} className="pse-chain-node" data-step={step.id}>
+        <span className="pse-chain-label">{step.label}</span>
+        <span className="pse-chain-value">{step.value}</span>
+        {step.note && <span className="pse-chain-note">{step.note}</span>}
+        {i < steps.length - 1 && (
+          <span className="pse-chain-arrow" aria-hidden="true">
+            →
+          </span>
+        )}
+      </li>
+    ))}
   </Reveal>
 );

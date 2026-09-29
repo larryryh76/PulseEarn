@@ -1,40 +1,56 @@
 /**
- * PSEmine shell — MINIMAL FUNCTIONAL PRESENTATION.
+ * PSEmine console shell — the authenticated product's chrome.
  *
- * The Duty & Ledger visual shell (product bar, campaign band, duty rail, tab
- * bar, account menu, notification bell) was purged in
- * `refactor(psemine): purge legacy design implementation`. This shell keeps the
- * product operational while the interface is rebuilt:
+ * One bar, one campaign strip, one stage, one foot. The bar carries the product
+ * identity and the six console sections with the current one marked; the strip
+ * carries the campaign's position on every console route, because "what is the
+ * campaign doing and what is this account's capacity" is the context every other
+ * figure on the page is read against; the foot carries the product's documents
+ * once, at the end of the product, rather than repeating legal links on each
+ * page.
  *
- *   • the console routes still render inside it, unchanged and still guarded;
- *   • the campaign state and position are still visible (server-authoritative);
- *   • notifications are still readable and markable as read;
- *   • navigation between the console routes, and sign-out, still work.
+ * WHAT THE STRIP IS ALLOWED TO SAY. Only what the backend reports: the campaign
+ * status, the day inside the campaign's real window, and the account's real
+ * capacity. While the campaign read is still in flight it says so rather than
+ * defaulting to "Scheduled" — an unknown status printed as a known one is the
+ * quietest way a console can lie.
  *
- * It deliberately renders no design system: no palette, no rail, no chrome.
- * Everything it consumes comes from the real providers (PSEMineAuth,
- * PSEMineContext, PseStateProvider) and the non-visual helpers in pseCore.ts.
+ * THE GUIDE IS AN OVERLAY, NOT A PAGE. `/mine/guide` and
+ * `/mine/guide/onboarding` render the console and open the guide's plate over
+ * it, so learning the product never takes the reader away from the product and
+ * finishing onboarding reveals the console already in place behind it.
+ *
+ * NOTIFICATIONS ARE A SHEET, NOT A ROUTE. The notification ledger opens over the
+ * page being worked on, so reading it never costs the reader their place.
+ *
+ * The shell consumes only the real providers (PSEMineAuth, PSEMineContext,
+ * PseStateProvider) and the non-visual helpers in pseCore.ts. It holds no
+ * product state of its own beyond which overlay is open.
  */
 import React from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
 import {
-  campaignStatusView, gbpHour, timeAgo, useCampaignClock, usePseDocumentTitle,
+  campaignStatusView, gbpHour, timeAgo, useCampaignClock, useEscapeKey, usePseDocumentTitle, useScrollLock,
 } from './pseCore';
-import { PseButton, PseEmptyNote, PseSection } from './PseBasics';
-import { PSEmineLogo } from './PSEBrand';
+import { PseButton, PseIconButton } from './PseBasics';
+import { PseGuide } from './PseGuide';
+import { PSEmineLogo, PSEmineMark } from './PSEBrand';
+import { PSE_DOC_LABEL, PSE_DOC_ORDER, PSE_DOC_PATH } from './pseDocs';
 
-/** Console sections. The Guide and Account are reached from the footer rows. */
-const CONSOLE_NAV = [
+/** Console sections. The Guide sits beside them but opens an overlay. */
+const CONSOLE_NAV: ReadonlyArray<{ to: string; label: string }> = [
   { to: '/mine/dashboard', label: 'Overview' },
   { to: '/mine/tools', label: 'Tools' },
   { to: '/mine/wallet', label: 'Wallet' },
-  { to: '/mine/activity', label: 'Activity' },
   { to: '/mine/referrals', label: 'Referrals' },
+  { to: '/mine/activity', label: 'Activity' },
   { to: '/mine/me', label: 'Account' },
-  { to: '/mine/guide', label: 'Guide' },
 ];
+
+const GUIDE_REFERENCE = '/mine/guide';
+const GUIDE_ONBOARDING = '/mine/guide/onboarding';
 
 /** PSEmine owns the document title on every one of its routes. */
 const ROUTE_TITLES: Array<[RegExp, string]> = [
@@ -68,162 +84,374 @@ export const PSEMineShell: React.FC = () => {
      the console's and must not leak into it. */
   const chrome = !isLanding || inConsole;
 
+  const isGuideRoute = location.pathname === GUIDE_REFERENCE || location.pathname === GUIDE_ONBOARDING;
+  const guideMode: 'reference' | 'onboarding' =
+    location.pathname === GUIDE_ONBOARDING ? 'onboarding' : 'reference';
+
   usePseDocumentTitle(titleForPath(location.pathname));
 
   if (!chrome) return <Outlet />;
 
   return (
-    <div className="pse flex min-h-screen flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 p-4">
-          {/* The product's own mark, so the console carries the same identity as
-              the public page and the authentication family. */}
-          <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine">
-            <PSEmineLogo size={26} decorative />
-          </Link>
+    <div className="pse pse-console-shell">
+      <ProductBar inConsole={inConsole} />
+      {inConsole && <CampaignStrip />}
 
-          {inConsole && (
-            <nav aria-label="PSEmine console" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {CONSOLE_NAV.map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `text-sm ${isActive ? 'font-semibold text-text-primary underline' : 'text-text-secondary'}`}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {inConsole ? <SignOut /> : <Link to="/mine/login" className="text-sm text-text-secondary underline">Sign in</Link>}
-          </div>
-        </div>
-      </header>
-
-      {inConsole && <CampaignLine />}
-
-      <main className="flex-1">
+      <main className="pse-stage">
         <Outlet />
       </main>
 
-      {inConsole ? <Notifications /> : <PublicFooter />}
+      {inConsole ? <ConsoleFoot /> : <PublicFooter />}
+
+      {/* The guide sits over the console. It is opened by standing on its route,
+          so a link to it behaves like a link and the back button closes it. */}
+      {inConsole && isGuideRoute && (
+        <PseGuide mode={guideMode} />
+      )}
     </div>
   );
 };
 
-/** Sign-out. Leaves the product; nothing else in the console links out to it. */
-const SignOut: React.FC = () => {
+/* ── Product bar ─────────────────────────────────────────────────────────── */
+
+const ProductBar: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
   const { logout } = usePSEMineAuth();
+  const { unreadNotifications } = usePseState();
+  const [navOpen, setNavOpen] = React.useState(false);
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const location = useLocation();
+
+  // Navigating closes the mobile nav: a sheet that survives the navigation it
+  // performed leaves the reader looking at the link they already followed.
+  React.useEffect(() => { setNavOpen(false); }, [location.pathname]);
+
+  if (!inConsole) {
+    return (
+      <header className="pse-bar">
+        <div className="pse-bar-inner">
+          <Link to="/mine" className="pse-bar-brand" aria-label="PSEmine home">
+            <PSEmineLogo size={24} decorative />
+          </Link>
+          <div className="pse-bar-tools">
+            <Link to="/mine/login" className="pse-btn pse-btn--secondary pse-btn--sm">Sign in</Link>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <PseButton onClick={() => void logout()}>Sign out</PseButton>
+    <>
+      <header className="pse-bar">
+        <div className="pse-bar-inner">
+          <Link to="/mine/dashboard" className="pse-bar-brand" aria-label="PSEmine console">
+            <PSEmineMark size={26} decorative />
+            <span className="pse-bar-name">PSEmine</span>
+          </Link>
+
+          <nav className="pse-nav" aria-label="PSEmine console">
+            {CONSOLE_NAV.map(item => (
+              <NavLink key={item.to} to={item.to} className="pse-nav-link">
+                {item.label}
+              </NavLink>
+            ))}
+            <NavLink to={GUIDE_REFERENCE} className="pse-nav-link">Guide</NavLink>
+          </nav>
+
+          <div className="pse-bar-tools">
+            <PseIconButton
+              label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : 'Notifications'}
+              badge={unreadNotifications}
+              aria-expanded={sheetOpen}
+              onClick={() => setSheetOpen(v => !v)}
+            >
+              <BellGlyph />
+            </PseIconButton>
+
+            <PseButton
+              variant="secondary"
+              size="sm"
+              onClick={() => void logout()}
+            >
+              Sign out
+            </PseButton>
+
+            <PseIconButton
+              label={navOpen ? 'Close sections' : 'Open sections'}
+              aria-expanded={navOpen}
+              className="pse-nav-toggle"
+              onClick={() => setNavOpen(v => !v)}
+            >
+              <MenuGlyph open={navOpen} />
+            </PseIconButton>
+          </div>
+        </div>
+      </header>
+
+      {navOpen && (
+        <NavSheet onClose={() => setNavOpen(false)} />
+      )}
+
+      {sheetOpen && (
+        <NotificationSheet onClose={() => setSheetOpen(false)} />
+      )}
+    </>
   );
 };
 
+/* ── Campaign strip ──────────────────────────────────────────────────────── */
+
 /**
- * Campaign line — one operational line under the navigation.
- * Server-authoritative: status, day number, remaining days and capacity all come
- * from the backend state payload and the shared campaign clock.
+ * The campaign's position, on every console route.
+ *
+ * The day rail is drawn against the campaign's real window, so it states where
+ * the campaign is rather than how much of something the reader has. The capacity
+ * figure is the account's own, from the backend. Before the first read answers,
+ * the strip says the campaign is still being read — it does not print a status
+ * it has not been told.
  */
-const CampaignLine: React.FC = () => {
+const CampaignStrip: React.FC = () => {
   const { state, campaignStatus, refreshing, refresh } = usePseState();
   const clock = useCampaignClock(state?.campaign, campaignStatus);
+  const known = campaignStatus !== null;
   const view = campaignStatusView(campaignStatus);
   const capacity = state?.user?.totalCapacityGBPPerHour;
+  const tone = campaignStatus === 'active' ? 'good'
+    : campaignStatus === 'paused' || campaignStatus === 'settling' ? 'hold'
+      : campaignStatus === 'ended' || campaignStatus === 'closed' ? 'idle'
+        : undefined;
 
   return (
-    <div className="border-b border-border bg-surface-bright">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm text-text-secondary">
-        <span className="font-semibold text-text-primary">Campaign: {view.label}</span>
-        <span>{view.detail}</span>
-        <span>
-          {clock.dayNumber === null
-            ? 'Campaign window not open'
-            : `Day ${clock.dayNumber} of ${clock.totalDays}`}
-          {clock.daysLeft !== null ? ` · ${clock.daysLeft} days remaining` : ''}
+    <div className="pse-strip">
+      <div className="pse-strip-inner">
+        {known ? (
+          <span className="pse-chip" data-tone={tone}>
+            <span className="pse-chip-dot" aria-hidden="true" />
+            {view.label}
+          </span>
+        ) : (
+          <span className="pse-chip" data-tone="idle">
+            <span className="pse-chip-dot" aria-hidden="true" />
+            Reading campaign
+          </span>
+        )}
+
+        <span className="pse-strip-fact">
+          <span className="pse-strip-key">Day</span>
+          <span className="pse-strip-val">
+            {clock.dayNumber === null ? '—' : `${clock.dayNumber} / ${clock.totalDays}`}
+          </span>
         </span>
-        {typeof capacity === 'number' && <span>Capacity: {gbpHour(capacity)}</span>}
-        <PseButton className="ml-auto" onClick={() => void refresh()} disabled={refreshing}>
-          {refreshing ? 'Syncing…' : 'Sync'}
-        </PseButton>
+
+        <span className="pse-strip-rail" aria-hidden="true">
+          <span className="pse-strip-rail-fill" style={{ '--pse-w': `${clock.progress}%` } as React.CSSProperties} />
+        </span>
+
+        <span className="pse-strip-fact">
+          <span className="pse-strip-key">Capacity</span>
+          <span className="pse-strip-val">
+            {typeof capacity === 'number' ? gbpHour(capacity) : '—'}
+          </span>
+        </span>
+
+        {typeof clock.daysLeft === 'number' && (
+          <span className="pse-strip-fact">
+            <span className="pse-strip-key">Remaining</span>
+            <span className="pse-strip-val">{clock.daysLeft}d</span>
+          </span>
+        )}
+
+        <span className="pse-strip-actions">
+          <PseButton variant="secondary" size="sm" onClick={() => void refresh()} busy={refreshing}>
+            {refreshing ? 'Syncing…' : 'Sync'}
+          </PseButton>
+        </span>
       </div>
     </div>
   );
 };
 
+/* ── Notification sheet ──────────────────────────────────────────────────── */
+
 /**
- * Notifications — the console's real notification records, as a plain list.
- * Rendered from usePseState (the same backend feed the purged bell read).
+ * The real notification records, over the page being worked on. Bulk mark-read
+ * is preserved from the previous console, and an empty ledger says so rather
+ * than showing a placeholder.
  */
-const Notifications: React.FC = () => {
+const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { notifications, unreadNotifications, markNotificationRead, refreshFeed } = usePseState();
-  const shown = notifications.slice(0, 10);
+  const [busy, setBusy] = React.useState(false);
+  const shown = notifications.slice(0, 12);
+  const headRef = React.useRef<HTMLHeadingElement | null>(null);
+
+  useScrollLock(true);
+  useEscapeKey(true, onClose);
+  React.useEffect(() => { headRef.current?.focus(); }, []);
+
+  const markAll = async () => {
+    setBusy(true);
+    try {
+      for (const n of notifications) { if (!n.read) await markNotificationRead(n.id); }
+    } finally { setBusy(false); }
+  };
 
   return (
-    <div className="mx-auto w-full max-w-5xl p-4 pb-16">
-      <PseSection
-        title="Notifications"
-        meta={
-          <span>
-            {unreadNotifications} unread ·{' '}
+    <>
+      <div className="pse-sheet-scrim" onClick={onClose} role="presentation" />
+      <aside className="pse-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div className="pse-sheet-head">
+          <h2 className="pse-block-title" ref={headRef} tabIndex={-1}>
+            Notifications
+          </h2>
+          <span className="pse-block-meta">{unreadNotifications} unread</span>
+          <span className="pse-strip-actions">
             {unreadNotifications > 0 && (
-              <>
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => {
-                    // Bulk mark-read, preserved from the purged notification bell.
-                    notifications.forEach(n => { if (!n.read) void markNotificationRead(n.id); });
-                  }}
-                >
-                  Mark all read
-                </button>
-                {' · '}
-              </>
+              <PseButton variant="secondary" size="sm" onClick={() => void markAll()} busy={busy}>
+                {busy ? 'Working…' : 'Mark all read'}
+              </PseButton>
             )}
-            <button type="button" className="underline" onClick={() => void refreshFeed('notifications')}>
+            <PseButton variant="secondary" size="sm" onClick={() => void refreshFeed('notifications')}>
               Refresh
-            </button>
+            </PseButton>
+            <PseIconButton label="Close notifications" onClick={onClose}>
+              <CloseGlyph />
+            </PseIconButton>
           </span>
-        }
-      >
-        {shown.length === 0 ? (
-          <PseEmptyNote>No notifications yet.</PseEmptyNote>
-        ) : (
-          <ul className="space-y-2 text-sm">
-            {shown.map(n => (
-              <li key={n.id} className="flex flex-wrap items-baseline gap-x-3 border-b border-border py-2">
-                <span className={n.read ? 'text-text-secondary' : 'font-semibold text-text-primary'}>
-                  {n.title || n.type || 'Notification'}
-                </span>
-                {n.message && <span className="text-text-secondary">{n.message}</span>}
-                <span className="text-xs text-text-tertiary">{timeAgo(n.createdAt)}</span>
-                {!n.read && (
-                  <button
-                    type="button"
-                    className="ml-auto text-xs underline"
-                    onClick={() => void markNotificationRead(n.id)}
-                  >
-                    Mark read
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </PseSection>
-    </div>
+        </div>
+
+        <div className="pse-sheet-body">
+          {shown.length === 0 ? (
+            <p className="pse-empty-note--bare">
+              No notifications yet. Account events — purchases, restarts, referral qualifications, campaign milestones —
+              appear here as the backend records them.
+            </p>
+          ) : (
+            <ul className="m-0 list-none p-0">
+              {shown.map(n => (
+                <li key={n.id} className="pse-sheet-row">
+                  <span className="pse-sheet-row-title">
+                    {n.title || n.type || 'Notification'}
+                  </span>
+                  {n.message && <span className="pse-sheet-row-note">{n.message}</span>}
+                  <span className="pse-sheet-row-meta">
+                    <span>{timeAgo(n.createdAt)}</span>
+                    {n.type && <span>{n.type}</span>}
+                    {!n.read && (
+                      <button
+                        type="button"
+                        className="pse-meta-action ml-auto"
+                        onClick={() => void markNotificationRead(n.id)}
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+    </>
   );
 };
 
-const PublicFooter: React.FC = () => (
-  <footer className="border-t border-border">
-    <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 p-4 text-sm text-text-secondary">
+/* ── Mobile navigation sheet ─────────────────────────────────────────────── */
+
+const NavSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  useScrollLock(true);
+  useEscapeKey(true, onClose);
+
+  return (
+    <>
+      <div className="pse-sheet-scrim" onClick={onClose} role="presentation" />
+      <aside className="pse-sheet" role="dialog" aria-modal="true" aria-label="Console sections">
+        <div className="pse-sheet-head">
+          <h2 className="pse-block-title">Sections</h2>
+          <span className="pse-strip-actions">
+            <PseIconButton label="Close sections" onClick={onClose}>
+              <CloseGlyph />
+            </PseIconButton>
+          </span>
+        </div>
+        <div className="pse-sheet-body">
+          <nav className="pse-drawer-nav" aria-label="PSEmine console">
+            {[...CONSOLE_NAV, { to: GUIDE_REFERENCE, label: 'Guide' }].map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className="pse-drawer-link"
+                onClick={onClose}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      </aside>
+    </>
+  );
+};
+
+/* ── Console foot ────────────────────────────────────────────────────────── */
+
+/** Every product document, once, at the end of the product. The console does not
+    repeat legal links on each page: they are reachable from where a reader
+    commits (a purchase, a payout wallet) and from here. */
+const ConsoleFoot: React.FC = () => (
+  <footer className="pse-console-foot">
+    <div className="pse-console-foot-inner">
       <span>PSEmine · 90-day mining campaign</span>
-      <Link to="/terms" className="underline">Terms</Link>
-      <Link to="/privacy" className="underline">Privacy</Link>
-      <Link to="/help" className="underline">Support</Link>
+      <span className="pse-console-foot-links">
+        {PSE_DOC_ORDER.map(id => (
+          <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
+        ))}
+        <Link to="/mine/guide">How PSEmine works</Link>
+      </span>
     </div>
   </footer>
 );
+
+const PublicFooter: React.FC = () => (
+  <footer className="pse-console-foot">
+    <div className="pse-console-foot-inner">
+      <span>PSEmine · 90-day mining campaign</span>
+      <span className="pse-console-foot-links">
+        <Link to="/mine/terms">Terms</Link>
+        <Link to="/mine/privacy">Privacy</Link>
+        <Link to="/mine/risk">Risk disclosure</Link>
+        <Link to="/mine/support">Support</Link>
+      </span>
+    </div>
+  </footer>
+);
+
+/* ── Glyphs. Meaningful only: bell, menu, close. ─────────────────────────── */
+
+const BellGlyph: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+    <path
+      d="M10 2.8a4.6 4.6 0 0 0-4.6 4.6v2.9L4.3 12.6h11.4l-1.1-2.3V7.4A4.6 4.6 0 0 0 10 2.8Z"
+      stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
+    />
+    <path d="M8.2 14.9a1.9 1.9 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+
+const MenuGlyph: React.FC<{ open: boolean }> = ({ open }) => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+    {open ? (
+      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    ) : (
+      <path d="M3.5 6.5h13M3.5 10h13M3.5 13.5h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    )}
+  </svg>
+);
+
+const CloseGlyph: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+    <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+export default PSEMineShell;

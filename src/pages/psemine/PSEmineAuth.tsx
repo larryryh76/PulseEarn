@@ -653,11 +653,14 @@ const PSEmineAccessGate: React.FC = () => {
       }
       footer={
         <p className="pse-small">
-          <Link to="/mine/guide" className="pse-link">
+          {/* The public page, not the console's guide: this account has no
+              PSEmine access yet, so the console's own surfaces are exactly what
+              it cannot open. The explanation it is looking for is public. */}
+          <Link to="/mine" className="pse-link">
             How PSEmine works
           </Link>
           {' · '}
-          <Link to="/help" className="pse-link">
+          <Link to="/mine/support" className="pse-link">
             Contact support
           </Link>
         </p>

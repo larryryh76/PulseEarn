@@ -52,7 +52,6 @@ import { PSEMineTools } from './pages/psemine/PSEMineTools'
 import { PSEMineWallet } from './pages/psemine/PSEMineWallet'
 import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
 import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
-import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
 import { PSEmineAuth, PSEmineForgotPassword, PSEmineVerifyEmail, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
 import { PSEminePolicy } from './pages/psemine/PSEminePolicy'
@@ -246,8 +245,13 @@ function App() {
           <Route path="/mine/wallet" element={<PSEmineProtectedRoute><PSEMineWallet /></PSEmineProtectedRoute>} />
           <Route path="/mine/referrals" element={<PSEmineProtectedRoute><PSEMineReferrals /></PSEmineProtectedRoute>} />
           <Route path="/mine/activity" element={<PSEmineProtectedRoute><PSEMineActivity /></PSEmineProtectedRoute>} />
-          <Route path="/mine/guide" element={<PSEMineGuide />} />
-          <Route path="/mine/guide/onboarding" element={<PSEmineProtectedRoute><PSEMineGuide onboarding /></PSEmineProtectedRoute>} />
+          {/* The guide is an OVERLAY over the console, not a page of its own.
+              Both routes render the console and the shell opens the guide's
+              plate on top of it, so learning the product never costs the reader
+              the product — and finishing onboarding reveals a console that is
+              already loaded behind the plate. */}
+          <Route path="/mine/guide" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
+          <Route path="/mine/guide/onboarding" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
           <Route path="/mine/me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
         </Route>
 

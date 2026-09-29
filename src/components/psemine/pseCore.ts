@@ -316,6 +316,37 @@ export function useCampaignClock(
   };
 }
 
+/* ── Overlay behaviour (console sheets and the guide plate) ───────────────
+ * Two hooks, shared by every overlay in the console, so a sheet, a dialog and
+ * the guide all dismiss on the same key and all give the reader their scroll
+ * position back. Non-visual: they render nothing and decide nothing about what
+ * the overlay looks like.
+ *
+ * NOT FOR THE PUBLIC PLANE. The landing page and the authentication surfaces
+ * have no overlays (see PseInstruments.tsx and PseAuthFrame.tsx) — a marketing
+ * page that captures Escape and the page scroll is a page that fights its reader.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/** Holds the page behind an overlay still while it is open. */
+export function useScrollLock(active: boolean) {
+  React.useEffect(() => {
+    if (!active) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [active]);
+}
+
+/** Escape dismisses an overlay. Registered only while it is open. */
+export function useEscapeKey(active: boolean, onEscape: () => void) {
+  React.useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onEscape(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [active, onEscape]);
+}
+
 /* ── Document chrome (title + product icon) ───────────────────────────────
  * PSEmine routes must own the browser title AND the browser icon: index.html
  * ships PulseEarn's title and favicon, so without this a PSEmine campaign page

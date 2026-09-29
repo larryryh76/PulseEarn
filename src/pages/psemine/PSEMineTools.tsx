@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
@@ -13,7 +14,7 @@ import {
   bnbExactFromWei, cycleStateView, gbp, gbpHour, nowMs, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseLoading,
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading,
   PseNotice, PsePage, PseRow, PseSection, PseTable,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
@@ -130,22 +131,15 @@ export const PSEMineTools: React.FC = () => {
       objective="Tool capacity adds to your hourly mining capacity. Each tool has a fixed GBP price and a fixed hourly rate; purchases are paid in BNB."
       actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <PseSection title="Your position">
-        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-          {[
-            ['Tool capacity', gbpHour(toolCapacity)],
-            ['Referral capacity', `${gbpHour(referralCapacity)} · ${referralQualified} qualified`],
-            ['Total capacity', gbpHour(totalCapacity)],
-            ['Tool capacity headroom', gbpHour(headroom)],
-            ['Tools owned', `${totalOwned}`],
-            ['Tier slots remaining', `${tierSlotsLeft}`],
-          ].map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-              <dt className="text-sm text-text-secondary">{k}</dt>
-              <dd className="text-sm text-text-primary">{v}</dd>
-            </div>
-          ))}
-        </dl>
+      <PseSection title="Your position" meta="Capacity before and after any purchase below">
+        <PseFacts cols={2}>
+          <PseFact label="Tool capacity" value={gbpHour(toolCapacity)} />
+          <PseFact label="Referral capacity" value={gbpHour(referralCapacity)} hint={`${referralQualified} qualified referral${referralQualified === 1 ? '' : 's'}`} />
+          <PseFact label="Total capacity" value={gbpHour(totalCapacity)} />
+          <PseFact label="Tool capacity headroom" value={gbpHour(headroom)} hint={`of ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}`} />
+          <PseFact label="Tools owned" value={`${totalOwned}`} />
+          <PseFact label="Tier slots remaining" value={`${tierSlotsLeft}`} />
+        </PseFacts>
       </PseSection>
 
       {pendingPurchase && (
@@ -157,7 +151,7 @@ export const PSEMineTools: React.FC = () => {
               : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}{' '}
           <button
             type="button"
-            className="underline"
+            className="pse-link"
             onClick={() => {
               const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
               if (def) setPurchasing(def);
@@ -176,29 +170,38 @@ export const PSEMineTools: React.FC = () => {
       )}
 
       <PseSection title="Catalogue" meta={`Prices and rates are fixed in GBP · paid in BNB on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}`}>
-        <PseTable head={['Tool', 'Price', 'Capacity', 'Owned / limit', 'At limit', 'Operation', '']}>
+        <PseTable
+          head={['Tool', 'Price', 'Capacity', 'Owned / limit', 'At limit', 'Availability', '']}
+          numeric={[1, 2, 4]}
+          caption="The mining tools, with their fixed GBP price, hourly capacity and ownership limit"
+        >
           {TOOLS.map(tool => {
             const owned = counts[tool.id] || 0;
             const atLimit = owned >= tool.maxPerUser;
             const continuous = dutyOf(tool) === 'continuous';
             return (
               <PseRow key={tool.id}>
-                <PseCell>{tool.name}</PseCell>
-                <PseCell>{gbp(tool.purchasePriceGBP)}</PseCell>
-                <PseCell>{gbpHour(tool.hourlyRateGBP)}</PseCell>
+                <PseCell sub={continuous ? 'Continuous duty' : 'Session · manual restart'}>{tool.name}</PseCell>
+                <PseCell numeric>{gbp(tool.purchasePriceGBP)}</PseCell>
+                <PseCell numeric>{gbpHour(tool.hourlyRateGBP)}</PseCell>
                 <PseCell>{owned} / {tool.maxPerUser}</PseCell>
-                <PseCell>{gbpHour(tool.hourlyRateGBP * tool.maxPerUser)}</PseCell>
-                <PseCell>{continuous ? 'Continuous' : 'Session — manual restart'}</PseCell>
+                <PseCell numeric>{gbpHour(tool.hourlyRateGBP * tool.maxPerUser)}</PseCell>
+                <PseCell>{atLimit ? 'Limit reached' : `${tool.maxPerUser - owned} left`}</PseCell>
                 <PseCell>
-                  <PseButton onClick={() => setPurchasing(tool)} disabled={!purchaseOpen || atLimit}>
-                    {atLimit ? 'Limit reached' : purchaseOpen ? 'Buy' : 'Closed'}
+                  <PseButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPurchasing(tool)}
+                    disabled={!purchaseOpen || atLimit}
+                  >
+                    {atLimit ? 'Limit reached' : purchaseOpen ? `Buy ${tool.name}` : 'Closed'}
                   </PseButton>
                 </PseCell>
               </PseRow>
             );
           })}
         </PseTable>
-        <p className="text-xs text-text-tertiary">
+        <p className="pse-block-note">
           A session tool stops mining when its session ends until it is restarted; restart timing is derived by the
           backend. Elite runs continuously while the campaign is active.
         </p>
@@ -206,24 +209,41 @@ export const PSEMineTools: React.FC = () => {
 
       <PseSection title="Your equipment" meta={`${ownedTools.length} ownership record${ownedTools.length === 1 ? '' : 's'}`}>
         {ownedTools.length === 0 ? (
-          <PseEmptyNote>No tools are owned on this account yet.</PseEmptyNote>
+          <PseEmptyNote
+            glyph="activate"
+            title="No tools are owned on this account yet"
+            action={
+              purchaseOpen ? (
+                <PseButton variant="secondary" size="sm" onClick={() => setPurchasing(TOOLS[0])}>
+                  Buy {TOOLS[0].name}
+                </PseButton>
+              ) : undefined
+            }
+          >
+            Capacity comes from ownership. A tool is bought with BNB from your own wallet, and its hourly rate is added
+            to the account when the backend verifies the payment and activates it.
+          </PseEmptyNote>
         ) : (
-          <PseTable head={['Tool', 'State', 'Rate', 'Directive']}>
+          <PseTable
+            head={['Tool', 'State', 'Rate', 'Directive']}
+            numeric={[2]}
+            caption="Tools owned by this account and what the backend is doing with each one"
+          >
             {ownedTools.map(t => {
               const cycle = cycleStateView(t.cycleState || t.status);
               return (
                 <PseRow key={t.id}>
                   <PseCell>{t.toolName || t.toolId || 'Mining tool'}</PseCell>
                   <PseCell>{cycle.label}</PseCell>
-                  <PseCell>{gbpHour(t.hourlyRateGBP ?? 0)}</PseCell>
+                  <PseCell numeric>{gbpHour(t.hourlyRateGBP ?? 0)}</PseCell>
                   <PseCell>{cycle.description}</PseCell>
                 </PseRow>
               );
             })}
           </PseTable>
         )}
-        <p className="text-sm">
-          <a href="/mine/dashboard" className="underline">Restart tools and see the mining state on the console</a>
+        <p className="pse-block-note">
+          <Link to="/mine/dashboard" className="pse-link">Restart tools and see the mining state on the console</Link>.
         </p>
       </PseSection>
 
@@ -643,7 +663,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           </p>
           {resume.purchase.transactionHash && (
             <p className="text-sm">
-              <a href={`https://bscscan.com/tx/${resume.purchase.transactionHash}`} target="_blank" rel="noreferrer" className="underline">
+              <a href={`https://bscscan.com/tx/${resume.purchase.transactionHash}`} target="_blank" rel="noreferrer" className="pse-link">
                 View {shortHash(resume.purchase.transactionHash)} on BscScan
               </a>
             </p>
@@ -676,24 +696,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 fresh quote is prepared below; the earlier record is kept for audit and was not rewritten.
               </PseNotice>
             )}
-            <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-              {[
-                ['Tool', tool.name],
-                ['Fixed price', gbp(quote.gbpPrice)],
-                ['Live rate', quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'],
-                ['You pay, exactly', `${exactBnb} BNB`],
-                ['Network', `${networkName} · ${requiredChainId}`],
-                ['Receiving wallet', shortAddr(quote.receiverWallet)],
-                ['Quote window', `${mm}:${ss}`],
-                ['Quote id', shortHash(quote.quoteId, 8)],
-              ].map(([k, v]) => (
-                <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-                  <dt className="text-sm text-text-secondary">{k}</dt>
-                  <dd className="font-mono text-sm text-text-primary">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="text-xs text-text-tertiary">
+            <PseFacts cols={2}>
+              <PseFact label="Tool" value={tool.name} text />
+              <PseFact label="Fixed price" value={gbp(quote.gbpPrice)} />
+              <PseFact label="Live rate" value={quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'} />
+              <PseFact label="You pay, exactly" value={`${exactBnb} BNB`} />
+              <PseFact label="Network" value={`${networkName} · ${requiredChainId}`} text />
+              <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
+              <PseFact label="Quote window" value={`${mm}:${ss}`} />
+              <PseFact label="Quote id" value={shortHash(quote.quoteId, 8)} />
+            </PseFacts>
+            <p className="pse-block-note">
               The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
               {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
             </p>
@@ -737,22 +750,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseNotice>
           )}
 
-          <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-            {[
-              ['Tool', tool.name],
-              ['Price', gbp(tool.purchasePriceGBP)],
-              ['Network', `${networkName} · chain ${requiredChainId}`],
-              ['Payment wallet', boundPayer ? shortAddr(boundPayer) : connectedWallet ? shortAddr(connectedWallet) : '—'],
-              ['Receiving wallet', shortAddr(quote.receiverWallet)],
-              ['Quote expires', `${mm}:${ss}`],
-              ['You pay exactly', `${exactBnb} BNB`],
-            ].map(([k, v]) => (
-              <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-                <dt className="text-sm text-text-secondary">{k}</dt>
-                <dd className="font-mono text-sm text-text-primary">{v}</dd>
-              </div>
-            ))}
-          </dl>
+          <PseFacts cols={2}>
+            <PseFact label="Tool" value={tool.name} text />
+            <PseFact label="Price" value={gbp(tool.purchasePriceGBP)} />
+            <PseFact label="Network" value={`${networkName} · chain ${requiredChainId}`} text />
+            <PseFact label="Payment wallet" value={boundPayer ? shortAddr(boundPayer) : connectedWallet ? shortAddr(connectedWallet) : '—'} />
+            <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
+            <PseFact label="Quote expires" value={`${mm}:${ss}`} />
+            <PseFact label="You pay exactly" value={`${exactBnb} BNB`} />
+          </PseFacts>
 
           <PseButton onClick={() => void navigator.clipboard?.writeText(exactBnb)}>Copy exact BNB amount</PseButton>
           <PseNotice tone="attention">
@@ -766,7 +772,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </p>
           )}
 
-          <ul className="space-y-1 text-sm">
+          <ul className="pse-checks">
             {[
               {
                 ok: walletLive && Boolean(connectedWallet && EVM.test(connectedWallet)),
@@ -800,8 +806,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
               { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
             ].map(c => (
-              <li key={c.label} className={c.warn ? 'text-text-primary' : 'text-text-secondary'}>
-                {c.ok ? '✓' : c.warn ? '!' : '·'} {c.label}
+              <li
+                key={c.label}
+                className="pse-checks-item"
+                data-state={c.ok ? 'ok' : c.warn ? 'warn' : 'idle'}
+              >
+                <span className="pse-checks-mark" aria-hidden="true">
+                  {c.ok ? 'OK' : c.warn ? '!' : '–'}
+                </span>
+                <span>{c.label}</span>
               </li>
             ))}
           </ul>
@@ -818,7 +831,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             <PseNotice tone="attention">
               Wrong network — this payment must be sent on {networkName} (chain {requiredChainId}); your wallet is on
               chain {walletChainId}, and a transaction signed elsewhere can never be verified.{' '}
-              <button type="button" className="underline" onClick={() => void switchChain()}>Switch to BNB Smart Chain</button>
+              <button type="button" className="pse-link" onClick={() => void switchChain()}>Switch to BNB Smart Chain</button>
             </PseNotice>
           )}
 
@@ -836,7 +849,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseButton>
           </div>
           {payBlocked && <PseNotice tone="attention">{blockedReason}</PseNotice>}
-          <p className="text-xs text-text-tertiary">
+          <p className="pse-block-note">
             After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and
             confirmation depth — before the tool activates.
           </p>
@@ -849,7 +862,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           <p className="text-sm text-text-secondary" role="status" aria-live="polite">
             Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
           </p>
-          <p className="font-mono text-xs text-text-tertiary">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+          <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
         </PseSection>
       )}
 
@@ -866,7 +879,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           <p className="text-sm text-text-primary">{result.message}</p>
           {result.hash && (
             <p className="text-sm">
-              <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer" className="underline">
+              <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer" className="pse-link">
                 View {shortHash(result.hash)} on BscScan
               </a>
             </p>

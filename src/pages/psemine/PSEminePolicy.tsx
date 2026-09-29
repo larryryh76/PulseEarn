@@ -629,9 +629,14 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
             <PSEmineLogo size={24} decorative />
           </Link>
           <nav className="pse-doc-bar-nav" aria-label="PSEmine documents">
-            <Link to="/mine/guide" className="pse-mast-link">
+            {/* Documents are public by design; the console's guide is not, so a
+                public page sends a reader to the public explanation. A plain
+                anchor, not a router link: this crosses from a document into the
+                product page and the fragment has to be honoured on load, which
+                a pushState navigation does not do. */}
+            <a href="/mine#campaign" className="pse-mast-link">
               Guide
-            </Link>
+            </a>
             <Link to="/mine/support" className="pse-mast-link">
               Support
             </Link>
@@ -748,9 +753,9 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
                 {PSE_DOC_LABEL[id]}
               </Link>
             ))}
-            <Link className="pse-foot-link" to="/mine/guide">
+            <a className="pse-foot-link" href="/mine#campaign">
               Campaign guide
-            </Link>
+            </a>
           </nav>
         </div>
       </footer>

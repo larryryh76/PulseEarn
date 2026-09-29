@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { fmtDateTime, gbp, timeAgo, toDateSafe } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseField, PseInput,
-  PseLoading, PsePage, PseRow, PseSection, PseTable,
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseFeedNotice, PseField,
+  PseInput, PseLedgerDay, PseLoading, PsePage, PseRow, PseSection, PseTable,
 } from '../../components/psemine/PseBasics';
 
 /**
@@ -103,14 +104,14 @@ export const PSEMineActivity: React.FC = () => {
 
   if (loading && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseLoading label="Loading your ledger" />
       </div>
     );
   }
   if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
@@ -124,21 +125,19 @@ export const PSEMineActivity: React.FC = () => {
       objective="Every recorded PSEmine event on this account, in day groups, with its credit or debit column."
       actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <PseSection title="Account ledger state">
-        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-          {[
-            ['Credited', gbp(totals.credited)],
-            ['Debited', gbp(totals.debited)],
-            ['Records', `${activities.length}`],
-            ['Newest record', totals.newest ? timeAgo(totals.newest) : '—'],
-            ['Newest record (exact)', totals.newest ? fmtDateTime(totals.newest) : '—'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-              <dt className="text-sm text-text-secondary">{k}</dt>
-              <dd className="text-sm text-text-primary">{v}</dd>
-            </div>
-          ))}
-        </dl>
+      <PseSection title="Ledger state" meta={`${activities.length} recorded event${activities.length === 1 ? '' : 's'}`}>
+        <PseFacts cols={3}>
+          <PseFact label="Credited" value={gbp(totals.credited)} />
+          <PseFact label="Debited" value={gbp(totals.debited)} />
+          <PseFact label="Net" value={`${totals.credited - totals.debited < 0 ? '−' : ''}${gbp(Math.abs(totals.credited - totals.debited))}`} />
+          <PseFact label="Records" value={`${activities.length}`} />
+          <PseFact label="Newest record" value={totals.newest ? timeAgo(totals.newest) : '—'} />
+          <PseFact label="Newest, exact" value={totals.newest ? fmtDateTime(totals.newest) : '—'} text />
+        </PseFacts>
+        <p className="pse-block-note">
+          Credited and debited are totals of the recorded amounts only. A payout appears as a debit when it is recorded,
+          not when it is requested.
+        </p>
       </PseSection>
 
       {feedErrors.activities && (
@@ -159,7 +158,7 @@ export const PSEMineActivity: React.FC = () => {
               id="pse-activity-filter"
               value={filter}
               onChange={e => setFilter(e.target.value as FilterId)}
-              className="min-h-[36px] rounded border border-border-bright px-2 py-1.5 text-sm text-text-primary"
+              className="pse-input pse-input--select"
             >
               {FILTERS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
@@ -183,29 +182,37 @@ export const PSEMineActivity: React.FC = () => {
         </div>
 
         {filtered.length === 0 ? (
-          <PseEmptyNote>
-            {activities.length === 0
-              ? 'No records yet. Purchases, maintenance, referral qualifications and campaign milestones appear here as the backend records them.'
-              : 'No records match this filter.'}
-          </PseEmptyNote>
+          activities.length === 0 ? (
+            <PseEmptyNote glyph="audit" title="No events recorded yet" action={<Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Open the tool catalogue</Link>}>
+              Purchases, maintenance and restarts, referral qualifications and campaign milestones appear here as the
+              backend records them. Nothing is written to this ledger speculatively, so an empty ledger is a true
+              statement about this account.
+            </PseEmptyNote>
+          ) : (
+            <PseEmptyNote title="No records match this view">
+              The ledger holds {activities.length} recorded event{activities.length === 1 ? '' : 's'}, and none of them
+              match the current filter and search.
+            </PseEmptyNote>
+          )
         ) : (
           groups.map(([key, rows]) => (
             <div key={key} className="space-y-1">
-              <h3 className="pt-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">{dayLabel(key)}</h3>
-              <PseTable head={['Record', 'Type', 'When', 'Amount']}>
+              <PseLedgerDay>{dayLabel(key)}</PseLedgerDay>
+              <PseTable
+                head={['Record', 'Type', 'When', 'Amount']}
+                numeric={[3]}
+                caption={`Recorded events for ${dayLabel(key)}`}
+              >
                 {rows.map(a => {
                   const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
                   const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
                   const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
                   return (
                     <PseRow key={a.id}>
-                      <PseCell>
-                        {a.title || 'Account event'}
-                        {a.description ? <span className="block text-xs text-text-tertiary">{a.description}</span> : null}
-                      </PseCell>
+                      <PseCell sub={a.description || undefined}>{a.title || 'Account event'}</PseCell>
                       <PseCell>{a.type || '—'}</PseCell>
                       <PseCell>{fmtDateTime(a.createdAt)}</PseCell>
-                      <PseCell>
+                      <PseCell numeric>
                         {displayAmount !== null && displayAmount !== 0
                           ? `${displayAmount > 0 ? '+' : '−'}${gbp(Math.abs(displayAmount))}`
                           : '—'}
@@ -220,7 +227,7 @@ export const PSEMineActivity: React.FC = () => {
       </PseSection>
 
       <PseSection title="About this ledger">
-        <p className="text-sm text-text-secondary">
+        <p className="pse-block-note">
           Rows are backend records with their recorded sign: a credit is money accrued or returned to the account, a
           debit is money spent (a tool purchase) or paid out. Undated records are shown honestly as undated rather than
           being given an invented time.

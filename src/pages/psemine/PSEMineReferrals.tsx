@@ -5,7 +5,7 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
 import { gbpHour, referralStageView, timeAgo, REFERRAL_STAGES } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseLoading, PseNotice,
+  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
   PsePage, PseRow, PseSection, PseTable,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
@@ -68,14 +68,14 @@ export const PSEMineReferrals: React.FC = () => {
 
   if (loading && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseLoading label="Loading referral capacity" />
       </div>
     );
   }
   if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <div className="pse-console-main">
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
     );
@@ -92,49 +92,54 @@ export const PSEMineReferrals: React.FC = () => {
         </>
       }
     >
-      <PseSection title="Referral capacity">
-        <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-          {[
-            ['Qualified referral capacity', gbpHour(refCapacity)],
-            ['Qualified referrals', `${qualified} of ${MAX_REFERRALS}`],
-            ['Slots remaining', `${remainingSlots}`],
-            ['Referrals in progress', `${inProgress}`],
-            ['Total capacity', gbpHour(totalCapacity)],
-            ['Referral maximum', gbpHour(maxReferralCapacity)],
-          ].map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
-              <dt className="text-sm text-text-secondary">{k}</dt>
-              <dd className="text-sm text-text-primary">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {qualified >= MAX_REFERRALS && <PseNotice>Capacity maxed — {MAX_REFERRALS} qualified referrals reached.</PseNotice>}
+      <PseSection title="Referral capacity" meta={`${remainingSlots} of ${MAX_REFERRALS} slots open`}>
+        <PseFacts cols={2}>
+          <PseFact label="Qualified referral capacity" value={gbpHour(refCapacity)} />
+          <PseFact label="Qualified referrals" value={`${qualified} / ${MAX_REFERRALS}`} />
+          <PseFact label="Slots remaining" value={`${remainingSlots}`} />
+          <PseFact label="Referrals in progress" value={`${inProgress}`} />
+          <PseFact label="Total capacity" value={gbpHour(totalCapacity)} />
+          <PseFact label="Referral maximum" value={gbpHour(maxReferralCapacity)} />
+        </PseFacts>
+        {qualified >= MAX_REFERRALS && (
+          <PseNotice tone="good" title="Referral capacity maxed">
+            All {MAX_REFERRALS} qualifying referrals are recorded. Further invites do not add capacity to this account.
+          </PseNotice>
+        )}
       </PseSection>
 
       <PseSection title="Your invite link" meta={code ? `code ${code}` : 'no code yet'}>
         {link ? (
           <>
-            <p className="break-all font-mono text-xs text-text-primary">{link}</p>
-            <PseButton onClick={() => void navigator.clipboard?.writeText(link)}>Copy invite link</PseButton>
+            <span className="pse-code">
+              <span className="pse-code-value">{link}</span>
+            </span>
+            <div className="pse-empty-actions">
+              <PseButton variant="secondary" size="sm" onClick={() => void navigator.clipboard?.writeText(link)}>
+                Copy invite link
+              </PseButton>
+            </div>
           </>
         ) : (
-          <PseEmptyNote>A referral code is issued by the backend; it will appear here once it exists.</PseEmptyNote>
+          <PseEmptyNote glyph="select" title="No referral code yet">
+            A referral code is issued by the backend when the account is enrolled. It appears here as soon as it exists.
+          </PseEmptyNote>
         )}
       </PseSection>
 
       <PseSection title="Qualification pipeline">
-        <PseTable head={['Stage', 'Meaning', 'Count']}>
+        <PseTable head={['Stage', 'Meaning', 'Invites']} numeric={[2]} caption="Invites recorded at each qualification stage">
           {REFERRAL_STAGES.map(s => (
             <PseRow key={s.id}>
               <PseCell>{s.label}</PseCell>
               <PseCell>{referralStageView(s.id).help}</PseCell>
-              <PseCell>{stageCounts[s.id] || 0}</PseCell>
+              <PseCell numeric>{stageCounts[s.id] || 0}</PseCell>
             </PseRow>
           ))}
         </PseTable>
-        <p className="text-xs text-text-tertiary">
+        <p className="pse-block-note">
           Qualification settles on the backend when the invite&apos;s first tool activates — one auditable event, once
-          per referral.
+          per referral. A stage count of zero means no invite is at that stage, not that the stage is unavailable.
         </p>
       </PseSection>
 
@@ -143,17 +148,27 @@ export const PSEMineReferrals: React.FC = () => {
         meta={
           <span>
             {referrals.length} record{referrals.length === 1 ? '' : 's'} ·{' '}
-            <button type="button" className="underline" onClick={() => void refreshFeed('referrals')}>Refresh</button>
+            <button type="button" className="pse-meta-action" onClick={() => void refreshFeed('referrals')}>Refresh</button>
           </span>
         }
       >
         {feedErrors.referrals && <PseNotice tone="attention">The referral feed could not be refreshed.</PseNotice>}
         {referrals.length === 0 ? (
-          <PseEmptyNote>
-            No referrals recorded yet. Invites appear here as accounts register with your code.
+          <PseEmptyNote
+            glyph="select"
+            title="No referrals recorded yet"
+            action={link ?          <PseButton variant="secondary" size="sm" onClick={() => void share()} disabled={!link}>Share invite link</PseButton>
+            : undefined}
+          >
+            Invites appear here as accounts register with your code, and their stage advances as the backend records real
+            account events — a registration, a connected wallet, a purchased tool, live mining. Nothing here is recorded
+            until it has happened.
           </PseEmptyNote>
         ) : (
-          <PseTable head={['Referral', 'Stage', 'Recorded', 'Qualified']}>
+          <PseTable
+            head={['Referral', 'Stage', 'Recorded', 'Qualified']}
+            caption="Accounts recorded against this referral code"
+          >
             {referrals.map(r => {
               const stage = referralStageView(r.status);
               const name = r.refereeUsername || r.refereeEmailMasked || `Miner ${String(r.refereeId || '').slice(0, 6)}`;
@@ -171,7 +186,7 @@ export const PSEMineReferrals: React.FC = () => {
       </PseSection>
 
       <PseSection title="Referral rules">
-        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+        <ul className="pse-notes">
           <li>Register → connect a wallet → purchase a mining tool → mining active → qualified.</li>
           <li>Only qualified referrals add capacity, and only from the qualification moment forward.</li>
           <li>At most {MAX_REFERRALS} referrals count per account ({gbpHour(maxReferralCapacity)}).</li>

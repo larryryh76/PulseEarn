@@ -103,15 +103,17 @@ const DOCS: Record<PseDocId, PseDoc> = {
       },
       {
         id: 'what-it-is',
-        h: 'What PSEmine is, and what it is not',
+        h: 'What PSEmine is',
         p: [
-          'PSEmine sells a recorded right to a mining unit\u2019s hourly capacity for the duration of a single campaign. A unit has a fixed price, a fixed capacity per hour denominated in GBP, and an ownership limit; the capacity accrues campaign earnings while the campaign is running, and settled earnings are paid out in BNB after the campaign ends.',
+          'PSEmine sells a recorded right to a mining unit\u2019s hourly capacity for the duration of a single campaign. A unit has a fixed price, a fixed capacity per hour denominated in GBP, and an ownership limit; that capacity accrues campaign earnings while the campaign is running, and settled earnings are paid out in BNB after the campaign ends.',
+          'A unit is a campaign instrument rather than hardware you host: the service operates it, and the capacity it carries is recorded on your account. The price list, the hourly rates and the ownership limits are published and fixed before the campaign opens, and they do not move while it runs.',
         ],
         list: [
-          'PSEmine is not an investment product, a security, a deposit, or a promise of profit.',
-          'No figure in the product is a projection, a forecast or a guaranteed return.',
-          'Mining units are not physical hardware that you own, host or receive.',
-          'PSEmine does not take custody of your funds and cannot move funds on your behalf.',
+          'Units are sold at the published price list, each with a fixed capacity per hour and a per-account ownership limit.',
+          'Capacity accrues campaign earnings on the server\u2019s own record of when mining was live, and accrual runs to the end of the campaign window.',
+          'Settled earnings are paid out in BNB to the payout wallet on your account, in campaign accounting kept in GBP.',
+          'Your funds stay in your own wallet: you sign every payment yourself, and PSEmine cannot move funds on your behalf.',
+          'A payout passes review before it is sent, and the payout record states the settled GBP figure and the BNB amount sent.',
         ],
       },
       {
@@ -192,7 +194,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'accrual',
         h: 'How accrual works',
         p: [
-          'Accrual is calculated by the PSEmine service from the capacity you hold and the time mining was actually live. The browser holds no authority over a figure: it displays the server\u2019s checkpoint and interpolates between checkpoints for presentation only.',
+          'Accrual is calculated by the PSEmine service from the capacity you hold and the time mining was actually live. The service writes a checkpoint as accrual runs; the browser displays that checkpoint and interpolates between checkpoints for presentation.',
           'Nothing accrues while the campaign is paused or after it has ended, and nothing accrues for a unit that is not operating. Referral capacity accrues only while you have at least one unit actually operating.',
         ],
       },
@@ -299,9 +301,9 @@ const DOCS: Record<PseDocId, PseDoc> = {
     sections: [
       {
         id: 'accrued',
-        h: 'Accrued earnings are not a balance',
+        h: 'Accrual, and when it becomes payable',
         p: [
-          'While a campaign runs, the figure you see is accrual: a running record of campaign earnings. It is not a wallet balance and cannot be withdrawn mid-campaign. Accrual becomes payable only when settlement finalises it.',
+          'While a campaign runs, the figure you see is accrual: a running record of the campaign earnings your capacity has produced. Accrual becomes payable when settlement finalises it at the end of the window, and payouts are made from a settled balance.',
         ],
       },
       {
@@ -338,9 +340,9 @@ const DOCS: Record<PseDocId, PseDoc> = {
       },
       {
         id: 'not-withdrawable',
-        h: 'What is never withdrawable',
+        h: 'What a payout is made from',
         p: [
-          'Accrual that has not been settled, a purchase price you paid, and referral capacity (which is a rate, not a balance) are never withdrawable. Only a settled, approved balance is paid out.',
+          'A payout is made from a settled, approved balance. Accrual before settlement, a purchase price you have paid, and referral capacity (a rate rather than a balance) are not payable as a payout: settlement and review are what turn campaign earnings into one.',
         ],
       },
     ],
@@ -416,16 +418,17 @@ const DOCS: Record<PseDocId, PseDoc> = {
       },
       {
         id: 'campaign-based',
-        h: 'Earnings are campaign-based, not guaranteed',
+        h: 'How campaign earnings accrue and settle',
         p: [
-          'PSEmine does not guarantee a return, and no figure in the product is a forecast. Hourly capacity is a campaign rate: it accrues only while a unit is operating and only while the campaign is live. What a unit is ultimately worth therefore depends on the campaign running for its window and on the unit operating within it.',
+          'Hourly capacity is a campaign rate: it accrues while a unit is operating and the campaign is live, and it stops when either of those ends. The campaign runs its published window, settlement finalises the accrual at the end of it, and the settled figure is the recorded result of that window — and the figure a payout is calculated from.',
+          'The published figures are what the campaign runs on. The campaign length, each unit\u2019s price, its hourly capacity and its ownership limit are fixed before the campaign opens and do not change while it runs, so what a unit costs and what it adds are known before you buy.',
         ],
       },
       {
         id: 'purchase',
         h: 'A purchase is a payment, made once',
         p: [
-          'Buying a unit is a purchase, not a deposit. The price is paid in full in BNB at the time of purchase, and a confirmed on-chain payment cannot be recalled by PSEmine. Because an outcome depends on the campaign, the purchase price is not refundable merely because that outcome differs from your expectations, and a purchase is not a claim on the campaign\u2019s revenue or on any particular return.',
+          'Buying a unit is a one-off purchase at the published price: the price is paid in full in BNB at the time of purchase, and a confirmed on-chain payment cannot be recalled by PSEmine. A unit gives you its recorded hourly capacity for the campaign window, and the purchase price is not refundable as a change of mind.',
           'Nothing in this section limits rights you have under applicable consumer law.',
         ],
       },
@@ -435,8 +438,8 @@ const DOCS: Record<PseDocId, PseDoc> = {
         list: [
           'A paused campaign accrues nothing for anyone for the duration of the pause; the record of when mining was actually live is kept server-side.',
           'Session units (Starter, Builder and Advanced) mine in fixed sessions and stop between them until restarted, and nothing accrues during a restart delay. Elite units run continuously while the campaign is active.',
-          'Referral capacity is added only when a referral reaches qualification, and accrues only while you have at least one unit actually operating — both are outside your sole control.',
-          'Accrual is not withdrawable during a campaign. It becomes payable once settlement finalises it, and each payout then passes review before it is sent, so a payout can be delayed.',
+          'Referral capacity is added when a referral reaches qualification, and accrues while you hold at least one unit actually operating.',
+          'Accrual becomes payable once settlement finalises it, and each payout then passes review before it is sent — so a payout can take time to reach the wallet.',
         ],
       },
       {
@@ -453,13 +456,6 @@ const DOCS: Record<PseDocId, PseDoc> = {
           'A transaction on BNB Smart Chain is final. PSEmine cannot recall it, reverse it, or recover funds sent to an address that was recorded incorrectly.',
           'Send the exact quoted BNB amount, from your own wallet, on BNB Smart Chain, to the address printed on a quote you requested yourself. A payment made on the wrong network, to the wrong address, or in the wrong amount is recorded and reviewed rather than corrected automatically.',
           'You are responsible for your own wallet, its keys and its security. PSEmine never takes custody of your funds and will never ask for your private key or seed phrase.',
-        ],
-      },
-      {
-        id: 'not-advice',
-        h: 'Not advice',
-        p: [
-          'Nothing in PSEmine is financial, investment, tax or legal advice, and the product does not assess whether a campaign is suitable for you. Make your own assessment of whether PSEmine fits your circumstances, and take independent advice where you need it.',
         ],
       },
     ],

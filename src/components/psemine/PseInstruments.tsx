@@ -33,8 +33,8 @@
  * nothing, and it carries no balance, no position, no countdown and no address.
  * No instrument here reads an account: they are constructed from the locked
  * prices, rates, limits, ceilings and the campaign length, and nothing else. A
- * specimen is labelled as a specimen, and an illustration of a flow never
- * contains a dead control — the only button in a specimen is a real link.
+ * scenario is labelled as a scenario, and an illustration of a flow never
+ * contains a dead control — the only button in a scenario is a real link.
  *
  * MOTION
  * `Reveal` arms a one-shot entrance through an IntersectionObserver. Elements
@@ -45,7 +45,7 @@
  *
  * THE MOTION RULE: it explains hierarchy. A gauge fills once so you read it as a
  * measurement; a rail draws once so you read it as a sequence; a panel lifts on
- * hover so you know it is a surface; a specimen's edge catches the light on hover
+ * hover so you know it is a surface; a scenario's edge catches the light on hover
  * so you know it is the foreground. Nothing loops, nothing counts, nothing
  * happens merely because it can.
  */
@@ -378,6 +378,7 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
         <span className="pse-family-head-cap">Capacity</span>
         <span className="pse-family-head-price">Price</span>
         <span className="pse-family-head-limit">Ownership</span>
+        <span className="pse-family-head-act">Purchase</span>
       </div>
 
       <ul className="pse-family-list">
@@ -436,6 +437,23 @@ export const ToolFamily: React.FC<{ tiers: ReadonlyArray<PseTierView>; className
                 <span className="pse-unit-meta-val">{`${t.limit} max`}</span>
               </span>
             </div>
+
+            {/* The purchase action, on the unit it belongs to.
+                A specification that lists four prices and never says how to buy
+                one is a catalogue; this is the real next step for the row it
+                sits in, so a reader never has to scroll back to a single global
+                button to act on the tier they actually chose. It is a link into
+                account creation — the only place a purchase can start. */}
+            <Link
+              className="pse-unit-action"
+              to="/mine/signup"
+              aria-label={`${t.name} — create an account to purchase, ${t.price}, ${t.rate}`}
+            >
+              {`Get ${t.name}`}
+              <span className="pse-unit-action-arrow" aria-hidden="true">
+                →
+              </span>
+            </Link>
           </Reveal>
         ))}
       </ul>
@@ -461,7 +479,7 @@ export interface PseBuildRow extends PseTierView {
 }
 
 /**
- * One link of the specimen's campaign spine.
+ * One link of the scenario's campaign spine.
  *
  * The spine is how the window answers the question the page exists to answer:
  * what does owning a unit actually become? It runs left to right along the
@@ -570,7 +588,7 @@ export const PseAppWindow: React.FC<{
             </dl>
 
             {/* The two instruments sit side by side once the window is wide
-                enough to carry them, which is what keeps the specimen's
+                enough to carry them, which is what keeps the scenario's
                 silhouette a WINDOW rather than a column. */}
             <div className="pse-app-pair">
               <section className="pse-app-block">
@@ -786,23 +804,26 @@ const NetworkMark: React.FC<{ size?: number }> = ({ size = 18 }) => (
 );
 
 /**
- * The payment specimen: a purchase as a modern wallet flow presents it.
+ * The payment console: a purchase as the product's own wallet flow presents it.
  *
  * The amount hierarchy is the point — the price is fixed and stated in GBP, the
- * BNB amount is a specimen conversion at a stated rate (never a live quote and
- * never a receiving address), and the network and asset carry their own
+ * BNB amount is a scenario conversion at a stated indicative rate (never a live
+ * quote and never a receiving address), and the network and asset carry their own
  * identity. The status rail names the four real states of a purchase; the first
- * is marked as the specimen's, because a specimen is at the moment it shows and
+ * is marked as the scenario's, because the drawing is at the moment it shows and
  * at no other. The only control on it is a real link into the product, so the
- * specimen never contains a dead button.
+ * drawing never contains a dead button.
+ *
+ * The illustration is labelled rather than disclaimed: it says where its figures
+ * come from, so it can never be read as a live quote for the reader.
  */
 export const PaymentConsole: React.FC<{
   tier: PseTierView;
   network: string;
   asset: string;
-  /** The GBP price of the specimen purchase. */
+  /** The GBP price of the illustrated purchase. */
   priceGBP: number;
-  /** The specimen conversion rate, GBP per unit of the asset. */
+  /** The scenario conversion rate, GBP per unit of the asset. */
   rateGBP: number;
 }> = ({ tier, network, asset, priceGBP, rateGBP }) => {
   const amount = priceGBP / rateGBP;
@@ -883,7 +904,9 @@ export const PaymentConsole: React.FC<{
             →
           </span>
         </Link>
-        <span className="pse-pay-foot-note">Illustration of the purchase flow — not a live quote.</span>
+        <span className="pse-pay-foot-note">
+          Drawn from the published price list: your own quote states its live amount and its time limit.
+        </span>
       </div>
     </Reveal>
   );

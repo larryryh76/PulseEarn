@@ -410,3 +410,133 @@
 .pse-meter[data-step='2'] > span { background: var(--pse-warn); }
 .pse-meter[data-step='3'] > span { background: var(--pse-accent); }
 .pse-meter[data-step='4'] > span { background: var(--pse-good); }
+
+/* ── Product context at the task ───────────────────────────────────────────
+ * What an account gives access to, stated as capabilities taken from the
+ * published price list and the campaign rules. It is context, so it sits between
+ * the supporting line and the first field — and on a phone it is ordered BELOW
+ * the form, because at 390px the form is the task and context can wait its turn.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-auth-context { margin-top: 1.6rem; }
+
+.pse-auth-context-rows {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-auth-context-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.44fr) minmax(0, 0.56fr);
+  gap: 0.85rem;
+  align-items: baseline;
+}
+
+.pse-auth-context-row dt {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink);
+}
+
+.pse-auth-context-row dd {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pse-ink-2);
+}
+
+/* A two-column key/value row becomes a squeezed table on the smallest screens,
+   so each row stacks there instead of compressing. */
+@media (max-width: 560px) {
+  .pse-auth-context-row { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+}
+
+/* FORM FIRST ON A PHONE. The column becomes an ordered stack below 768px, so a
+   reader who lands straight on a route always meets the task before the context
+   that explains it. Above that width the context sits above the form, and the
+   brand panel carries the composition. */
+@media (max-width: 767px) {
+  .pse-auth-col { display: flex; flex-direction: column; }
+
+  .pse-auth-col > * { order: 1; }
+  .pse-auth-col > .pse-auth-form { order: 2; }
+  .pse-auth-col > .pse-auth-actions { order: 3; }
+  .pse-auth-col > .pse-auth-context { order: 4; }
+  .pse-auth-col > .pse-auth-foot { order: 5; }
+}
+
+/* ── The error summary ─────────────────────────────────────────────────────
+ * One announced summary above a rejected form, each line a real control that puts
+ * the cursor in the field it names. The inline errors stay where they were; this
+ * exists so a rejected submit is never a set of red borders and nothing else.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-auth-summary {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--pse-danger) 26%, transparent);
+  border-radius: var(--pse-r-sm);
+  background: color-mix(in srgb, var(--pse-danger) 9%, transparent);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* The summary takes focus on a rejected submit, so it needs a visible one. */
+.pse-auth-summary:focus {
+  outline: 2px solid color-mix(in srgb, var(--pse-danger) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.pse-auth-summary-title {
+  display: block;
+  font-weight: 500;
+  color: var(--pse-danger);
+}
+
+.pse-auth-summary-list { display: grid; gap: 0.15rem; margin-top: 0.5rem; }
+
+.pse-auth-summary-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--pse-danger);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.pse-auth-summary-link:hover { color: var(--pse-ink); }
+
+/* ── The documents a consent line refers to ────────────────────────────────
+ * Under the agreement control: one real target per document, named exactly as
+ * the sentence names it. A word inside the sentence cannot be 44px tall without
+ * turning the sentence into a list of buttons, so the list lives here instead.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-auth-doc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: -0.35rem;
+}
+
+.pse-auth-doc-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 0.85rem;
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-xs);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink-2);
+  transition: color var(--pse-t) var(--pse-ease), border-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-auth-doc-chip:hover { color: var(--pse-ink); border-color: var(--pse-rule-strong); }

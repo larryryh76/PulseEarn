@@ -230,7 +230,7 @@
   transition: box-shadow var(--pse-t) var(--pse-ease);
 }
 
-/* The specimen comes forward when the reader's pointer is on it — the one hover
+/* The scenario comes forward when the reader's pointer is on it — the one hover
    on the page that moves the whole object rather than a control inside it. */
 .pse-console-stage:hover .pse-app { box-shadow: var(--pse-ring), var(--pse-lift-2), 0 0 0 1px rgba(255, 255, 255, 0.02); }
 
@@ -369,7 +369,7 @@
 }
 
 /* Two instruments side by side once the window is wide enough to carry them:
-   the specimen keeps a window's silhouette instead of becoming a column. */
+   the scenario keeps a window's silhouette instead of becoming a column. */
 .pse-app-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; min-width: 0; }
 
 @container (min-width: 540px) {
@@ -570,7 +570,7 @@
 }
 
 /* ── The floating tile: the one overlap on the page ───────────────────────
- * It marks the specimen's operating modes. It is the only element that overlaps
+ * It marks the scenario's operating modes. It is the only element that overlaps
  * another surface — which is what makes the window sit in front of the page —
  * and the window's footer RESERVES its corner so an overlap can never cover a
  * sentence.
@@ -793,7 +793,7 @@
   color: var(--pse-ink-3);
 }
 
-/* ── Payment specimen: the amount hierarchy ───────────────────────────────
+/* ── Payment scenario: the amount hierarchy ───────────────────────────────
  * The converted amount is a machine fact, so it is mono, tabular and precise to
  * the asset's own decimals — and the rate it came from is printed beside it.
  * ───────────────────────────────────────────────────────────────────────── */
@@ -906,7 +906,7 @@
  *                              ceiling, and what the ceiling becomes. The page
  *                              argued this in prose and smeared it across three
  *                              sections; it is one object now.
- *   THE SPECIMEN SPINE (hero)  the same grammar, at the specimen's own scale,
+ *   THE SCENARIO SPINE (hero)  the same grammar, at the scenario's own scale,
  *                              along the foot of the application window.
  *   THE ELEVATION, DRAWN TO    the family portrait sized by the locked hourly
  *   CAPACITY (§02)             rate, standing on the datum the section claims.
@@ -1031,7 +1031,7 @@
   }
 }
 
-/* ── The specimen's campaign spine ────────────────────────────────────────
+/* ── The scenario's campaign spine ────────────────────────────────────────
  * Six links along the foot of the application window, in the product's own
  * units, ending in the payout asset. It is inside the window's own container
  * query, so it answers for the width the window actually has rather than for the
@@ -1213,8 +1213,8 @@
 
 /* ── The quote terms plate ────────────────────────────────────────────────
  * A quotation: a titled head, ruled rows of terms, and a note. It replaces a
- * 2×2 stat grid that restated what the specimen beside it already showed, and it
- * says something the specimen cannot — the five rules a buyer is agreeing to,
+ * 2×2 stat grid that restated what the scenario beside it already showed, and it
+ * says something the scenario cannot — the five rules a buyer is agreeing to,
  * including the two failure modes the product records rather than absorbs.
  * ─────────────────────────────────────────────────────────────────────── */
 .pse-quote-column { display: grid; gap: 1rem; align-content: start; }

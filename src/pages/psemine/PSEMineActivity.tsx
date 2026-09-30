@@ -185,8 +185,8 @@ export const PSEMineActivity: React.FC = () => {
           activities.length === 0 ? (
             <PseEmptyNote glyph="audit" title="No events recorded yet" action={<Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Open the tool catalogue</Link>}>
               Purchases, maintenance and restarts, referral qualifications and campaign milestones appear here as the
-              backend records them. Nothing is written to this ledger speculatively, so an empty ledger is a true
-              statement about this account.
+              backend records them. Every entry is a recorded event on this account, so an empty ledger is a true
+              statement about it.
             </PseEmptyNote>
           ) : (
             <PseEmptyNote title="No records match this view">

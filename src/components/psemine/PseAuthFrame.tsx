@@ -12,15 +12,15 @@
  *   ─────────────────────────────────────────────────────────────────────
  *   from 1024px:                            │  Sign in
  *     ┌───────────────────────────────┐     │  one line of supporting copy
- *     │  calibration rail             │     │  [ field ]
+ *     │  calibration rail             │     │  what an account gives you
  *     │     ┌──────┐                  │     │  [ field ]
- *     │     │ mark │  precision plate │     │  [ primary action ]
- *     │     └──────┘                  │     │  secondary action
- *     │  PSEmine · Campaign mining    │     │  ──────  or  ──────
- *     │  (faint emblem watermark)     │     │  alternate provider
- *     └───────────────────────────────┘     │  cross-link
+ *     │     │ mark │  precision plate │     │  [ field ]
+ *     │     └──────┘                  │     │  [ primary action ]
+ *     │  PSEmine · Campaign mining    │     │  secondary action
+ *     │  (faint emblem watermark)     │     │  ──────  or  ──────
+ *     └───────────────────────────────┘     │  alternate provider
  *   ─────────────────────────────────────────────────────────────────────
- *                                           security reassurance
+ *                                           cross-link · reassurance · documents
  *
  * The brand panel is a real surface at the same ladder position as the rest of
  * the product (surface, ring, one lift) and it carries artwork rather than
@@ -35,13 +35,18 @@
  * and a decorative panel would only spend the scarce axis on itself.
  *
  * AUTHENTICATION CONTENT CONTRACT (enforced here)
- *   allowed ·  identity, the product name and its descriptor, fields, password
- *              control, primary and secondary actions, cross-navigation,
- *              loading/error/success state, one concise security reassurance
- *   banned  ·  wallet balance, mining capacity, tool marketplace, campaign
- *              statistics or position, referral information, earnings, platform
- *              metrics, internal architecture, access/entitlement explanations,
- *              campaign, settlement or payout education
+ *   allowed ·  identity, the product name and its descriptor, what an account
+ *              gives you stated as CAPABILITIES (never as figures or state),
+ *              fields, password control, primary and secondary actions,
+ *              cross-navigation, loading/error/success state, one concise
+ *              security reassurance, self-custody facts
+ *   banned  ·  any personal figure or account state — balance, capacity held,
+ *              earnings, referral count, campaign position, purchase status,
+ *              wallet or payout address, transaction record — plus fabricated
+ *              activity or statistics, internal architecture and entitlement
+ *              mechanics. The `aside` slot below is the ONLY place product
+ *              context may appear, and it is written from the published price
+ *              list and the campaign rules, never from an account.
  *
  * THE PLANE
  * The public surfaces render on the product's own plane — always dark graphite,
@@ -64,7 +69,7 @@ import { gbp, gbpHour } from './pseCore';
  * The panel used to hold a plate, a wordmark and a watermark inside 928×839px,
  * which measured at 2.5% coverage — read at a glance it was an empty room with a
  * small mark in it, however carefully the frame was drawn. This is the smallest
- * honest thing that can fill it: three published facts about the campaign, taken
+ * honest thing that can fill it: five published facts about the campaign, taken
  * from the same constants the landing page and the guide print, so they cannot
  * drift from the product. It states nothing about an account, which is why the
  * panel can stay `aria-hidden`.
@@ -80,12 +85,16 @@ const PANEL_LEGEND = [
 
 /**
  * The documents that belong on an authentication surface: what a person is
- * agreeing to, what is done with their data, what the product does not promise,
- * and how to reach support. Deliberately four links and not the full document
- * set — an authentication screen stays quiet, so it carries only what someone
- * signing up is actually accepting.
+ * agreeing to, what is done with their data, what a unit purchase is, the
+ * campaign's risk disclosure, and how to reach support. Deliberately five links
+ * and not the full document set — an authentication screen stays quiet, so it
+ * carries only what someone signing up is actually accepting.
+ *
+ * Every one of them is a standalone control with the product's own 44px target,
+ * so the documents a form refers to are reachable without tapping a word inside
+ * a sentence.
  */
-const AUTH_DOCS: readonly PseDocId[] = ['terms', 'privacy', 'risk', 'support'];
+const AUTH_DOCS: readonly PseDocId[] = ['terms', 'privacy', 'purchase-terms', 'risk', 'support'];
 
 const AuthDocuments: React.FC = () => (
   <nav className="pse-auth-docs" aria-label="PSEmine policies">
@@ -158,7 +167,13 @@ export const PseAuthFrame: React.FC<{
    * provides chrome and the application theme (the access gate renders inside it).
    */
   variant?: 'page' | 'embedded';
-}> = ({ title, lede, children, footer, variant = 'page' }) => {
+  /**
+   * Restrained product context: what this account gives access to, stated as
+   * capabilities from the published price list and campaign rules. Optional, and
+   * never a figure, a state or a statistic.
+   */
+  aside?: React.ReactNode;
+}> = ({ title, lede, children, footer, variant = 'page', aside }) => {
   const isPage = variant === 'page';
 
   return (
@@ -197,21 +212,27 @@ export const PseAuthFrame: React.FC<{
               <p className="pse-auth-sub">{lede}</p>
             </header>
 
-            <div className="mt-7">{children}</div>
+            {/* What the account gives access to, before the form asks anything
+                of the reader. Capabilities only: the same blocks appear on sign
+                in and on create account, and neither states a figure. */}
+            {aside && <div className="pse-auth-context">{aside}</div>}
 
-            {footer && <div className="mt-5">{footer}</div>}
+            <div className="pse-auth-form mt-7">{children}</div>
+
+            {footer && <div className="pse-auth-actions mt-5">{footer}</div>}
 
             {isPage && (
               <div className="pse-auth-foot">
                 <p className="pse-reassure">
                   <LockGlyph />
                   <span>
-                    PSEmine never asks for your private key or seed phrase, and never holds your funds.
+                    Your wallet stays yours: every payment is signed by you, and PSEmine never holds your keys or your
+                    funds.
                   </span>
                 </p>
-                {/* One rule, then the documents. The reassurance above says what
-                    PSEmine will not do; this says what the reader can check for
-                    themselves, without turning a sign-in page into a footer. */}
+                {/* One rule, then the documents: what a person is accepting and
+                    where to read it, without turning a sign-in page into a
+                    footer. */}
                 <AuthDocuments />
               </div>
             )}

@@ -33,7 +33,7 @@
  * announces. Negative tracking scales with size and relaxes to zero by 16px.
  *
  * COMPOSITION BEFORE DECORATION. A public page is built from four devices:
- *   1. INSTRUMENTS — gauge, rail, pipeline, specimen, stat block. The page is a
+ *   1. INSTRUMENTS — gauge, rail, pipeline, scenario, stat block. The page is a
  *      product demonstration, so most sections contain a real object rather than
  *      a paragraph.
  *   2. ONE MEASURE — a 1180px shell; prose never exceeds ~62ch.
@@ -477,7 +477,7 @@
   box-shadow: var(--pse-ring), var(--pse-lift);
 }
 
-/* The instrument surface: a specimen of the application, allowed one more step. */
+/* The instrument surface: a scenario of the application, allowed one more step. */
 .pse-panel--instrument {
   background: linear-gradient(180deg, var(--pse-surface-3) 0%, var(--pse-surface) 100%);
   box-shadow: var(--pse-ring), var(--pse-lift-2);
@@ -1393,6 +1393,31 @@
   white-space: nowrap;
 }
 
+/* The purchase action on a unit row.
+   A real control, not a caption: 44px tall in both axes, a hairline edge that
+   only brightens when the pointer or the keyboard is on it, and the arrow the
+   product's buttons already use. It spans the meta block on the bands where the
+   row is a stack, and takes the last column from 1024px. */
+.pse-unit-action {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding-inline: 0.9rem;
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-xs);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink-2);
+  transition: color var(--pse-t) var(--pse-ease), border-color var(--pse-t) var(--pse-ease);
+}
+
+.pse-unit-action:hover { color: var(--pse-ink); border-color: var(--pse-rule-strong); }
+.pse-unit-action-arrow { font-size: 0.875rem; color: var(--pse-accent); }
+
 .pse-family-hint {
   margin: 0.85rem 0 0;
   font-family: var(--pse-mono);
@@ -1418,8 +1443,8 @@
 @media (min-width: 1024px) {
   .pse-family-head {
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px;
-    gap: 1.5rem;
+    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px 116px;
+    gap: 1.25rem;
     align-items: center;
     padding: 0.7rem 1.35rem;
     border-bottom: 1px solid var(--pse-rule);
@@ -1433,8 +1458,8 @@
   }
 
   .pse-unit {
-    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px;
-    gap: 1.5rem;
+    grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.15fr) 88px 100px 116px;
+    gap: 1.25rem;
     align-items: center;
     padding: 1.15rem 1.35rem;
   }
@@ -1443,6 +1468,9 @@
      as the header row above them, which is what makes the column readable. */
   .pse-unit-art { align-items: center; }
   .pse-unit-meta { display: contents; }
+
+  /* The action owns the last column instead of spanning the row. */
+  .pse-unit-action { grid-column: auto; justify-content: center; }
 }
 
 @media (max-width: 639px) {
@@ -1473,7 +1501,7 @@
   .pse-unit + .pse-unit { border-top: 0; }
 }
 
-/* ── The application specimen ──────────────────────────────────────────── */
+/* ── The application scenario ──────────────────────────────────────────── */
 /* A window of PSEmine. The composition is what makes it read as a product and
    not as a card: a title bar, a narrow instrument rail carrying a miniature of
    every unit in the family, the campaign figures, the capacity instrument and

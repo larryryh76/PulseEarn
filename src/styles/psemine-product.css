@@ -56,7 +56,7 @@
 /* ── The application window, continued ────────────────────────────────────
  * The window itself, its rail and its figures are declared in psemine.css. What
  * is declared here is the part that makes it a window rather than a card: the
- * tier roster along the bottom, the specimen footer, and the ONE floating tile
+ * tier roster along the bottom, the scenario footer, and the ONE floating tile
  * that overlaps the lower edge — so the console sits in front of the page.
  * ───────────────────────────────────────────────────────────────────────── */
 /* ── The equipment family: the tablet band ────────────────────────────────
@@ -184,7 +184,7 @@
 
   .pse-console-stage:hover .pse-floatcard { transform: translateY(-3px); }
 
-  /* The tile overlaps the window's lower-right corner, so the specimen footer
+  /* The tile overlaps the window's lower-right corner, so the scenario footer
      RESERVES that corner for it: an overlap may cover a surface, never a
      sentence. The footer text wraps before the tile's column. */
   .pse-console .pse-console-foot { padding-right: 15.5rem; }
@@ -195,7 +195,7 @@
  * hierarchy is the point: the price is fixed and stated in GBP, the BNB amount
  * is honestly described as issued per quote, and the network carries its own
  * identity. The state rail names the four real states of a purchase and marks
- * only the one the specimen is actually at.
+ * only the one the scenario is actually at.
  * ───────────────────────────────────────────────────────────────────────── */
 .pse-pay {
   display: flex;
@@ -449,6 +449,56 @@
 
 @media (min-width: 900px) {
   .pse-statement { grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; padding: 1.75rem; }
+}
+
+/* ── Payout terms ─────────────────────────────────────────────────────────
+ * A sheet, not a panel: hairline rules the whole width, the term in the mono
+ * register on the left and the rule that governs it on the right. It is a
+ * different object from the purchase quotation (indented panel, its own note) on
+ * purpose — two sections that both state terms should not look like one section
+ * repeated. Below 720px each row stacks, because a two-column key/value table on
+ * a phone is a squeeze rather than a layout.
+ * ───────────────────────────────────────────────────────────────────────── */
+.pse-terms-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--pse-rule);
+}
+
+.pse-terms-rows { display: grid; margin: 0; }
+
+.pse-terms-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.3rem;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-terms-row:last-child { border-bottom: 0; }
+
+.pse-terms-term {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-terms-rule { margin: 0; font-size: 0.875rem; line-height: 1.6; color: var(--pse-ink-2); }
+
+@media (min-width: 720px) {
+  .pse-terms-row {
+    grid-template-columns: 12rem minmax(0, 1.7fr);
+    gap: 1.5rem;
+    align-items: baseline;
+    padding: 1rem 0;
+  }
 }
 
 /* ── The trust map ────────────────────────────────────────────────────────

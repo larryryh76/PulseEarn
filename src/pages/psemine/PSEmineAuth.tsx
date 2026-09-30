@@ -4,6 +4,8 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { PseAuthFrame } from '../../components/psemine/PseAuthFrame';
 import { PseLoader } from '../../components/psemine/PseLoader';
+import { PSE_DOC_LABEL, PSE_DOC_PATH } from '../../components/psemine/pseDocs';
+import { PSE_MINE_HOME } from '../../engines/product/productRouting';
 import { mapAuthError } from '../../utils/errors';
 
 /**
@@ -33,8 +35,14 @@ import { mapAuthError } from '../../utils/errors';
  *     after an unrelated button.
  *   • FORM QUALITY. Real financial-product controls: plain labels, 48px fields,
  *     a password visibility control, an invalid state per field, the error
- *     printed under the field it belongs to, focus moved to the first invalid
- *     field, and a busy state on the primary action.
+ *     printed under the field it belongs to, a focusable error summary above the
+ *     form for a rejected submit, and a busy state on the primary action.
+ *   • CONTEXT. Sign in and create account each state what the account gives
+ *     access to, as capabilities taken from the published price list and the
+ *     campaign rules. Never a figure, never account state — the public page
+ *     carries the product's argument and an authentication surface does not.
+ *   • RETURN ROUTING. A verified session continues into the PSEmine console
+ *     (PSE_MINE_HOME), never into another product's dashboard.
  *   • VALIDATION. The same two rules the previous implementation enforced
  *     (display name ≥ 2 characters, password ≥ 8 characters) render against
  *     their own fields instead of as one banner. The pre-flight checks and their
@@ -156,9 +164,85 @@ const Field: React.FC<{
   </div>
 );
 
+/**
+ * What the account gives access to, in the product's own terms.
+ *
+ * Capabilities, from the published price list and the campaign rules — the same
+ * facts the public page states. No figure here belongs to an account, which is
+ * why this can sit on a sign-in screen: it says what the product is, not what
+ * anyone holds. On a phone the block is ordered BELOW the form (see
+ * src/styles/psemine-auth.css), so the task stays first on the small axis.
+ */
+const SIGNIN_CONTEXT = [
+  { key: 'Campaign console', value: 'Your units, their capacity and the record behind them' },
+  { key: 'Purchases', value: 'Quotes, on-chain verification and activation, as the service records them' },
+  { key: 'Settlement and payout', value: 'GBP settlement, and a payout sent to the wallet you record' },
+];
+
+const SIGNUP_CONTEXT = [
+  { key: 'Campaign access', value: 'One account for the whole campaign, from opening to settlement' },
+  { key: 'Mining tools', value: 'All four units at the published price list, each with its ownership limit' },
+  { key: 'Capacity', value: 'Unit and referral capacity, accrued and recorded server-side' },
+  { key: 'Wallet', value: 'Pay in from your own wallet, and record the payout wallet you want settled funds sent to' },
+];
+
+const AuthContext: React.FC<{ heading: string; rows: ReadonlyArray<{ key: string; value: string }> }> = ({
+  heading,
+  rows,
+}) => (
+  <div className="pse-auth-context-block">
+    <span className="pse-micro">{heading}</span>
+    <dl className="pse-auth-context-rows">
+      {rows.map(row => (
+        <div key={row.key} className="pse-auth-context-row">
+          <dt>{row.key}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+);
+
+/**
+ * The error summary.
+ *
+ * A rejected multi-field form that answers with red borders alone leaves a
+ * keyboard or screen-reader user with no way in. So a failed submit does three
+ * things: inline errors stay under their own controls, one announced summary
+ * appears above the form, and each line of it is a real control that puts the
+ * cursor in the field it names. The summary is remounted per attempt (`key`), so
+ * a second failed submit is announced again rather than silently already-there.
+ */
+const ErrorSummary: React.FC<{
+  id: string;
+  items: ReadonlyArray<{ field: string; label: string; message: string }>;
+  summaryRef: React.RefObject<HTMLDivElement | null>;
+  onJump: (field: string) => void;
+}> = ({ id, items, summaryRef, onJump }) => (
+  <div id={id} className="pse-auth-summary" role="alert" tabIndex={-1} ref={summaryRef}>
+    <span className="pse-auth-summary-title">There is a problem with this form.</span>
+    <ul className="pse-auth-summary-list">
+      {items.map(item => (
+        <li key={item.field}>
+          <button type="button" className="pse-auth-summary-link" onClick={() => onJump(item.field)}>
+            {`${item.label}: ${item.message}`}
+          </button>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
 /* ═══════════════════ SIGN IN / CREATE ACCOUNT ═══════════════════ */
 
 type FieldErrors = { username?: string; email?: string; password?: string; terms?: string };
+
+const FIELD_LABELS: Record<keyof FieldErrors, string> = {
+  username: 'Display name',
+  email: 'Email',
+  password: 'Password',
+  terms: 'Terms of Service',
+};
 
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
   const isSignup = mode === 'signup';
@@ -178,10 +262,30 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
    * no field for it — see the note on the control below.
    */
   const [agreed, setAgreed] = useState(false);
+  /** Failed-submit count. Drives the error summary's remount so it re-announces. */
+  const [submitCount, setSubmitCount] = useState(0);
   const termsRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+
+  const fieldRefs: Record<keyof FieldErrors, React.RefObject<HTMLInputElement | null>> = {
+    username: usernameRef,
+    email: emailRef,
+    password: passwordRef,
+    terms: termsRef,
+  };
+
+  const summaryItems = (Object.keys(FIELD_LABELS) as Array<keyof FieldErrors>)
+    .filter(key => fieldErrors[key])
+    .map(key => ({ field: key, label: FIELD_LABELS[key], message: fieldErrors[key] as string }));
+
+  // The summary is the focus target of a rejected submit: it states the problem
+  // as a whole, and every line of it jumps to the field it names.
+  useEffect(() => {
+    if (submitCount > 0) summaryRef.current?.focus();
+  }, [submitCount]);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, signup, signInWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
@@ -235,8 +339,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
     if (next.username || next.email || next.password || next.terms) {
       setFieldErrors(next);
-      const first = next.username ? usernameRef : next.email ? emailRef : next.password ? passwordRef : termsRef;
-      first.current?.focus();
+      setSubmitCount(count => count + 1);
       return;
     }
 
@@ -269,8 +372,14 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
       title={isSignup ? 'Create your account' : 'Sign in'}
       lede={
         isSignup
-          ? 'Set up your PSEmine account. It takes a moment, and nothing is charged.'
-          : 'Enter your email and password to continue.'
+          ? 'One account covers your units, your capacity and any payout wallet you record. Creating it takes a moment.'
+          : 'Sign in to your PSEmine console.'
+      }
+      aside={
+        <AuthContext
+          heading={isSignup ? 'What your account gives you' : 'What you are signing in to'}
+          rows={isSignup ? SIGNUP_CONTEXT : SIGNIN_CONTEXT}
+        />
       }
       footer={
         <p className="pse-small flex flex-wrap items-center gap-x-1.5">
@@ -294,6 +403,16 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               <span className="pse-figure">{refFromQuery}</span> will be recorded on this account at sign-up.
             </span>
           </p>
+        )}
+
+        {submitCount > 0 && summaryItems.length > 0 && (
+          <ErrorSummary
+            key={submitCount}
+            id="pse-auth-summary"
+            items={summaryItems}
+            summaryRef={summaryRef}
+            onJump={field => fieldRefs[field as keyof FieldErrors].current?.focus()}
+          />
         )}
 
         <form onSubmit={submit} className="space-y-4" noValidate>
@@ -377,20 +496,26 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               onChange={v => { setAgreed(v); clearField('terms'); }}
               error={fieldErrors.terms}
             >
-              I agree to the PSEmine{' '}
-              <Link to="/mine/terms" className="pse-link">
-                Terms of Service
-              </Link>
-              , and I acknowledge the{' '}
-              <Link to="/mine/privacy" className="pse-link">
-                Privacy Policy
-              </Link>{' '}
-              and the{' '}
-              <Link to="/mine/risk" className="pse-link">
-                Risk Disclosure
-              </Link>
-              .
+              I agree to the PSEmine Terms of Service, and I acknowledge the Privacy Policy and the Risk Disclosure.
             </Agreement>
+          )}
+
+          {/*
+            * The documents the checkbox refers to, as their own controls.
+            *
+            * Words inside a sentence are the one place a target cannot be 44px
+            * without the sentence collapsing into a list of buttons, so the
+            * documents ARE the list: three real controls under the agreement,
+            * each one comfortably tappable, each one naming exactly what it opens.
+            */}
+          {isSignup && (
+            <div className="pse-auth-doc-chips">
+              {(['terms', 'privacy', 'risk'] as const).map(id => (
+                <Link key={id} to={PSE_DOC_PATH[id]} className="pse-auth-doc-chip">
+                  {PSE_DOC_LABEL[id]}
+                </Link>
+              ))}
+            </div>
           )}
 
           {formError && (
@@ -405,11 +530,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
           {isSignup && (
             <p className="pse-small">
-              Creating an account is free and charges nothing. Buying a unit is a separate decision you make later, and{' '}
-              <Link to="/mine/purchase-terms" className="pse-link">
-                the Purchase Terms
-              </Link>{' '}
-              set out how that works.
+              Creating an account is free and charges nothing. Buying a unit is a separate decision you make later, and
+              the Purchase Terms set out how that works — they are linked at the foot of this page.
             </p>
           )}
 
@@ -529,10 +651,22 @@ export const PSEmineVerifyEmail: React.FC = () => {
   const [resentAt, setResentAt] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState(false);
 
-  // Auto-advance once Firebase reports the verified flag.
+  /**
+   * Verified: state it, then continue into the console.
+   *
+   * The success state is shown before the move, so a person who has just clicked
+   * the link in their inbox sees the page confirm it rather than a page that
+   * silently replaces itself. The destination is the PSEmine console, which runs
+   * the product's own gates (entitlement, then onboarding) — a PSEmine account is
+   * never handed to another product's dashboard.
+   */
   useEffect(() => {
-    if (isVerified) navigate('/mine/guide', { replace: true });
+    if (!isVerified) return;
+    setAdvancing(true);
+    const timer = window.setTimeout(() => navigate(PSE_MINE_HOME, { replace: true }), 900);
+    return () => window.clearTimeout(timer);
   }, [isVerified, navigate]);
 
   const resend = async () => {
@@ -541,7 +675,7 @@ export const PSEmineVerifyEmail: React.FC = () => {
     try {
       await sendVerification();
       setResentAt(Date.now());
-      setNotice('Verification email sent.');
+      setNotice(`A new verification link is on its way to ${currentUser?.email ?? 'your inbox'}.`);
     } catch (err) {
       setError(mapAuthError(err));
     } finally { setPending(false); }
@@ -563,20 +697,26 @@ export const PSEmineVerifyEmail: React.FC = () => {
       footer={
         <button
           type="button"
-          className="pse-small pse-link bg-transparent border-0 p-0"
+          className="pse-small pse-link inline-flex min-h-[44px] items-center bg-transparent border-0 p-0"
           onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}
         >
-          Use a different account
+          Use a different account or email
         </button>
       }
     >
       <div className="space-y-4">
-        {error ? (
+        {advancing ? (
+          <p className="pse-notice" data-tone="good" role="status">
+            <span>
+              <span className="pse-notice-title">Email verified.</span> Opening your PSEmine console…
+            </span>
+          </p>
+        ) : error ? (
           <p className="pse-notice" data-tone="danger" role="alert">
             <span className="pse-notice-title">{error}</span>
           </p>
         ) : notice ? (
-          <p className="pse-notice" data-tone="good">
+          <p className="pse-notice" data-tone="good" role="status">
             <span>{notice}</span>
           </p>
         ) : null}
@@ -601,7 +741,8 @@ export const PSEmineVerifyEmail: React.FC = () => {
         </div>
 
         <p className="pse-small">
-          Nothing arrived? Check the spam folder, then resend — the link is valid for a limited time.
+          Nothing arrived? Check the spam folder, then resend — the link is valid for a limited time and expires with
+          it. If the address is wrong, sign out and create the account again with the right one.
         </p>
       </div>
     </PseAuthFrame>

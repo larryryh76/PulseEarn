@@ -53,12 +53,12 @@ import {
  *
  *   Hero ............. proposition left, a window of the PSEmine application
  *                      right, one floating tile overlapping the window's edge
- *   01 the purchase ... reading column left, the purchase rail right
+ *   01 how it works ... reading column left, the four-step entry rail right
  *   02 the tool family  full-bleed equipment plate on one printed scale
  *   03 capacity ....... the capacity instrument right, the referral ladder left
  *   04 the campaign .... a full-width lifecycle rail on a day axis
  *   05 payment ......... the purchase console left, the quote terms right
- *   06 settlement ...... a full-width statement, denomination change drawn
+ *   06 settlement ...... a full-width statement, then the payout terms sheet
  *   07 security ........ a full-width relationship map, then the reading columns
  *   08 questions ....... head left, the accordion right
  *   09 the close ....... one band, one decision
@@ -95,9 +95,9 @@ const TIERS: ReadonlyArray<PseTierView> = TOOLS.map(t => ({
  *
  * A hypothetical configuration of units — Starter ×2, Builder ×1, Elite ×1 — and
  * two qualified referrals. Every figure in the window is computed from it and from
- * the product's locked rates; none of it is read from anywhere. It is labelled an
- * example build in the window's own bar and footer, so it can never be taken for
- * an account.
+ * the product's locked rates; none of it is read from anywhere. The window's own
+ * bar and footer label it a scenario built at published campaign rates, so it can
+ * never be taken for an account.
  */
 const BUILD_COUNTS: Record<number, number> = { 1: 2, 2: 1, 3: 0, 4: 1 };
 const BUILD_REFERRALS = 2;
@@ -115,16 +115,18 @@ const RATE_RANGE = `${gbpHour(TOOLS[0].hourlyRateGBP).replace('/hour', '')} – 
 ).replace('/hour', '')}`;
 
 /**
- * The specimen's campaign spine.
+ * The scenario's campaign spine.
  *
  * The brief the hero was failing: a reader should see, in one line and in the
  * product's own units, what owning a unit becomes. Referrals fold in here as
- * their own link because they are a real second source of capacity; the campaign
- * window, the settlement denomination and the payout asset then follow in order,
- * so the specimen draws the whole instrument chain rather than describing it.
- * Every figure is the example build's, computed from the locked rates.
+ * their own link because they are a real second source of capacity, and the
+ * whole chain then runs in order — units → capacity → campaign → earnings →
+ * settlement → payout — so the window draws the instrument rather than
+ * describing it. Every figure is the example build's, computed from the locked
+ * rates. Earnings are stated as a STAGE of the chain, never as an amount: a
+ * projected figure would be invented, and this page does not invent figures.
  */
-const SPECIMEN_SPINE: ReadonlyArray<PseAppSpineLink> = [
+const SCENARIO_SPINE: ReadonlyArray<PseAppSpineLink> = [
   { id: 'units', label: 'Units', value: `×${BUILD_UNITS}` },
   {
     id: 'capacity',
@@ -133,6 +135,7 @@ const SPECIMEN_SPINE: ReadonlyArray<PseAppSpineLink> = [
     lead: true,
   },
   { id: 'window', label: 'Campaign', value: `${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days` },
+  { id: 'earnings', label: 'Earnings', value: 'Accrued' },
   { id: 'settlement', label: 'Settlement', value: 'GBP' },
   { id: 'payout', label: 'Payout', value: 'BNB' },
 ];
@@ -173,8 +176,8 @@ const QUOTE_RULES = [
   { term: 'Wrong amount', rule: 'A partial or mismatched payment is recorded as underpaid and reviewed — never absorbed.' },
 ] as const;
 
-/** The specimen conversion rate used by the purchase illustration. */
-const SPECIMEN_BNB_GBP = PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
+/** The scenario conversion rate used by the purchase illustration. */
+const SCENARIO_BNB_GBP = PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
 
 /**
  * The nav, carrying the same indices the section plates print.
@@ -362,6 +365,38 @@ const SETTLEMENT = [
   },
 ];
 
+/**
+ * The rules a payout runs on.
+ *
+ * The statement above the sheet shows the SEQUENCE — accrual, settlement,
+ * review, payout. This states the terms that decide whether a settled balance
+ * actually reaches a wallet: the address, the review, the denomination, the
+ * record, and when a figure is payable at all. All five are the product's own
+ * published rules, not commentary on them.
+ */
+const PAYOUT_TERMS = [
+  {
+    term: 'Payout wallet',
+    rule: 'Record the wallet you want settled funds sent to, and set it before the campaign\u2019s wallet-change cutoff. After the cutoff the address on file is the address that is paid, so a settled balance cannot be redirected.',
+  },
+  {
+    term: 'Review',
+    rule: 'Every payout passes a review before it is sent. Where a figure needs reconciling, the reason is recorded against the payout, and a held payout is a delay rather than a forfeiture.',
+  },
+  {
+    term: 'Denomination',
+    rule: 'Campaign accounting runs in GBP from accrual through settlement, and the payout itself is made in BNB at the rate in force when it is processed. The payout record states both figures.',
+  },
+  {
+    term: 'During the campaign',
+    rule: 'Campaign earnings accrue as a running record while the campaign runs. They become payable at settlement, and payouts are made from a settled, approved balance.',
+  },
+  {
+    term: 'Record',
+    rule: 'The purchase and the payout are both on-chain transactions, so each direction is checkable against BNB Smart Chain rather than taken on trust.',
+  },
+];
+
 /* ── The campaign phases ────────────────────────────────────────────────── */
 
 /**
@@ -396,15 +431,15 @@ const PHASES = [
     id: 'ends',
     name: 'Mining ends',
     when: 'day 90',
-    note: 'Accrual stops for every unit',
-    detail: 'Mining stops at the end of the window. After this point no unit accrues anything, whatever it is holding and however it is configured.',
+    note: 'Accrual stops at the published end time',
+    detail: 'Mining runs to the campaign\u2019s published end and stops there. Accrual is finalised from the record of when mining was actually live.',
   },
   {
     id: 'settlement',
     name: 'Settlement',
     when: 'after day 90',
     note: 'Final balances computed in GBP',
-    detail: 'Accrual is finalised and the GBP balance each account accrued is computed. Until this happens the running figure is a record, not a balance that can be moved.',
+    detail: 'Accrual is finalised and the GBP balance each account accrued is computed. At that point the running figure becomes a settled balance, and settlement is where a payout becomes payable.',
   },
   {
     id: 'payout',
@@ -435,7 +470,7 @@ const TRUST = [
   {
     glyph: 'server' as const,
     name: 'Backend-authoritative',
-    note: 'Accrual, capacity and final balances are calculated server-side. The browser holds no authority over a figure.',
+    note: 'Capacity, accrual and final balances are calculated server-side and recorded before they are shown.',
   },
   {
     glyph: 'chain' as const,
@@ -449,8 +484,8 @@ const TRUST = [
   },
   {
     glyph: 'shield' as const,
-    name: 'No custody',
-    note: 'You keep your own keys. PSEmine never takes custody of funds and never asks for a private key.',
+    name: 'Self-custody',
+    note: 'You keep your own keys. A payout is sent to the wallet you record, and PSEmine never holds your funds or asks for a private key.',
   },
 ];
 
@@ -539,21 +574,24 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'How does a payout work?',
     a: (
       <>
-        Accrued GBP is campaign earnings, not a wallet balance. After settlement they are disbursed in BNB to the payout
-        wallet configured on your account, and each payout passes a review before it is sent. Set your payout wallet
-        before the campaign&apos;s wallet-change cutoff: after it, the address on file is the one that is paid. Both the
-        purchase and the payout are written to the chain, so each direction is checkable rather than taken on trust.
+        Accrued GBP is campaign earnings, and it becomes payable at settlement. Settled earnings are disbursed in BNB to
+        the payout wallet configured on your account, and each payout passes a review before it is sent. Set your payout
+        wallet before the campaign&apos;s wallet-change cutoff: after it, the address on file is the one that is paid.
+        Both the purchase and the payout are written to the chain, so each direction is checkable rather than taken on
+        trust.
       </>
     ),
   },
   {
-    q: 'What is PSEmine not?',
+    q: 'What kind of product is PSEmine?',
     a: (
       <>
-        It is not a promise of profit, a fixed APY, an investment product or a hardware sale. Hourly capacity is a
-        campaign rate in GBP; campaign earnings depend on the campaign actually running for its window and on your units
-        operating; and the settled amount is what the service recorded — nothing more. PSEmine does not guarantee any
-        return, and no figure on this page is a projection.
+        PSEmine is a dated, campaign-based mining product with published, locked economics. Four units are sold, each with
+        a fixed price, a fixed capacity in GBP per hour and an ownership cap, and none of those figures moves while the
+        campaign runs. A unit is a campaign instrument rather than hardware you own or host: the service operates it, adds
+        its capacity to your account for the campaign window, accrues campaign earnings on it while mining is live, and
+        pays out the settled result in BNB under the campaign rules. Everything the product uses — the campaign length,
+        the price list, the hourly rates, the ownership caps — is published before you buy.
       </>
     ),
   },
@@ -727,14 +765,13 @@ export const PSEMineLanding: React.FC = () => {
             {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign · fixed price list
           </span>
           {/*
-           * The headline is the product in three moves rather than one long
-           * clause. The previous line ("Capacity you hold for 90 days, settled
-           * and paid in BNB") was accurate and unmemorable: it described the
-           * instrument's paperwork, not what a person does. Three short
-           * sentences say what you buy, what it builds, and what you end up
-           * holding — and each one is true.
+           * The headline is the product in three moves, one per stage of the
+           * chain the window beside it draws: what a unit builds, what that
+           * capacity does while the campaign runs, and what happens to it at the
+           * end. Three short sentences, each one true, and between them they
+           * state the whole model before a paragraph is read.
            */}
-          <h1 className="pse-display mt-5">Buy units. Build capacity. Paid out in BNB.</h1>
+          <h1 className="pse-display mt-5">Build mining capacity. Accrue campaign earnings. Settle at campaign close.</h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
             PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day mining campaign on BNB Smart Chain. Units are
             bought at a fixed price list, each adds a locked capacity per hour denominated in GBP, and settled campaign
@@ -781,7 +818,7 @@ export const PSEMineLanding: React.FC = () => {
           toolCapacity={BUILD_TOOL_CAPACITY}
           referralCapacity={BUILD_REFERRAL_CAPACITY}
           build={EXAMPLE_BUILD}
-          spine={SPECIMEN_SPINE}
+          spine={SCENARIO_SPINE}
         />
       </section>
 
@@ -792,14 +829,14 @@ export const PSEMineLanding: React.FC = () => {
             <div className="pse-split-text">
               <PlateHead
                 num="01"
-                kicker="The purchase"
-                title="Four steps, in order."
+                kicker="How it works"
+                title="One chain, and four steps to enter it."
                 meta="4 stages"
-                lede="Every step below happens against an account record. This is the real sequence, drawn as a pipeline — it carries no live figure and no progress."
+                lede="PSEmine runs on a single chain: units add capacity, capacity accrues through the campaign window, and settled earnings are paid out in BNB. Entering that chain is the four-step sequence below, and every step is written to your own account record."
               />
               <p className="pse-small pse-measure pse-split-aside">
-                There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet, and
-                every paying action happens on your own wallet and on a live quote only.
+                A purchase is a BNB transaction you send from your own wallet, at a quote you requested. The quote fixes
+                the amount, the destination and its own time limit before you sign anything.
               </p>
               <DocLine label="Before you begin" docs={['campaign-terms', 'risk']} />
             </div>
@@ -819,9 +856,9 @@ export const PSEMineLanding: React.FC = () => {
         lede="Each tier has a fixed price, a fixed capacity per hour and an ownership limit. The price is paid in BNB at the rate quoted when you request the quote, so a unit's price never drifts with the market."
         foot={
           <p className="pse-small">
-            Session units mine in fixed operating cycles and stop between them until they are restarted — nothing accrues
-            between sessions, and a restart takes a short delay before the next session begins. Holding the maximum of
-            every tier gives {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of unit capacity.
+            Session units mine in fixed operating cycles and are restarted from the console, with a short delay before
+            the next session begins. Holding the maximum of every tier gives{' '}
+            {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of unit capacity.
           </p>
         }
       >
@@ -939,7 +976,7 @@ export const PSEMineLanding: React.FC = () => {
             kicker="Payment"
             title="You pay in BNB, at a quoted rate."
             meta="GBP → BNB"
-            lede="There is no card and no fiat on-ramp. A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain."
+            lede="A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain, at a quote you requested yourself. The unit's price is fixed in GBP; the quote states the exact BNB amount and how long it holds."
           />
           <Split object="start" className="pse-section-object">
             <PaymentConsole
@@ -947,11 +984,11 @@ export const PSEMineLanding: React.FC = () => {
               network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
               asset="BNB"
               priceGBP={TOOLS[0].purchasePriceGBP}
-              rateGBP={SPECIMEN_BNB_GBP}
+              rateGBP={SCENARIO_BNB_GBP}
             />
 
             {/* The terms of a quote, as a quotation rather than as four stat
-                blocks. The old column summarised what the specimen beside it
+                blocks. The old column summarised what the scenario beside it
                 already showed; this states the five rules a buyer is actually
                 agreeing to, including the two failure modes the product records
                 rather than hides. */}
@@ -990,21 +1027,24 @@ export const PSEMineLanding: React.FC = () => {
         band="tint"
         title="Earnings are settled in GBP, then paid in BNB."
         meta="GBP → approved → BNB"
-        lede="Accrual becomes payable only at settlement. Until then it is a running record, not a balance that can be moved — the statement below shows exactly where the denomination changes."
+        lede="Accrual becomes payable at settlement. The statement below shows where the denomination changes: GBP while the campaign runs, BNB when a settled balance is paid out."
       >
         <StatementPanel steps={SETTLEMENT} />
 
-        <Split object="start" weight="even" className="mt-8">
-          <p className="pse-small">
-            Set your payout wallet before the campaign&apos;s wallet-change cutoff. After it, the address on file is the
-            one that is paid — the cutoff exists so a settled balance cannot be redirected.
-          </p>
-          <p className="pse-small">
-            Campaign earnings are not withdrawable mid-campaign. Accrual becomes payable only once settlement finalises
-            it, and both the purchase and the payout are written to the chain, so each direction is checkable rather than
-            taken on trust.
-          </p>
-        </Split>
+        <Reveal className="pse-terms mt-8" delay={80}>
+          <div className="pse-terms-head">
+            <span className="pse-micro">Payout terms</span>
+            <span className="pse-micro">Settled balance → BNB</span>
+          </div>
+          <dl className="pse-terms-rows">
+            {PAYOUT_TERMS.map(row => (
+              <div key={row.term} className="pse-terms-row">
+                <dt className="pse-terms-term">{row.term}</dt>
+                <dd className="pse-terms-rule">{row.rule}</dd>
+              </div>
+            ))}
+          </dl>
+        </Reveal>
 
         <DocLine label="Governs a payout" docs={['payout-policy', 'risk']} />
       </Section>
@@ -1016,7 +1056,7 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Security and transparency"
         title="What is fixed, and what you can check."
         meta={`${TRUST.length} properties`}
-        lede="These are properties of the product, not claims about it — each one holds whether or not you take our word for it."
+        lede="Each of these is built into how PSEmine operates, and each one can be checked from your own account."
       >
         <TrustMap items={TRUST} />
 
@@ -1152,12 +1192,14 @@ export const PSEMineLanding: React.FC = () => {
         </div>
         <div className="pse-wrap mt-8">
           <p className="pse-small max-w-[74ch]">
-            No projected returns, no guaranteed earnings, no custody of your funds. Figures shown are PSEmine&apos;s
-            locked economics. PSEmine is not an investment product and does not promise a return.{' '}
-            <Link to={PSE_DOC_PATH.risk} className="pse-link">
+            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign-based mining product on{' '}
+            {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}. Units are bought at the published price list, each one adds a fixed
+            capacity per hour in GBP, and settled campaign earnings are paid out in BNB under the campaign rules.
+          </p>
+          <p className="pse-small mt-3">
+            <Link to={PSE_DOC_PATH.risk} className="pse-link inline-flex min-h-[44px] items-center">
               Read the risk disclosure
             </Link>
-            .
           </p>
         </div>
       </footer>

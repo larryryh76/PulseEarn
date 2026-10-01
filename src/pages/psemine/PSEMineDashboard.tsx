@@ -185,7 +185,12 @@ export const PSEMineDashboard: React.FC = () => {
           ? `Campaign day ${dayIndex} of ${durationDays} · ${view.label}`
           : `Campaign ${view.label}`
       }
-      actions={<PseButton variant="secondary" onClick={() => void refresh()} busy={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
+      actions={
+        <>
+          <Link to="/mine/guide" className="pse-btn pse-btn--secondary pse-btn--sm">Guide</Link>
+          <PseButton variant="secondary" onClick={() => void refresh()} busy={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>
+        </>
+      }
     >
       {/* ── WHERE THE ACCOUNT STANDS ─────────────────────────────────────── */}
       <section className="pse-verdict">

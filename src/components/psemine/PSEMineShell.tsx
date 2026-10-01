@@ -101,6 +101,7 @@ export const PSEMineShell: React.FC = () => {
         <Outlet />
       </main>
 
+      {inConsole && <PseConsoleBottomNav />}
       {inConsole ? <ConsoleFoot /> : <PublicFooter />}
 
       {/* The guide sits over the console. It is opened by standing on its route,
@@ -109,6 +110,31 @@ export const PSEMineShell: React.FC = () => {
         <PseGuide mode={guideMode} />
       )}
     </div>
+  );
+};
+
+const PSE_CONSOLE_BOTTOM_NAV = [
+  { to: '/mine/dashboard', label: 'Dashboard' },
+  { to: '/mine/tools', label: 'Tools' },
+  { to: '/mine/referrals', label: 'Referrals' },
+  { to: '/mine/wallet', label: 'Wallet' },
+  { to: '/mine/me', label: 'Account' },
+] as const;
+
+const PseConsoleBottomNav: React.FC = () => {
+  const location = useLocation();
+  return (
+    <nav className="pse-bottom-nav" aria-label="PSEmine sections">
+      {PSE_CONSOLE_BOTTOM_NAV.map(item => {
+        const active = location.pathname === item.to;
+        return (
+          <Link key={item.to} to={item.to} className="pse-bottom-nav-link" aria-current={active ? 'page' : undefined}>
+            <span className="pse-bottom-nav-index" aria-hidden="true">{String(PSE_CONSOLE_BOTTOM_NAV.indexOf(item) + 1).padStart(2, '0')}</span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 };
 

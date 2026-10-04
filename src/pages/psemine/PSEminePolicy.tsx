@@ -421,6 +421,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         h: 'How campaign earnings accrue and settle',
         p: [
           'Hourly capacity is a campaign rate: it accrues while a unit is operating and the campaign is live, and it stops when either of those ends. The campaign runs its published window, settlement finalises the accrual at the end of it, and the settled figure is the recorded result of that window — and the figure a payout is calculated from.',
+          'A campaign rate is not a guaranteed return. PSEmine does not guarantee an outcome on a unit, and no figure in the product is a projection or a forecast. What a unit delivers depends on the campaign running for its published window and on the unit operating within it, so a settled figure can be lower than the capacity you hold would produce across a full window.',
           'The published figures are what the campaign runs on. The campaign length, each unit\u2019s price, its hourly capacity and its ownership limit are fixed before the campaign opens and do not change while it runs, so what a unit costs and what it adds are known before you buy.',
         ],
       },
@@ -429,6 +430,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         h: 'A purchase is a payment, made once',
         p: [
           'Buying a unit is a one-off purchase at the published price: the price is paid in full in BNB at the time of purchase, and a confirmed on-chain payment cannot be recalled by PSEmine. A unit gives you its recorded hourly capacity for the campaign window, and the purchase price is not refundable as a change of mind.',
+          'Because what a unit produces depends on the campaign, a purchase is not a claim on the campaign\u2019s revenue or on any particular return, and the price is not refundable merely because the outcome differs from your expectations.',
           'Nothing in this section limits rights you have under applicable consumer law.',
         ],
       },
@@ -456,6 +458,13 @@ const DOCS: Record<PseDocId, PseDoc> = {
           'A transaction on BNB Smart Chain is final. PSEmine cannot recall it, reverse it, or recover funds sent to an address that was recorded incorrectly.',
           'Send the exact quoted BNB amount, from your own wallet, on BNB Smart Chain, to the address printed on a quote you requested yourself. A payment made on the wrong network, to the wrong address, or in the wrong amount is recorded and reviewed rather than corrected automatically.',
           'You are responsible for your own wallet, its keys and its security. PSEmine never takes custody of your funds and will never ask for your private key or seed phrase.',
+        ],
+      },
+      {
+        id: 'not-advice',
+        h: 'Not advice',
+        p: [
+          'Nothing in PSEmine is financial, investment, tax or legal advice, and the product does not assess whether a campaign is suitable for you. Read this disclosure together with the Campaign Terms, the Purchase Terms and the Payout Policy, and take independent advice where you need it.',
         ],
       },
     ],

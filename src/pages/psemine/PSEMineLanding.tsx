@@ -120,14 +120,18 @@ const RATE_RANGE = `${gbpHour(TOOLS[0].hourlyRateGBP).replace('/hour', '')} – 
  * The brief the hero was failing: a reader should see, in one line and in the
  * product's own units, what owning a unit becomes. Referrals fold in here as
  * their own link because they are a real second source of capacity, and the
- * whole chain then runs in order — units → capacity → campaign → earnings →
+ * whole chain then runs in order — equipment → capacity → campaign → earnings →
  * settlement → payout — so the window draws the instrument rather than
  * describing it. Every figure is the example build's, computed from the locked
  * rates. Earnings are stated as a STAGE of the chain, never as an amount: a
  * projected figure would be invented, and this page does not invent figures.
+ *
+ * THE LABELS ARE THE CONSOLE'S. A specimen that names the same register
+ * differently from the product it depicts makes a reader learn one vocabulary to
+ * read the pitch and another to use the thing — so these are the console's names.
  */
 const SCENARIO_SPINE: ReadonlyArray<PseAppSpineLink> = [
-  { id: 'units', label: 'Units', value: `×${BUILD_UNITS}` },
+  { id: 'equipment', label: 'Equipment', value: `×${BUILD_UNITS}` },
   {
     id: 'capacity',
     label: 'Capacity',
@@ -795,7 +799,7 @@ export const PSEMineLanding: React.FC = () => {
               <dd>{PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days</dd>
             </div>
             <div>
-              <dt>Unit price</dt>
+              <dt>Tool price</dt>
               <dd>{PRICE_RANGE}</dd>
             </div>
             <div>

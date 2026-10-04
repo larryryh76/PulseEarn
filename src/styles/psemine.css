@@ -803,6 +803,89 @@
  * INSTRUMENTS
  * ════════════════════════════════════════════════════════════════════════ */
 
+/* ── Campaign rail ───────────────────────────────────────────────────────
+ * The campaign window as one measure: a track, a fill up to where the campaign
+ * stands, and three marks printed beneath it — start, the current day, and the
+ * end. It is the product's ONLY campaign visualization; the console and the
+ * public specimen draw this same instrument.
+ *
+ * The fill is a DISCLOSURE, not decoration: it carries the same reading as the
+ * "current day" mark beside it, and when no position is known the rail prints no
+ * fill and no cursor at all rather than a plausible-looking half-bar. The track
+ * is 4px because it is a measure and not a meter: the marks are the content.
+ * ─────────────────────────────────────────────────────────────────────── */
+.pse-crail { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+
+.pse-crail-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pse-inset);
+  box-shadow: inset 0 0 0 1px var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-crail-fill {
+  display: block;
+  width: var(--pse-w, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pse-accent-solid) 0%, var(--pse-accent) 100%);
+  transition: width var(--pse-t-slow) var(--pse-ease);
+}
+
+/* The cursor sits ON the track, so the position reads from one object rather
+   than from a bar and a separate marker that can drift apart. */
+.pse-crail-cursor {
+  position: absolute;
+  top: 50%;
+  left: var(--pse-pos, 0%);
+  width: 2px;
+  height: 12px;
+  transform: translate(-1px, -50%);
+  background: var(--pse-ink);
+  opacity: 0.55;
+}
+
+.pse-crail-marks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+/* The current day is the one mark that changes, so it is the one that carries
+   weight; the two dates stay quiet. */
+.pse-crail-mark { display: grid; gap: 0.15rem; min-width: 0; }
+.pse-crail-mark:last-child { text-align: right; }
+.pse-crail-mark:nth-child(2) { text-align: center; }
+
+.pse-crail-mark dt {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-crail-mark dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.875rem;
+  letter-spacing: -0.014em;
+  color: var(--pse-ink-2);
+}
+
+.pse-crail-mark[data-current='true'] dd { color: var(--pse-ink); font-weight: 500; }
+
+.pse-crail-note {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
 /* ── Capacity instrument ─────────────────────────────────────────────────
  * The bar and its axis are one object: the stack states the composition, the
  * marker states where the composition actually ends, and the axis prints the

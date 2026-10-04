@@ -79,7 +79,15 @@ export const PseSection: React.FC<{ title?: string; meta?: React.ReactNode; chil
 
 /**
  * The console's two-column composition: the dominant block on the left, the
- * supporting register beside it, one column below 1024px.
+ * supporting register beside it.
+ *
+ * ONE COLUMN ON A PHONE, TWO FROM 768px, AND THE PAGE'S OWN COMPONENT SIZES ARE
+ * WRITTEN FOR THE NARROW COLUMN. A 768px screen is not a 390px screen: the
+ * dominant register and its supporting column both fit, and stacking them there
+ * makes a tablet read as a phone in landscape, which is what this rule exists to
+ * stop. The supporting column is the narrow one (~1/3), so a register whose
+ * contents cannot live in a third of a tablet states its own composition inside
+ * its own block rather than expecting the split to know about it.
  */
 export const PseSplit: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="pse-split-console">{children}</div>

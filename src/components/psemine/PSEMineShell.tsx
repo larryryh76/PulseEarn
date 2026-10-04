@@ -1,13 +1,36 @@
 /**
  * PSEmine console shell — the authenticated product's chrome.
  *
- * One bar, one campaign strip, one stage, one foot. The bar carries the product
- * identity and the six console sections with the current one marked; the strip
- * carries the campaign's position on every console route, because "what is the
- * campaign doing and what is this account's capacity" is the context every other
- * figure on the page is read against; the foot carries the product's documents
- * once, at the end of the product, rather than repeating legal links on each
- * page.
+ * One bar, one status band, one stage, one dock, one foot. The bar carries the
+ * product identity, the sections above the dock breakpoint, and the account
+ * controls; the band states the campaign's condition on every console route,
+ * because "is the campaign live" is the context every other figure on the page is
+ * read against; the DOCK is the console's navigation on a phone; the foot carries
+ * the product's documents once, at the end of the product, rather than repeating
+ * legal links on each page.
+ *
+ * THE BAND IS CONTEXT, NOT A SECOND DASHBOARD. It states the campaign's condition
+ * and the account's mining rate and nothing else — no day rail, no campaign day.
+ * Those belong to the dashboard's campaign register, which is the single owner of
+ * the campaign's position; a rail drawn in the chrome and again on the page is the
+ * same date stated twice, which is two chances for the product to disagree with
+ * itself about its own clock.
+ *
+ * ONE NAVIGATION MODEL, TWO SHAPES OF IT. The console has six sections. On a
+ * phone that is a bottom dock of five — Dashboard, Tools, Wallet, Referrals,
+ * Activity — with the account one tap away in the bar, because a bottom dock
+ * stops being scannable past five items (MD bottom-navigation guidance, and the
+ * same limit the repo's own UX dataset states as `bottom-nav-limit`). Above the
+ * dock breakpoint the same list is the horizontal bar, and the dock is not
+ * rendered at all. There is no hamburger and no second navigation model: the
+ * previous mobile drawer asked the reader to open a sheet to find a section that
+ * is one tap away, and it competed with the dock for the same job.
+ *
+ * THE DOCK IS PADDED OFF THE DEVICE EDGE. Bottom-fixed chrome is exactly what
+ * sits under a home indicator, so the dock reserves `env(safe-area-inset-bottom)`
+ * and the console reserves the dock's height as page padding — a fixed bar that
+ * overlaps the content it navigates is the `fixed-element-offset` failure the
+ * repo's UX dataset names.
  *
  * WHAT THE STRIP IS ALLOWED TO SAY. Only what the backend reports: the campaign
  * status, the day inside the campaign's real window, and the account's real
@@ -15,10 +38,14 @@
  * defaulting to "Scheduled" — an unknown status printed as a known one is the
  * quietest way a console can lie.
  *
- * THE GUIDE IS AN OVERLAY, NOT A PAGE. `/mine/guide` and
- * `/mine/guide/onboarding` render the console and open the guide's plate over
- * it, so learning the product never takes the reader away from the product and
- * finishing onboarding reveals the console already in place behind it.
+ * THE GUIDE IS AN OVERLAY, NOT A PAGE. `/mine/guide` renders the console and
+ * opens the guide's plate over it, so a guide link is still a real link that
+ * survives a refresh, a share and the back button. Opening it FROM the console
+ * adds `?guide=1` to the current path instead of changing the route: the route
+ * element is reconciled rather than unmounted, so the reader's page keeps its
+ * scroll position and its loaded figures, and the back gesture closes the plate.
+ * `onClose` is therefore a navigate(-1) for the in-place form and a redirect to
+ * the dashboard for the deep-linked one.
  *
  * NOTIFICATIONS ARE A SHEET, NOT A ROUTE. The notification ledger opens over the
  * page being worked on, so reading it never costs the reader their place.
@@ -28,33 +55,42 @@
  * product state of its own beyond which overlay is open.
  */
 import React from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
 import {
-  campaignStatusView, gbpHour, timeAgo, useCampaignClock, useEscapeKey, usePseDocumentTitle, useScrollLock,
+  campaignStatusView, gbpHour, timeAgo, useEscapeKey, usePseDocumentTitle, useScrollLock,
 } from './pseCore';
 import { PseButton, PseIconButton } from './PseBasics';
 import { PseGuide } from './PseGuide';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 import { PSE_DOC_LABEL, PSE_DOC_ORDER, PSE_DOC_PATH } from './pseDocs';
 
-/** Console sections. The Guide sits beside them but opens an overlay. */
-const CONSOLE_NAV: ReadonlyArray<{ to: string; label: string }> = [
-  { to: '/mine/dashboard', label: 'Overview' },
-  { to: '/mine/tools', label: 'Tools' },
-  { to: '/mine/wallet', label: 'Wallet' },
-  { to: '/mine/referrals', label: 'Referrals' },
-  { to: '/mine/activity', label: 'Activity' },
-  { to: '/mine/me', label: 'Account' },
+/** The section list, once. The bar renders all of it; the dock renders the first five. */
+const CONSOLE_SECTIONS: ReadonlyArray<{ to: string; label: string; dock: boolean }> = [
+  { to: '/mine/dashboard', label: 'Dashboard', dock: true },
+  { to: '/mine/tools', label: 'Tools', dock: true },
+  { to: '/mine/wallet', label: 'Wallet', dock: true },
+  { to: '/mine/referrals', label: 'Referrals', dock: true },
+  { to: '/mine/activity', label: 'Activity', dock: true },
+  { to: '/mine/me', label: 'Account', dock: false },
 ];
+
+const DOCK_SECTIONS = CONSOLE_SECTIONS.filter(s => s.dock);
 
 const GUIDE_REFERENCE = '/mine/guide';
 const GUIDE_ONBOARDING = '/mine/guide/onboarding';
 
+/**
+ * The in-place guide handle. A route stays shareable; a query keeps the page
+ * mounted. The Dashboard's guide entry pushes `?guide=1`, which is the same route
+ * it is standing on, so nothing beneath the plate is torn down.
+ */
+const GUIDE_QUERY = 'guide';
+
 /** PSEmine owns the document title on every one of its routes. */
 const ROUTE_TITLES: Array<[RegExp, string]> = [
-  [/^\/mine\/dashboard/, 'Mining console'],
+  [/^\/mine\/dashboard/, 'Mining dashboard'],
   [/^\/mine\/tools/, 'Mining tools'],
   [/^\/mine\/wallet/, 'Wallet & payouts'],
   [/^\/mine\/referrals/, 'Referrals'],
@@ -75,6 +111,8 @@ function titleForPath(pathname: string): string {
 
 export const PSEMineShell: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentUser, hasPSEmineAccess } = usePSEMineAuth();
 
   const isAuthed = Boolean(currentUser);
@@ -84,29 +122,56 @@ export const PSEMineShell: React.FC = () => {
      the console's and must not leak into it. */
   const chrome = !isLanding || inConsole;
 
-  const isGuideRoute = location.pathname === GUIDE_REFERENCE || location.pathname === GUIDE_ONBOARDING;
-  const guideMode: 'reference' | 'onboarding' =
-    location.pathname === GUIDE_ONBOARDING ? 'onboarding' : 'reference';
+  const isOnboardingRoute = location.pathname === GUIDE_ONBOARDING;
+  const isGuideRoute = location.pathname === GUIDE_REFERENCE || isOnboardingRoute;
+  const guideInPlace = !isGuideRoute && searchParams.get(GUIDE_QUERY) === '1';
+  const guideOpen = isGuideRoute || guideInPlace;
+  const guideMode: 'reference' | 'onboarding' = isOnboardingRoute ? 'onboarding' : 'reference';
+
+  /**
+   * How the plate closes, which depends entirely on how it was opened.
+   *
+   * IN PLACE (`?guide=1`): the plate was pushed onto the route the reader is
+   * already on, so going back is the honest close — the page underneath keeps its
+   * scroll position and its loaded figures because it was never unmounted. When
+   * there is nothing to go back to (a fresh tab on `/mine/dashboard?guide=1`),
+   * the query is dropped in place instead.
+   *
+   * ROUTE (`/mine/guide`): the plate IS the route, so closing replaces it with the
+   * dashboard rather than pushing another entry — otherwise the guide would sit
+   * one step back in history and the back gesture would reopen what the reader
+   * just closed.
+   */
+  const closeGuide = React.useCallback(() => {
+    if (guideInPlace) {
+      if (window.history.state?.idx > 0) navigate(-1);
+      else navigate(location.pathname, { replace: true });
+      return;
+    }
+    navigate('/mine/dashboard', { replace: true });
+  }, [guideInPlace, navigate, location.pathname]);
 
   usePseDocumentTitle(titleForPath(location.pathname));
 
   if (!chrome) return <Outlet />;
 
   return (
-    <div className="pse pse-console-shell">
-      <ProductBar inConsole={inConsole} />
-      {inConsole && <CampaignStrip />}
+    <div className={`pse pse-console-shell${inConsole ? ' pse-console-shell--docked' : ''}`}>
+      <ProductBar inConsole={inConsole} showGuide={inConsole} />
 
-      <main className="pse-stage">
+      {inConsole && <CampaignBand />}
+
+      <main className="pse-stage" id="pse-stage">
         <Outlet />
       </main>
 
       {inConsole ? <ConsoleFoot /> : <PublicFooter />}
+      {inConsole && <ConsoleDock />}
 
       {/* The guide sits over the console. It is opened by standing on its route,
-          so a link to it behaves like a link and the back button closes it. */}
-      {inConsole && isGuideRoute && (
-        <PseGuide mode={guideMode} />
+          or by adding ?guide=1 to the page being read. */}
+      {inConsole && guideOpen && (
+        <PseGuide mode={guideMode} onClose={closeGuide} />
       )}
     </div>
   );
@@ -114,16 +179,10 @@ export const PSEMineShell: React.FC = () => {
 
 /* ── Product bar ─────────────────────────────────────────────────────────── */
 
-const ProductBar: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
+const ProductBar: React.FC<{ inConsole: boolean; showGuide: boolean }> = ({ inConsole, showGuide }) => {
   const { logout } = usePSEMineAuth();
   const { unreadNotifications } = usePseState();
-  const [navOpen, setNavOpen] = React.useState(false);
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const location = useLocation();
-
-  // Navigating closes the mobile nav: a sheet that survives the navigation it
-  // performed leaves the reader looking at the link they already followed.
-  React.useEffect(() => { setNavOpen(false); }, [location.pathname]);
 
   if (!inConsole) {
     return (
@@ -144,18 +203,18 @@ const ProductBar: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
     <>
       <header className="pse-bar">
         <div className="pse-bar-inner">
-          <Link to="/mine/dashboard" className="pse-bar-brand" aria-label="PSEmine console">
+          <Link to="/mine/dashboard" className="pse-bar-brand" aria-label="PSEmine dashboard">
             <PSEmineMark size={26} decorative />
             <span className="pse-bar-name">PSEmine</span>
           </Link>
 
           <nav className="pse-nav" aria-label="PSEmine console">
-            {CONSOLE_NAV.map(item => (
+            {CONSOLE_SECTIONS.map(item => (
               <NavLink key={item.to} to={item.to} className="pse-nav-link">
                 {item.label}
               </NavLink>
             ))}
-            <NavLink to={GUIDE_REFERENCE} className="pse-nav-link">Guide</NavLink>
+            {showGuide && <NavLink to={GUIDE_REFERENCE} className="pse-nav-link">Guide</NavLink>}
           </nav>
 
           <div className="pse-bar-tools">
@@ -168,29 +227,23 @@ const ProductBar: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
               <BellGlyph />
             </PseIconButton>
 
+            {/* Below the dock breakpoint the account is the one section the dock
+                has no room for, so the bar carries it. */}
+            <NavLink to="/mine/me" className="pse-icon-btn pse-bar-account" aria-label="Account">
+              <AccountGlyph />
+            </NavLink>
+
             <PseButton
               variant="secondary"
               size="sm"
+              className="pse-bar-signout"
               onClick={() => void logout()}
             >
               Sign out
             </PseButton>
-
-            <PseIconButton
-              label={navOpen ? 'Close sections' : 'Open sections'}
-              aria-expanded={navOpen}
-              className="pse-nav-toggle"
-              onClick={() => setNavOpen(v => !v)}
-            >
-              <MenuGlyph open={navOpen} />
-            </PseIconButton>
           </div>
         </div>
       </header>
-
-      {navOpen && (
-        <NavSheet onClose={() => setNavOpen(false)} />
-      )}
 
       {sheetOpen && (
         <NotificationSheet onClose={() => setSheetOpen(false)} />
@@ -199,20 +252,54 @@ const ProductBar: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
   );
 };
 
+/* ── Console dock ────────────────────────────────────────────────────────── */
+
+/**
+ * The console's navigation on a phone. Five destinations, each with a glyph and
+ * a label — an icon-only dock is a memory test — and the current one carrying the
+ * accent, which is the only state this bar expresses.
+ *
+ * It is the same list as the bar above the breakpoint and it navigates to the
+ * same routes, so the product has one navigation model with two shapes rather
+ * than two competing ones.
+ */
+const ConsoleDock: React.FC = () => (
+  <nav className="pse-dock" aria-label="PSEmine console sections">
+    {DOCK_SECTIONS.map(item => (
+      <NavLink key={item.to} to={item.to} className="pse-dock-link">
+        <span className="pse-dock-glyph" aria-hidden="true">
+          <DockGlyph to={item.to} />
+        </span>
+        <span className="pse-dock-label">{item.label}</span>
+      </NavLink>
+    ))}
+  </nav>
+);
+
 /* ── Campaign strip ──────────────────────────────────────────────────────── */
 
 /**
- * The campaign's position, on every console route.
+ * THE STATUS BAND — the console's persistent context, and NOT a second dashboard.
  *
- * The day rail is drawn against the campaign's real window, so it states where
- * the campaign is rather than how much of something the reader has. The capacity
- * figure is the account's own, from the backend. Before the first read answers,
- * the strip says the campaign is still being read — it does not print a status
- * it has not been told.
+ * WHAT IT SAYS, AND WHAT IT DELIBERATELY DOES NOT. The band states only what the
+ * reader needs in order to know whether the page they are on is talking about a
+ * live campaign: the campaign's state, and the account's own mining rate. It does
+ * NOT draw the campaign's day rail, and it does not state the campaign day.
+ *
+ * That is a fix, not a preference. The rail and the day were drawn here on every
+ * console route AND drawn again by the dashboard's own campaign register, which
+ * meant the product's most important date was stated in two places that could
+ * disagree — and on the dashboard, which is the one screen that owns the campaign
+ * window, the second copy was pure repetition. The dashboard is now the single
+ * owner of the campaign's position; the band is context on the other five routes.
+ *
+ * WHAT REMAINS IS STILL FROM THE BACKEND ONLY. Before the first read answers the
+ * band says the campaign is still being read rather than defaulting to
+ * "Scheduled" — an unknown status printed as a known one is the quietest way a
+ * console can lie.
  */
-const CampaignStrip: React.FC = () => {
-  const { state, campaignStatus, refreshing, refresh } = usePseState();
-  const clock = useCampaignClock(state?.campaign, campaignStatus);
+const CampaignBand: React.FC = () => {
+  const { state, campaignStatus } = usePseState();
   const known = campaignStatus !== null;
   const view = campaignStatusView(campaignStatus);
   const capacity = state?.user?.totalCapacityGBPPerHour;
@@ -237,34 +324,10 @@ const CampaignStrip: React.FC = () => {
         )}
 
         <span className="pse-strip-fact">
-          <span className="pse-strip-key">Day</span>
-          <span className="pse-strip-val">
-            {clock.dayNumber === null ? '—' : `${clock.dayNumber} / ${clock.totalDays}`}
-          </span>
-        </span>
-
-        <span className="pse-strip-rail" aria-hidden="true">
-          <span className="pse-strip-rail-fill" style={{ '--pse-w': `${clock.progress}%` } as React.CSSProperties} />
-        </span>
-
-        <span className="pse-strip-fact">
-          <span className="pse-strip-key">Capacity</span>
+          <span className="pse-strip-key">Mining capacity</span>
           <span className="pse-strip-val">
             {typeof capacity === 'number' ? gbpHour(capacity) : '—'}
           </span>
-        </span>
-
-        {typeof clock.daysLeft === 'number' && (
-          <span className="pse-strip-fact">
-            <span className="pse-strip-key">Remaining</span>
-            <span className="pse-strip-val">{clock.daysLeft}d</span>
-          </span>
-        )}
-
-        <span className="pse-strip-actions">
-          <PseButton variant="secondary" size="sm" onClick={() => void refresh()} busy={refreshing}>
-            {refreshing ? 'Syncing…' : 'Sync'}
-          </PseButton>
         </span>
       </div>
     </div>
@@ -356,43 +419,6 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-/* ── Mobile navigation sheet ─────────────────────────────────────────────── */
-
-const NavSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  useScrollLock(true);
-  useEscapeKey(true, onClose);
-
-  return (
-    <>
-      <div className="pse-sheet-scrim" onClick={onClose} role="presentation" />
-      <aside className="pse-sheet" role="dialog" aria-modal="true" aria-label="Console sections">
-        <div className="pse-sheet-head">
-          <h2 className="pse-block-title">Sections</h2>
-          <span className="pse-strip-actions">
-            <PseIconButton label="Close sections" onClick={onClose}>
-              <CloseGlyph />
-            </PseIconButton>
-          </span>
-        </div>
-        <div className="pse-sheet-body">
-          <nav className="pse-drawer-nav" aria-label="PSEmine console">
-            {[...CONSOLE_NAV, { to: GUIDE_REFERENCE, label: 'Guide' }].map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className="pse-drawer-link"
-                onClick={onClose}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-      </aside>
-    </>
-  );
-};
-
 /* ── Console foot ────────────────────────────────────────────────────────── */
 
 /** Every product document, once, at the end of the product. The console does not
@@ -406,7 +432,7 @@ const ConsoleFoot: React.FC = () => (
         {PSE_DOC_ORDER.map(id => (
           <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
         ))}
-        <Link to="/mine/guide">How PSEmine works</Link>
+        <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
       </span>
     </div>
   </footer>
@@ -426,7 +452,69 @@ const PublicFooter: React.FC = () => (
   </footer>
 );
 
-/* ── Glyphs. Meaningful only: bell, menu, close. ─────────────────────────── */
+/* ── Glyphs. Meaningful only: the dock's five, the bell, the account, close. ── */
+
+/**
+ * Dock glyphs, one per destination, drawn on one 20×20 grid at one stroke width
+ * so the dock reads as a single instrument rather than five borrowed icons. Each
+ * is decorative: the label beside it carries the name.
+ */
+const DockGlyph: React.FC<{ to: string }> = ({ to }) => {
+  switch (to) {
+    /* Dashboard — the campaign, as a measured instrument. */
+    case '/mine/dashboard':
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" focusable="false">
+          <path d="M3.5 12.2a6.5 6.5 0 1 1 13 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M10 12.2 13.1 8.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M2.6 15.4h14.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      );
+    /* Tools — the unit: a framed instrument with its own module. */
+    case '/mine/tools':
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" focusable="false">
+          <rect x="3.2" y="3.2" width="13.6" height="13.6" rx="2.4" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M3.2 7.8h13.6" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M7.4 11.2h5.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M7.4 13.8h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      );
+    /* Wallet — the payout wallet and what settles into it. */
+    case '/mine/wallet':
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" focusable="false">
+          <rect x="2.8" y="5.4" width="14.4" height="10.2" rx="2.2" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M2.8 8.6h14.4" stroke="currentColor" strokeWidth="1.3" />
+          <circle cx="13.4" cy="12.4" r="1.05" fill="currentColor" />
+        </svg>
+      );
+    /* Referrals — the capacity side of the same account. */
+    case '/mine/referrals':
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" focusable="false">
+          <circle cx="7.6" cy="7.6" r="2.5" stroke="currentColor" strokeWidth="1.3" />
+          <circle cx="13.6" cy="9.4" r="2" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M3.4 15.2c.5-2.1 2.2-3.3 4.2-3.3s3.7 1.2 4.2 3.3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M12.9 12.6c1.6.1 2.9 1.1 3.3 2.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      );
+    /* Activity — the ledger. */
+    default:
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" focusable="false">
+          <path d="M4 5.6h12M4 10h12M4 14.4h8.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      );
+  }
+};
+
+const AccountGlyph: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+    <circle cx="10" cy="7.4" r="3.1" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M4.4 16.2c.7-2.6 2.9-4 5.6-4s4.9 1.4 5.6 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
 
 const BellGlyph: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
@@ -435,16 +523,6 @@ const BellGlyph: React.FC = () => (
       stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
     />
     <path d="M8.2 14.9a1.9 1.9 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </svg>
-);
-
-const MenuGlyph: React.FC<{ open: boolean }> = ({ open }) => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-    {open ? (
-      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    ) : (
-      <path d="M3.5 6.5h13M3.5 10h13M3.5 13.5h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    )}
   </svg>
 );
 

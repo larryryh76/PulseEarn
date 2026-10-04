@@ -327,13 +327,28 @@ export function useCampaignClock(
  * page that captures Escape and the page scroll is a page that fights its reader.
  * ───────────────────────────────────────────────────────────────────────── */
 
-/** Holds the page behind an overlay still while it is open. */
+/**
+ * Holds the page behind an overlay still while it is open.
+ *
+ * THE LOCK IS COUNTED, NOT SAVED-AND-RESTORED. The console can hand one overlay
+to another inside a single navigation — the mobile nav sheet closes as the guide
+plate opens. With a save/restore lock the sheet's cleanup put back the `overflow`
+it captured BEFORE the plate had claimed it, so the body was unlocked while the
+plate was still open and the console behind it scrolled under the reader's thumb.
+A shared count means the last overlay standing is the one that releases the page,
+whatever order the cleanups run in.
+ */
+let scrollLocks = 0;
+
 export function useScrollLock(active: boolean) {
   React.useEffect(() => {
     if (!active) return;
-    const previous = document.body.style.overflow;
+    scrollLocks += 1;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return () => {
+      scrollLocks = Math.max(0, scrollLocks - 1);
+      if (scrollLocks === 0) document.body.style.removeProperty('overflow');
+    };
   }, [active]);
 }
 

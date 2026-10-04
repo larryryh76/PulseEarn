@@ -52,7 +52,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PSEmineMark } from './PSEBrand';
-import { PseGlyph, PseOperatingSignature, PseScale, PseTierModule, type PseGlyphName } from './PseMechanism';
+import { PseGlyph, PseScale, PseTierModule, type PseGlyphName } from './PseMechanism';
 
 /* ── Reveal ─────────────────────────────────────────────────────────────── */
 
@@ -246,6 +246,67 @@ export const CapacityInstrument: React.FC<{
         />
       )}
     </Reveal>
+  );
+};
+
+/* ── Campaign rail ──────────────────────────────────────────────────────── */
+
+export interface CampaignRailMarker {
+  key: string;
+  /** The term the product uses for this point on the rail. */
+  label: string;
+  /** The figure or date printed under it. */
+  value: string;
+  /** The node the account is standing on, where one is genuinely known. */
+  current?: boolean;
+}
+
+/**
+ * The campaign window as ONE rail: where it started, where the account is, where
+ * it ends.
+ *
+ * THE CANONICAL CAMPAIGN VISUALIZATION. The dashboard draws it from the backend's
+ * campaign document; the landing specimen draws the same instrument for the
+ * campaign's published length. There is deliberately no second campaign bar
+ * anywhere in the product: two drawings of the same window is how a product ends
+ * up telling a reader two different things about one date.
+ *
+ * `progress` is 0–100 through the window, or **null when no position is known**.
+ * A specimen may not invent a day, so it passes null and the rail prints its three
+ * marks with no cursor and no fill — an empty measure, not a fabricated one.
+ *
+ * The rail itself is `aria-hidden`: the three marks below it are real text, and a
+ * screen reader needs the dates, not "progress bar, 47 percent".
+ */
+export const CampaignRail: React.FC<{
+  /** 0–100 through the campaign window, or null when no position is known. */
+  progress: number | null;
+  markers: ReadonlyArray<CampaignRailMarker>;
+  /** What the position means, in the product's own words. */
+  note?: React.ReactNode;
+  className?: string;
+}> = ({ progress, markers, note, className = '' }) => {
+  const clamped = progress === null ? null : Math.max(0, Math.min(100, progress));
+  return (
+    <div className={`pse-crail${className ? ` ${className}` : ''}`}>
+      <div className="pse-crail-track" aria-hidden="true">
+        <span className="pse-crail-fill" style={{ '--pse-w': `${clamped ?? 0}%` } as React.CSSProperties} />
+        {clamped !== null && (
+          <span className="pse-crail-cursor" style={{ '--pse-pos': `${clamped}%` } as React.CSSProperties} />
+        )}
+      </div>
+
+      <dl className="pse-crail-marks">
+        {markers.map(mark => (
+          <div className="pse-crail-mark" key={mark.key} data-current={mark.current ? 'true' : undefined}>
+            <dt>{mark.label}</dt>
+            <dd>{mark.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {note && <p className="pse-crail-note">{note}</p>}
+    </div>
   );
 };
 
@@ -509,6 +570,15 @@ export interface PseAppSpineLink {
  * in the bar and in the window's footer so it can never be mistaken for an
  * account. Nothing in the window reads a session; the numbers are the product's
  * locked rates applied to a stated build.
+ *
+ * ONE DASHBOARD SYSTEM. The window is the marketing specimen OF THE CONSOLE, so
+ * it carries the console's own modules under the console's own names: the capacity
+ * instrument with the same three labels (tool / referral / mining capacity), the
+ * same campaign rail, and the equipment register. It is deliberately SHORTER than
+ * the console — no account ledger, no settlement notes, and the campaign rail
+ * prints no position at all, because a public page cannot know what day a
+ * campaign is on and inventing one is exactly the fabrication this product
+ * refuses. Fewer modules, never a different model.
  */
 export const PseAppWindow: React.FC<{
   days: number;
@@ -534,9 +604,9 @@ export const PseAppWindow: React.FC<{
             <span className="pse-app-word">PSEmine</span>
           </span>
           <span className="pse-app-nav" aria-hidden="true">
-            <span data-active="true">Overview</span>
-            <span>Units</span>
-            <span>Settlement</span>
+            <span data-active="true">Dashboard</span>
+            <span>Tools</span>
+            <span>Wallet</span>
           </span>
           <span className="pse-chip" data-tone="scenario">
             <span className="pse-chip-dot" aria-hidden="true" />
@@ -587,48 +657,53 @@ export const PseAppWindow: React.FC<{
               </div>
             </dl>
 
-            {/* The two instruments sit side by side once the window is wide
-                enough to carry them, which is what keeps the scenario's
-                silhouette a WINDOW rather than a column. */}
+            {/* The two rails, side by side once the window is wide enough to carry
+                them — which is what keeps the specimen's silhouette a WINDOW rather
+                than a column. They are the console's two rails under the console's
+                two names, and the capacity instrument carries the console's three
+                labels so the composition reads identically in both places. */}
             <div className="pse-app-pair">
               <section className="pse-app-block">
                 <header className="pse-app-block-head">
-                  <span className="pse-app-block-title">Capacity composition</span>
+                  <span className="pse-app-block-title">Capacity</span>
                   <span className="pse-app-block-meta">ceiling £{ceiling.toFixed(2)}/hour</span>
                 </header>
-                <CapacityInstrument compact ceiling={ceiling} units={toolCapacity} referrals={referralCapacity} />
+                <CapacityInstrument
+                  compact
+                  ceiling={ceiling}
+                  units={toolCapacity}
+                  referrals={referralCapacity}
+                  unitLabel="Tool capacity"
+                  referralLabel="Referral capacity"
+                  totalLabel="Mining capacity"
+                />
               </section>
 
               <section className="pse-app-block">
                 <header className="pse-app-block-head">
-                  <span className="pse-app-block-title">Capacity path</span>
-                  <span className="pse-app-block-legend">
-                    <span className="pse-app-legend" data-kind="continuous">
-                      <i aria-hidden="true" />
-                      Continuous
-                    </span>
-                    <span className="pse-app-legend" data-kind="session">
-                      <i aria-hidden="true" />
-                      Session
-                    </span>
-                  </span>
+                  <span className="pse-app-block-title">Campaign</span>
+                  <span className="pse-app-block-meta">published length</span>
                 </header>
-                <div className="pse-app-chart">
-                  <PseOperatingSignature />
-                  <div className="pse-app-chart-axis" aria-hidden="true">
-                    <span>Day 0</span>
-                    <span>{Math.round(days / 3)}</span>
-                    <span>{Math.round((days * 2) / 3)}</span>
-                    <span>{days}</span>
-                  </div>
-                </div>
+                {/* No `progress`: a marketing specimen has no day, and the rail
+                    prints none rather than a plausible one. */}
+                <CampaignRail
+                  progress={null}
+                  markers={[
+                    { key: 'start', label: 'Start', value: 'Day 0' },
+                    { key: 'length', label: 'Length', value: `${days} days` },
+                    { key: 'end', label: 'End', value: `Day ${days}` },
+                  ]}
+                  note="A campaign window of a fixed length. The console draws this same rail against the live campaign's own start and end dates."
+                />
               </section>
             </div>
 
+            {/* The console calls this register EQUIPMENT, so the specimen does
+                too: the same tiers, the same quantity, the same hourly capacity. */}
             <section className="pse-app-block">
               <header className="pse-app-block-head">
-                <span className="pse-app-block-title">Units</span>
-                <span className="pse-app-block-meta">{held.reduce((n, r) => n + r.count, 0)} held</span>
+                <span className="pse-app-block-title">Equipment</span>
+                <span className="pse-app-block-meta">{held.reduce((n, r) => n + r.count, 0)} owned</span>
               </header>
               <ul className="pse-app-units">
                 {build.map(row => (
@@ -647,7 +722,7 @@ export const PseAppWindow: React.FC<{
         </div>
 
         {/* The campaign spine: what a unit becomes, in the product's own units. */}
-        <ol className="pse-app-spine" aria-label="How this build becomes a payout">
+        <ol className="pse-app-spine" aria-label="How this equipment becomes a payout">
           {spine.map(link => (
             <li key={link.id} className="pse-app-spine-link" data-lead={link.lead ? 'true' : undefined}>
               <span className="pse-app-spine-label">{link.label}</span>

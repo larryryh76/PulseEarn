@@ -51,17 +51,24 @@
   min-width: 0;
 }
 
-/* The console's one measure. 1120px rather than the page's 1180px: a console
-   reads better slightly tighter, and it keeps a ledger's numeric columns close
-   enough to compare without eye travel. */
+/* The console's one measure. 1240px, and it is the same number on the bar, the
+   band, the stage and the foot, so the console's four bands share one edge at
+   every width — a header that ends 60px before the page it belongs to is the
+   cheapest way to make a console look assembled from parts. Wide enough that a
+   1440px screen spends ~100px a side on margin rather than the ~160px a 1120px
+   measure left; tight enough that a ledger's numeric columns stay comparable.
+   The measure is the ONLY place the console's width is decided. */
 .pse-console-main {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1240px;
   margin-inline: auto;
-  padding: 1.15rem var(--pse-gutter) 4rem;
+  /* The foot already separates the page from the end of the product, so the
+     stage closes with a single step of space, not the 4rem that used to leave a
+     band of empty canvas under the last register on a phone. */
+  padding: 1.15rem var(--pse-gutter) 1.75rem;
 }
 
 /* ── Product bar ──────────────────────────────────────────────────────────
@@ -82,7 +89,7 @@
   align-items: center;
   gap: 0.6rem 1.25rem;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1240px;
   margin-inline: auto;
   padding-inline: var(--pse-gutter);
   min-height: 56px;
@@ -158,7 +165,126 @@
 
 @media (min-width: 960px) {
   .pse-nav { display: flex; margin-left: 0.5rem; }
-  .pse-nav-toggle { display: none; }
+}
+
+/* The account control and the sign-out control swap roles at the dock
+ * breakpoint: below it the dock carries the five sections and the bar carries
+ * the account; above it the bar carries everything and the dock is not rendered.
+ * Neither control is ever hidden from a reader who needs it — the account is also
+ * reachable from the console foot on every route. */
+.pse-bar-account {
+  display: inline-flex;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+}
+
+.pse-bar-signout { display: none; }
+
+@media (min-width: 960px) {
+  .pse-bar-account { display: none; }
+  .pse-bar-signout { display: inline-flex; }
+}
+
+/* ── Console dock ────────────────────────────────────────────────────────
+ * The console's navigation on a phone: five destinations, each a glyph AND a
+ * label — an icon-only dock is a memory test — with the current one carrying the
+ * accent. Five is the limit a bottom bar stays scannable at, so the sixth
+ * section (the account) lives in the bar above it.
+ *
+ * It is fixed to the bottom edge and padded inside the device safe area, because
+ * bottom-fixed chrome is exactly what sits under a home indicator, and the console
+ * reserves the dock's height as page padding (see --pse-dock-offset) so no page is
+ * ever navigated from a bar drawn over its own content.
+ *
+ * It is not rendered above the breakpoint: the same list is already in the bar,
+ * and two navigations for one product is the `avoid-mixed-patterns` failure.
+ * ─────────────────────────────────────────────────────────────────────── */
+/* The dock's own height, plus its top hairline. The two are separate numbers so
+   the reservation below can never be a pixel short of the bar it reserves for. */
+.pse-console-shell {
+  --pse-dock-h: 58px;
+  --pse-dock-offset: calc(var(--pse-dock-h) + 1px);
+}
+
+.pse-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--pse-rule-2);
+  background: var(--pse-surface);
+  box-shadow: 0 -14px 34px -26px rgba(16, 19, 24, 0.5);
+}
+
+.pse-dock-link {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.15rem;
+  min-height: var(--pse-dock-h);
+  padding: 0.35rem 0.2rem;
+  min-width: 0;
+  color: var(--pse-ink-3);
+  text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+/* The active state is stated once: a 2px accent rule on the top edge and an
+   accent glyph, with the label lifted to full ink. No fill, no pill — at dock
+   density a filled chip competes with the figures on the page above it. */
+.pse-dock-link::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 22px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 0 0 2px 2px;
+  background: transparent;
+  transition: background-color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-dock-link:hover { color: var(--pse-ink-2); }
+
+.pse-dock-link[aria-current='page'] { color: var(--pse-ink); }
+.pse-dock-link[aria-current='page']::after { background: var(--pse-accent); }
+.pse-dock-link[aria-current='page'] .pse-dock-glyph { color: var(--pse-accent); }
+
+.pse-dock-glyph { display: inline-flex; }
+
+.pse-dock-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: -0.004em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 960px) {
+  .pse-dock { display: none; }
+}
+
+/* The dock's height, reserved by the page and by the foot, so nothing is
+   navigated from behind it. Above the breakpoint both reservations go away. */
+.pse-console-shell--docked .pse-console-main {
+  padding-bottom: calc(1.75rem + var(--pse-dock-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+.pse-console-shell--docked .pse-console-foot {
+  margin-bottom: calc(var(--pse-dock-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 960px) {
+  .pse-console-shell--docked .pse-console-main { padding-bottom: 1.75rem; }
+  .pse-console-shell--docked .pse-console-foot { margin-bottom: 0; }
 }
 
 /* ── Icon control ─────────────────────────────────────────────────────────
@@ -227,7 +353,7 @@
   align-items: center;
   gap: 0.4rem 1rem;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1240px;
   margin-inline: auto;
   padding: 0.5rem var(--pse-gutter);
 }
@@ -258,26 +384,9 @@
   color: var(--pse-ink);
 }
 
-.pse-strip-rail {
-  position: relative;
-  flex: 1 1 120px;
-  min-width: 90px;
-  max-width: 260px;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--pse-inset);
-  overflow: hidden;
-}
-
-.pse-strip-rail-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: var(--pse-w, 0%);
-  border-radius: 999px;
-  background: var(--pse-accent);
-  transition: width var(--pse-t-slow) var(--pse-ease);
-}
-
+/* The band states its facts and no rail: the campaign's position belongs to the
+   dashboard's campaign register, and a measure drawn in the chrome and again on
+   the page is the same date stated twice. */
 .pse-strip-actions { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
 
 /* ── Page head ────────────────────────────────────────────────────────────
@@ -874,22 +983,44 @@ button.pse-link {
 
 /* ── Guide overlay ────────────────────────────────────────────────────────
  * The guide is an application surface ON TOP of the product, not a page of
- * documentation: a plate over the console, one concept at a time, one visual,
- * a short explanation, and the stage rail stating where the reader is.
+ * documentation: a plate over the console, one section at a time, one instrument,
+ * a short explanation, and the contents rail stating where the reader is.
  *
- * Above 900px it is two columns — the rail, then the stage. Below that the rail
- * becomes a progress line at the head of the plate and the plate itself becomes
- * a full-height sheet, because a rail plus a stage on a phone is two scrolls
- * fighting for one screen.
+ * TWO SHAPES, DECIDED IN CSS.
+ *
+ *   Below 720px  a BOTTOM SHEET. It rises from the bottom edge, is capped at
+ *                92dvh so the console stays visible behind it, carries a drag
+ *                grip, and keeps one scrolling region. Its header and foot are
+ *                padded inside the device safe areas — the close control and the
+ *                foot controls are the two things a notch, a rounded corner or a
+ *                home indicator would otherwise take away.
+ *   At 720px+    a CENTRED PLATE: contents rail as a left column, stage beside it.
+ *
+ * WHY dvh AND NOT vh. `100vh` on a phone is the LARGE viewport — the height with
+ * the browser chrome already retracted — so a vh-sized sheet is taller than the
+ * screen it is shown on and its footer ends up under the browser's own bar. `dvh`
+ * tracks the viewport actually available, including while the chrome animates.
+ *
+ * The rail is never a second scroll region on a phone: it is one horizontal strip
+ * and only the stage scrolls beneath it. A rail and a stage scrolling
+ * independently is two scrolls fighting for one screen.
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-guide-scrim {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  background: color-mix(in srgb, var(--pse-canvas) 78%, transparent);
+  background: color-mix(in srgb, var(--pse-canvas) 74%, transparent);
+  /* The console behind the plate must not scroll with the plate's own scrolling
+     region: a dialog whose background moves under the reader is a dialog that
+     lost its place. */
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 720px) {
+  .pse-guide-scrim { align-items: center; padding: 2rem; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -898,29 +1029,70 @@ button.pse-link {
 
 .pse-guide {
   position: relative;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  height: 100%;
+  /* Capped below the full height so the console behind stays visible, and
+     measured against the viewport that is actually available. */
+  max-height: 92dvh;
   background: var(--pse-surface);
+  border-top-left-radius: var(--pse-r-lg);
+  border-top-right-radius: var(--pse-r-lg);
   box-shadow: var(--pse-ring), var(--pse-lift-2);
   overflow: hidden;
+  will-change: transform;
+  transition: transform var(--pse-t) var(--pse-ease);
 }
 
-@media (min-width: 900px) {
+/* While a finger is down the sheet IS the finger; a transition would fight it. */
+.pse-guide[data-dragging='true'] { transition: none; }
+
+@media (min-width: 720px) {
   .pse-guide {
-    width: min(1000px, 100% - 3rem);
-    height: min(800px, 100% - 4rem);
+    width: min(1040px, 100%);
+    height: min(820px, 100%);
+    max-height: none;
     border-radius: var(--pse-r-lg);
-    box-shadow: var(--pse-ring), var(--pse-lift-2);
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .pse-guide { animation: pse-sheet-rise 260ms var(--pse-ease); }
+}
+
+@keyframes pse-sheet-rise {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* The grip exists only where the gesture does, and it is NOT a control: it
+ * carries no accessible name and no focus. The Close button is the operable
+ * dismissal, and the swipe is an addition to it rather than the only way out —
+ * a gesture-only dismissal is a trap for anyone who cannot perform it. */
+.pse-guide-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  touch-action: none;
+  cursor: grab;
+}
+
+@media (min-width: 720px) { .pse-guide-grip { display: none; } }
+
+.pse-guide-grip-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pse-rule-strong);
+}
+
 .pse-guide-head {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.7rem 0.7rem 0.7rem 1.15rem;
+  padding: 0.7rem max(0.7rem, env(safe-area-inset-right, 0px)) 0.7rem max(1.15rem, env(safe-area-inset-left, 0px));
   border-bottom: 1px solid var(--pse-rule-2);
 }
 
@@ -936,50 +1108,102 @@ button.pse-link {
   color: var(--pse-ink-3);
 }
 
+/* The body owns the layout inside the plate: one column with the contents strip
+ * above the stage on a phone, a rail column beside the stage above the breakpoint. */
 .pse-guide-body {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-@media (min-width: 900px) {
-  .pse-guide-body { grid-template-columns: 244px minmax(0, 1fr); overflow: hidden; }
+@media (min-width: 720px) {
+  .pse-guide-body { grid-template-columns: 236px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 }
 
-/* The rail: the eight concepts, with real completion state and no fake ticks. */
+/* THE CONTENTS RAIL IS THE WAY THROUGH THE GUIDE, AT EVERY WIDTH.
+ *
+ * On a phone it is a single horizontal strip of numbered chips: every section is
+ * one tap away instead of eight taps of "Next", the active one is scrolled to
+ * centre as it changes, and the strip is the only part of the plate that scrolls
+ * sideways. Above the breakpoint it becomes the left column, where the same nine
+ * labels read as a list rather than as a rail. */
 .pse-guide-rail {
-  display: none;
-  margin: 0;
-  padding: 1.15rem;
-  list-style: none;
+  min-width: 0;
   border-right: 1px solid var(--pse-rule-2);
   background: var(--pse-band);
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 
-@media (min-width: 900px) {
-  .pse-guide-rail { display: block; }
+@media (min-width: 720px) {
+  .pse-guide-rail { overflow-x: hidden; overflow-y: auto; }
+}
+
+.pse-guide-rail-list {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.65rem max(1rem, env(safe-area-inset-left, 0px));
+  list-style: none;
+  width: max-content;
+}
+
+@media (min-width: 720px) {
+  .pse-guide-rail-list {
+    flex-direction: column;
+    gap: 0.15rem;
+    width: auto;
+    padding: 1.15rem;
+  }
 }
 
 .pse-guide-rail-item {
-  display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  gap: 0.5rem;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 0.4rem;
   align-items: center;
+  /* 44px, not 40: the contents are the guide's navigation and they are tapped. */
   min-height: 44px;
-  padding: 0.45rem 0.5rem;
-  border-radius: var(--pse-r-xs);
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--pse-rule-2);
+  border-radius: 999px;
+  background: var(--pse-surface);
   color: var(--pse-ink-2);
   font-size: 0.8125rem;
-  line-height: 1.4;
+  line-height: 1.35;
+  white-space: nowrap;
   cursor: pointer;
-  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
+  transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease), border-color var(--pse-t-fast) var(--pse-ease);
 }
 
 .pse-guide-rail-item:hover { color: var(--pse-ink); background: var(--pse-inset); }
 
-.pse-guide-rail-item[aria-current='true'] { color: var(--pse-ink); background: var(--pse-inset); }
+.pse-guide-rail-item[aria-current='true'] {
+  color: var(--pse-ink);
+  background: var(--pse-inset);
+  border-color: color-mix(in srgb, var(--pse-accent) 34%, transparent);
+}
+
+@media (min-width: 720px) {
+  .pse-guide-rail-item {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    width: 100%;
+    border-color: transparent;
+    border-radius: var(--pse-r-xs);
+    background: transparent;
+    padding: 0.45rem 0.5rem;
+    white-space: normal;
+  }
+
+  .pse-guide-rail-item:hover { background: var(--pse-inset); }
+  .pse-guide-rail-item[aria-current='true'] { background: var(--pse-inset); }
+}
 
 .pse-guide-rail-num {
   font-family: var(--pse-mono);
@@ -991,17 +1215,21 @@ button.pse-link {
 .pse-guide-rail-item[aria-current='true'] .pse-guide-rail-num { color: var(--pse-accent); }
 .pse-guide-rail-item[data-done='true'] .pse-guide-rail-num { color: var(--pse-good); }
 
-/* The stage: one concept, one visual, a short explanation, one action. */
+/* The stage: one section, one instrument, a short explanation, one action — and
+ * the only scrolling region inside the plate on a phone. */
 .pse-guide-stage {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
-  padding: 1.15rem;
+  padding: 1.15rem max(1.15rem, env(safe-area-inset-right, 0px)) 1.4rem max(1.15rem, env(safe-area-inset-left, 0px));
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-@media (min-width: 900px) {
-  .pse-guide-stage { padding: 1.5rem 1.75rem; overflow-y: auto; }
+@media (min-width: 720px) {
+  .pse-guide-stage { padding: 1.5rem 1.75rem; }
 }
 
 /* THE VISUAL IS THE INSTRUMENT, NOT A FRAME AROUND IT.
@@ -1057,11 +1285,14 @@ button.pse-link {
 }
 
 .pse-guide-foot {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.15rem;
+  /* The foot is the last thing above the gesture bar, so it is the one part of
+     the sheet that MUST be padded inside the bottom safe area. */
+  padding: 0.75rem max(1.15rem, env(safe-area-inset-right, 0px)) max(0.75rem, env(safe-area-inset-bottom, 0px)) max(1.15rem, env(safe-area-inset-left, 0px));
   border-top: 1px solid var(--pse-rule-2);
   background: var(--pse-band);
 }
@@ -1074,56 +1305,14 @@ button.pse-link {
   color: var(--pse-ink-3);
 }
 
-/* THE STAGE'S INSTRUMENTS, COMPACTED FOR THE PLATE.
+/* THE STAGE'S INSTRUMENTS KEEP THEIR OWN GEOMETRY.
  *
- * Inside the guide the campaign rail runs ACROSS at every width, including on a
- * phone. The public page's vertical form is right for a page you are scrolling
- * through, but here the rail is the stage's one visual: a four-step vertical
- * rail measured 741px on a 390×844 screen, so the reader met the diagram and
- * never reached the sentence that explains it. Four short phase names fit one
- * line even at 390px, which is what makes the horizontal form the honest one
- * here rather than a compromise.
- *
- * The rail keeps its real tab behaviour, its keyboard navigation and its
- * connector animation; only the geometry changes.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-guide .pse-lifecycle-rail {
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 0 0.4rem;
-}
-
-.pse-guide .pse-lifecycle-tab {
-  padding: 1.6rem 0.2rem 0.3rem;
-  min-width: 0;
-}
-
-.pse-guide .pse-lifecycle-tab:last-child { padding-bottom: 0.3rem; }
-
-.pse-guide .pse-lifecycle-node { left: 0.15rem; top: 0; }
-
-.pse-guide .pse-lifecycle-tab:not(:last-child)::after {
-  left: calc(0.15rem + 16px);
-  top: 5px;
-  bottom: auto;
-  height: 1px;
-  width: calc(100% + 0.4rem - 16px - 0.15rem);
-  transform-origin: left center;
-}
-
-.pse-guide .pse-lifecycle-name { font-size: 0.8125rem; letter-spacing: -0.008em; }
-.pse-guide .pse-lifecycle-idx { font-size: 0.5625rem; letter-spacing: 0.08em; }
-
-.pse-guide .pse-lifecycle-panel {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.5rem;
-  padding: 0.95rem;
-}
-
-.pse-guide .pse-lifecycle-panel-note { grid-column: auto; }
-
-/* The capacity instrument and the flow rail are already tight; they only need
-   the plate's smaller measure, not a different geometry. */
+ * The capacity instrument, the flow rail and the settlement statement are shared
+ * with the public product surfaces; the plate compacts them rather than redrawing
+ * them, so the reader meets the same instrument on the guide and on the dashboard.
+ * The campaign's five phases are drawn as the ordered chain above (see
+ * `.pse-chain`) rather than as a tab set, because a sequence the reader has to
+ * hold in order should show all five at once. */
 .pse-guide .pse-gauge { gap: 0.9rem; }
 .pse-guide .pse-railflow-step { padding: 0 1.2rem 1.2rem 2.6rem; }
 
@@ -1139,24 +1328,101 @@ button.pse-link {
 .pse-guide .pse-statement-side-note { display: none; }
 .pse-guide .pse-statement-row { padding: 0.7rem 0; }
 
-/* A progress line for the rail below 900px, where the rail is not rendered. */
-.pse-guide-line {
-  display: block;
-  height: 2px;
-  background: var(--pse-inset);
+/* ── Ordered chain ────────────────────────────────────────────────────────
+ * A real sequence — the campaign phases, the payout states — drawn as numbered
+ * steps on one connector, one line each. It states the whole order at once at
+ * every width, which is what a five-step sequence needs on a 390px screen: no
+ * tabs to tap, no diagram to decode, and no detail hidden behind an interaction.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-chain { display: grid; margin: 0; padding: 0; list-style: none; }
+
+.pse-chain-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.85rem minmax(0, 1fr);
+  gap: 0.65rem;
+  padding-bottom: 1rem;
 }
 
-.pse-guide-line-fill {
-  display: block;
-  height: 100%;
-  width: var(--pse-w, 0%);
-  background: var(--pse-accent);
-  transition: width var(--pse-t) var(--pse-ease);
+.pse-chain-step:last-child { padding-bottom: 0; }
+
+/* The connector, drawn from under one number to the next. */
+.pse-chain-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 0.72rem;
+  top: 1.4rem;
+  bottom: 0.2rem;
+  width: 1px;
+  background: var(--pse-rule-2);
 }
 
-@media (min-width: 900px) {
-  .pse-guide-line { display: none; }
+.pse-chain-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--pse-surface-2);
+  box-shadow: inset 0 0 0 1px var(--pse-rule-2);
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.02em;
+  color: var(--pse-ink-3);
 }
+
+/* The last step of a chain is the one the sequence arrives at, so it is the one
+   marker that carries the accent. */
+.pse-chain-step[data-terminal='true'] .pse-chain-num {
+  background: color-mix(in srgb, var(--pse-accent) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pse-accent) 34%, transparent);
+  color: var(--pse-accent);
+}
+
+.pse-chain-body { display: grid; gap: 0.15rem; min-width: 0; padding-top: 0.15rem; }
+.pse-chain-name { font-size: 0.9375rem; font-weight: 500; letter-spacing: -0.012em; color: var(--pse-ink); }
+.pse-chain-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); text-wrap: pretty; }
+
+/* The guide stage's own compositions: a stack of instruments, a titled sub-block,
+   and the support routes. */
+.pse-guide-stack { display: grid; gap: 1.35rem; min-width: 0; }
+
+.pse-guide-sub {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--pse-rule-2);
+}
+
+.pse-guide-sub-title {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-guide-links { display: grid; margin: 0; padding: 0; list-style: none; }
+
+/* Every support route is a real link with a real 44px target: the section exists
+   to give the reader a way out of the guide and into help, so each line is
+   tappable rather than a label beside a single button at the bottom. */
+.pse-guide-link-item {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 44px;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-guide-link-item:last-child { border-bottom: 0; }
+.pse-guide-link-item:hover .pse-guide-link-name { color: var(--pse-accent); }
+.pse-guide-link-name { font-size: 0.875rem; font-weight: 500; letter-spacing: -0.01em; color: var(--pse-ink); }
+.pse-guide-link-note { font-size: 0.8125rem; line-height: 1.5; color: var(--pse-ink-2); }
 
 /* A compact tier roster for the guide: four units, one datum, their rate and
    their price. The elevation is the same drawing the family uses on the public
@@ -1187,6 +1453,16 @@ button.pse-link {
   font-weight: 500;
   letter-spacing: -0.008em;
   color: var(--pse-ink);
+}
+
+/* The purchase price and the hourly capacity are the two numbers a buyer is
+   deciding between, so they are the two printed above the tier's limits. */
+.pse-guide-roster-price {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink-2);
 }
 
 .pse-guide-roster-rate {
@@ -1246,6 +1522,96 @@ button.pse-link {
   border-top: 1px solid var(--pse-rule-2);
 }
 
+/* THE VERDICT'S FOUR NUMBERS, ONCE.
+ *
+ * State, accrued, capacity, campaign day — the four questions a miner opens the
+ * console to answer. They are one register rather than four cards: a 1px grid on
+ * the panel's own surface, so the band reads as an instrument panel and not as a
+ * widget grid. Accrued leads and is the only figure on the page set oversize,
+ * which is what makes the eye land in the right place first.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-verdict-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-radius: var(--pse-r-sm);
+  overflow: hidden;
+  background: var(--pse-rule-2);
+}
+
+@media (min-width: 720px) {
+  .pse-verdict-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.pse-verdict-fact {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.8rem 0.85rem;
+  background: var(--pse-surface);
+}
+
+.pse-verdict-fact dt {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--pse-ink-3);
+}
+
+.pse-verdict-fact dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.0625rem;
+  letter-spacing: -0.02em;
+  color: var(--pse-ink);
+}
+
+.pse-verdict-fact[data-lead='true'] { background: color-mix(in srgb, var(--pse-accent) 6%, var(--pse-surface)); }
+.pse-verdict-fact[data-lead='true'] dd { font-size: clamp(1.5rem, 7vw, 1.875rem); }
+
+.pse-verdict-unit {
+  margin-left: 0.15rem;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+/* The qualifying line under a figure, where the number needs one: accrued is not
+   withdrawable, capacity is composed of two parts, a payout state has a next
+   step. A second `dd` in the same cell — same grid, same 1px rule — set one step
+   quieter, so the figure keeps the emphasis and the band stays one instrument. */
+.pse-verdict-fact dd + dd {
+  margin-top: -0.1rem;
+  font-family: var(--pse-font);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
+/* The panel's own context — the campaign's status and day — pushed to the far end
+   of the head, where it is available without competing with the verdict. */
+.pse-verdict-meta { margin-left: auto; }
+
+/* ── The two rails ────────────────────────────────────────────────────────
+ * Capacity and the campaign window, side by side above 1024px and stacked below
+ * it. EXACTLY TWO: the dashboard has one capacity instrument and one campaign
+ * instrument, and this grid is what makes that a rule of the composition rather
+ * than a convention someone can forget.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-rails {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.15rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .pse-rails { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.4rem; }
+}
+
 /* ── Two-column console composition ───────────────────────────────────────
  * The dominant relationship (equipment and referrals → capacity → accrual) on
  * the left, at two thirds, with the supporting register beside it. Below 1024px
@@ -1256,6 +1622,13 @@ button.pse-link {
   grid-template-columns: minmax(0, 1fr);
   gap: 1.15rem;
   align-items: start;
+}
+
+@media (min-width: 768px) {
+  /* A tablet gets the two-column composition, not the phone's single stack: at
+     768px there is room for the dominant register and its supporting column, and
+     the alternative is a 768px screen reading as a phone in landscape. */
+  .pse-split-console { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.15rem; }
 }
 
 @media (min-width: 1024px) {
@@ -1279,7 +1652,7 @@ button.pse-link {
   align-items: center;
   gap: 0.5rem 1.25rem;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1240px;
   margin-inline: auto;
   padding: 1.15rem var(--pse-gutter);
   font-size: 0.8125rem;
@@ -1549,7 +1922,7 @@ button.pse-link {
 @media (prefers-reduced-motion: reduce) {
   .pse-sheet,
   .pse-sheet-scrim,
+  .pse-guide,
   .pse-guide-scrim,
-  .pse-strip-rail-fill,
-  .pse-guide-line-fill { animation: none; transition: none; }
+  .pse-crail-fill { animation: none; transition: none; }
 }

@@ -21,6 +21,13 @@ larryryh76/PulseEarn@main:
   - source: .sync-src/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/SKILL.md
     dest: .agents/skills/ui-ux-pro-max/SKILL.md
 
+  # The rule references SKILL.md tells the agent to read before acting. They are
+  # part of the skill, not optional documentation: without them "read
+  # references/quick-reference.md" and "read references/pro-rules.md" point at
+  # nothing in this repository.
+  - source: .sync-src/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/references/
+    dest: .agents/skills/ui-ux-pro-max/references/
+
   # Whole directory: the *contents* of src/ui-ux-pro-max/ land in src/.
   - source: .sync-src/ui-ux-pro-max-skill/src/ui-ux-pro-max/
     dest: .agents/skills/ui-ux-pro-max/src/
@@ -28,6 +35,11 @@ larryryh76/PulseEarn@main:
   # --- feimacode/open-design-agent-kit ---
   - source: .sync-src/open-design-agent-kit/packages/claude-plugin/skills/open-design/SKILL.md
     dest: .agents/skills/open-design/SKILL.md
+
+  # SKILL.md links this file directly for the remix flow; it is part of the
+  # skill rather than of the design-system catalog synced below.
+  - source: .sync-src/open-design-agent-kit/packages/claude-plugin/skills/open-design/references/
+    dest: .agents/skills/open-design/references/
 
   # --- nexu-io/open-design ---
   # Whole directory: the *contents* of design-systems/ land in design-systems/.

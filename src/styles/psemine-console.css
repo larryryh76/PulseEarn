@@ -1926,3 +1926,225 @@ button.pse-link {
   .pse-guide-scrim,
   .pse-crail-fill { animation: none; transition: none; }
 }
+
+/* ============================================================================
+ * PSEMINE REBUILD ENHANCEMENTS — High-density Financial Operations Console & Guide
+ * ==========================================================================*/
+
+/* ── Equipment Register Table ───────────────────────────────────────────── */
+.pse-equip-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pse-equip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+.pse-equip-table th {
+  padding: 0.5rem 0.75rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+  background: var(--pse-surface-2);
+  border-bottom: 1px solid var(--pse-rule-2);
+  white-space: nowrap;
+}
+
+.pse-equip-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+  color: var(--pse-ink-2);
+  vertical-align: middle;
+}
+
+.pse-equip-table tr:hover td {
+  background: color-mix(in srgb, var(--pse-surface-2) 60%, transparent);
+}
+
+.pse-equip-cell-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pse-equip-cell-name {
+  font-weight: 600;
+  color: var(--pse-ink);
+}
+
+.pse-equip-cell-sub {
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-equip-cell-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--pse-cyan, #06b6d4);
+}
+
+/* ── Capacity Allocation Register ─────────────────────────────────────── */
+.pse-capacity-reg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--pse-surface-2);
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+}
+
+.pse-capacity-reg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pse-capacity-reg-eq {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  font-family: var(--pse-mono);
+  font-size: 0.8125rem;
+}
+
+.pse-capacity-reg-val {
+  font-weight: 600;
+  color: var(--pse-ink);
+}
+
+.pse-capacity-reg-val[data-tone='cyan'] {
+  color: var(--pse-cyan, #06b6d4);
+}
+
+.pse-capacity-reg-val[data-tone='accent'] {
+  color: var(--pse-accent, #3b82f6);
+}
+
+.pse-capacity-track {
+  display: flex;
+  height: 8px;
+  width: 100%;
+  background: color-mix(in srgb, var(--pse-surface) 80%, black);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--pse-rule-2);
+}
+
+.pse-capacity-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.pse-capacity-seg[data-type='tools'] {
+  background: var(--pse-cyan, #06b6d4);
+}
+
+.pse-capacity-seg[data-type='referrals'] {
+  background: var(--pse-accent, #3b82f6);
+}
+
+/* ── 4-Stage Settlement Pipeline ────────────────────────────────────────── */
+.pse-pipeline {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .pse-pipeline {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+.pse-pipeline-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: var(--pse-surface-2);
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+  position: relative;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.pse-pipeline-stage[data-active='true'] {
+  border-color: var(--pse-cyan, #06b6d4);
+  background: color-mix(in srgb, var(--pse-cyan, #06b6d4) 8%, var(--pse-surface-2));
+}
+
+.pse-pipeline-stage[data-completed='true'] {
+  border-color: color-mix(in srgb, var(--pse-accent, #3b82f6) 40%, var(--pse-rule-2));
+}
+
+.pse-pipeline-num {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--pse-ink-3);
+  text-transform: uppercase;
+}
+
+.pse-pipeline-stage[data-active='true'] .pse-pipeline-num {
+  color: var(--pse-cyan, #06b6d4);
+}
+
+.pse-pipeline-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pse-ink);
+}
+
+.pse-pipeline-note {
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+  line-height: 1.35;
+}
+
+/* ── Scannable Product Operating Guide Styles ─────────────────────────── */
+.pse-guide-viewport {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: calc(100dvh - 2rem);
+  background: var(--pse-surface);
+  border-radius: var(--pse-r-md);
+  border: 1px solid var(--pse-rule-2);
+  overflow: hidden;
+}
+
+.pse-guide-process-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--pse-surface-2);
+  border: 1px solid var(--pse-rule-2);
+  border-radius: var(--pse-r-sm);
+  margin-bottom: 1rem;
+}
+
+.pse-guide-process-title {
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pse-cyan, #06b6d4);
+}

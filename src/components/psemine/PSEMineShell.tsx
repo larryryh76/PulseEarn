@@ -427,13 +427,7 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 const ConsoleFoot: React.FC = () => (
   <footer className="pse-console-foot">
     <div className="pse-console-foot-inner">
-      <span>PSEmine · 90-day mining campaign</span>
-      <span className="pse-console-foot-links">
-        {PSE_DOC_ORDER.map(id => (
-          <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
-        ))}
-        <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
-      </span>
+      <span>© 2026 PSEmine</span>
     </div>
   </footer>
 );

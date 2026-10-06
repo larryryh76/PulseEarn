@@ -107,7 +107,7 @@ export const PSEMineDashboard: React.FC = () => {
 
   return (
     <div className="pse-console-main">
-      {/* ═══ 1. FIRST VIEWPORT: FINANCIAL VERDICT ═══ */}
+      {/* ═══ 1. CAMPAIGN STATE & FINANCIAL ACCRUAL ═══ */}
       <div className="pse-verdict-grid">
         {/* Accrued Earnings Hero */}
         <div className="pse-verdict-hero">
@@ -122,23 +122,38 @@ export const PSEMineDashboard: React.FC = () => {
             {gbp(user.accruedGBP)}
             <span className="pse-lead-unit">GBP</span>
           </div>
-          <div className="pse-lead-rate mt-2">
+          <div className="pse-lead-rate">
             Generating <b>+{gbpHour(totalCapacity)}</b> across active hardware & referral channels.
           </div>
         </div>
 
-        {/* Payout & Settlement Clearance Box */}
+        {/* Campaign Timeline & Settlement Overview */}
         <div className="pse-verdict-settlement">
-          <div className="pse-lead-label mb-2">SETTLEMENT & PAYOUT STATUS</div>
+          <div className="pse-lead-label">CAMPAIGN HORIZON & SETTLEMENT</div>
           <div className="pse-settlement-row">
-            <span className="pse-settlement-key">Available for Payout Now:</span>
-            <span className="pse-settlement-val text-emerald-400">{availableStr}</span>
+            <span className="pse-settlement-key">Campaign Progress:</span>
+            <span className="pse-settlement-val text-cyan-400 font-mono font-semibold">
+              {campaignDay !== null ? `Day ${campaignDay} / ${clock.totalDays}` : 'Scheduled'}
+            </span>
           </div>
-          <div className="pse-settlement-sub text-xs text-slate-400 mb-3">
-            Programmatically locked in campaign smart contract until Day {clock.totalDays} Settlement.
+          <div className="pse-crail-box my-2">
+            <div className="pse-crail-track">
+              <div className="pse-crail-fill" style={{ width: `${campaignProgress}%` }} />
+            </div>
+            <div className="flex justify-between text-[11px] font-mono text-slate-400 mt-1">
+              <span>Genesis</span>
+              <span className="text-cyan-300 font-medium">
+                {clock.daysLeft !== null ? `${clock.daysLeft} days remaining` : 'Active'}
+              </span>
+              <span>Day {clock.totalDays} Settlement</span>
+            </div>
           </div>
-          <div className="pse-settlement-row pt-2 border-t border-slate-800">
-            <span className="pse-settlement-key">Payout Clearing Destination:</span>
+          <div className="pse-settlement-row pt-2 border-t border-slate-800/80">
+            <span className="pse-settlement-key">Cleared Payout Target:</span>
+            <span className="pse-settlement-val text-emerald-400 font-mono font-bold">{availableStr}</span>
+          </div>
+          <div className="pse-settlement-row">
+            <span className="pse-settlement-key">Clearing Wallet:</span>
             <span className="pse-settlement-val font-mono text-xs text-slate-200">
               {user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}...${user.payoutWallet.slice(-4)}` : 'Not Configured'}
             </span>
@@ -151,11 +166,11 @@ export const PSEMineDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ═══ 2. UNIFIED CAPACITY SYSTEM RAIL ═══ */}
+      {/* ═══ 2. UNIFIED MINING CAPACITY ENGINE ═══ */}
       <section className="pse-console-block" aria-label="Capacity Allocation">
         <div className="pse-block-head">
           <h2 className="pse-block-title">Canonical Mining Capacity System</h2>
-          <span className="pse-block-meta">Net Hourly Accrual Engine</span>
+          <span className="pse-block-meta">Authoritative Accrual Throughput</span>
         </div>
         <div className="pse-capacity-reg">
           <div className="pse-capacity-reg-head">
@@ -181,40 +196,7 @@ export const PSEMineDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══ 3. CANONICAL CAMPAIGN HORIZON RAIL ═══ */}
-      <section className="pse-console-block" aria-label="Campaign Timeline">
-        <div className="pse-block-head">
-          <h2 className="pse-block-title">Campaign Horizon Timeline</h2>
-          <span className="pse-block-meta">
-            {campaignDay !== null ? `Day ${campaignDay} of ${clock.totalDays}` : 'Scheduled'}
-          </span>
-        </div>
-        <div className="pse-crail-box">
-          <div className="pse-crail-track">
-            <div className="pse-crail-fill" style={{ width: `${campaignProgress}%` }} />
-          </div>
-          <div className="pse-crail-labels">
-            <div className="pse-crail-mark">
-              <span className="pse-crail-day">DAY 01</span>
-              <span className="pse-crail-sub">Genesis Lock</span>
-            </div>
-            <div className="pse-crail-mark text-center" style={{ left: `${campaignProgress}%`, transform: 'translateX(-50%)' }}>
-              <span className="pse-crail-day text-cyan-400 font-bold">
-                {campaignDay !== null ? `DAY ${campaignDay}` : 'TODAY'}
-              </span>
-              <span className="pse-crail-sub text-cyan-300">
-                {clock.daysLeft !== null ? `${clock.daysLeft} days remaining` : 'Active'}
-              </span>
-            </div>
-            <div className="pse-crail-mark text-right">
-              <span className="pse-crail-day">DAY {clock.totalDays}</span>
-              <span className="pse-crail-sub">BNB Clearing Settlement</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ 4. EQUIPMENT REGISTER TABLE & HARDWARE TIER ROSTER ═══ */}
+      {/* ═══ 3. EQUIPMENT REGISTER & HARDWARE TIER ROSTER ═══ */}
       <section className="pse-console-block" aria-label="Equipment Ledger">
         <div className="pse-block-head">
           <h2 className="pse-block-title">Mining Equipment Register</h2>
@@ -327,7 +309,7 @@ export const PSEMineDashboard: React.FC = () => {
         )}
       </section>
 
-      {/* ═══ 5. RECENT ACTIVITY LEDGER ═══ */}
+      {/* ═══ 4. RECENT ACTIVITY LEDGER ═══ */}
       <RecentRecords />
     </div>
   );

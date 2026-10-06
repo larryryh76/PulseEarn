@@ -424,19 +424,34 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 /** Every product document, once, at the end of the product. The console does not
     repeat legal links on each page: they are reachable from where a reader
     commits (a purchase, a payout wallet) and from here. */
-const ConsoleFoot: React.FC = () => (
-  <footer className="pse-console-foot">
-    <div className="pse-console-foot-inner">
-      <span>PSEmine · 90-day mining campaign</span>
-      <span className="pse-console-foot-links">
-        {PSE_DOC_ORDER.map(id => (
-          <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
-        ))}
-        <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
-      </span>
-    </div>
-  </footer>
-);
+const ConsoleFoot: React.FC = () => {
+  const location = useLocation();
+  const isDashboard = location.pathname === '/mine/dashboard' || location.pathname === '/mine';
+
+  if (isDashboard) {
+    return (
+      <footer className="pse-console-foot text-center py-4 text-xs text-slate-500 border-t border-slate-800/60">
+        <div className="pse-console-foot-inner justify-center">
+          <span>© 2026 PSEmine</span>
+        </div>
+      </footer>
+    );
+  }
+
+  return (
+    <footer className="pse-console-foot">
+      <div className="pse-console-foot-inner">
+        <span>PSEmine · 90-day mining campaign</span>
+        <span className="pse-console-foot-links">
+          {PSE_DOC_ORDER.map(id => (
+            <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
+          ))}
+          <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
+        </span>
+      </div>
+    </footer>
+  );
+};
 
 const PublicFooter: React.FC = () => (
   <footer className="pse-console-foot">

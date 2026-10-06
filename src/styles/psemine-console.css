@@ -2148,3 +2148,64 @@ button.pse-link {
   text-transform: uppercase;
   color: var(--pse-cyan, #06b6d4);
 }
+
+/* Additional Restrained Slate Dashboard Verdict Grid Styles */
+.pse-verdict-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .pse-verdict-grid {
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 1.25rem;
+  }
+}
+
+.pse-verdict-hero {
+  padding: 1.25rem 1.5rem;
+  background: #0d1117;
+  border: 1px solid #1e293b;
+  border-radius: var(--pse-r-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pse-verdict-hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.pse-verdict-settlement {
+  padding: 1.25rem 1.5rem;
+  background: #0d1117;
+  border: 1px solid #1e293b;
+  border-radius: var(--pse-r-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pse-settlement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.pse-settlement-key {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+.pse-settlement-val {
+  font-family: var(--pse-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}

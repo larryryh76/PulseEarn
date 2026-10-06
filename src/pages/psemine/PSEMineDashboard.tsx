@@ -282,7 +282,7 @@ export const PSEMineDashboard: React.FC = () => {
         <PseStack>
           <PseSection
             title="Equipment Register"
-            meta={`${activeTools.length} active units · ${gbpHour(toolCapacity)}`}
+            meta={`${tools.length} active units · ${gbpHour(toolCapacity)}`}
           >
             {tools.length === 0 ? (
               <PseEmptyNote
@@ -395,7 +395,7 @@ export const PSEMineDashboard: React.FC = () => {
               <PseFact label="Available slots" value={`${referralSlots}`} />
             </PseFacts>
             <p className="pse-block-note">
-              Qualified referrals add +{gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR).replace('/hour', '/hr')} directly to mining capacity.{' '}
+              Qualified referrals add +£0.30/hr directly to mining capacity.{' '}
               <Link to="/mine/referrals" className="pse-link">Manage referrals</Link>.
             </p>
           </PseSection>

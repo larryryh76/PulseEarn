@@ -2,21 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
+import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 import {
-  campaignStatusView, cycleStateView, gbp, gbpHour, nowMs, remainingFrom, timeAgo, toDateSafe,
+  cycleStateView, gbp, gbpHour, nowMs, remainingFrom, timeAgo,
   useCampaignClock,
 } from '../../components/psemine/pseCore';
-import { CampaignRail } from '../../components/psemine/PseInstruments';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFacts, PseFact, PseFeedNotice,
-  PseLoading, PseNotice, PsePage, PseSection, PseSplit, PseStack,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice,
+  PseLoading,
 } from '../../components/psemine/PseBasics';
 
-/**
- * PSEMine Dashboard — High-density Financial Operations Console.
- */
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
   return LOCKED_PSEMINE_TOOLS[id] || null;
@@ -29,16 +25,11 @@ function toolRate(tool: PseStateTool): number {
   return toolDef(tool)?.hourlyRateGBP ?? 0;
 }
 
-const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-
-function shortDate(value: unknown): string {
-  const date = toDateSafe(value);
-  return date ? date.toLocaleDateString('en-GB', DATE_FORMAT) : '—';
-}
+const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
 export const PSEMineDashboard: React.FC = () => {
   const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
-  const { maintainTool, pseUser, purchases, payouts } = usePSEMine();
+  const { maintainTool } = usePSEMine();
   const availableStr = useAvailableGBP();
 
   const [maintaining, setMaintaining] = useState<Set<string>>(new Set());
@@ -50,24 +41,40 @@ export const PSEMineDashboard: React.FC = () => {
   }, []);
 
   const tools = useMemo(() => state?.tools ?? [], [state?.tools]);
-
-  const needsMaintenance = useMemo(
-    () => tools.filter(t => t.maintenanceRequired === true || t.cycleState === 'maintenance_required' || t.cycleState === 'cycle_complete'),
-    [tools],
-  );
-  const activeTools = useMemo(() => tools.filter(t => t.cycleState === 'active'), [tools]);
-  const restartingTools = useMemo(() => tools.filter(t => t.cycleState === 'restarting'), [tools]);
+  const user = state?.user;
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
   const campaignDay = clock.dayNumber
     ?? (clock.startMs !== null && clock.endMs !== null && nowMs() >= clock.endMs ? clock.totalDays : null);
   const campaignProgress = campaignDay === null
-    ? null
+    ? 0
     : Math.min(100, Math.max(0, (campaignDay / clock.totalDays) * 100));
+
+  const isMiningLive = campaignStatus === 'active';
+
+  // Capacity calculations
+  const toolCapacity = user?.toolCapacityGBPPerHour ?? 0;
+  const referralCapacity = user?.referralCapacityGBPPerHour ?? 0;
+  const totalCapacity = user?.totalCapacityGBPPerHour ?? (toolCapacity + referralCapacity);
+
+  const toolPct = totalCapacity > 0 ? (toolCapacity / totalCapacity) * 100 : 100;
+  const refPct = totalCapacity > 0 ? (referralCapacity / totalCapacity) * 100 : 0;
+
+  // Compute tier ownership counts from user's tools list
+  const counts = useMemo(() => {
+    const res: Record<string, number> = {};
+    for (const t of tools) {
+      const tid = t.toolId || '';
+      res[tid] = (res[tid] || 0) + 1;
+    }
+    return res;
+  }, [tools]);
 
   const handleMaintain = async (ownershipId: string) => {
     setMaintaining(prev => new Set(prev).add(ownershipId));
-    try { await maintainTool(ownershipId); } finally {
+    try {
+      await maintainTool(ownershipId);
+    } finally {
       await refresh();
       setMaintaining(prev => { const n = new Set(prev); n.delete(ownershipId); return n; });
     }
@@ -76,19 +83,19 @@ export const PSEMineDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="pse-console-main">
-        <PseLoading label="Loading your mining console" />
+        <PseLoading label="Initializing financial operations console" />
       </div>
     );
   }
-
-  const user = state?.user;
 
   if (error || !state || !user) {
     return (
       <div className="pse-console-main">
         <PseErrorNotice
           error={error ?? {
-            kind: 'data', title: "We couldn't load your mining account", retryable: true,
+            kind: 'data',
+            title: "We couldn't load your mining account",
+            retryable: true,
             message: 'The mining backend returned an incomplete account. Please retry.',
           }}
           onRetry={() => void refresh()}
@@ -98,344 +105,231 @@ export const PSEMineDashboard: React.FC = () => {
     );
   }
 
-  const isMiningLive = campaignStatus === 'active';
-  const toolCapacity = user.toolCapacityGBPPerHour ?? 0;
-  const referralCapacity = user.referralCapacityGBPPerHour ?? 0;
-  const totalCapacity = user.totalCapacityGBPPerHour ?? 0;
-  const referralQualified = user.qualifiedReferralsCount ?? 0;
-  const counts = pseUser?.toolOwnershipCounts;
-  const view = campaignStatusView(campaignStatus);
-
-  const miningState = (() => {
-    if (isMiningLive && tools.length === 0) {
-      return { label: 'No capacity yet', tone: 'hold' as const, detail: 'Nothing is accruing. Activate a tool to add hourly capacity.' };
-    }
-    if (isMiningLive && needsMaintenance.length > 0) {
-      return {
-        label: 'Partially interrupted',
-        tone: 'hold' as const,
-        detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} finished session — restart to resume accrual.`,
-      };
-    }
-    if (isMiningLive && restartingTools.length > 0 && activeTools.length === 0) {
-      return {
-        label: 'Restarting',
-        tone: 'idle' as const,
-        detail: `${restartingTools.length} tool${restartingTools.length === 1 ? '' : 's'} restarting on schedule.`,
-      };
-    }
-    if (isMiningLive && activeTools.length > 0) {
-      return { label: 'Mining active', tone: 'good' as const, detail: `${activeTools.length} of ${tools.length} tool${tools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
-    }
-    if (isMiningLive) {
-      return { label: 'Mining idle', tone: 'idle' as const, detail: 'No tool is currently mining.' };
-    }
-    return { label: view.label, tone: 'idle' as const, detail: view.detail };
-  })();
-
-  const purchaseOpen = state.campaign?.purchaseEnabled !== false;
-  const awaitingPurchases = purchases.filter(p => p.status === 'awaiting_payment').length;
-    const referralSlots = Math.max(0, PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS - referralQualified);
-  const remaining = remainingFrom(state.campaign?.endAt, nowMs());
-
-  const payoutStatuses = payouts.map(p => String(p.status));
-  const payoutPosition = (() => {
-    const latest = payouts[0] ?? null;
-    const outstanding = payoutStatuses.some(s => s === 'pending' || s === 'under_review' || s === 'approved' || s === 'processing');
-    if (outstanding) {
-      return { label: 'In progress', note: latest ? `Payout ${latest.status.replace(/_/g, ' ')}` : 'Processing with backend', tone: 'hold' as const };
-    }
-    if (payoutStatuses.includes('paid')) {
-      return { label: 'Paid', note: 'Sent to your payout wallet', tone: 'good' as const };
-    }
-    if (payoutStatuses.includes('failed')) {
-      return { label: 'Failed', note: 'Last payout failed', tone: 'bad' as const };
-    }
-    return isMiningLive
-      ? { label: 'Not opened', note: 'Settles after campaign ends', tone: undefined }
-      : { label: 'Awaiting settlement', note: 'No payout finalised yet', tone: undefined };
-  })();
-
-  const settlementStages = [
-    { num: '01', label: 'Mining Active', note: 'Accruing campaign earnings', active: isMiningLive, completed: (user.accruedGBP ?? 0) > 0 },
-    { num: '02', label: 'Settlement Pending', note: 'Finalises after campaign end', active: campaignStatus === 'ended' || campaignStatus === 'settling', completed: payouts.length > 0 },
-    { num: '03', label: 'Payout Processing', note: 'Converting to BNB quote', active: payoutStatuses.some(s => s === 'pending' || s === 'under_review' || s === 'approved' || s === 'processing'), completed: payoutStatuses.includes('paid') },
-    { num: '04', label: 'Paid to Wallet', note: 'BEP-20 transfer executed', active: payoutStatuses.includes('paid'), completed: payoutStatuses.includes('paid') },
-  ];
-
-  const maxCap = PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR;
-  const toolsPct = Math.min(100, (toolCapacity / maxCap) * 100);
-  const refPct = Math.min(100 - toolsPct, (referralCapacity / maxCap) * 100);
-
   return (
-    <PsePage
-      title="Dashboard"
-      objective="Campaign operating console & real-time telemetry."
-      actions={
-        <>
-          <Link to="?guide=1" className="pse-btn pse-btn--secondary pse-btn--sm">Guide & Manual</Link>
-          <PseButton variant="secondary" size="sm" onClick={() => void refresh()} busy={refreshing}>
-            {refreshing ? 'Syncing…' : 'Sync'}
-          </PseButton>
-        </>
-      }
-    >
-      {/* ═══ 1. PRIMARY OPERATIONAL VERDICT & HERO STATEMENT ═══ */}
-      <section className="pse-verdict" aria-labelledby="pse-verdict-title">
-        <div className="pse-verdict-head">
-          <span className="pse-chip" data-tone={miningState.tone}>
-            <span className="pse-chip-dot" aria-hidden="true" />
-            {miningState.label}
-          </span>
-          <span className="pse-micro pse-verdict-meta">
-            {view.label}
-            {campaignDay !== null ? ` · Day ${campaignDay} of ${clock.totalDays}` : ''}
-          </span>
+    <div className="pse-console-main">
+      {/* ═══ 1. FIRST VIEWPORT: FINANCIAL VERDICT ═══ */}
+      <div className="pse-verdict-grid">
+        {/* Accrued Earnings Hero */}
+        <div className="pse-verdict-hero">
+          <div className="pse-verdict-hero-head">
+            <span className="pse-lead-label">ACCRUED CAMPAIGN EARNINGS</span>
+            <span className="pse-chip" data-tone={isMiningLive ? 'good' : 'idle'}>
+              <span className="pse-chip-dot" />
+              {isMiningLive ? 'ACCRUING LIVE' : 'CAMPAIGN STANDBY'}
+            </span>
+          </div>
+          <div className="pse-lead-figure">
+            {gbp(user.accruedGBP)}
+            <span className="pse-lead-unit">GBP</span>
+          </div>
+          <div className="pse-lead-rate mt-2">
+            Generating <b>+{gbpHour(totalCapacity)}</b> across active hardware & referral channels.
+          </div>
         </div>
-        <p className="pse-verdict-note">{miningState.detail}</p>
 
-        <dl className="pse-verdict-facts">
-          <div className="pse-verdict-fact" data-lead="true">
-            <dt>Accrued campaign earnings</dt>
-            <dd>{gbp(user.accruedGBP)}</dd>
-            <dd>Accrued balance · Pending settlement</dd>
+        {/* Payout & Settlement Clearance Box */}
+        <div className="pse-verdict-settlement">
+          <div className="pse-lead-label mb-2">SETTLEMENT & PAYOUT STATUS</div>
+          <div className="pse-settlement-row">
+            <span className="pse-settlement-key">Available for Payout Now:</span>
+            <span className="pse-settlement-val text-emerald-400">{availableStr}</span>
           </div>
-          <div className="pse-verdict-fact">
-            <dt>Settlement-available</dt>
-            <dd>{availableStr}</dd>
-            <dd>{user.payoutWallet ? 'Payout wallet configured' : 'Requires payout wallet'}</dd>
+          <div className="pse-settlement-sub text-xs text-slate-400 mb-3">
+            Programmatically locked in campaign smart contract until Day {clock.totalDays} Settlement.
           </div>
-          <div className="pse-verdict-fact">
-            <dt>Total mining capacity</dt>
-            <dd>
-              {gbpHour(totalCapacity).replace('/hour', '')}
-              <span className="pse-verdict-unit">/hr</span>
-            </dd>
-            <dd>{gbpHour(toolCapacity)} tools + {gbpHour(referralCapacity)} refs</dd>
+          <div className="pse-settlement-row pt-2 border-t border-slate-800">
+            <span className="pse-settlement-key">Payout Clearing Destination:</span>
+            <span className="pse-settlement-val font-mono text-xs text-slate-200">
+              {user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}...${user.payoutWallet.slice(-4)}` : 'Not Configured'}
+            </span>
           </div>
-          <div className="pse-verdict-fact">
-            <dt>Payout state</dt>
-            <dd>{payoutPosition.label}</dd>
-            <dd>{payoutPosition.note}</dd>
+          <div className="mt-3">
+            <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm w-full text-center block">
+              {user.payoutWallet ? 'Manage Wallet Settings' : 'Set Up BEP-20 Payout Wallet'}
+            </Link>
           </div>
-        </dl>
+        </div>
+      </div>
 
-        {(!purchaseOpen || awaitingPurchases > 0) && (
-          <div className="pse-verdict-foot">
-            {!purchaseOpen && (
-              <PseNotice tone="attention">
-                Purchases are closed while the campaign is {view.label.toLowerCase()}. Active equipment continues accruing on schedule.
-              </PseNotice>
-            )}
-            {awaitingPurchases > 0 && (
-              <PseNotice tone="attention">
-                {awaitingPurchases} purchase{awaitingPurchases === 1 ? '' : 's'} awaiting payment.{' '}
-                <Link to="/mine/tools" className="pse-link">Complete purchase</Link>.
-              </PseNotice>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ═══ 2. CAPACITY ALLOCATION REGISTER ═══ */}
-      <PseSection title="Capacity allocation register" meta={`Max theoretical: ${gbpHour(maxCap)}`}>
+      {/* ═══ 2. UNIFIED CAPACITY SYSTEM RAIL ═══ */}
+      <section className="pse-console-block" aria-label="Capacity Allocation">
+        <div className="pse-block-head">
+          <h2 className="pse-block-title">Canonical Mining Capacity System</h2>
+          <span className="pse-block-meta">Net Hourly Accrual Engine</span>
+        </div>
         <div className="pse-capacity-reg">
           <div className="pse-capacity-reg-head">
             <div className="pse-capacity-reg-eq">
-              <span>Tool capacity: <strong className="pse-capacity-reg-val" data-tone="cyan">{gbpHour(toolCapacity)}</strong></span>
-              <span>+</span>
-              <span>Referral capacity: <strong className="pse-capacity-reg-val" data-tone="accent">{gbpHour(referralCapacity)}</strong></span>
-              <span>=</span>
-              <span>Total capacity: <strong className="pse-capacity-reg-val">{gbpHour(totalCapacity)}</strong></span>
+              <span className="text-slate-400">Tool Capacity:</span>
+              <span className="pse-capacity-reg-val" data-tone="cyan">{gbpHour(toolCapacity)}</span>
+              <span className="text-slate-500">+</span>
+              <span className="text-slate-400">Referral Capacity:</span>
+              <span className="pse-capacity-reg-val" data-tone="accent">{gbpHour(referralCapacity)}</span>
+              <span className="text-slate-500">=</span>
+              <span className="text-slate-300 font-bold">Total Capacity:</span>
+              <span className="pse-capacity-reg-val text-white font-mono text-base">{gbpHour(totalCapacity)}</span>
             </div>
-            <span className="pse-micro">{( (totalCapacity / maxCap) * 100 ).toFixed(1)}% Saturation</span>
           </div>
-          <div className="pse-capacity-track" title="Capacity Breakdown">
-            <div className="pse-capacity-seg" data-type="tools" style={{ width: `${toolsPct}%` }} />
+          <div className="pse-capacity-track" title={`Hardware: ${toolPct.toFixed(1)}% | Referral: ${refPct.toFixed(1)}%`}>
+            <div className="pse-capacity-seg" data-type="tools" style={{ width: `${toolPct}%` }} />
             <div className="pse-capacity-seg" data-type="referrals" style={{ width: `${refPct}%` }} />
           </div>
+          <div className="flex justify-between text-xs text-slate-400 font-mono pt-1">
+            <span>Hardware Contribution: {toolPct.toFixed(1)}%</span>
+            <span>Referral Allocation: {refPct.toFixed(1)}%</span>
+          </div>
         </div>
-      </PseSection>
+      </section>
 
-      {/* ═══ 3. AUTHORITATIVE CAMPAIGN TIMELINE ═══ */}
-      <PseSection title="90-Day Campaign Window" meta={remaining.text ? `${remaining.text} remaining` : view.label}>
-        <CampaignRail
-          progress={campaignProgress}
-          markers={[
-            { key: 'start', label: 'Genesis', value: shortDate(state.campaign?.startAt) },
-            { key: 'current', label: 'Current Day', value: campaignDay === null ? '—' : `Day ${campaignDay} / ${clock.totalDays}`, current: campaignDay !== null },
-            { key: 'end', label: 'Settlement Target', value: shortDate(state.campaign?.endAt) },
-          ]}
-          note={
-            <>
-              {Number.isFinite(clock.endMs)
-                ? <>Campaign completes {shortDate(state.campaign?.endAt)}. </>
-                : <>Syncing campaign timeline with server. </>}
-              Accounting operates strictly on backend UTC timestamps.
-            </>
-          }
-        />
-      </PseSection>
-
-      {/* ═══ 4. EQUIPMENT REGISTER TABLE & REFERRALS ═══ */}
-      <PseSplit>
-        <PseStack>
-          <PseSection
-            title="Equipment Register"
-            meta={`${activeTools.length} active units · ${gbpHour(toolCapacity)}`}
-          >
-            {tools.length === 0 ? (
-              <PseEmptyNote
-                glyph="activate"
-                title="No equipment deployed"
-                action={
-                  purchaseOpen ? (
-                    <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">
-                      Open Tool Catalogue
-                    </Link>
-                  ) : undefined
-                }
-              >
-                Deploy mining equipment using BNB to establish hourly capacity.
-              </PseEmptyNote>
-            ) : (
-              <div className="pse-equip-table-wrap">
-                <table className="pse-equip-table" aria-label="Equipment Register">
-                  <thead>
-                    <tr>
-                      <th>Equipment Unit</th>
-                      <th>Rate</th>
-                      <th>Duty Cycle & Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tools.map(tool => {
-                      const def = toolDef(tool);
-                      const cycle = cycleStateView(tool.cycleState || tool.status);
-                      const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
-                      const running = tool.cycleState === 'active' && isMiningLive;
-                      const cycleRemaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
-                      const restartEta = tool.cycleState === 'restarting' ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
-                      const canMaintain = isMiningLive && (
-                        tool.maintenanceRequired === true
-                        || tool.cycleState === 'cycle_complete'
-                        || tool.cycleState === 'maintenance_required'
-                      );
-                      const statusDetail = continuous
-                        ? 'Continuous duty'
-                        : cycleRemaining
-                          ? `Ends in ${cycleRemaining.text}`
-                          : restartEta && restartEta.ms > 0
-                            ? `Resumes in ${restartEta.text}`
-                            : cycle.description;
-
-                      return (
-                        <tr key={tool.id}>
-                          <td>
-                            <div className="pse-equip-cell-title">
-                              <span className="pse-equip-cell-name">{toolName(tool)}</span>
-                              <span className="pse-equip-cell-sub">ID: {tool.id.slice(0, 8)}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="pse-equip-cell-rate">{gbpHour(toolRate(tool))}</span>
-                          </td>
-                          <td>
-                            <div className="pse-equip-cell-title">
-                              <span className="pse-chip" data-tone={canMaintain ? 'hold' : running ? 'good' : 'idle'}>
-                                <span className="pse-chip-dot" aria-hidden="true" />
-                                {cycle.label}
-                              </span>
-                              <span className="pse-equip-cell-sub">{statusDetail}</span>
-                            </div>
-                          </td>
-                          <td>
-                            {canMaintain ? (
-                              <PseButton
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => void handleMaintain(tool.id)}
-                                busy={maintaining.has(tool.id)}
-                              >
-                                {maintaining.has(tool.id) ? 'Restarting…' : 'Restart'}
-                              </PseButton>
-                            ) : (
-                              <span className="pse-micro">{continuous ? 'Continuous' : 'Nominal'}</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Ownership tier headcount */}
-            <div className="pse-headroom mt-3">
-              {Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder).map(t => (
-                <div className="pse-headroom-cell" key={t.id}>
-                  <span className="pse-headroom-key">{t.name}</span>
-                  <span className="pse-headroom-val">{counts?.[t.id] ?? 0} / {t.maxPerUser} owned</span>
-                </div>
-              ))}
+      {/* ═══ 3. CANONICAL CAMPAIGN HORIZON RAIL ═══ */}
+      <section className="pse-console-block" aria-label="Campaign Timeline">
+        <div className="pse-block-head">
+          <h2 className="pse-block-title">Campaign Horizon Timeline</h2>
+          <span className="pse-block-meta">
+            {campaignDay !== null ? `Day ${campaignDay} of ${clock.totalDays}` : 'Scheduled'}
+          </span>
+        </div>
+        <div className="pse-crail-box">
+          <div className="pse-crail-track">
+            <div className="pse-crail-fill" style={{ width: `${campaignProgress}%` }} />
+          </div>
+          <div className="pse-crail-labels">
+            <div className="pse-crail-mark">
+              <span className="pse-crail-day">DAY 01</span>
+              <span className="pse-crail-sub">Genesis Lock</span>
             </div>
-          </PseSection>
-        </PseStack>
+            <div className="pse-crail-mark text-center" style={{ left: `${campaignProgress}%`, transform: 'translateX(-50%)' }}>
+              <span className="pse-crail-day text-cyan-400 font-bold">
+                {campaignDay !== null ? `DAY ${campaignDay}` : 'TODAY'}
+              </span>
+              <span className="pse-crail-sub text-cyan-300">
+                {clock.daysLeft !== null ? `${clock.daysLeft} days remaining` : 'Active'}
+              </span>
+            </div>
+            <div className="pse-crail-mark text-right">
+              <span className="pse-crail-day">DAY {clock.totalDays}</span>
+              <span className="pse-crail-sub">BNB Clearing Settlement</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <PseStack>
-          <PseSection
-            title="Referral Pool"
-            meta={`${referralQualified} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} Qualified`}
-          >
-            <PseFacts cols={1}>
-              <PseFact label="Referral capacity" value={gbpHour(referralCapacity)} />
-              <PseFact label="Bonus per referral" value={gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} />
-              <PseFact label="Available slots" value={`${referralSlots}`} />
-            </PseFacts>
-            <p className="pse-block-note">
-              Qualified referrals add +{gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR).replace('/hour', '/hr')} directly to mining capacity.{' '}
-              <Link to="/mine/referrals" className="pse-link">Manage referrals</Link>.
-            </p>
-          </PseSection>
+      {/* ═══ 4. EQUIPMENT REGISTER TABLE & HARDWARE TIER ROSTER ═══ */}
+      <section className="pse-console-block" aria-label="Equipment Ledger">
+        <div className="pse-block-head">
+          <h2 className="pse-block-title">Mining Equipment Register</h2>
+          <span className="pse-block-meta">{tools.length} Deployed Units · {gbpHour(toolCapacity)}</span>
+        </div>
 
-          <RecentRecords />
-        </PseStack>
-      </PseSplit>
-
-      {/* ═══ 5. SETTLEMENT & PAYOUT PIPELINE ═══ */}
-      <PseSection title="Settlement & Payout Lifecycle" meta="Programmatic Clearing">
-        <PseFacts cols={2}>
-          <PseFact label="Accrued earnings" value={gbp(user.accruedGBP)} />
-          <PseFact label="Settlement available" value={availableStr} />
-          <PseFact label="Payout wallet" value={user.payoutWallet ? 'Configured' : 'Not set'} text />
-          <PseFact label="Clearing asset" value="BNB (BEP-20)" text />
-        </PseFacts>
-
-        <div className="pse-pipeline" aria-label="Settlement Pipeline">
-          {settlementStages.map((st) => (
-            <div
-              className="pse-pipeline-stage"
-              key={st.num}
-              data-active={st.active ? 'true' : 'false'}
-              data-completed={st.completed ? 'true' : 'false'}
-            >
-              <span className="pse-pipeline-num">{st.num}. {st.completed ? '✓' : ''}</span>
-              <span className="pse-pipeline-title">{st.label}</span>
-              <span className="pse-pipeline-note">{st.note}</span>
+        {/* Hardware Tier Roster Summary */}
+        <div className="pse-headroom mb-4">
+          {ALL_TIERS.map(t => (
+            <div className="pse-headroom-cell" key={t.id}>
+              <div className="flex justify-between items-center">
+                <span className="pse-headroom-key font-semibold text-slate-200">{t.name}</span>
+                <span className="text-xs text-cyan-400 font-mono">{gbp(t.purchasePriceGBP)}</span>
+              </div>
+              <div className="flex justify-between items-baseline mt-1">
+                <span className="pse-headroom-val">{counts[t.id] ?? 0} / {t.maxPerUser} Owned</span>
+                <span className="text-xs text-slate-400 font-mono">+{gbpHour(t.hourlyRateGBP)}</span>
+              </div>
             </div>
           ))}
         </div>
 
-        <p className="pse-block-note mt-3">
-          Accrued earnings convert to BNB at settlement upon campaign completion.{' '}
-          {user.payoutWallet
-            ? <Link to="/mine/wallet" className="pse-link">View payout wallet settings</Link>
-            : <Link to="/mine/wallet" className="pse-link">Set up payout wallet</Link>}.
-        </p>
-      </PseSection>
-    </PsePage>
+        {tools.length === 0 ? (
+          <PseEmptyNote
+            glyph="activate"
+            title="No mining hardware deployed"
+            action={
+              <Link to="/mine/tools" className="pse-btn pse-btn--primary pse-btn--sm">
+                Deploy Mining Hardware
+              </Link>
+            }
+          >
+            Deploy hardware units using BNB on BNB Smart Chain to establish hourly capacity.
+          </PseEmptyNote>
+        ) : (
+          <div className="pse-equip-table-wrap">
+            <table className="pse-equip-table" aria-label="Deployed Equipment">
+              <thead>
+                <tr>
+                  <th>Hardware Unit</th>
+                  <th>Rate</th>
+                  <th>Operating Status</th>
+                  <th>Duty Cycle</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tools.map(tool => {
+                  const def = toolDef(tool);
+                  const cycle = cycleStateView(tool.cycleState || tool.status);
+                  const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
+                  const running = tool.cycleState === 'active' && isMiningLive;
+                  const cycleRemaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
+                  const restartEta = tool.cycleState === 'restarting' ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
+                  const canMaintain = isMiningLive && (
+                    tool.maintenanceRequired === true
+                    || tool.cycleState === 'cycle_complete'
+                    || tool.cycleState === 'maintenance_required'
+                  );
+                  const statusDetail = continuous
+                    ? 'Continuous Duty'
+                    : cycleRemaining
+                      ? `Ends in ${cycleRemaining.text}`
+                      : restartEta && restartEta.ms > 0
+                        ? `Resumes in ${restartEta.text}`
+                        : cycle.description;
+
+                  return (
+                    <tr key={tool.id}>
+                      <td>
+                        <div className="pse-equip-cell-title">
+                          <span className="pse-equip-cell-name">{toolName(tool)}</span>
+                          <span className="pse-equip-cell-sub font-mono">ID: {tool.id.slice(0, 10)}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="pse-equip-cell-rate">{gbpHour(toolRate(tool))}</span>
+                      </td>
+                      <td>
+                        <span className="pse-chip" data-tone={canMaintain ? 'hold' : running ? 'good' : 'idle'}>
+                          <span className="pse-chip-dot" aria-hidden="true" />
+                          {cycle.label}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-xs text-slate-300">{statusDetail}</span>
+                      </td>
+                      <td>
+                        {canMaintain ? (
+                          <PseButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void handleMaintain(tool.id)}
+                            busy={maintaining.has(tool.id)}
+                          >
+                            {maintaining.has(tool.id) ? 'Restarting…' : 'Restart Cycle'}
+                          </PseButton>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-mono">
+                            {continuous ? 'Nominal' : 'Active'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ═══ 5. RECENT ACTIVITY LEDGER ═══ */}
+      <RecentRecords />
+    </div>
   );
 };
 
@@ -451,14 +345,16 @@ const RecentRecords: React.FC = () => {
   const recent = activities.slice(0, 5);
 
   return (
-    <PseSection
-      title="Recent Activity"
-      meta={
-        <button type="button" className="pse-meta-action" onClick={() => void refreshFeed('activities')} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
-      }
-    >
+    <section className="pse-console-block" aria-label="Recent Account Records">
+      <div className="pse-block-head">
+        <h2 className="pse-block-title">Account Activity Ledger</h2>
+        <span className="pse-block-meta">
+          <button type="button" className="pse-meta-action" onClick={() => void refreshFeed('activities')} disabled={refreshing}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </span>
+      </div>
+
       {feedErrors.activities && (
         <PseFeedNotice
           message="Activity feed could not be refreshed."
@@ -466,6 +362,7 @@ const RecentRecords: React.FC = () => {
           retrying={refreshing}
         />
       )}
+
       {recent.length === 0 ? (
         <PseEmptyNote glyph="audit" title="No activity recorded yet">
           Account events will appear here as they occur on-chain and in backend records.
@@ -494,10 +391,10 @@ const RecentRecords: React.FC = () => {
           })}
         </ul>
       )}
-      <p className="pse-block-note">
-        <Link to="/mine/activity" className="pse-link">Full activity ledger</Link>
-      </p>
-    </PseSection>
+      <div className="mt-3">
+        <Link to="/mine/activity" className="pse-link text-xs">View Complete Activity Ledger →</Link>
+      </div>
+    </section>
   );
 };
 

@@ -731,10 +731,21 @@ export const PseGuide: React.FC<{
           <span className="pse-guide-progress">
             Topic {index + 1} of {sections.length}
           </span>
-          {isOnboarding && (
+          {isOnboarding ? (
             <PseButton variant="secondary" size="sm" onClick={dismiss} disabled={finishing}>
               Skip guide
             </PseButton>
+          ) : (
+            <button
+              type="button"
+              className="pse-guide-close-btn text-slate-400 hover:text-white p-1 rounded transition-colors"
+              onClick={dismiss}
+              aria-label="Close guide"
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+              </svg>
+            </button>
           )}
         </header>
 

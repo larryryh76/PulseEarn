@@ -2159,19 +2159,33 @@ button.pse-link {
 
 @media (min-width: 900px) {
   .pse-verdict-grid {
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: 1.25fr 0.85fr;
     gap: 1.25rem;
   }
 }
 
 .pse-verdict-hero {
-  padding: 1.25rem 1.5rem;
+  padding: 1.35rem 1.6rem;
   background: #0d1117;
-  border: 1px solid #1e293b;
-  border-radius: var(--pse-r-sm);
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+  border: 1px solid #30363d;
+  border-radius: var(--pse-r-sm, 6px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+.pse-verdict-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f0b90b, #0ecb81);
 }
 
 .pse-verdict-hero-head {
@@ -2182,13 +2196,26 @@ button.pse-link {
 }
 
 .pse-verdict-settlement {
-  padding: 1.25rem 1.5rem;
+  padding: 1.35rem 1.6rem;
   background: #0d1117;
-  border: 1px solid #1e293b;
-  border-radius: var(--pse-r-sm);
+  background: linear-gradient(135deg, #0d1117 0%, #151a21 100%);
+  border: 1px solid #30363d;
+  border-radius: var(--pse-r-sm, 6px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  position: relative;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+.pse-verdict-settlement::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
 }
 
 .pse-settlement-row {
@@ -2196,16 +2223,223 @@ button.pse-link {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
 .pse-settlement-key {
   font-size: 0.8125rem;
-  color: #94a3b8;
+  color: #8b949e;
 }
 
 .pse-settlement-val {
-  font-family: var(--pse-mono);
+  font-family: var(--pse-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 0.9375rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
+
+/* ── Bespoke Mining Hardware Pulse Grid & Cards ───────────────────────────── */
+.pse-hardware-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .pse-hardware-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1080px) {
+  .pse-hardware-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.pse-hardware-card {
+  background: #0d1117;
+  background: linear-gradient(145deg, #121720 0%, #0d1117 100%);
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+
+.pse-hardware-card:hover {
+  border-color: #388bfd;
+  transform: translateY(-1px);
+}
+
+.pse-hardware-card[data-active='true'] {
+  border-color: rgba(240, 185, 11, 0.4);
+  box-shadow: 0 4px 18px -4px rgba(240, 185, 11, 0.15);
+}
+
+.pse-hardware-card[data-active='true']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: #f0b90b;
+}
+
+.pse-hardware-card[data-status='nominal']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: #0ecb81;
+}
+
+.pse-hardware-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.pse-hardware-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f0f6fc;
+  letter-spacing: -0.01em;
+}
+
+.pse-hardware-id {
+  font-family: var(--pse-mono, monospace);
+  font-size: 0.6875rem;
+  color: #6e7681;
+}
+
+/* Hash Rate Pulse Wave */
+.pse-hash-pulse {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+  padding: 2px 4px;
+}
+
+.pse-hash-bar {
+  width: 3px;
+  height: 100%;
+  background: #0ecb81;
+  border-radius: 1px;
+  animation: pse-bar-bounce 1.2s ease-in-out infinite alternate;
+}
+
+.pse-hash-bar:nth-child(2) {
+  animation-delay: 0.2s;
+  height: 60%;
+}
+
+.pse-hash-bar:nth-child(3) {
+  animation-delay: 0.4s;
+  height: 85%;
+}
+
+.pse-hash-bar:nth-child(4) {
+  animation-delay: 0.6s;
+  height: 45%;
+}
+
+@keyframes pse-bar-bounce {
+  0% { transform: scaleY(0.3); opacity: 0.4; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+
+.pse-hardware-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  margin-bottom: 0.85rem;
+}
+
+.pse-hardware-metric-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pse-hardware-metric-lbl {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b949e;
+}
+
+.pse-hardware-metric-val {
+  font-family: var(--pse-mono, monospace);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f0f6fc;
+}
+
+.pse-hardware-metric-val[data-tone='gold'] {
+  color: #f0b90b;
+}
+
+.pse-hardware-metric-val[data-tone='green'] {
+  color: #0ecb81;
+}
+
+.pse-hardware-metric-val[data-tone='cyan'] {
+  color: #38bdf8;
+}
+
+.pse-hardware-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #21262d;
+}
+
+/* ── Referral Multiplier Matrix Strip ─────────────────────────────────────── */
+.pse-ref-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.pse-ref-matrix-cell {
+  padding: 0.75rem 1rem;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pse-ref-matrix-title {
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pse-ref-matrix-value {
+  font-family: var(--pse-mono, monospace);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f0f6fc;
+}
+

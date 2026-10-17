@@ -182,6 +182,7 @@ export const PSEMineShell: React.FC = () => {
 const ProductBar: React.FC<{ inConsole: boolean; showGuide: boolean }> = ({ inConsole, showGuide }) => {
   const { logout } = usePSEMineAuth();
   const { unreadNotifications } = usePseState();
+  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   if (!inConsole) {
@@ -218,6 +219,13 @@ const ProductBar: React.FC<{ inConsole: boolean; showGuide: boolean }> = ({ inCo
           </nav>
 
           <div className="pse-bar-tools">
+            <PseIconButton
+              label="Campaign Guide"
+              onClick={() => navigate(GUIDE_REFERENCE)}
+            >
+              <GuideGlyph />
+            </PseIconButton>
+
             <PseIconButton
               label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : 'Notifications'}
               badge={unreadNotifications}
@@ -432,7 +440,7 @@ const ConsoleFoot: React.FC = () => {
     return (
       <footer className="pse-console-foot text-center py-4 text-xs text-slate-500 border-t border-slate-800/60">
         <div className="pse-console-foot-inner justify-center">
-          <span>© 2026 PSEmine</span>
+          <span>© 2026 PSEmine · PSEmine</span>
         </div>
       </footer>
     );
@@ -544,6 +552,14 @@ const BellGlyph: React.FC = () => (
 const CloseGlyph: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
     <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+const GuideGlyph: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+    <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H16v13.5H6.5A2.5 2.5 0 0 0 4 18V4.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M16 15.5H6.5A2.5 2.5 0 0 0 4 18" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M7 6h6M7 9.5h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
 

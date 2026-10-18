@@ -151,13 +151,18 @@ export const PSEMineShell: React.FC = () => {
     navigate('/mine/dashboard', { replace: true });
   }, [guideInPlace, navigate, location.pathname]);
 
+  const openGuide = React.useCallback(() => {
+    if (location.pathname === GUIDE_REFERENCE || location.pathname === GUIDE_ONBOARDING) return;
+    navigate({ pathname: location.pathname, search: '?guide=1' });
+  }, [location.pathname, navigate]);
+
   usePseDocumentTitle(titleForPath(location.pathname));
 
   if (!chrome) return <Outlet />;
 
   return (
     <div className={`pse pse-console-shell${inConsole ? ' pse-console-shell--docked' : ''}`}>
-      <ProductBar inConsole={inConsole} showGuide={inConsole} />
+      <ProductBar inConsole={inConsole} showGuide={inConsole} guideOpen={guideOpen} onOpenGuide={openGuide} />
 
       {inConsole && <CampaignBand />}
 
@@ -179,10 +184,14 @@ export const PSEMineShell: React.FC = () => {
 
 /* ── Product bar ─────────────────────────────────────────────────────────── */
 
-const ProductBar: React.FC<{ inConsole: boolean; showGuide: boolean }> = ({ inConsole, showGuide }) => {
+const ProductBar: React.FC<{
+  inConsole: boolean;
+  showGuide: boolean;
+  guideOpen: boolean;
+  onOpenGuide: () => void;
+}> = ({ inConsole, showGuide, guideOpen, onOpenGuide }) => {
   const { logout } = usePSEMineAuth();
   const { unreadNotifications } = usePseState();
-  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   if (!inConsole) {
@@ -215,13 +224,21 @@ const ProductBar: React.FC<{ inConsole: boolean; showGuide: boolean }> = ({ inCo
                 {item.label}
               </NavLink>
             ))}
-            {showGuide && <NavLink to={GUIDE_REFERENCE} className="pse-nav-link">Guide</NavLink>}
+            {showGuide && (
+              <button
+                type="button"
+                className={`pse-nav-link ${guideOpen ? 'active' : ''}`}
+                onClick={onOpenGuide}
+              >
+                Guide
+              </button>
+            )}
           </nav>
 
           <div className="pse-bar-tools">
             <PseIconButton
               label="Campaign Guide"
-              onClick={() => navigate(GUIDE_REFERENCE)}
+              onClick={onOpenGuide}
             >
               <GuideGlyph />
             </PseIconButton>

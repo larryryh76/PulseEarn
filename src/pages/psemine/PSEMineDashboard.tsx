@@ -37,6 +37,7 @@ export const PSEMineDashboard: React.FC = () => {
   const [maintaining, setMaintaining] = useState<Set<string>>(new Set());
   const [, setTick] = useState(0);
 
+  // 15-second heartbeat to re-render countdowns and live accruals
   useEffect(() => {
     const id = window.setInterval(() => setTick(t => t + 1), 15_000);
     return () => window.clearInterval(id);
@@ -54,11 +55,16 @@ export const PSEMineDashboard: React.FC = () => {
 
   const isMiningLive = campaignStatus === 'active';
 
-  // Capacity metrics & breakdown
+  // Earning speed & capacity metrics
   const toolCapacity = user?.toolCapacityGBPPerHour ?? 0;
   const referralCapacity = user?.referralCapacityGBPPerHour ?? 0;
   const totalCapacity = user?.totalCapacityGBPPerHour ?? (toolCapacity + referralCapacity);
 
+  // Projections
+  const dailyEstimate = totalCapacity * 24;
+  const monthlyEstimate = totalCapacity * 24 * 30;
+
+  // Proportions
   const toolPct = totalCapacity > 0 ? (toolCapacity / totalCapacity) * 100 : 100;
   const refPct = totalCapacity > 0 ? (referralCapacity / totalCapacity) * 100 : 0;
 
@@ -78,6 +84,7 @@ export const PSEMineDashboard: React.FC = () => {
 
   const qualifiedCount = user?.qualifiedReferralsCount ?? 0;
   const maxQualified = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
+  const remainingQualifiedSlots = Math.max(0, maxQualified - qualifiedCount);
 
   const handleMaintain = async (ownershipId: string) => {
     setMaintaining(prev => new Set(prev).add(ownershipId));
@@ -96,7 +103,7 @@ export const PSEMineDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="pse-console-main">
-        <PseLoading label="Connecting to Binance Smart Chain & PSEmine financial engine" />
+        <PseLoading label="Connecting to Binance Smart Chain & PSEmine financial engine..." />
       </div>
     );
   }
@@ -120,63 +127,85 @@ export const PSEMineDashboard: React.FC = () => {
 
   return (
     <div className="pse-console-main">
-      {/* ═══ 1. TOP FINANCIAL VERDICT: ACCRUED EARNINGS & SETTLEMENT CLEARANCE ═══ */}
+      {/* ═══ 1. TOP FINANCIAL HERO: ACCRUED REVENUE & PAYOUT DESTINATION ═══ */}
       <div className="pse-verdict-grid">
-        {/* Accrued Campaign Earnings Hero */}
+        {/* Total Mined Balance Hero Card */}
         <div className="pse-verdict-hero">
           <div>
             <div className="pse-verdict-hero-head">
-              <span className="pse-lead-label">ACCRUED CAMPAIGN EARNINGS (GBP)</span>
+              <span className="pse-lead-label">TOTAL MINED BALANCE</span>
               <span className="pse-chip" data-tone={isMiningLive ? 'good' : 'idle'}>
                 <span className="pse-chip-dot" />
-                {isMiningLive ? 'ACCRUING LIVE' : 'CAMPAIGN STANDBY'}
+                {isMiningLive ? 'LIVE MINING ACTIVE' : 'CAMPAIGN STANDBY'}
               </span>
             </div>
 
-            <div className="flex items-baseline gap-2">
-              <span className="pse-lead-figure font-mono text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            <div className="flex items-baseline gap-2.5">
+              <span className="pse-lead-figure font-mono text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
                 {gbp(user.accruedGBP)}
               </span>
-              <span className="pse-lead-unit text-sm font-bold text-amber-400">GBP</span>
+              <span className="pse-lead-unit text-sm font-bold text-amber-400 font-mono">GBP</span>
             </div>
 
-            <div className="pse-lead-rate mt-3 text-sm text-slate-300 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Generating <b className="text-emerald-400 font-mono">+{gbpHour(totalCapacity)}</b> across {activeUnitsCount} active units</span>
+            <p className="text-xs text-slate-400 mt-1.5">
+              Accumulated earnings from your active mining rigs and referral team.
+            </p>
+
+            {/* Quick Projections Matrix (Binance / Revolut style) */}
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80">
+              <div className="flex flex-col">
+                <span className="text-[11px] text-slate-400 uppercase tracking-wider">Current Speed</span>
+                <span className="text-emerald-400 font-mono font-bold text-sm sm:text-base flex items-center gap-1 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  +{gbpHour(totalCapacity)}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] text-slate-400 uppercase tracking-wider">Est. 24h Yield</span>
+                <span className="text-slate-200 font-mono font-semibold text-sm sm:text-base mt-0.5">
+                  +{gbp(dailyEstimate)}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] text-slate-400 uppercase tracking-wider">Est. 30-Day Total</span>
+                <span className="text-amber-400 font-mono font-semibold text-sm sm:text-base mt-0.5">
+                  +{gbp(monthlyEstimate)}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Accounting Denomination: <strong className="text-slate-200">British Pounds (GBP)</strong></span>
-            <span>Settlement Network: <strong className="text-amber-400 font-mono">BNB Smart Chain</strong></span>
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            <span>Accounting Currency: <strong className="text-slate-200">British Pounds (GBP)</strong></span>
+            <span>Settlement Chain: <strong className="text-amber-400 font-mono">BNB Smart Chain (BEP-20)</strong></span>
           </div>
         </div>
 
-        {/* Payout & Settlement Clearance Box */}
+        {/* Payout & Settlement Box */}
         <div className="pse-verdict-settlement">
           <div>
             <div className="pse-verdict-hero-head">
-              <span className="pse-lead-label">SETTLEMENT & PAYOUT CLEARANCE</span>
+              <span className="pse-lead-label">PAYOUT SETTLEMENT & WALLET</span>
               <span className="text-xs font-mono text-amber-400 font-semibold px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/20">
-                BEP-20
+                BEP-20 BNB
               </span>
             </div>
 
             <div className="pse-settlement-row">
-              <span className="pse-settlement-key">Available for Payout:</span>
+              <span className="pse-settlement-key">Ready for Payout:</span>
               <span className="pse-settlement-val text-emerald-400 font-mono font-bold text-lg">{availableStr}</span>
             </div>
 
             <div className="text-xs text-slate-400 mt-1 mb-3 leading-relaxed">
-              Earnings accrue server-side in GBP and programmatically lock until Day {clock.totalDays} BNB settlement.
+              Earnings accumulate continuously and automatically clear into your BEP-20 wallet on Day {clock.totalDays} of the campaign.
             </div>
 
             <div className="pse-settlement-row pt-2 border-t border-slate-800/80">
-              <span className="pse-settlement-key">Clearing Destination:</span>
+              <span className="pse-settlement-key">Payout Destination Wallet:</span>
               <span className="pse-settlement-val font-mono text-xs text-slate-200">
                 {user.payoutWallet
                   ? `${user.payoutWallet.slice(0, 6)}...${user.payoutWallet.slice(-4)}`
-                  : <span className="text-amber-400">Wallet Not Configured</span>}
+                  : <span className="text-amber-400 font-medium">Wallet Not Connected</span>}
               </span>
             </div>
           </div>
@@ -186,142 +215,183 @@ export const PSEMineDashboard: React.FC = () => {
               to="/mine/wallet"
               className="pse-btn pse-btn--secondary pse-btn--sm w-full text-center block text-xs font-semibold uppercase tracking-wider"
             >
-              {user.payoutWallet ? 'Manage Payout Wallet' : 'Configure BEP-20 Wallet'}
+              {user.payoutWallet ? 'Manage Payout Wallet' : 'Connect BEP-20 Wallet'}
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ═══ 2. UNIFIED CAPACITY ENGINE SYSTEM RAIL ═══ */}
-      <section className="pse-console-block" aria-label="Capacity Allocation">
+      {/* ═══ 2. MINING POWER & HOURLY EARNINGS BREAKDOWN ═══ */}
+      <section className="pse-console-block" aria-label="Mining Power Breakdown">
         <div className="pse-block-head">
           <div className="flex items-center gap-2">
-            <h2 className="pse-block-title">Canonical Mining Capacity Engine</h2>
+            <h2 className="pse-block-title">Mining Power & Hourly Earnings</h2>
             <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-              NET HOURLY ACCRUAL
+              NET HOURLY RATE
             </span>
           </div>
-          <span className="pse-block-meta font-mono text-slate-400">
-            Max Limit: {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}
+          <span className="pse-block-meta font-mono text-slate-400 text-xs">
+            Account Maximum Speed: {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}
           </span>
         </div>
 
         <div className="pse-capacity-reg">
-          <div className="pse-capacity-reg-head">
-            <div className="pse-capacity-reg-eq text-xs sm:text-sm">
-              <span className="text-slate-400">Tool Capacity:</span>
-              <span className="pse-capacity-reg-val text-amber-400 font-mono font-bold">{gbpHour(toolCapacity)}</span>
-              <span className="text-slate-500 font-bold">+</span>
-              <span className="text-slate-400">Referral Capacity:</span>
-              <span className="pse-capacity-reg-val text-cyan-400 font-mono font-bold">{gbpHour(referralCapacity)}</span>
-              <span className="text-slate-500 font-bold">=</span>
-              <span className="text-slate-200 font-bold">Total Net Capacity:</span>
-              <span className="pse-capacity-reg-val text-emerald-400 font-mono font-bold text-base">{gbpHour(totalCapacity)}</span>
+          {/* Earning Formula Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div className="p-3 bg-slate-900/60 rounded border border-slate-800/80">
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  Hardware Miners Rate
+                </span>
+                <span className="font-mono text-slate-300">{toolPct.toFixed(0)}%</span>
+              </div>
+              <div className="text-amber-400 font-mono font-bold text-lg">{gbpHour(toolCapacity)}</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                From {activeUnitsCount} active mining {activeUnitsCount === 1 ? 'rig' : 'rigs'}
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-900/60 rounded border border-slate-800/80">
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                  Referral Team Bonus
+                </span>
+                <span className="font-mono text-slate-300">{refPct.toFixed(0)}%</span>
+              </div>
+              <div className="text-cyan-400 font-mono font-bold text-lg">{gbpHour(referralCapacity)}</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {qualifiedCount} of {maxQualified} qualified friends active
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-900/60 rounded border border-emerald-900/40 bg-emerald-950/10">
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  Total Net Earning Speed
+                </span>
+                <span className="font-mono text-emerald-400 font-semibold">Live Accrual</span>
+              </div>
+              <div className="text-emerald-400 font-mono font-bold text-lg">{gbpHour(totalCapacity)}</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Credited continuously to your balance every hour
+              </p>
             </div>
           </div>
 
-          <div className="pse-capacity-track" title={`Hardware: ${toolPct.toFixed(1)}% | Referral: ${refPct.toFixed(1)}%`}>
+          {/* Segmented Progress Track */}
+          <div className="pse-capacity-track" title={`Miners: ${toolPct.toFixed(1)}% | Referrals: ${refPct.toFixed(1)}%`}>
             <div className="pse-capacity-seg bg-amber-400" style={{ width: `${toolPct}%` }} />
             <div className="pse-capacity-seg bg-cyan-400" style={{ width: `${refPct}%` }} />
           </div>
 
-          <div className="flex justify-between items-center text-xs text-slate-400 font-mono pt-1">
+          <div className="flex justify-between items-center text-xs text-slate-400 font-mono pt-1.5">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
-              Hardware Contribution: <strong className="text-slate-200">{toolPct.toFixed(1)}%</strong>
+              Miners Contribution: <strong className="text-slate-200">{toolPct.toFixed(1)}%</strong>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
-              Referral Allocation: <strong className="text-slate-200">{refPct.toFixed(1)}%</strong>
+              Referral Bonus: <strong className="text-slate-200">{refPct.toFixed(1)}%</strong>
             </span>
           </div>
         </div>
 
-        {/* Referral Multiplier Matrix Strip */}
-        <div className="pse-ref-matrix">
-          <div className="pse-ref-matrix-cell">
-            <span className="pse-ref-matrix-title">Qualified Referrals</span>
-            <span className="pse-ref-matrix-value font-mono">
-              {qualifiedCount} <span className="text-slate-500 text-xs font-normal">/ {maxQualified} max</span>
-            </span>
-            <span className="text-[11px] text-slate-400">Referred users actively mining</span>
+        {/* Referral Booster Banner */}
+        <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 font-bold">
+              +
+            </div>
+            <div>
+              <span className="font-semibold text-slate-200 block">
+                Boost Your Mining Speed with Referrals
+              </span>
+              <span className="text-slate-400">
+                Earn an extra +{gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} per active friend (
+                {remainingQualifiedSlots > 0
+                  ? `${remainingQualifiedSlots} referral spots remaining`
+                  : 'Maximum referral bonus reached'}
+                ).
+              </span>
+            </div>
           </div>
-
-          <div className="pse-ref-matrix-cell">
-            <span className="pse-ref-matrix-title">Referral Capacity Bonus</span>
-            <span className="pse-ref-matrix-value text-cyan-400 font-mono">
-              +{gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)}
-            </span>
-            <span className="text-[11px] text-slate-400">Accrued per qualified referral</span>
-          </div>
-
-          <div className="pse-ref-matrix-cell">
-            <span className="pse-ref-matrix-title">Active Referral Yield</span>
-            <span className="pse-ref-matrix-value text-emerald-400 font-mono">
-              +{gbpHour(referralCapacity)}
-            </span>
-            <Link to="/mine/referrals" className="text-[11px] text-cyan-400 hover:underline">
-              Manage Referrals & Link →
-            </Link>
-          </div>
+          <Link
+            to="/mine/referrals"
+            className="pse-btn pse-btn--secondary pse-btn--sm shrink-0 font-semibold text-cyan-400 border-cyan-500/30 hover:border-cyan-500/60"
+          >
+            Invite Friends & Boost Speed →
+          </Link>
         </div>
       </section>
 
-      {/* ═══ 3. CANONICAL CAMPAIGN HORIZON RAIL ═══ */}
+      {/* ═══ 3. 90-DAY CAMPAIGN TIMELINE ═══ */}
       <section className="pse-console-block" aria-label="Campaign Timeline">
         <div className="pse-block-head">
-          <h2 className="pse-block-title">Campaign Horizon Timeline</h2>
-          <span className="pse-block-meta font-mono">
+          <div className="flex items-center gap-2">
+            <h2 className="pse-block-title">90-Day Mining Campaign Schedule</h2>
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              FIXED-TERM CAMPAIGN
+            </span>
+          </div>
+          <span className="pse-block-meta font-mono text-xs">
             {campaignDay !== null ? `Day ${campaignDay} of ${clock.totalDays}` : 'Scheduled Launch'}
           </span>
         </div>
 
-        <div className="pse-crail-box">
-          <div className="pse-crail-track">
-            <div className="pse-crail-fill" style={{ width: `${campaignProgress}%` }} />
-          </div>
-          <div className="pse-crail-labels">
-            <div className="pse-crail-mark">
-              <span className="pse-crail-day">DAY 01</span>
-              <span className="pse-crail-sub">Genesis Lock</span>
-            </div>
+        <div className="pse-crail-box p-4 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div className="pse-crail-track relative h-2.5 bg-slate-800 rounded-full overflow-hidden">
             <div
-              className="pse-crail-mark text-center"
-              style={{ left: `${Math.min(92, Math.max(8, campaignProgress))}%`, transform: 'translateX(-50%)' }}
-            >
-              <span className="pse-crail-day text-amber-400 font-bold">
+              className="pse-crail-fill h-full bg-gradient-to-r from-amber-400 to-emerald-400 rounded-full transition-all duration-500"
+              style={{ width: `${campaignProgress}%` }}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-2 text-xs">
+            <div>
+              <span className="font-mono text-slate-400 block font-semibold">DAY 01</span>
+              <span className="text-slate-300 text-[11px]">Campaign Launch</span>
+            </div>
+            <div className="text-center">
+              <span className="font-mono text-amber-400 block font-bold">
                 {campaignDay !== null ? `DAY ${campaignDay}` : 'TODAY'}
               </span>
-              <span className="pse-crail-sub text-amber-300">
+              <span className="text-amber-300 text-[11px]">
                 {clock.daysLeft !== null ? `${clock.daysLeft} days remaining` : 'Active'}
               </span>
             </div>
-            <div className="pse-crail-mark text-right">
-              <span className="pse-crail-day">DAY {clock.totalDays}</span>
-              <span className="pse-crail-sub">BNB Clearing Settlement</span>
+            <div className="text-right">
+              <span className="font-mono text-emerald-400 block font-semibold">DAY {clock.totalDays}</span>
+              <span className="text-slate-300 text-[11px]">Automated BNB Payout</span>
             </div>
           </div>
+
+          <p className="text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-800/80 leading-relaxed">
+            All mined balances accumulate continuously throughout the 90 days. On Day {clock.totalDays}, the campaign concludes and settled earnings are automatically distributed to your registered BEP-20 BNB wallet.
+          </p>
         </div>
       </section>
 
-      {/* ═══ 4. BESPOKE MINING HARDWARE FLEET & PULSE CARDS ═══ */}
-      <section className="pse-console-block" aria-label="Hardware Fleet">
+      {/* ═══ 4. YOUR MINING HARDWARE FLEET ═══ */}
+      <section className="pse-console-block" aria-label="Mining Hardware Fleet">
         <div className="pse-block-head">
           <div className="flex items-center gap-2">
-            <h2 className="pse-block-title">Deployed Mining Hardware Fleet</h2>
+            <h2 className="pse-block-title">Your Mining Fleet</h2>
             <span className="text-xs font-mono text-emerald-400 px-2 py-0.5 rounded bg-emerald-400/10 border border-emerald-400/20">
               {activeUnitsCount} Active Units
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="pse-block-meta font-mono">{gbpHour(toolCapacity)} Net Tool Rate</span>
+            <span className="pse-block-meta font-mono text-xs">{gbpHour(toolCapacity)} Net Miner Rate</span>
             <Link to="/mine/tools" className="pse-btn pse-btn--primary pse-btn--sm text-xs font-semibold">
-              + Deploy Hardware
+              + Deploy New Miner
             </Link>
           </div>
         </div>
 
-        {/* Hardware Tier Roster Summary Chips */}
+        {/* Available Miner Tiers Summary Strip */}
         <div className="pse-headroom mb-4">
           {ALL_TIERS.map(t => (
             <div className="pse-headroom-cell" key={t.id}>
@@ -342,14 +412,14 @@ export const PSEMineDashboard: React.FC = () => {
         {tools.length === 0 ? (
           <PseEmptyNote
             glyph="activate"
-            title="No mining hardware deployed"
+            title="No mining rigs deployed yet"
             action={
               <Link to="/mine/tools" className="pse-btn pse-btn--primary pse-btn--sm">
-                Deploy Mining Hardware
+                Deploy Your First Miner
               </Link>
             }
           >
-            Deploy hardware units using BNB on BNB Smart Chain to establish hourly capacity.
+            Deploy a mining unit starting at £10 using BNB to begin earning passive income every hour.
           </PseEmptyNote>
         ) : (
           <div className="pse-hardware-grid">
@@ -367,11 +437,11 @@ export const PSEMineDashboard: React.FC = () => {
               );
 
               const statusDetail = continuous
-                ? 'Continuous Duty'
+                ? 'Continuous 24/7 Mining (Automatic)'
                 : cycleRemaining
-                  ? `Cycle ends in ${cycleRemaining.text}`
+                  ? `Session active · Ends in ${cycleRemaining.text}`
                   : restartEta && restartEta.ms > 0
-                    ? `Resumes in ${restartEta.text}`
+                    ? `Session restarting · Resumes in ${restartEta.text}`
                     : cycle.description;
 
               return (
@@ -384,7 +454,7 @@ export const PSEMineDashboard: React.FC = () => {
                   <div className="pse-hardware-card-head">
                     <div>
                       <div className="pse-hardware-title">{toolName(tool)}</div>
-                      <div className="pse-hardware-id">ID: {tool.id.slice(0, 12)}</div>
+                      <div className="pse-hardware-id">ID: #{tool.id.slice(0, 8)}</div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -399,23 +469,23 @@ export const PSEMineDashboard: React.FC = () => {
 
                       <span className="pse-chip" data-tone={canMaintain ? 'hold' : running ? 'good' : 'idle'}>
                         <span className="pse-chip-dot" />
-                        {cycle.label}
+                        {canMaintain ? 'Restart Needed' : running ? 'Active' : cycle.label}
                       </span>
                     </div>
                   </div>
 
                   <div className="pse-hardware-metrics">
                     <div className="pse-hardware-metric-cell">
-                      <span className="pse-hardware-metric-lbl">Capacity Rate</span>
+                      <span className="pse-hardware-metric-lbl">Hourly Earning</span>
                       <span className="pse-hardware-metric-val" data-tone="gold">
                         +{gbpHour(toolRate(tool))}
                       </span>
                     </div>
 
                     <div className="pse-hardware-metric-cell">
-                      <span className="pse-hardware-metric-lbl">Duty Cycle</span>
+                      <span className="pse-hardware-metric-lbl">Operating Duty</span>
                       <span className="pse-hardware-metric-val" data-tone={running ? 'green' : undefined}>
-                        {continuous ? 'Continuous' : 'Finite Session'}
+                        {continuous ? '24/7 Continuous' : '24h Duty Session'}
                       </span>
                     </div>
                   </div>
@@ -432,11 +502,11 @@ export const PSEMineDashboard: React.FC = () => {
                         onClick={() => void handleMaintain(tool.id)}
                         busy={maintaining.has(tool.id)}
                       >
-                        {maintaining.has(tool.id) ? 'Restarting…' : 'Restart Cycle'}
+                        {maintaining.has(tool.id) ? 'Restarting…' : 'Restart Miner'}
                       </PseButton>
                     ) : (
-                      <span className="text-xs font-mono text-slate-500">
-                        {continuous ? 'Nominal' : 'Active Duty'}
+                      <span className="text-xs font-mono text-emerald-400 font-medium">
+                        {continuous ? '● Nominal' : '● In Duty'}
                       </span>
                     )}
                   </div>
@@ -447,7 +517,7 @@ export const PSEMineDashboard: React.FC = () => {
         )}
       </section>
 
-      {/* ═══ 5. COMPACT ACCOUNT ACTIVITY LEDGER ═══ */}
+      {/* ═══ 5. RECENT ACTIVITY & EARNINGS LOG ═══ */}
       <RecentRecords />
     </div>
   );
@@ -474,23 +544,23 @@ const RecentRecords: React.FC = () => {
   const recent = filtered.slice(0, 6);
 
   return (
-    <section className="pse-console-block" aria-label="Account Activity Ledger">
+    <section className="pse-console-block" aria-label="Recent Activity Log">
       <div className="pse-block-head">
         <div className="flex items-center gap-3">
-          <h2 className="pse-block-title">Account Activity Ledger</h2>
+          <h2 className="pse-block-title">Recent Activity & Earnings</h2>
           <div className="flex items-center gap-1">
             {(['all', 'earnings', 'tools', 'referrals'] as const).map(tab => (
               <button
                 key={tab}
                 type="button"
-                className={`text-xs px-2 py-0.5 rounded capitalize transition-colors ${
+                className={`text-xs px-2.5 py-1 rounded capitalize transition-colors font-medium ${
                   filter === tab
                     ? 'bg-amber-400 text-black font-semibold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                 }`}
                 onClick={() => setFilter(tab)}
               >
-                {tab}
+                {tab === 'tools' ? 'Miners' : tab}
               </button>
             ))}
           </div>
@@ -503,7 +573,7 @@ const RecentRecords: React.FC = () => {
             onClick={() => void refreshFeed('activities')}
             disabled={refreshing}
           >
-            {refreshing ? 'Refreshing…' : '↻ Refresh Ledger'}
+            {refreshing ? 'Refreshing…' : '↻ Refresh Log'}
           </button>
         </span>
       </div>
@@ -518,7 +588,7 @@ const RecentRecords: React.FC = () => {
 
       {recent.length === 0 ? (
         <PseEmptyNote glyph="audit" title="No activity recorded yet">
-          Account events will appear here as they occur on-chain and in backend records.
+          Your transactions, mining accruals, and referral rewards will appear here.
         </PseEmptyNote>
       ) : (
         <ul className="pse-feed">
@@ -552,9 +622,9 @@ const RecentRecords: React.FC = () => {
 
       <div className="mt-4 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
         <Link to="/mine/activity" className="pse-link text-amber-400 hover:text-amber-300 font-medium">
-          View Complete Financial Activity Ledger →
+          View Full Activity Ledger →
         </Link>
-        <span className="text-slate-500 font-mono">Immutable audit records</span>
+        <span className="text-slate-500 font-mono">Immutable ledger records</span>
       </div>
     </section>
   );

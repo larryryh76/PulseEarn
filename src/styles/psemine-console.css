@@ -65,10 +65,13 @@
   width: 100%;
   max-width: 1240px;
   margin-inline: auto;
-  /* The foot already separates the page from the end of the product, so the
-     stage closes with a single step of space, not the 4rem that used to leave a
-     band of empty canvas under the last register on a phone. */
   padding: 1.15rem var(--pse-gutter) 1.75rem;
+}
+
+@media (min-width: 1280px) {
+  .pse-console-main {
+    max-width: 1380px;
+  }
 }
 
 /* ── Product bar ──────────────────────────────────────────────────────────
@@ -2442,4 +2445,735 @@ button.pse-link {
   font-weight: 600;
   color: #f0f6fc;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * PSEMINE REBUILT FINTECH DASHBOARD & GUIDE OVERLAY SYSTEM
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Section A: Compact Campaign Status Strip ── */
+.pse-status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  padding: 0.5rem 0.85rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  margin-bottom: 0.25rem;
+}
+
+.pse-status-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.pse-status-strip-sep {
+  color: #30363d;
+}
+
+.pse-status-strip-clock {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f0f6fc;
+}
+
+.pse-status-strip-leftover {
+  font-size: 0.6875rem;
+  color: #8b949e;
+}
+
+.pse-status-strip-right {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-left: auto;
+}
+
+.pse-status-rate {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.pse-status-rate-label {
+  color: #8b949e;
+}
+
+.pse-status-rate-val {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.pse-status-guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #f0b90b;
+  background: rgba(240, 185, 11, 0.08);
+  border: 1px solid rgba(240, 185, 11, 0.2);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pse-status-guide-link:hover {
+  background: rgba(240, 185, 11, 0.16);
+  border-color: rgba(240, 185, 11, 0.4);
+}
+
+/* ── Top 2-Column Fintech Hero Grid ── */
+.pse-fin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.15rem;
+}
+
+@media (min-width: 960px) {
+  .pse-fin-grid {
+    grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.72fr);
+    align-items: start;
+  }
+}
+
+.pse-fin-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pse-fin-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Section B: Primary Earnings Surface ── */
+.pse-earning-surface {
+  padding: 1.35rem 1.6rem;
+  background: #0d1117;
+  background: linear-gradient(145deg, #111620 0%, #0d1117 100%);
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+}
+
+.pse-earning-surface::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f0b90b 0%, #0ecb81 100%);
+}
+
+.pse-earning-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.pse-kicker {
+  font-family: var(--pse-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b949e;
+}
+
+.pse-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-family: var(--pse-mono, monospace);
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(14, 203, 129, 0.12);
+  border: 1px solid rgba(14, 203, 129, 0.25);
+  color: #0ecb81;
+}
+
+.pse-status-indicator[data-live='false'] {
+  background: rgba(139, 148, 158, 0.1);
+  border-color: rgba(139, 148, 158, 0.2);
+  color: #8b949e;
+}
+
+.pse-pulse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pse-pulse 1.8s infinite;
+}
+
+@keyframes pse-pulse {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+.pse-balance-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-block: 0.25rem 0.5rem;
+}
+
+.pse-balance-currency {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #f0b90b;
+}
+
+.pse-balance-num {
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 800;
+  color: #f0f6fc;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.pse-balance-iso {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #f0b90b;
+  margin-left: 0.25rem;
+}
+
+.pse-balance-subtext {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #8b949e;
+  margin-bottom: 1.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.pse-projections-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #21262d;
+}
+
+.pse-matrix-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.pse-matrix-kicker {
+  font-size: 0.625rem;
+  font-family: var(--pse-mono, monospace);
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pse-matrix-val {
+  font-size: clamp(0.8125rem, 2vw, 1rem);
+  margin-top: 0.15rem;
+}
+
+/* ── Section C: Compact Financial Metrics Bar ── */
+.pse-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.pse-metric-item {
+  padding: 0.85rem 1rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pse-metric-num {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-block: 0.1rem;
+}
+
+.pse-metric-sub {
+  font-size: 0.6875rem;
+  color: #8b949e;
+}
+
+/* ── Section F: Payout & Wallet Card ── */
+.pse-payout-card {
+  padding: 1.15rem 1.35rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pse-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pse-card-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f0f6fc;
+}
+
+.pse-network-tag {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(240, 185, 11, 0.1);
+  border: 1px solid rgba(240, 185, 11, 0.25);
+  color: #f0b90b;
+}
+
+.pse-payout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 0.35rem;
+}
+
+.pse-payout-wallet-box {
+  padding: 0.65rem 0.85rem;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+}
+
+.pse-payout-disclaimer {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #8b949e;
+}
+
+.pse-payout-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  background: #1f6feb;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.pse-payout-cta:hover {
+  background: #388bfd;
+}
+
+/* ── Section E: Campaign Lifecycle Card ── */
+.pse-lifecycle-card {
+  padding: 1.15rem 1.35rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pse-lifecycle-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.pse-rail-track {
+  height: 6px;
+  background: #21262d;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.pse-rail-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f0b90b 0%, #38bdf8 50%, #0ecb81 100%);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.pse-rail-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.pse-rail-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.pse-rail-step:nth-child(2) {
+  align-items: center;
+  text-align: center;
+}
+
+.pse-rail-step:nth-child(3) {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.pse-step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #30363d;
+  margin-bottom: 0.25rem;
+}
+
+.pse-rail-step[data-active='true'] .pse-step-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.pse-step-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.pse-step-caption {
+  font-size: 0.625rem;
+  color: #8b949e;
+}
+
+.pse-lifecycle-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  font-family: var(--pse-mono, monospace);
+  color: #8b949e;
+  padding-top: 0.5rem;
+  border-top: 1px solid #21262d;
+}
+
+/* ── Section D: Mining Equipment Fleet ── */
+.pse-equipment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.pse-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pse-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f0f6fc;
+  letter-spacing: -0.01em;
+}
+
+.pse-badge {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(14, 203, 129, 0.1);
+  border: 1px solid rgba(14, 203, 129, 0.25);
+  color: #0ecb81;
+}
+
+.pse-btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  background: #1f6feb;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.pse-btn-action:hover {
+  background: #388bfd;
+}
+
+.pse-tier-family-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .pse-tier-family-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1080px) {
+  .pse-tier-family-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.pse-tier-cell {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  position: relative;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.pse-tier-cell:hover {
+  border-color: #388bfd;
+  transform: translateY(-1px);
+}
+
+.pse-tier-cell[data-tier='starter'] { border-top: 2px solid #8b949e; }
+.pse-tier-cell[data-tier='builder'] { border-top: 2px solid #1f6feb; }
+.pse-tier-cell[data-tier='advanced'] { border-top: 2px solid #06b6d4; }
+.pse-tier-cell[data-tier='elite'] { border-top: 2px solid #f0b90b; }
+
+.pse-tier-cell-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pse-tier-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.pse-tier-duty {
+  font-size: 0.625rem;
+  color: #8b949e;
+  display: block;
+}
+
+.pse-tier-price {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #f0b90b;
+}
+
+.pse-tier-progress-track {
+  height: 4px;
+  background: #21262d;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+
+.pse-tier-progress-bar {
+  height: 100%;
+  background: #388bfd;
+  border-radius: 999px;
+}
+
+.pse-tier-cell[data-tier='elite'] .pse-tier-progress-bar {
+  background: #f0b90b;
+}
+
+.pse-tier-cell-bot {
+  padding-top: 0.5rem;
+  border-top: 1px solid #21262d;
+}
+
+.pse-tier-deploy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #388bfd;
+  text-decoration: none;
+}
+
+.pse-tier-deploy-link:hover {
+  color: #58a6ff;
+}
+
+/* Deployed Units Table */
+.pse-deployed-units-box {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  overflow: hidden;
+}
+
+.pse-deployed-units-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+}
+
+.pse-units-table-wrap {
+  overflow-x: auto;
+}
+
+.pse-units-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.pse-units-table th {
+  text-align: left;
+  padding: 0.55rem 1rem;
+  color: #8b949e;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--pse-mono, monospace);
+  background: #0d1117;
+  border-bottom: 1px solid #21262d;
+}
+
+.pse-units-table td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #161b22;
+}
+
+.pse-units-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ── Section G: Recent Activity Ledger ── */
+.pse-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.pse-btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  color: #8b949e;
+  background: none;
+  border: 1px solid #30363d;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pse-btn-refresh:hover {
+  color: #f0f6fc;
+  border-color: #8b949e;
+}
+
+.pse-activity-table-box {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  overflow: hidden;
+}
+
+.pse-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pse-activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #161b22;
+}
+
+.pse-activity-item:last-child {
+  border-bottom: 0;
+}
+
+.pse-activity-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pse-activity-title {
+  font-size: 0.75rem;
+  color: #f0f6fc;
+  truncate: true;
+}
+
+.pse-activity-meta {
+  font-size: 0.6875rem;
+  color: #8b949e;
+}
+
+.pse-activity-amount {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pse-activity-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: #161b22;
+  border-top: 1px solid #21262d;
+}
+
+/* ── Rebuilt Guide Overlay & Dialog Styles ── */
+.pse-guide-overlay {
+  overscroll-behavior: contain;
+}
+
+.pse-guide-diagram-box {
+  padding: 0.75rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: var(--pse-r-sm, 6px);
+  margin-block: 0.5rem;
+}
+
 

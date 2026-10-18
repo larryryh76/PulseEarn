@@ -158,13 +158,15 @@ export const PSEMineShell: React.FC = () => {
 
   usePseDocumentTitle(titleForPath(location.pathname));
 
+  const isDashboard = location.pathname === '/mine/dashboard' || location.pathname === '/mine/dashboard/';
+
   if (!chrome) return <Outlet />;
 
   return (
     <div className={`pse pse-console-shell${inConsole ? ' pse-console-shell--docked' : ''}`}>
       <ProductBar inConsole={inConsole} showGuide={inConsole} guideOpen={guideOpen} onOpenGuide={openGuide} />
 
-      {inConsole && <CampaignBand />}
+      {inConsole && !isDashboard && <CampaignBand />}
 
       <main className="pse-stage" id="pse-stage">
         <Outlet />

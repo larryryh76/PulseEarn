@@ -1,843 +1,679 @@
 /**
- * The PSEmine guide — an application surface, not a page of documentation.
+ * The PSEmine Guide — a polished, scannable reference overlay and onboarding manual.
  *
- * WHAT IT IS. A plate over the console holding the product's operating model, one
- * concept at a time: a short explanation, one real product instrument, and — where
- * the concept has a surface of its own — the action that takes the reader to it.
- * The contents rail states where the reader is, which is the only progress this
- * product can honestly show: the sections are a reading order, not system stages,
- * and nothing here claims a percentage of anything.
- *
- * A REFERENCE, NOT A WIZARD. The plate holds eleven topics, and the rail jumps to
- * any of them directly — there is no "step 4 of 9" and no Next button, because a
- * reader who came to check one thing should not have to walk through ten others to
- * reach it. The rail is the guide's navigation at every width: a scrollable strip
- * of labels on a phone, a column above the plate breakpoint. What the foot states
- * is position (which topic is open), not progress toward a finish line.
- *
- * THE TOPICS ARE THE OPERATING MODEL, IN THE ORDER MONEY MOVES: what the campaign
- * is → the tools that are bought → how capacity is calculated → how a referral
- * qualifies → how campaign time runs → how a purchase is priced and paid → what
- * on-chain verification checks → how earnings accrue → how settlement works → how
- * payouts work → the account and wallet surfaces. A reader who reads nothing else
- * should finish knowing where their money is at every point, and a reader who
- * reads one topic should be able to find it without reading the ten others.
- *
- * ONE OVERLAY, TWO SHAPES.
- *
- *   Below 720px  a bottom sheet: it rises from the bottom edge, carries a drag
- *                grip, is capped at 92dvh, keeps its own scrolling region, and is
- *                dismissed by tapping the scrim, dragging it down, pressing Escape
- *                or pressing Close. Its header and footer are padded inside the
- *                device safe areas, so the close control and the foot controls are
- *                never under a notch or a home indicator.
- *   At 720px+    a centred plate: the contents rail becomes a left column beside
- *                the stage, which is the form the content actually has at that
- *                width.
- *
- * WHY AN OVERLAY. Learning the product should not cost the reader the product. The
- * plate opens over the console, so the campaign strip and the account's real
- * figures stay visible beneath it — and when it is opened from the dashboard the
- * page beneath is not unmounted at all, so closing it returns the reader to the
- * same scroll position and the same loaded figures.
- *
- * THE VISUALS ARE THE PRODUCT'S OWN. Every section draws an instrument the product
- * actually uses — the unit roster, the capacity instrument, the campaign chain, the
- * accrual rail, the payment pipeline, the settlement statement — so the guide
- * teaches the interface by being the interface rather than by describing it.
- *
- * ONBOARDING IS RECORDED, ONCE, IN THE ACCOUNT. Completion writes
- * `users/{uid}.onboardingCompleted`, the exact field the PSEmine route guard reads.
- * It is not a browser flag: a returning reader signing in on another device is not
- * shown the walkthrough again, because the account already says they have seen it.
- * SKIPPING ALSO RECORDS COMPLETION — a reader who declines the tour must not be
- * returned to it by the guard, which is what would happen if skipping left the
- * field untouched.
- *
- * NOTHING IS FABRICATED. Every figure is the locked campaign economics from
- * src/types/psemine.ts and every state name is the one the backend uses,
- * interpolated rather than retyped. No section shows a simulated account.
+ * Designed around direct navigation, visual process rails, and clear explanations.
+ * - Viewport-bounded using dvh with no body scroll leakage
+ * - Safe-area handling for mobile viewports (390px, 430px)
+ * - Quick keyword search to find any topic instantly
+ * - Direct section jump without forcing a 9-step wizard in reference mode
+ * - Onboarding mode preserves sequential tour with Firestore completion flag
  */
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase/config';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  REFERRAL_STAGES, gbp, gbpHour, payoutStatusView, referralStageView, useEscapeKey, useScrollLock,
+  gbp, gbpHour, useEscapeKey, useScrollLock,
 } from './pseCore';
-import { PseButton, PseFact, PseFacts } from './PseBasics';
-import { PseGlyph, PseTierModule, type PseGlyphName } from './PseMechanism';
+import { PseButton } from './PseBasics';
 import {
-  CapacityInstrument, FlowRail, StatementPanel,
-} from './PseInstruments';
+  Search, X, ArrowRight, CheckCircle2, Zap
+} from 'lucide-react';
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-
 const C = PSEMINE_CONSTANTS;
-
-/* ═══════════════ SECTION VISUALS ═══════════════ */
-
-/** 01 — the campaign, stated as the six facts a reader has to be able to repeat. */
-const CampaignFacts: React.FC = () => (
-  <PseFacts cols={2}>
-    <PseFact label="Campaign length" value={`${C.CAMPAIGN_DURATION_DAYS} days from launch`} text />
-    <PseFact label="Unit price" value={`${gbp(TOOLS[0].purchasePriceGBP)} – ${gbp(TOOLS[TOOLS.length - 1].purchasePriceGBP)}`} />
-    <PseFact label="Capacity per unit" value={`${gbpHour(TOOLS[0].hourlyRateGBP)} – ${gbpHour(TOOLS[TOOLS.length - 1].hourlyRateGBP)}`} />
-    <PseFact label="Campaign accounting" value="GBP" text />
-    <PseFact label="Payment network" value={C.PAYMENT_NETWORK_NAME} text />
-    <PseFact label="Payout denomination" value="BNB" text />
-  </PseFacts>
-);
-
-/**
- * 02 — the unit family, the same elevation the product page draws, with the four
- * numbers a buyer is deciding between: price, capacity, ownership limit, duty.
- */
-const TierRoster: React.FC = () => (
-  <div className="pse-guide-roster">
-    {TOOLS.map(tool => (
-      <div key={tool.id} className="pse-guide-roster-cell">
-        <PseTierModule
-          tier={tool.displayOrder}
-          continuous={tool.operating.model === 'continuous'}
-          width={96}
-          variant="mark"
-        />
-        <span className="pse-guide-roster-name">{tool.name}</span>
-        <span className="pse-guide-roster-price">{gbp(tool.purchasePriceGBP)}</span>
-        <span className="pse-guide-roster-rate">{gbpHour(tool.hourlyRateGBP)}</span>
-        <span className="pse-guide-roster-note">
-          max {tool.maxPerUser} · {tool.operating.model === 'continuous' ? 'continuous' : 'session'}
-        </span>
-      </div>
-    ))}
-  </div>
-);
-
-/** 03 — the capacity arithmetic at the campaign's own limits. */
-const CapacityArithmetic: React.FC = () => (
-  <CapacityInstrument
-    ceiling={C.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
-    units={C.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
-    referrals={C.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
-    unitLabel="Tools, at the ownership limits"
-    referralLabel={`Referrals, at ${C.MAX_QUALIFIED_REFERRALS} × ${gbpHour(C.REFERRAL_BONUS_GBP_PER_HOUR)}`}
-    totalLabel="Maximum total capacity"
-    scale
-  />
-);
-
-/** 03b — the five qualification stages the backend enforces, as an ordered ladder. */
-const ReferralLadder: React.FC = () => (
-  <ol className="pse-ladder">
-    {REFERRAL_STAGES.map((stage, i) => (
-      <li
-        key={stage.id}
-        className="pse-ladder-step"
-        data-final={stage.id === 'qualified' ? 'true' : undefined}
-      >
-        <span className="pse-ladder-num" aria-hidden="true">{i + 1}</span>
-        <span>
-          <span className="pse-ladder-name">{stage.label}</span>
-          <span className="pse-ladder-note">{referralStageView(stage.id).help}</span>
-        </span>
-      </li>
-    ))}
-  </ol>
-);
-
-/**
- * 04 — campaign time as a chain, not as a tab set.
- *
- * The five phases are a sequence a reader has to hold in order, so they are drawn
- * in order, one line each, each with what changes at that point. A horizontal tab
- * rail was the wrong instrument here: five phase names measured against a 390px
- * screen is a diagram nobody can read, and it also hid the explanation behind a
- * tap. The chain shows every phase and its consequence at once, at any width.
- */
-const CAMPAIGN_CHAIN: ReadonlyArray<{ id: string; name: string; note: string }> = [
-  { id: 'start', name: 'Campaign start', note: 'The window opens. Tools can be bought and capacity can be built.' },
-  { id: 'mining', name: 'Mining', note: 'Operating capacity produces earnings every hour the campaign is live.' },
-  { id: 'end', name: 'Campaign end', note: 'Mining stops at the campaign end. Nothing accrues after it, and nothing is deleted.' },
-  { id: 'settlement', name: 'Settlement', note: 'The backend finalises the balance each account accrued. This is the payable figure.' },
-  { id: 'payout', name: 'Payout', note: 'Settled GBP is reviewed, then paid in BNB to the payout wallet on the account.' },
-];
-
-const CampaignChain: React.FC = () => (
-  <ol className="pse-chain" aria-label="The campaign, start to payout">
-    {CAMPAIGN_CHAIN.map((step, i) => (
-      <li key={step.id} className="pse-chain-step" data-terminal={i === CAMPAIGN_CHAIN.length - 1 ? 'true' : undefined}>
-        <span className="pse-chain-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-        <span className="pse-chain-body">
-          <span className="pse-chain-name">{step.name}</span>
-          <span className="pse-chain-note">{step.note}</span>
-        </span>
-      </li>
-    ))}
-  </ol>
-);
-
-/** 05 — capacity becoming a balance, as a rail of what actually happens. */
-const ACCRUAL_STEPS = [
-  {
-    id: 'operate',
-    glyph: 'accrue' as PseGlyphName,
-    name: 'Capacity is operating',
-    note: 'Every tool that is running produces its own hourly rate for as long as the campaign is live.',
-  },
-  {
-    id: 'bank',
-    glyph: 'server' as PseGlyphName,
-    name: 'The backend banks the accrual',
-    note: 'Accrual is written server-side at whole-penny boundaries, so the balance does not depend on how often this page reloads.',
-  },
-  {
-    id: 'report',
-    glyph: 'verify' as PseGlyphName,
-    name: 'The console reports the balance',
-    note: 'The figure on the console is the one the backend reports. The browser never estimates a balance and never extrapolates one.',
-  },
-  {
-    id: 'record',
-    glyph: 'audit' as PseGlyphName,
-    name: 'Every event is recorded',
-    note: 'Purchases, restarts, referral qualifications and campaign milestones are written to the account\u2019s activity ledger as they happen.',
-  },
-];
-
-/** 06 — the real purchase pipeline, in the order it actually runs. */
-const PAYMENT_STEPS = [
-  {
-    id: 'price',
-    glyph: 'audit' as PseGlyphName,
-    name: 'The price is fixed in GBP',
-    note: 'Every tool has a published price in pounds. The GBP price is what is charged — it does not follow the market.',
-  },
-  {
-    id: 'quote',
-    glyph: 'select' as PseGlyphName,
-    name: 'Request a live BNB quote',
-    note: `The GBP price is converted to a BNB amount and held for ${C.QUOTE_EXPIRATION_MINUTES} minutes, so the amount you pay cannot drift while you sign.`,
-  },
-  {
-    id: 'pay',
-    glyph: 'chain' as PseGlyphName,
-    name: `Pay on ${C.PAYMENT_NETWORK_NAME}`,
-    note: `The quoted amount is sent from your own wallet to the campaign address on chain ${C.DEFAULT_BSC_CHAIN_ID}. The purchase is bound to that wallet before anything is signed.`,
-  },
-  {
-    id: 'verify',
-    glyph: 'verify' as PseGlyphName,
-    name: 'Verified on-chain',
-    note: 'The backend checks the sender, the recipient, the exact amount and the confirmation depth. A wrong network or an underpayment does not pass.',
-  },
-  {
-    id: 'activate',
-    glyph: 'activate' as PseGlyphName,
-    name: 'The tool activates',
-    note: 'Only after verification does the tool\u2019s hourly capacity appear on the account — reported by the backend, never by this page.',
-  },
-];
-
-/** 08 — the payout states the backend uses, in the order a request passes through them. */
-const PAYOUT_CHAIN = ['pending', 'under_review', 'approved', 'processing', 'paid'] as const;
-
-const PAYOUT_STATE_NOTES: Record<(typeof PAYOUT_CHAIN)[number], string> = {
-  pending: 'A request has been opened against the settled balance and is queued for review.',
-  under_review: 'The request is being checked against the settled figure and the payout wallet on the account.',
-  approved: 'The request has been accepted. The amount is still GBP at this point.',
-  processing: 'The approved amount is being converted and sent. One request is processed at a time.',
-  paid: 'The BNB has been sent to the payout wallet and the transaction is recorded against the account.',
-};
-
-const PayoutStates: React.FC = () => (
-  <ol className="pse-chain" aria-label="The payout states">
-    {PAYOUT_CHAIN.map((status, i) => (
-      <li key={status} className="pse-chain-step" data-terminal={i === PAYOUT_CHAIN.length - 1 ? 'true' : undefined}>
-        <span className="pse-chain-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-        <span className="pse-chain-body">
-          <span className="pse-chain-name">{payoutStatusView(status).label}</span>
-          <span className="pse-chain-note">{PAYOUT_STATE_NOTES[status]}</span>
-        </span>
-      </li>
-    ))}
-  </ol>
-);
-
-/** 09 — where support is, and the account surfaces a reader should know by name. */
-const SUPPORT_ROUTES: ReadonlyArray<{ to: string; label: string; note: string }> = [
-  { to: '/mine/support', label: 'Support & contact', note: 'The support policy, what to include in a request, and how account issues are handled.' },
-  { to: '/mine/activity', label: 'Activity ledger', note: 'Every purchase, restart, referral qualification and campaign milestone recorded on this account.' },
-  { to: '/mine/wallet', label: 'Wallet & payouts', note: 'The payout wallet on the account, the payout policy, and the request history.' },
-  { to: '/mine/risk', label: 'Risk disclosure', note: 'What is not guaranteed, and what a campaign rate does not mean.' },
-];
-
-const SupportRoutes: React.FC = () => (
-  <ul className="pse-guide-links">
-    {SUPPORT_ROUTES.map(route => (
-      <li key={route.to}>
-        <Link to={route.to} className="pse-guide-link-item">
-          <span className="pse-guide-link-name">{route.label}</span>
-          <span className="pse-guide-link-note">{route.note}</span>
-        </Link>
-      </li>
-    ))}
-  </ul>
-);
-
-/* 07 — what on-chain verification checks before a tool activates. The checks are
-   the backend's, named here as the conditions a payment has to satisfy: a payment
-   that satisfies all of them activates a tool, and one that fails any of them does
-   not — which is why a wrong network or an underpayment is an unresolved purchase
-   and never a partial activation. */
-const VERIFY_CHECKS: ReadonlyArray<{ name: string; note: string }> = [
-  { name: 'The paying wallet is the purchase’s wallet', note: 'the purchase is bound to one address before anything is signed' },
-  { name: 'The network is the campaign’s network', note: 'a payment on any other chain is not seen' },
-  { name: 'The amount covers the quoted price', note: 'an underpayment does not pass and does not partially activate' },
-  { name: 'The quote has not expired', note: `${C.QUOTE_EXPIRATION_MINUTES} minutes from the moment it was issued` },
-  { name: 'The transfer is confirmed to depth', note: 'a pending transaction is not a verified one' },
-];
-
-const PaymentChecks: React.FC = () => (
-  <ol className="pse-checks" aria-label="What payment verification checks">
-    {VERIFY_CHECKS.map((check, i) => (
-      <li className="pse-checks-item" key={check.name}>
-        <span className="pse-checks-mark" aria-hidden="true">{i + 1}</span>
-        <span>
-          <strong className="pse-strong">{check.name}</strong> — {check.note}
-        </span>
-      </li>
-    ))}
-  </ol>
-);
-
-/* ═══════════════ SECTIONS ═══════════════ */
 
 interface GuideSection {
   id: string;
-  /** Short rail label. */
   short: string;
   title: string;
-  lede: string;
-  points?: string[];
+  tag: string;
+  keywords: string;
   visual: React.ReactNode;
-  /** The real surface this section describes, when it has one. */
-  action?: { label: string; to: string };
+  summary: string;
+  details: string[];
+  action?: { to: string; label: string };
 }
 
-const sections: GuideSection[] = [
-  {
-    id: 'overview',
-    short: 'Overview',
-    title: `One dated ${C.CAMPAIGN_DURATION_DAYS}-day mining campaign`,
-    lede:
-      'PSEmine is one campaign with a fixed length. You buy mining tools that each add a locked capacity per hour, and that capacity accrues earnings in GBP while the campaign is live. At the campaign end the accrued balance is settled, and settled earnings are paid in BNB.',
-    points: [
-      'Tools are capacity priced in GBP — there is no hardware, electricity or hosting to manage.',
-      'Capacity only accrues while the campaign is active; the campaign is the clock.',
-      'Every figure you are shown is reported by the backend, and every event is recorded against your account.',
-    ],
-    visual: <CampaignFacts />,
-  },
-  {
-    id: 'tools',
-    short: 'Mining tools',
-    title: 'One product line, four tools',
-    lede:
-      'Each tool has a fixed GBP price and a fixed hourly capacity, both locked when you buy it. The four tiers differ by duty, price and ownership limit — not by category.',
-    points: [
-      `Starter ${gbp(3)} · Builder ${gbp(10)} · Advanced ${gbp(50)} · Elite ${gbp(200)} — the price list is published, not quoted per buyer.`,
-      'Starter, Builder and Advanced run finite mining sessions: when a session ends, mining stops until the tool is restarted. Elite runs continuously while the campaign is active.',
-      `Ownership is limited per tier (max ${TOOLS.map(t => t.maxPerUser).join(' / ')}), so capacity is built deliberately rather than bought without bound.`,
-      'Tools stack: every tool you own adds its own hourly capacity to your total, up to the limits above.',
-    ],
-    visual: <TierRoster />,
-    action: { label: 'Open the tool catalogue', to: '/mine/tools' },
-  },
-  {
-    id: 'capacity',
-    short: 'Capacity calculation',
-    title: 'Tool capacity + referral capacity = total capacity',
-    lede:
-      'Your mining capacity is one figure: the hourly rate this account produces while mining is live. It is the sum of the tools you own and one bonus for each qualified referral.',
-    points: [
-      `Tools alone reach ${gbpHour(C.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}.`,
-      `A qualified referral adds ${gbpHour(C.REFERRAL_BONUS_GBP_PER_HOUR)}, up to ${C.MAX_QUALIFIED_REFERRALS} qualified referrals (${gbpHour(C.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}).`,
-      `The campaign maximum is ${gbpHour(C.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} per hour.`,
-      'A referral qualifies only when the account it refers genuinely starts mining; qualification is decided by the backend, and capacity never applies retroactively to hours that already accrued.',
-    ],
-    visual: <CapacityArithmetic />,
-    action: { label: 'Open referrals', to: '/mine/referrals' },
-  },
-  {
-    id: 'referrals',
-    short: 'Referral qualification',
-    title: 'A referral adds capacity only once it qualifies',
-    lede:
-      'Referral capacity is not awarded for a sign-up. It is awarded when the referred account genuinely starts mining, and the backend decides that — the console only reports the count.',
-    points: [
-      `Each qualified referral adds ${gbpHour(C.REFERRAL_BONUS_GBP_PER_HOUR)}, up to ${C.MAX_QUALIFIED_REFERRALS} qualified referrals.`,
-      'Qualification is never retroactive: hours that already accrued are not recalculated when a referral qualifies.',
-      'Until a referral qualifies it contributes nothing to the hourly rate — a pending referral is a promise about a future state, not a figure to add up.',
-    ],
-    visual: <ReferralLadder />,
-    action: { label: 'Open referrals', to: '/mine/referrals' },
-  },
-  {
-    id: 'campaign',
-    short: 'Campaign timeline',
-    title: 'Start, mining, end, settlement, payout',
-    lede:
-      'The campaign has five states and they happen in this order. Accrual only happens in one of them, and the campaign end is a fixed date rather than a decision.',
-    visual: <CampaignChain />,
-  },
-  {
-    id: 'purchases',
-    short: 'Purchases',
-    title: 'Buying a tool with BNB',
-    lede: `The price is fixed in GBP. Between the price and the tool there are four steps: a live quote, a BNB Smart Chain payment, on-chain verification, and activation.`,
-    points: [
-      'The purchase is bound to the paying wallet before anything is signed, so only that wallet can complete it.',
-      'A wrong network, an underpayment or an expired quote does not activate a tool — the verification simply does not pass, and the purchase stays visible as unresolved.',
-      `A quote holds its BNB amount for ${C.QUOTE_EXPIRATION_MINUTES} minutes, so the amount cannot drift while the payment is signed.`,
-    ],
-    visual: <FlowRail steps={PAYMENT_STEPS} label="How a tool purchase is priced, paid and verified" />,
-    action: { label: 'Read the purchase terms', to: '/mine/purchase-terms' },
-  },
-  {
-    id: 'verification',
-    short: 'BNB payment verification',
-    title: 'What on-chain verification checks',
-    lede:
-      'A transaction existing is not the same as a purchase activating. The backend verifies the payment it was sent against the quote it issued, and only a payment that passes every check activates a tool.',
-    points: [
-      'Verification is the backend’s, against on-chain data — a purchase stays unresolved in the console until the checks pass, and is never marked active early.',
-      'A failed check is not a lost order: the purchase stays visible against the account so it can be resolved rather than disappearing.',
-    ],
-    visual: <PaymentChecks />,
-    action: { label: 'Open the tool catalogue', to: '/mine/tools' },
-  },
-  {
-    id: 'earnings',
-    short: 'Earnings',
-    title: 'How capacity becomes a balance',
-    lede:
-      'Accrual is produced by capacity, banked by the backend, and reported back to the console. Campaign accounting is displayed in GBP at every point before payout.',
-    points: [
-      'The console is a view of the balance, never its source: the figure you see is the figure the backend reports.',
-      'Accrued is not withdrawable. It becomes payable only when settlement finalises it after the campaign ends.',
-    ],
-    visual: <FlowRail steps={ACCRUAL_STEPS} label="How accrual becomes a balance" />,
-    action: { label: 'Open the dashboard', to: '/mine/dashboard' },
-  },
-  {
-    id: 'settlement',
-    short: 'Settlement',
-    title: 'Settlement changes the denomination, once',
-    lede:
-      'Accrual and settlement are denominated in GBP. Payout is denominated in BNB. Settlement is the single point where the unit changes, and the two are never added together.',
-    points: [
-      'When mining ends, accrual stops and the backend finalises the balance. That settled figure is the payable one.',
-      'A payout request is reviewed before payment, and one request is reviewed at a time.',
-    ],
-    visual: (
-      <StatementPanel
-        steps={[
-          {
-            id: 'accrued',
-            glyph: 'accrue',
-            name: 'Accrued',
-            unit: 'GBP',
-            note: 'Produced hourly by operating capacity while the campaign is live. Recorded server-side as it happens.',
-          },
-          {
-            id: 'settled',
-            glyph: 'settle',
-            name: 'Settled',
-            unit: 'GBP',
-            note: 'The campaign ends, accrual stops, and the backend finalises the balance. This figure is the payable one.',
-          },
-          {
-            id: 'reviewed',
-            glyph: 'review',
-            name: 'Reviewed',
-            unit: 'GBP',
-            note: 'A payout request is checked before payment. The requested amount stays in GBP until it is paid.',
-          },
-          {
-            id: 'paid',
-            glyph: 'payout',
-            name: 'Paid',
-            unit: 'BNB',
-            note: 'The settled amount is sent in BNB to the payout wallet configured on the account, with its transaction recorded.',
-            terminal: true,
-          },
-        ]}
-      />
-    ),
-    action: { label: 'Read the campaign terms', to: '/mine/campaign-terms' },
-  },
-  {
-    id: 'payouts',
-    short: 'Payouts',
-    title: 'What a payout request passes through',
-    lede:
-      'A payout is requested against a settled balance and paid to the payout wallet on your account. The states below are the states the backend records — the console only reports them.',
-    points: [
-      'A payout wallet must be set on the account before a settled balance can be paid out.',
-      'One request is reviewed at a time, and the reviewed amount stays denominated in GBP until it is paid.',
-    ],
-    visual: <PayoutStates />,
-    action: { label: 'Open wallet & payouts', to: '/mine/wallet' },
-  },
-  {
-    id: 'account',
-    short: 'Account & wallet',
-    title: 'The account surfaces, by name',
-    lede:
-      'Every figure in the product reads the same backend records, and each of these surfaces is where one part of the account is managed. Nothing here is a separate source of truth.',
-    points: [
-      'The payout wallet is a field on the account. Settlement is paid to it in BNB, and one wallet is set at a time.',
-      'For anything involving a figure, include the record it comes from — every account event is already on the activity ledger.',
-    ],
-    visual: <SupportRoutes />,
-    action: { label: 'Open wallet & payouts', to: '/mine/wallet' },
-  },
-];
-
-/*
- * The section's way into the real surface it describes. Deliberately an anchor,
- * not a button: it navigates, so it should behave like a link (open in a new
- * tab, copy the address, be announced as a link). Its class makes it look like a
- * control because that is what it is here — the alternative, a styled `<div>`
- * with onClick, is exactly how a product starts feeling simulated.
- */
-const SectionAction: React.FC<{ to: string; label: string }> = ({ to, label }) => {
-  const navigate = useNavigate();
-  return (
-    <p className="m-0">
-      <a
-        href={to}
-        className="pse-btn pse-btn--secondary pse-btn--sm"
-        onClick={e => {
-          e.preventDefault();
-          navigate(to);
-        }}
-      >
-        {label}
-      </a>
-    </p>
-  );
-};
-
-/* ═══════════════ THE PLATE ═══════════════ */
-
-/** Past this drag distance (or speed) the sheet is dismissed rather than restored. */
-const DISMISS_DRAG_PX = 96;
-const DISMISS_DRAG_VELOCITY = 0.5; // px per ms
-
 export const PseGuide: React.FC<{
-  /** `onboarding` is the once-after-enrolment walkthrough; `reference` is the console reference. */
-  mode: 'reference' | 'onboarding';
-  /** How this overlay closes. The shell owns it, because it differs by how it was opened. */
+  mode?: 'reference' | 'onboarding';
   onClose: () => void;
-}> = ({ mode, onClose }) => {
-  const navigate = useNavigate();
+}> = ({ mode = 'reference', onClose }) => {
   const { currentUser } = usePSEMineAuth();
-  const [index, setIndex] = React.useState(0);
-  const [finishing, setFinishing] = React.useState(false);
-  const [dragY, setDragY] = React.useState(0);
-  const [dragging, setDragging] = React.useState(false);
-
-  const plateRef = React.useRef<HTMLDivElement | null>(null);
-  const titleRef = React.useRef<HTMLHeadingElement | null>(null);
-  const stageRef = React.useRef<HTMLDivElement | null>(null);
-  const railRef = React.useRef<HTMLElement | null>(null);
-  const restoreFocusRef = React.useRef<HTMLElement | null>(null);
-  const firstRender = React.useRef(true);
-  const drag = React.useRef<{ id: number; startY: number; startT: number } | null>(null);
-
-  const section = sections[index];
-  const isLast = index === sections.length - 1;
   const isOnboarding = mode === 'onboarding';
 
-  /**
-   * Records completion and leaves the plate.
-   *
-   * The write is the account's own field, the one the route guard reads. If it
-   * fails the guard will bring the reader back here — which is the honest
-   * outcome, and the toast says so rather than pretending the walkthrough was
-   * saved.
-   */
-  const complete = React.useCallback(async () => {
+  const [activeId, setActiveId] = useState<string>('campaign');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [finishing, setFinishing] = useState(false);
+
+  // Drag state for mobile bottom-sheet dismiss
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef(0);
+  const plateRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  useScrollLock(true);
+  useEscapeKey(true, onClose);
+
+  // Complete onboarding in Firestore
+  const handleCompleteOnboarding = async () => {
     if (!currentUser) {
-      navigate('/mine/dashboard', { replace: true });
+      onClose();
       return;
     }
     setFinishing(true);
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), { onboardingCompleted: true });
-      toast.success('You’re ready. Welcome to PSEmine.');
-      navigate('/mine/dashboard', { replace: true });
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        onboardingCompleted: true,
+      });
+      toast.success('Welcome to PSEmine!');
+      onClose();
     } catch {
-      toast('Could not record onboarding on your account — you can reopen the guide at any time.');
-      navigate('/mine/dashboard', { replace: true });
+      onClose();
     } finally {
       setFinishing(false);
     }
-  }, [currentUser, navigate]);
+  };
 
-  /* Escape dismisses the reference guide. In onboarding it records completion
-     instead, because dismissing without recording would send the guard straight
-     back to the plate — a loop the reader cannot escape. */
-  const dismiss = React.useCallback(() => {
-    if (isOnboarding) void complete();
-    else onClose();
-  }, [isOnboarding, complete, onClose]);
-
-  useScrollLock(true);
-  useEscapeKey(true, dismiss);
-
-  /**
-   * Focus is placed once, and given back on close.
-   *
-   * The plate takes focus when it opens; the section's heading takes focus as the
-   * section changes, so a screen reader is told what the plate now says instead of
-   * being left at the top of a dialog whose contents changed underneath it. On
-   * close the control that opened the plate is focused again, when it is still in
-   * the document — a dialog that drops focus back to the top of the page has moved
-   * the reader.
-   */
-  React.useEffect(() => {
-    const previous = document.activeElement;
-    restoreFocusRef.current = previous instanceof HTMLElement ? previous : null;
-    plateRef.current?.focus();
-    return () => {
-      const target = restoreFocusRef.current;
-      if (target && target.isConnected) target.focus();
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
-    // The stage scrolls; a new section starts at its top.
-    if (stageRef.current) stageRef.current.scrollTop = 0;
-    titleRef.current?.focus();
-    // The mobile contents strip scrolls the active chip into view.
-    const rail = railRef.current;
-    const active = rail?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (rail && active) {
-      rail.scrollTo({
-        left: Math.max(0, active.offsetLeft - rail.clientWidth / 2 + active.clientWidth / 2),
-        behavior: 'smooth',
-      });
-    }
-  }, [index]);
-
-  /* A light focus trap: Tab cycles the plate's own controls. A dialog that lets
-     focus escape to the console behind it is a dialog with a hole in it. */
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key !== 'Tab') return;
-    const plate = plateRef.current;
-    if (!plate) return;
-    const focusable = Array.from(
-      plate.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  // Build the 8 authoritative topics
+  const SECTIONS: GuideSection[] = useMemo(() => [
+    {
+      id: 'campaign',
+      short: 'Campaign Model',
+      title: '90-Day Mining Campaign Architecture',
+      tag: 'Core Rules',
+      keywords: 'campaign 90 days gbp bnb bsc bscscan duration rules',
+      summary: 'PSEmine operates as a fixed 90-day cloud mining campaign denominated in British Pounds (GBP) and settled on Binance Smart Chain (BEP-20 BNB).',
+      details: [
+        'Campaign Duration: Exactly 90 calendar days from official launch.',
+        'Denomination: Equipment prices and hourly mining yields are locked in GBP.',
+        'Non-Custodial Payout: At Day 90 conclusion, accrued earnings are automatically converted and disbursed to your registered BEP-20 wallet.',
+        'Transparent Ledger: Every block, hardware activation, and yield accrual is verified on-chain.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 font-mono uppercase block">Campaign Term</span>
+              <span className="text-base font-bold text-slate-100 font-mono mt-0.5 block">{C.CAMPAIGN_DURATION_DAYS} Days</span>
+            </div>
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 font-mono uppercase block">Base Currency</span>
+              <span className="text-base font-bold text-slate-100 font-mono mt-0.5 block">GBP (£)</span>
+            </div>
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 font-mono uppercase block">Settlement Asset</span>
+              <span className="text-base font-bold text-amber-400 font-mono mt-0.5 block">BEP-20 BNB</span>
+            </div>
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 font-mono uppercase block">Yield Accrual</span>
+              <span className="text-base font-bold text-emerald-400 font-mono mt-0.5 block">Hourly 24/7</span>
+            </div>
+          </div>
+        </div>
       ),
-    ).filter(el => el.offsetParent !== null);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    } else if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
+      action: { to: '/mine/dashboard', label: 'View Mining Dashboard' }
+    },
+    {
+      id: 'tools',
+      short: 'Miners Fleet',
+      title: 'Mining Hardware Fleet & Tier Limits',
+      tag: 'Hardware',
+      keywords: 'starter builder advanced elite miners tools hardware prices duty',
+      summary: 'PSEmine features four bespoke tiers of mining rigs engineered with strict account caps to ensure equitable distribution across the campaign pool.',
+      details: [
+        'Starter Miner (£10): Up to 5 units, 24/7 continuous duty cycle with zero maintenance.',
+        'Builder Miner (£50): Up to 4 units, 24-hour duty sessions with automated 4-hour restart cooldown.',
+        'Advanced Miner (£200): Up to 3 units, high-yield mining with 24-hour duty sessions.',
+        'Elite Miner (£1,000): Up to 2 units, enterprise mining tier delivering maximum hourly yield (£2.00/hr).'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {TOOLS.map(t => (
+              <div key={t.id} className="p-2.5 bg-slate-900/90 rounded border border-slate-800 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs font-bold text-slate-100 block">{t.name}</span>
+                  <span className="text-xs font-mono text-amber-400 font-semibold">{gbp(t.purchasePriceGBP)}</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-800/80">
+                  <div className="text-[11px] text-emerald-400 font-mono font-bold">+{gbpHour(t.hourlyRateGBP)}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">Cap: {t.maxPerUser} units</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/tools', label: 'Deploy Mining Equipment' }
+    },
+    {
+      id: 'capacity',
+      short: 'Capacity Yield',
+      title: 'Net Capacity Arithmetic & Earnings Formula',
+      tag: 'Economics',
+      keywords: 'capacity formula yield rate hourly arithmetic ceiling',
+      summary: 'Your total mining rate is the exact sum of your active hardware equipment yield plus referral bonuses, credited into your balance every single hour.',
+      details: [
+        'Hardware Rate: Combined hourly rate of all active units currently within duty cycles.',
+        'Referral Bonus: +£0.020/hr per qualified friend active in the campaign (up to 10 friends = +£0.20/hr).',
+        'Theoretical Ceiling: Maximum possible account speed is £5.645/hr (£5.445 equipment + £0.20 referrals).',
+        'Continuous Balance Increment: Accruals reflect in real time on the dashboard with zero delay.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="p-3 bg-slate-900/90 rounded border border-slate-800">
+            <div className="text-xs font-mono text-cyan-400 mb-2 font-semibold">FORMULA ARCHITECTURE</div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-xs font-mono">
+              <div className="p-2 bg-slate-800/80 rounded w-full sm:w-auto">
+                <span className="text-slate-400 block text-[10px]">HARDWARE FLEET</span>
+                <span className="text-amber-400 font-bold">£0.015 - £5.445/hr</span>
+              </div>
+              <span className="text-slate-500 font-bold text-sm">+</span>
+              <div className="p-2 bg-slate-800/80 rounded w-full sm:w-auto">
+                <span className="text-slate-400 block text-[10px]">REFERRAL BONUS</span>
+                <span className="text-cyan-400 font-bold">Up to +£0.200/hr</span>
+              </div>
+              <span className="text-slate-500 font-bold text-sm">=</span>
+              <div className="p-2 bg-emerald-950/40 border border-emerald-900/60 rounded w-full sm:w-auto">
+                <span className="text-slate-400 block text-[10px]">TOTAL SPEED</span>
+                <span className="text-emerald-400 font-bold">Net Hourly Yield</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/dashboard', label: 'Check Your Speed' }
+    },
+    {
+      id: 'referrals',
+      short: 'Referral Bonus',
+      title: '5-Stage Referral Qualification Ladder',
+      tag: 'Referrals',
+      keywords: 'referral qualified bonus friends stages ladder',
+      summary: 'Invite friends to earn permanent hourly capacity bonuses. Referrals qualify through an automated 5-stage verification ladder to ensure platform integrity.',
+      details: [
+        'Stage 1 (Invited): Friend signs up using your unique referral code or link.',
+        'Stage 2 (Registered): Friend verifies email address and gains mining console access.',
+        'Stage 3 (Deployed): Friend deploys their first mining hardware unit using BEP-20 BNB.',
+        'Stage 4 (Active): Friend has an active miner running its duty cycle.',
+        'Stage 5 (Qualified): +£0.020/hr capacity booster is permanently granted to your account.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="space-y-1.5">
+            {[
+              { step: '1', title: 'Invited', desc: 'Friend joins with your referral link' },
+              { step: '2', title: 'Registered', desc: 'Email verified & identity confirmed' },
+              { step: '3', title: 'Deployed', desc: 'Deploys first mining hardware rig' },
+              { step: '4', title: 'Active', desc: 'Miner begins hourly duty session' },
+              { step: '5', title: 'Qualified (+£0.02/hr)', desc: 'Permanent booster active on your account', highlight: true }
+            ].map((s) => (
+              <div
+                key={s.step}
+                className={`flex items-center gap-2.5 p-2 rounded text-xs ${
+                  s.highlight
+                    ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                    : 'bg-slate-900/60 border border-slate-800/80 text-slate-300'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[11px] font-bold shrink-0 ${
+                  s.highlight ? 'bg-emerald-500 text-black' : 'bg-slate-800 text-slate-300'
+                }`}>
+                  {s.step}
+                </span>
+                <span className="font-semibold text-slate-200">{s.title}:</span>
+                <span className="text-slate-400 text-[11px]">{s.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/referrals', label: 'Invite Friends & View Team' }
+    },
+    {
+      id: 'timeline',
+      short: 'Timeline & Payout',
+      title: 'Authoritative Campaign Timeline & Milestones',
+      tag: 'Schedule',
+      keywords: 'timeline schedule day 1 day 90 settlement milestones dates',
+      summary: 'The campaign follows a transparent 90-day progression from initial launch to automated smart contract distribution on Day 90.',
+      details: [
+        'Days 1–89 (Live Accrual): Continuous mining, tool deployments, duty maintenance, and live hourly yield accumulation.',
+        'Day 90 (Cutoff & Audit): Final mining snapshot is recorded on-chain, verifying total accrued GBP balance.',
+        'Settlement (Distribution): Accrued earnings are automatically converted to BNB and disbursed to your registered BEP-20 wallet.',
+        'No early exit fees or withdrawal penalties: Every eligible penny mined is disbursed in full.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="p-3 bg-slate-900/80 rounded border border-slate-800">
+            <div className="flex justify-between text-xs font-mono text-slate-300 mb-2">
+              <span className="font-bold text-amber-400">Day 1: Launch</span>
+              <span className="font-bold text-cyan-400">Day 1-89: Mining</span>
+              <span className="font-bold text-emerald-400">Day 90: Settlement</span>
+            </div>
+            <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
+              <div className="w-[10%] bg-amber-400" />
+              <div className="w-[80%] bg-cyan-400" />
+              <div className="w-[10%] bg-emerald-400" />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2.5">
+              Settlement executes non-custodially directly through the Binance Smart Chain disbursement contract.
+            </p>
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/dashboard', label: 'View Timeline on Dashboard' }
+    },
+    {
+      id: 'payment',
+      short: 'Payment Flow',
+      title: 'BEP-20 BNB Payment & Instant Activation',
+      tag: 'Blockchain',
+      keywords: 'payment bnb bep20 transaction hash activation bsc',
+      summary: 'Tool purchases execute directly via Binance Smart Chain with automated on-chain block verification and instant hardware activation.',
+      details: [
+        'Select Miner: Choose your preferred tier on the Tools page.',
+        'Send BNB: Transfer the exact BNB amount calculated via real-time CoinGecko oracle to the campaign deposit address.',
+        'Submit Hash: Input the transaction hash for immediate verification.',
+        'Instant Activation: The smart contract daemon confirms block finality and activates your equipment within ~15 seconds.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-2 bg-slate-900/80 rounded border border-slate-800">
+              <span className="w-5 h-5 rounded-full bg-slate-800 text-amber-400 font-mono font-bold mx-auto mb-1 flex items-center justify-center">1</span>
+              <span className="font-semibold block text-slate-200">Select Rig</span>
+              <span className="text-[10px] text-slate-400">Starter to Elite</span>
+            </div>
+            <div className="p-2 bg-slate-900/80 rounded border border-slate-800">
+              <span className="w-5 h-5 rounded-full bg-slate-800 text-amber-400 font-mono font-bold mx-auto mb-1 flex items-center justify-center">2</span>
+              <span className="font-semibold block text-slate-200">Send BNB</span>
+              <span className="text-[10px] text-slate-400">BEP-20 Transfer</span>
+            </div>
+            <div className="p-2 bg-slate-900/80 rounded border border-slate-800">
+              <span className="w-5 h-5 rounded-full bg-slate-800 text-amber-400 font-mono font-bold mx-auto mb-1 flex items-center justify-center">3</span>
+              <span className="font-semibold block text-slate-200">Verify Tx</span>
+              <span className="text-[10px] text-slate-400">15s Confirmation</span>
+            </div>
+            <div className="p-2 bg-slate-900/80 rounded border border-emerald-900/50 bg-emerald-950/20">
+              <span className="w-5 h-5 rounded-full bg-emerald-500 text-black font-mono font-bold mx-auto mb-1 flex items-center justify-center">✓</span>
+              <span className="font-semibold block text-emerald-300">Mine Active</span>
+              <span className="text-[10px] text-emerald-400">Yield Credited</span>
+            </div>
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/tools', label: 'Explore Tools Marketplace' }
+    },
+    {
+      id: 'duty',
+      short: 'Duty Cycles',
+      title: 'Duty Cycles, Maintenance & Continuous Mining',
+      tag: 'Operations',
+      keywords: 'duty cycles continuous session restart maintenance hours',
+      summary: 'Understand the operating mechanics of continuous vs session-based mining rigs to maximize your 24/7 uptime.',
+      details: [
+        'Continuous Mining (Starter): Runs 24 hours a day, 7 days a week with zero downtime and no restart button required.',
+        'Session Duty (Builder, Advanced, Elite): Operates on 24-hour active cycles followed by a 4-hour restart maintenance window.',
+        'Simple 1-Click Restart: When a session completes, simply click "Restart Miner" on your dashboard to re-engage mining.',
+        'Zero Penalties: Paused rigs do not lose past accrued balances; they simply pause hourly increments until restarted.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800">
+              <span className="text-emerald-400 font-bold font-mono text-xs block mb-1">
+                STARTER MINER (24/7 AUTO)
+              </span>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                100% automated duty cycle. Never stops mining. Ideal for hands-off passive accumulation throughout the 90 days.
+              </p>
+            </div>
+            <div className="p-3 bg-slate-900/80 rounded border border-slate-800">
+              <span className="text-cyan-400 font-bold font-mono text-xs block mb-1">
+                BUILDER, ADVANCED, ELITE
+              </span>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                24-hour mining shifts. Requires a quick free "Restart" button click every day to keep hardware operating at peak efficiency.
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/dashboard', label: 'Inspect Hardware Fleet' }
+    },
+    {
+      id: 'settlement',
+      short: 'Settlement & Wallet',
+      title: 'Day 90 Automated Settlement & BEP-20 Wallet',
+      tag: 'Payouts',
+      keywords: 'settlement wallet bnb bep20 address withdrawal day 90',
+      summary: 'Ensure your BEP-20 wallet address is correctly configured in your Wallet tab before Day 90 to receive automated settlement without interruption.',
+      details: [
+        'Wallet Compatibility: Use MetaMask, Trust Wallet, Binance Web3 Wallet, or any wallet supporting Binance Smart Chain.',
+        'Accrued Balance vs Cleared: Accrued earnings grow hourly and clear at Day 90. Cleared balances can be withdrawn at any time.',
+        'Zero Hidden Fees: You receive 100% of your mined earnings based on verified campaign telemetry.',
+        'Permanent Ledger: Full transaction audit records remain permanently inspectable in your Activity tab.'
+      ],
+      visual: (
+        <div className="pse-guide-diagram-box">
+          <div className="p-3 bg-slate-900/80 rounded border border-slate-800 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0 font-bold">
+                BNB
+              </div>
+              <div>
+                <span className="font-semibold text-slate-100 block">BEP-20 Disbursement Contract</span>
+                <span className="text-[11px] text-slate-400">Direct transfer to your personal non-custodial address</span>
+              </div>
+            </div>
+            <span className="text-xs font-mono text-emerald-400 font-bold shrink-0">100% Payout</span>
+          </div>
+        </div>
+      ),
+      action: { to: '/mine/wallet', label: 'Configure Payout Wallet' }
     }
-  };
+  ], []);
 
-  /* ── The drag-to-dismiss gesture (bottom sheet only) ──────────────────────
-   * The grip is not rendered above the sheet breakpoint, so this gesture cannot
-   * fire on the centred plate — the responsive form is decided in CSS, and the
-   * behaviour follows it. A short drag springs back; a long one, or a fast flick,
-   * dismisses. The sheet tracks the finger while the drag is in progress, because
-   * a gesture with no live response is a gesture the reader will not trust. */
-  const onGripDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    drag.current = { id: event.pointerId, startY: event.clientY, startT: Date.now() };
+  // Filter sections by search query
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return SECTIONS;
+    const q = searchQuery.toLowerCase();
+    return SECTIONS.filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      s.short.toLowerCase().includes(q) ||
+      s.keywords.toLowerCase().includes(q) ||
+      s.summary.toLowerCase().includes(q)
+    );
+  }, [SECTIONS, searchQuery]);
+
+  // Active section
+  const currentSection = useMemo(() => {
+    return SECTIONS.find(s => s.id === activeId) ?? SECTIONS[0];
+  }, [SECTIONS, activeId]);
+
+  const currentIndex = SECTIONS.findIndex(s => s.id === activeId);
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === SECTIONS.length - 1;
+
+  // Touch gesture handlers for mobile bottom-sheet dismiss
+  const onGripDown = (e: React.PointerEvent) => {
     setDragging(true);
+    dragStart.current = e.clientY;
   };
 
-  const onGripMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state || state.id !== event.pointerId) return;
-    setDragY(Math.max(0, event.clientY - state.startY));
+  const onGripMove = (e: React.PointerEvent) => {
+    if (!dragging) return;
+    const dy = Math.max(0, e.clientY - dragStart.current);
+    setDragY(dy);
   };
 
-  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state || state.id !== event.pointerId) return;
-    drag.current = null;
+  const onGripUp = () => {
+    if (!dragging) return;
     setDragging(false);
-    const distance = Math.max(0, event.clientY - state.startY);
-    const velocity = distance / Math.max(1, Date.now() - state.startT);
+    if (dragY > 120) {
+      onClose();
+    }
     setDragY(0);
-    if (distance > DISMISS_DRAG_PX || velocity > DISMISS_DRAG_VELOCITY) dismiss();
   };
 
   return (
     <div
-      className="pse-guide-scrim"
-      onClick={event => { if (event.target === event.currentTarget) dismiss(); }}
+      className="pse-guide-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4"
+      onClick={onClose}
       role="presentation"
     >
       <div
         ref={plateRef}
-        tabIndex={-1}
-        className="pse-guide"
+        className="pse-guide-overlay w-full max-w-4xl bg-slate-950 border border-slate-800 sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-200"
+        style={{
+          maxHeight: '92dvh',
+          height: 'min(820px, 92dvh)',
+          transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+        }}
+        onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="pse-guide-title"
-        data-dragging={dragging ? 'true' : undefined}
-        style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
-        onKeyDown={onKeyDown}
       >
-        {/* A touch hint, not a control: the Close button is the operable dismissal
-            and the swipe is an addition to it, never the only way out. */}
+        {/* Mobile Swipe-Down Grip Indicator */}
         <div
-          className="pse-guide-grip"
+          className="pse-guide-grip sm:hidden flex items-center justify-center py-2 cursor-grab"
           onPointerDown={onGripDown}
           onPointerMove={onGripMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          aria-hidden="true"
+          onPointerUp={onGripUp}
+          onPointerCancel={onGripUp}
         >
-          <span className="pse-guide-grip-bar" />
+          <div className="w-10 h-1 bg-slate-700 rounded-full" />
         </div>
 
-        <header className="pse-guide-head">
-          <span className="pse-guide-id">
-            <span className="pse-guide-name">
-              {isOnboarding ? 'PSEmine onboarding' : 'PSEmine guide'}
+        {/* TOP BAR: Safe-area-aware Header */}
+        <header className="pse-guide-header px-4 sm:px-6 py-3.5 border-b border-slate-800/90 flex items-center justify-between gap-3 bg-slate-900/60 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-md bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 shrink-0">
+              <Zap size={15} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-100 truncate">
+                {isOnboarding ? 'PSEmine Onboarding Walkthrough' : 'PSEmine Campaign & Operating Guide'}
+              </h2>
+              <span className="text-[11px] text-slate-400 font-mono block">
+                Official Operating Manual · 90-Day Campaign
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono hidden md:inline">
+              Topic {currentIndex + 1} of {SECTIONS.length}
             </span>
-          </span>
-          {/* Position, not progress: the topics are a table of contents the rail
-              jumps into, not a sequence to be completed. */}
-          <span className="pse-guide-progress">
-            Topic {index + 1} of {sections.length}
-          </span>
-          {isOnboarding ? (
-            <PseButton variant="secondary" size="sm" onClick={dismiss} disabled={finishing}>
-              Skip guide
-            </PseButton>
-          ) : (
-            <button
-              type="button"
-              className="pse-guide-close-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 transition-colors text-xs font-semibold cursor-pointer"
-              onClick={dismiss}
-              aria-label="Close guide"
-            >
-              <span>Close</span>
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
+
+            {isOnboarding ? (
+              <PseButton variant="secondary" size="sm" onClick={onClose} disabled={finishing}>
+                Skip Tour
+              </PseButton>
+            ) : (
+              <button
+                type="button"
+                className="pse-guide-close-btn p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-700"
+                onClick={onClose}
+                aria-label="Close guide"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </header>
 
-        <div className="pse-guide-body">
-          {/* One contents list in the DOM. Below the plate breakpoint it is a
-              horizontal strip of chips above the stage; above it, the left rail. */}
-          <nav className="pse-guide-rail" aria-label="Guide contents" ref={railRef}>
-            <ol className="pse-guide-rail-list">
-              {sections.map((s, i) => (
-                <li key={s.id}>
+        {/* MAIN BODY: Responsive 2-Pane Navigation & Stage */}
+        <div className="pse-guide-body-grid flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0 overflow-hidden">
+          {/* LEFT RAIL / MOBILE NAV: Topics List & Search */}
+          <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-slate-800/80 bg-slate-900/40 flex flex-col min-h-0">
+            {/* Quick Filter Search */}
+            <div className="p-3 border-b border-slate-800/80 shrink-0">
+              <div className="relative">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search topics (e.g. tools, bnb, duty)..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-900/90 border border-slate-800 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400/60 font-mono"
+                />
+                {searchQuery && (
                   <button
                     type="button"
-                    className="pse-guide-rail-item"
-                    aria-current={i === index}
-                    data-done={i < index ? 'true' : 'false'}
-                    onClick={() => setIndex(i)}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
                   >
-                    <span className="pse-guide-rail-num" aria-hidden="true">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="pse-guide-rail-text">{s.short}</span>
+                    <X size={12} />
                   </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
+                )}
+              </div>
+            </div>
 
-          <div className="pse-guide-stage" ref={stageRef}>
-            <div className="pse-guide-visual">{section.visual}</div>
+            {/* Direct Jump Topic List */}
+            <nav className="pse-guide-nav-scroll flex-1 overflow-x-auto md:overflow-y-auto p-2 flex md:flex-col gap-1.5 scrollbar-thin">
+              {filteredSections.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400">
+                  No matching topics found.
+                </div>
+              ) : (
+                filteredSections.map((s, idx) => {
+                  const isActive = s.id === activeId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`pse-guide-tab px-3 py-2 rounded-lg text-left transition-all flex items-center justify-between gap-2 shrink-0 md:shrink md:w-full cursor-pointer text-xs ${
+                        isActive
+                          ? 'bg-amber-400 text-slate-950 font-bold shadow'
+                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
+                      }`}
+                      onClick={() => setActiveId(s.id)}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={`font-mono text-[10px] ${isActive ? 'text-black/70' : 'text-slate-400'}`}>
+                          0{idx + 1}
+                        </span>
+                        <span className="truncate">{s.short}</span>
+                      </div>
+                      <span className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded hidden sm:inline ${
+                        isActive ? 'bg-black/20 text-black' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {s.tag}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </nav>
+          </div>
 
-            <h2 className="pse-guide-title" id="pse-guide-title" ref={titleRef} tabIndex={-1}>
-              {section.title}
-            </h2>
-            <p className="pse-guide-lede">{section.lede}</p>
+          {/* RIGHT PANE: Selected Topic Content, Diagram, Details, & Action */}
+          <div
+            ref={stageRef}
+            className="md:col-span-8 p-4 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 overscroll-contain"
+          >
+            <div className="space-y-4">
+              {/* Topic Header */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[11px] font-mono text-amber-400 uppercase tracking-wider font-semibold">
+                    {currentSection.tag}
+                  </span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    Topic 0{currentIndex + 1}
+                  </span>
+                </div>
+                <h3 id="pse-guide-title" className="text-lg sm:text-xl font-bold text-slate-100 leading-snug">
+                  {currentSection.title}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
+                  {currentSection.summary}
+                </p>
+              </div>
 
-            {section.points && section.points.length > 0 && (
-              <ul className="pse-guide-points">
-                {section.points.map(point => (
-                  <li key={point} className="pse-guide-point">
-                    <span className="pse-guide-point-glyph" aria-hidden="true">
-                      <PseGlyph name="audit" size={14} />
-                    </span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
+              {/* Bespoke Interactive Diagram */}
+              {currentSection.visual}
+
+              {/* Bulleted Technical Facts */}
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block font-mono">
+                  Key Rules & Specifications
+                </span>
+                <ul className="space-y-2 text-xs text-slate-300">
+                  {currentSection.details.map((point, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Direct Action Link for this Topic */}
+            {currentSection.action && (
+              <div className="pt-3 border-t border-slate-800/80 flex justify-end">
+                <Link
+                  to={currentSection.action.to}
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold transition-colors border border-slate-700"
+                >
+                  <span>{currentSection.action.label}</span>
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
             )}
-
-            {section.action && <SectionAction to={section.action.to} label={section.action.label} />}
           </div>
         </div>
 
-        {/* THE REFERENCE HAS NO NEXT BUTTON.
-          *
-          * The topics are a table of contents, so stepping through them in order
-          * is one option among eleven others and has no claim to the primary
-          * slot. What the foot says is which topic is open and how to leave the
-          * plate — the close control sits at the bottom edge, where a thumb is on
-          * a phone, rather than only at the top of the sheet. The onboarding
-          * walkthrough keeps its stepping, because there the order IS the
-          * content: it is a tour that records completion, not a reference. */}
-        <footer className="pse-guide-foot">
-          <span className="pse-guide-foot-note">
-            {isOnboarding
-              ? `Shown once · topic ${index + 1} of ${sections.length}`
-              : `${section.short} · ${index + 1} of ${sections.length}`}
-          </span>
-          {isOnboarding ? (
-            <>
-              <PseButton
-                variant="secondary"
-                onClick={() => setIndex(i => Math.max(0, i - 1))}
-                disabled={index === 0}
-              >
-                Back
-              </PseButton>
-              {isLast ? (
-                <PseButton onClick={() => void complete()} busy={finishing}>
-                  Finish and open the console
+        {/* BOTTOM BAR: Safe-area-aware Footer with Navigation Controls */}
+        <footer className="pse-guide-footer px-4 sm:px-6 py-3 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 shrink-0">
+          <div className="text-xs text-slate-400 font-mono">
+            {currentSection.short} · {currentIndex + 1} of {SECTIONS.length}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isOnboarding ? (
+              <>
+                <PseButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setActiveId(SECTIONS[Math.max(0, currentIndex - 1)].id)}
+                  disabled={isFirst}
+                >
+                  Back
                 </PseButton>
-              ) : (
-                <PseButton onClick={() => setIndex(i => Math.min(sections.length - 1, i + 1))}>
+
+                {isLast ? (
+                  <PseButton
+                    size="sm"
+                    onClick={() => void handleCompleteOnboarding()}
+                    busy={finishing}
+                  >
+                    Finish and Open Dashboard
+                  </PseButton>
+                ) : (
+                  <PseButton
+                    size="sm"
+                    onClick={() => setActiveId(SECTIONS[Math.min(SECTIONS.length - 1, currentIndex + 1)].id)}
+                  >
+                    Next Topic
+                  </PseButton>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  onClick={() => setActiveId(SECTIONS[Math.max(0, currentIndex - 1)].id)}
+                  disabled={isFirst}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  onClick={() => setActiveId(SECTIONS[Math.min(SECTIONS.length - 1, currentIndex + 1)].id)}
+                  disabled={isLast}
+                >
                   Next
+                </button>
+                <PseButton variant="secondary" size="sm" onClick={onClose}>
+                  Close Guide
                 </PseButton>
-              )}
-            </>
-          ) : (
-            <PseButton variant="secondary" onClick={onClose}>
-              Close guide
-            </PseButton>
-          )}
+              </>
+            )}
+          </div>
         </footer>
       </div>
     </div>

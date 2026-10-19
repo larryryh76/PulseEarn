@@ -1,6 +1,6 @@
 import '../../styles/psemine-dashboard.css';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
@@ -21,6 +21,7 @@ import {
 // Presentational helpers
 import MiniSparkline from '../../components/psemine/MiniSparkline';
 import CapacityRing from '../../components/psemine/CapacityRing';
+import { PseGuide } from '../../components/psemine/PseGuide';
 
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
@@ -40,6 +41,7 @@ const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOr
 
 export const PSEMineDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
   const { maintainTool } = usePSEMine();
   const availableStr = useAvailableGBP();
@@ -91,9 +93,11 @@ export const PSEMineDashboard: React.FC = () => {
   };
 
   const openGuide = () => {
-    // open as overlay without navigating away (query param convention)
     navigate({ pathname: window.location.pathname, search: '?guide=1' });
   };
+
+  const showGuide = new URLSearchParams(location.search).get('guide') === '1';
+  const closeGuide = () => navigate({ pathname: location.pathname, search: '' });
 
   if (loading) {
     return (
@@ -151,7 +155,6 @@ export const PSEMineDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Hero: primary balance + compact metrics */}
       <div className="pse-hero-grid">
         <section className="pse-hero-left" aria-label="Primary balance and status">
           <div className="pse-balance-card">
@@ -195,7 +198,6 @@ export const PSEMineDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Compact campaign timeline */}
           <div className="pse-timeline-card" aria-hidden>
             <div className="pse-timeline-head">
               <div className="pse-kicker">Campaign</div>
@@ -206,7 +208,6 @@ export const PSEMineDashboard: React.FC = () => {
               <div className="pse-timeline-pos" style={{ left: `${campaignProgress}%` }} aria-hidden />
             </div>
           </div>
-
         </section>
 
         <aside className="pse-hero-right" aria-label="Equipment and settlement">
@@ -265,7 +266,7 @@ export const PSEMineDashboard: React.FC = () => {
         </aside>
       </div>
 
-      {/* Keep the ConsoleFoot minimal — Footer duplicates are handled in shell */}
+      {showGuide && <PseGuide mode="reference" onClose={closeGuide} />}
     </div>
   );
 };

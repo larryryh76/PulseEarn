@@ -21,7 +21,7 @@ import {
 // Presentational helpers
 import MiniSparkline from '../../components/psemine/MiniSparkline';
 import CapacityRing from '../../components/psemine/CapacityRing';
-import { PseGuide } from '../../components/psemine/PseGuide';
+import PseGuide from '../../components/psemine/PseGuide';
 
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;

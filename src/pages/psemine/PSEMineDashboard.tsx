@@ -18,6 +18,10 @@ import {
   AlertTriangle, RefreshCw, Layers, ChevronRight, HelpCircle
 } from 'lucide-react';
 
+// Presentational helpers
+import MiniSparkline from '../../components/psemine/MiniSparkline';
+import CapacityRing from '../../components/psemine/CapacityRing';
+
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
   return LOCKED_PSEMINE_TOOLS[id] || null;
@@ -152,12 +156,7 @@ export const PSEMineDashboard: React.FC = () => {
         </div>
 
         <div className="pse-status-strip-right">
-          <div className="pse-status-rate">
-            <span className="pse-status-rate-label">Capacity</span>
-            <span className="pse-status-rate-val font-mono">
-              +{gbpHour(totalCapacity)}
-            </span>
-          </div>
+          <CapacityRing value={totalCapacity} label={`+${gbpHour(totalCapacity)}`} />
           <button
             type="button"
             className="pse-status-guide-link"
@@ -196,6 +195,11 @@ export const PSEMineDashboard: React.FC = () => {
                 {user.accruedGBP.toFixed(2)}
               </span>
               <span className="pse-balance-iso font-mono">GBP</span>
+            </div>
+
+            {/* small sparkline for visual trend */}
+            <div style={{marginBottom:12}}>
+              <MiniSparkline />
             </div>
 
             {/* Financial Distinction Notice */}
@@ -571,6 +575,8 @@ export const PSEMineDashboard: React.FC = () => {
 
       {/* ═══ SECTION G: RECENT ACTIVITY LEDGER ═══ */}
       <RecentActivitySection />
+
+      <footer className="pse-foot">PulseEarn © 2026</footer>
     </div>
   );
 };
@@ -594,4 +600,71 @@ const RecentActivitySection: React.FC = () => {
             onClick={() => void refreshFeed('activities')}
             disabled={refreshing}
             aria-label="Refresh activity feed"
-You're updating an existing file; please provide the `sha` of the file being replaced.
+          >
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            <span>{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+          </button>
+        </div>
+      </div>
+
+      {feedErrors.activities && (
+        <PseFeedNotice
+          message="Activity feed could not be refreshed from the ledger."
+          onRetry={() => void refreshFeed('activities')}
+          retrying={refreshing}
+        />
+      )}
+
+      {recent.length === 0 ? (
+        <PseEmptyNote glyph="audit" title="No transaction records yet">
+          Your mining rewards, hardware deployments, and referral bonuses will be logged here in chronological order.
+        </PseEmptyNote>
+      ) : (
+        <div className="pse-activity-table-box">
+          <div className="pse-activity-list">
+            {recent.map(a => {
+              const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+              const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+              const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+
+              return (
+                <div className="pse-activity-item" key={a.id}>
+                  <div className="pse-activity-info">
+                    <span className="pse-activity-title font-medium text-slate-200">
+                      {a.title || 'Account event'}
+                    </span>
+                    <span className="pse-activity-meta text-xs text-slate-400">
+                      {a.description ? `${a.description} · ` : ''}{timeAgo(a.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="pse-activity-amount font-mono">
+                    {displayAmount !== null && displayAmount !== 0 ? (
+                      <span className={displayAmount > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-300'}>
+                        {displayAmount > 0 ? '+' : '−'}{gbp(Math.abs(displayAmount))}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 text-xs">Event Recorded</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pse-activity-footer">
+            <Link to="/mine/activity" className="pse-link flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-medium">
+              <span>View Full Activity Ledger</span>
+              <ArrowUpRight size={13} />
+            </Link>
+            <span className="text-slate-500 font-mono text-[11px]">
+              Cryptographically verified
+            </span>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
+export default PSEMineDashboard;

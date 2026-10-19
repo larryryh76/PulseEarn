@@ -1,90 +1,107 @@
-/* Revised dashboard styles: compact fintech layout, mobile-first. */
-:root {
-  --pse-canvas: #0f1116;
-  --pse-surface: #121218;
-  --pse-surface-elev: #15171b;
-  --pse-ink: #e6e9ef;
-  --pse-ink-dim: #9aa0ab;
-  --pse-primary: #3d74ff;
-  --pse-positive: #16a34a;
-  --pse-amber: #f59e0b;
-  --pse-rule-1: rgba(255,255,255,0.04);
-  --pse-radius: 10px;
-  --pse-gap: 12px;
-  --pse-gutter: 16px;
+/* Tightened premium dashboard styles — minimal, data-dense, mobile-first.
+   - Palette: graphite canvas, single blue accent, restrained semantic states.
+   - Removed decorative gradients and excessive borders.
+   - Tighter spacing, smaller radii, compact metric layout for dense data.
+   - Numbers use tabular-nums monospace for clarity.
+   - Respect mobile safe area; compact hero and side column on small viewports.
+*/
+:root{
+  --pse-canvas:#0f1116;
+  --pse-surface:#0f1216; /* slightly darker to reduce contrast noise */
+  --pse-surface-elev:#101217;
+  --pse-ink:#e6e9ef;
+  --pse-ink-dim:#98a0ab;
+  --pse-primary:#3d74ff;
+  --pse-positive:#16a34a;
+  --pse-amber:#f59e0b;
+  --pse-rule:rgba(255,255,255,0.03);
+  --pse-radius:8px;
+  --pse-gap:10px;
+  --pse-gutter:14px;
+  --pse-font-base:13px;
+  --pse-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
 }
 
-.pse-console-main {
-  background: var(--pse-canvas);
-  min-height: 100vh;
-  color: var(--pse-ink);
-  padding: 18px var(--pse-gutter);
-  box-sizing: border-box;
-  font-size: 14px;
+*{box-sizing:border-box}
+
+.pse-console-main{
+  background:var(--pse-canvas);
+  min-height:100vh;
+  color:var(--pse-ink);
+  padding:16px var(--pse-gutter);
+  font-size:var(--pse-font-base);
+  -webkit-font-smoothing:antialiased;
 }
 
-/* Status strip */
-.pse-status-strip { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
-.pse-status-strip-left { display:flex; align-items:center; gap:10px; }
-.pse-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.02); color:var(--pse-ink-dim); font-size:12px; }
-.pse-chip-dot { width:8px; height:8px; border-radius:50%; background:var(--pse-positive); }
-.pse-status-guide-link { background:none; border:0; color:var(--pse-ink-dim); display:inline-flex; align-items:center; gap:8px; padding:6px; border-radius:8px; cursor:pointer; }
-.pse-status-guide-link:hover { color:var(--pse-primary); }
+/* STATUS STRIP: single line, authoritative */
+.pse-status-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.pse-status-strip-left{display:flex;align-items:center;gap:10px}
+.pse-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:transparent;color:var(--pse-ink-dim);border:1px solid transparent;font-size:12px}
+.pse-chip[data-tone="good"]{color:var(--pse-ink);border-color:rgba(61,116,255,0.08)}
+.pse-chip-dot{width:8px;height:8px;border-radius:50%;background:var(--pse-primary);box-shadow:none}
+.pse-status-strip-clock{font-family:var(--pse-font-mono);color:var(--pse-ink-dim);font-size:12px}
+.pse-status-strip-right{display:flex;align-items:center;gap:10px}
 
-/* Hero grid */
-.pse-hero-grid { display:grid; grid-template-columns: 1fr 360px; gap:16px; align-items:start; }
-@media (max-width:900px) { .pse-hero-grid { grid-template-columns: 1fr; } }
+/* HERO GRID: compact, mobile-first */
+.pse-hero-grid{display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start}
+@media(max-width:900px){.pse-hero-grid{grid-template-columns:1fr}}
 
-/* Balance card */
-.pse-balance-card { background:var(--pse-surface); border-radius:12px; padding:16px; border:1px solid var(--pse-rule-1); display:flex; flex-direction:column; gap:12px; }
-.pse-balance-head { display:flex; justify-content:space-between; align-items:flex-start; }
-.pse-kicker { color:var(--pse-ink-dim); font-size:13px; }
-.pse-balance-hero { display:flex; flex-direction:column; }
-.pse-balance-amount { font-size:28px; font-weight:700; color:var(--pse-ink); }
-.pse-balance-sub { font-size:12px; color:var(--pse-ink-dim); }
-.pse-mining-meta { display:flex; gap:12px; align-items:center; margin-top:8px; }
-.pse-pulse-dot { width:8px; height:8px; border-radius:50%; background:var(--pse-primary); box-shadow:0 0 6px rgba(61,116,255,0.12); }
-.pse-hero-actions { display:flex; gap:8px; }
+/* BALANCE: prominent number, restrained subtext */
+.pse-balance-card{background:var(--pse-surface);border-radius:var(--pse-radius);padding:14px;border:1px solid var(--pse-rule);display:flex;flex-direction:column;gap:10px}
+.pse-balance-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pse-kicker{color:var(--pse-ink-dim);font-size:12px}
+.pse-balance-hero{display:flex;flex-direction:column}
+.pse-balance-amount{font-family:var(--pse-font-mono);font-variant-numeric:tabular-nums;font-size:30px;font-weight:700;color:var(--pse-ink);letter-spacing:-0.02em}
+.pse-balance-sub{font-size:12px;color:var(--pse-ink-dim)}
+.pse-mining-meta{display:flex;gap:12px;align-items:center;margin-top:8px}
+.pse-pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--pse-primary)}
+.pse-hero-actions{display:flex;gap:8px}
+.pse-hero-actions .pse-btn{padding:8px 10px;font-size:13px}
 
-/* Metrics */
-.pse-hero-metrics { display:flex; gap:12px; margin-top:8px; }
-.pse-metric { display:flex; flex-direction:column; }
-.pse-metric-label { font-size:12px; color:var(--pse-ink-dim); }
-.pse-metric-val { font-weight:700; color:var(--pse-ink); }
+/* HERO METRICS: dense inline values */
+.pse-hero-metrics{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.pse-metric{display:flex;flex-direction:column}
+.pse-metric-label{font-size:11px;color:var(--pse-ink-dim)}
+.pse-metric-val{font-family:var(--pse-font-mono);font-weight:700;color:var(--pse-ink)}
 
-/* Timeline */
-.pse-timeline-card { margin-top:12px; background:var(--pse-surface-elev); padding:12px; border-radius:10px; border:1px solid var(--pse-rule-1); }
-.pse-timeline-track { height:8px; background:rgba(255,255,255,0.02); border-radius:8px; position:relative; margin-top:10px; }
-.pse-timeline-progress { height:100%; background:linear-gradient(90deg,var(--pse-primary), rgba(61,116,255,0.6)); border-radius:8px; }
-.pse-timeline-pos { position:absolute; top:-6px; width:12px; height:20px; border-radius:4px; background:var(--pse-primary); transform:translateX(-50%); }
+/* TIMELINE: single rail, no decorative gradients */
+.pse-timeline-card{margin-top:12px;background:var(--pse-surface-elev);padding:10px;border-radius:8px;border:1px solid var(--pse-rule)}
+.pse-timeline-track{height:8px;background:rgba(255,255,255,0.02);border-radius:999px;position:relative;margin-top:10px}
+.pse-timeline-progress{height:100%;background:var(--pse-primary);border-radius:999px}
+.pse-timeline-pos{position:absolute;top:-6px;width:8px;height:20px;border-radius:3px;background:var(--pse-primary);transform:translateX(-50%)}
 
-/* Right column */
-.pse-equipment-grid { display:grid; grid-template-columns: 1fr; gap:10px; }
-.pse-equipment-tile { background:var(--pse-surface); padding:10px; border-radius:10px; border:1px solid var(--pse-rule-1); display:flex; flex-direction:column; gap:8px; }
-.pse-equipment-head { display:flex; justify-content:space-between; align-items:center; }
-.pse-equipment-title { font-weight:700; }
-.pse-equipment-count { color:var(--pse-ink-dim); font-size:12px; }
-.pse-equipment-body { display:flex; justify-content:space-between; align-items:center; }
-.pse-equipment-rate { font-weight:700; }
-.pse-equipment-price { color:var(--pse-ink-dim); font-size:12px; }
-.pse-equipment-foot { display:flex; justify-content:flex-end; }
-.pse-link { background:none; border:0; color:var(--pse-primary); cursor:pointer; font-weight:600; }
+/* RIGHT COLUMN: equipment tiles condensed */
+.pse-equipment-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.pse-equipment-tile{background:var(--pse-surface);padding:10px;border-radius:8px;border:1px solid var(--pse-rule);display:flex;flex-direction:column;gap:8px}
+.pse-equipment-head{display:flex;justify-content:space-between;align-items:center}
+.pse-equipment-title{font-weight:700;font-size:13px}
+.pse-equipment-count{color:var(--pse-ink-dim);font-size:12px}
+.pse-equipment-body{display:flex;justify-content:space-between;align-items:center}
+.pse-equipment-rate{font-family:var(--pse-font-mono);font-weight:700}
+.pse-equipment-price{color:var(--pse-ink-dim);font-size:12px}
+.pse-equipment-foot{display:flex;justify-content:flex-end}
+.pse-link{background:none;border:0;color:var(--pse-primary);cursor:pointer;font-weight:700;font-size:13px}
 
-/* Settlement + recent */
-.pse-settlement-card { margin-top:12px; background:var(--pse-surface-elev); padding:12px; border-radius:10px; border:1px solid var(--pse-rule-1); }
-.pse-settlement-row { display:flex; justify-content:space-between; align-items:center; }
-.pse-settlement-status { color:var(--pse-ink-dim); }
-.pse-recent-activity { margin-top:12px; }
-.pse-ledger { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
-.pse-ledger-row { display:flex; justify-content:space-between; align-items:center; }
-.pse-ledger-desc { font-weight:600; }
-.pse-ledger-time { font-size:12px; color:var(--pse-ink-dim); }
-.pse-ledger-amt { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; }
-.pse-ledger-amt.pos { color:var(--pse-positive); }
-.pse-ledger-amt.neg { color:rgba(255,255,255,0.8); }
+/* SETTLEMENT + RECENT: compact ledger rows */
+.pse-settlement-card{margin-top:12px;background:var(--pse-surface-elev);padding:10px;border-radius:8px;border:1px solid var(--pse-rule)}
+.pse-settlement-row{display:flex;justify-content:space-between;align-items:center}
+.pse-settlement-status{color:var(--pse-ink-dim);font-size:13px}
+.pse-recent-activity{margin-top:10px}
+.pse-ledger{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.pse-ledger-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:6px;background:transparent}
+.pse-ledger-desc{font-weight:600;font-size:13px}
+.pse-ledger-time{font-size:12px;color:var(--pse-ink-dim)}
+.pse-ledger-amt{font-family:var(--pse-font-mono);font-variant-numeric:tabular-nums}
+.pse-ledger-amt.pos{color:var(--pse-positive)}
+.pse-ledger-amt.neg{color:var(--pse-ink-dim)}
 
-/* Responsive spacing */
-@media (max-width:420px) {
-  .pse-balance-amount { font-size:22px; }
-  .pse-hero-grid { gap:12px; }
+/* FOCUS & ACCESSIBILITY */
+.pse-link:focus,.pse-chip:focus,.pse-hero-actions .pse-btn:focus{outline:2px solid rgba(61,116,255,0.12);outline-offset:2px}
+
+/* SMALL SCREENS: reduce paddings and font-sizes further */
+@media(max-width:420px){
+  .pse-balance-amount{font-size:22px}
+  .pse-balance-card{padding:12px}
+  .pse-equipment-tile{padding:8px}
+  .pse-hero-grid{gap:10px}
 }

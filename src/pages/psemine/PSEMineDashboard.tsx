@@ -10,18 +10,17 @@ import {
   useCampaignClock, campaignStatusView,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice,
+  PseButton, PseEmptyNote, PseErrorNotice,
   PseLoading,
 } from '../../components/psemine/PseBasics';
 import {
   Cpu, Wallet, Clock, Users, ArrowUpRight, CheckCircle2,
-  AlertTriangle, RefreshCw, Layers, ChevronRight, HelpCircle
+  AlertTriangle, RefreshCw, Layers, ChevronRight
 } from 'lucide-react';
 
 // Presentational helpers
 import MiniSparkline from '../../components/psemine/MiniSparkline';
 import CapacityRing from '../../components/psemine/CapacityRing';
-import PseGuide from '../../components/psemine/PseGuide';
 
 function toolDef(tool: PseStateTool) {
   const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
@@ -39,6 +38,11 @@ function toolRate(tool: PseStateTool): number {
 
 const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
+/**
+ * Rebuilt PSEMine Dashboard — visual layer only. Preserves all business logic,
+ * hooks and actions supplied by the providers. Mobile-first, compact, and
+ * intentionally restrained.
+ */
 export const PSEMineDashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,7 +53,6 @@ export const PSEMineDashboard: React.FC = () => {
   const [maintaining, setMaintaining] = useState<Set<string>>(new Set());
   const [, setTick] = useState(0);
 
-  // 15-second heartbeat for live accrual and countdown ticks
   useEffect(() => {
     const id = window.setInterval(() => setTick(t => t + 1), 15_000);
     return () => window.clearInterval(id);
@@ -59,22 +62,16 @@ export const PSEMineDashboard: React.FC = () => {
   const user = state?.user;
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
-  const statusView = campaignStatusView(campaignStatus);
-  const campaignDay = clock.dayNumber
-    ?? (clock.startMs !== null && clock.endMs !== null && nowMs() >= clock.endMs ? clock.totalDays : null);
-  const campaignProgress = campaignDay === null
-    ? 0
-    : Math.min(100, Math.max(0, (campaignDay / clock.totalDays) * 100));
+  const campaignDay = clock.dayNumber ?? null;
+  const campaignProgress = campaignDay === null ? 0 : Math.min(100, Math.max(0, (campaignDay / clock.totalDays) * 100));
 
   const isMiningLive = campaignStatus === 'active';
 
-  // Capacity calculations
   const toolCapacity = user?.toolCapacityGBPPerHour ?? 0;
   const referralCapacity = user?.referralCapacityGBPPerHour ?? 0;
   const totalCapacity = toolCapacity + referralCapacity;
 
   const ownedCountForTier = (tierId: string) => tools.filter(t => (t.toolId || '') === tierId).length;
-
   const qualifiedCount = user?.qualifiedReferralsCount ?? 0;
   const maxQualified = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
 
@@ -92,142 +89,108 @@ export const PSEMineDashboard: React.FC = () => {
     }
   };
 
-  const openGuide = () => {
-    navigate({ pathname: window.location.pathname, search: '?guide=1' });
-  };
+  // Dashboard must not carry a Guide button — the shell does that.
 
-  const showGuide = new URLSearchParams(location.search).get('guide') === '1';
-  const closeGuide = () => navigate({ pathname: location.pathname, search: '' });
-
-  if (loading) {
-    return (
-      <div className="pse-console-main">
-        <PseLoading label="Synchronizing PSEmine mining telemetry and ledger..." />
+  if (loading) return (
+    <div className="pse-console-main">
+      <div className="pse-loading-surface" role="status" aria-live="polite">
+        <PseLoading label="Loading PSEmine account…" />
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error || !state || !user) {
-    return (
-      <div className="pse-console-main">
-        <PseErrorNotice
-          error={error ?? {
-            kind: 'data',
-            title: "We couldn't load your mining account",
-            retryable: true,
-            message: 'The mining backend returned an incomplete account. Please retry.',
-          }}
-          onRetry={() => void refresh()}
-          retrying={refreshing}
-        />
-      </div>
-    );
-  }
+  if (error || !state || !user) return (
+    <div className="pse-console-main">
+      <PseErrorNotice
+        error={error ?? { kind: 'data', title: "Account unavailable", retryable: true, message: 'Please retry.' }}
+        onRetry={() => void refresh()}
+        retrying={refreshing}
+      />
+    </div>
+  );
 
   return (
     <div className="pse-console-main">
+      {/* STATUS STRIP: minimal, authoritative */}
       <div className="pse-status-strip">
         <div className="pse-status-strip-left">
           <span className="pse-chip" data-tone={isMiningLive ? 'good' : 'idle'}>
-            <span className="pse-chip-dot" aria-hidden="true" />
-            {isMiningLive ? 'Active 90-Day Campaign' : statusView.label}
+            <span className="pse-chip-dot" aria-hidden />
+            <span className="pse-strip-label">{isMiningLive ? 'Active' : campaignStatus ?? 'Scheduled'}</span>
           </span>
-          <span className="pse-status-strip-sep" aria-hidden="true">/</span>
-          <span className="pse-status-strip-clock font-mono">
-            {campaignDay !== null ? `Day ${campaignDay} of ${clock.totalDays}` : 'Scheduled'}
-          </span>
-          {clock.daysLeft !== null && (
-            <span className="pse-status-strip-leftover">({clock.daysLeft}d remaining)</span>
-          )}
+          <span className="pse-status-strip-clock font-mono">{campaignDay !== null ? `Day ${campaignDay}` : 'Pre-launch'}</span>
         </div>
 
         <div className="pse-status-strip-right">
           <CapacityRing value={totalCapacity} label={`+${gbpHour(totalCapacity)}`} />
-          <button
-            type="button"
-            className="pse-status-guide-link"
-            onClick={openGuide}
-            aria-label="Open Campaign Guide"
-          >
-            <HelpCircle size={14} />
-            <span>Guide</span>
-          </button>
         </div>
       </div>
 
-      <div className="pse-hero-grid">
-        <section className="pse-hero-left" aria-label="Primary balance and status">
-          <div className="pse-balance-card">
+      {/* HERO: primary balance + compact metrics */}
+      <section className="pse-hero-grid" aria-label="Primary workspace">
+        <div className="pse-hero-left">
+          <div className="pse-balance-card" aria-hidden={false}>
             <div className="pse-balance-head">
               <div>
                 <div className="pse-kicker">Accrued balance</div>
                 <div className="pse-balance-hero">
-                  <div className="pse-balance-amount">{availableStr}</div>
-                  <div className="pse-balance-sub">GBP available</div>
+                  <div className="pse-balance-amount">{user.accruedGBP.toFixed(2)}</div>
+                  <div className="pse-balance-sub">GBP — accrues hourly</div>
                 </div>
                 <div className="pse-mining-meta">
-                  <span className="pse-status-indicator">
-                    <span className="pse-pulse-dot" /> {isMiningLive ? 'Mining live' : statusView.label}
-                  </span>
+                  <span className="pse-status-indicator"><span className="pse-pulse-dot" />{isMiningLive ? 'Mining' : 'Standby'}</span>
                   <span className="pse-dot-sep" />
                   <span className="pse-hourly">{gbpHour(totalCapacity)} / hr</span>
                 </div>
               </div>
 
               <div className="pse-hero-actions">
-                <PseButton onClick={() => navigate('/wallet')} variant="primary">Withdraw</PseButton>
-                <PseButton onClick={() => navigate('/tasks')} variant="ghost">Earn</PseButton>
+                <PseButton onClick={() => navigate('/mine/wallet')} variant="primary">Wallet</PseButton>
+                <PseButton onClick={() => navigate('/mine/tools')} variant="secondary">Tools</PseButton>
               </div>
             </div>
 
             <div className="pse-hero-foot">
               <div className="pse-hero-metrics">
-                <div className="pse-metric">
-                  <div className="pse-metric-label">Tool capacity</div>
-                  <div className="pse-metric-val">{gbpHour(toolCapacity)} / hr</div>
-                </div>
-                <div className="pse-metric">
-                  <div className="pse-metric-label">Referral capacity</div>
-                  <div className="pse-metric-val">{gbpHour(referralCapacity)} / hr</div>
-                </div>
-                <div className="pse-metric">
-                  <div className="pse-metric-label">Qualified referrals</div>
-                  <div className="pse-metric-val">{qualifiedCount}/{maxQualified}</div>
-                </div>
+                <div className="pse-metric"><div className="pse-metric-label">Tool</div><div className="pse-metric-val">{gbpHour(toolCapacity)}/hr</div></div>
+                <div className="pse-metric"><div className="pse-metric-label">Referral</div><div className="pse-metric-val">{gbpHour(referralCapacity)}/hr</div></div>
+                <div className="pse-metric"><div className="pse-metric-label">Referrals</div><div className="pse-metric-val">{qualifiedCount}/{maxQualified}</div></div>
               </div>
+              <div style={{ marginTop: 8 }}><MiniSparkline /></div>
             </div>
           </div>
 
-          <div className="pse-timeline-card" aria-hidden>
+          <div className="pse-timeline-card" aria-label="Campaign timeline">
             <div className="pse-timeline-head">
               <div className="pse-kicker">Campaign</div>
               <div className="pse-timeline-dates">{clock.startLabel} — {clock.endLabel}</div>
             </div>
-            <div className="pse-timeline-track">
+            <div className="pse-timeline-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(campaignProgress)}>
               <div className="pse-timeline-progress" style={{ width: `${campaignProgress}%` }} />
-              <div className="pse-timeline-pos" style={{ left: `${campaignProgress}%` }} aria-hidden />
             </div>
           </div>
-        </section>
+        </div>
 
         <aside className="pse-hero-right" aria-label="Equipment and settlement">
-          <div className="pse-equipment-grid">
-            {ALL_TIERS.slice(0,4).map(t => {
+          <div className="pse-equipment-grid" role="list">
+            {ALL_TIERS.slice(0, 4).map(t => {
               const id = t.id;
               const count = ownedCountForTier(id as string);
-              const hourly = ((t.hourlyRateGBP || 0) * count);
+              const hourly = (t.hourlyRateGBP || 0) * count;
               return (
-                <div key={id} className="pse-equipment-tile" role="group" aria-label={t.name}>
+                <div key={id} className="pse-equipment-tile" role="listitem" aria-label={t.name}>
                   <div className="pse-equipment-head">
                     <div className="pse-equipment-title">{t.name}</div>
-                    <div className="pse-equipment-count">x{count}</div>
+                    <div className="pse-equipment-count">{count}</div>
                   </div>
+
                   <div className="pse-equipment-body">
                     <div className="pse-equipment-rate">{gbpHour(hourly)}</div>
-                    <div className="pse-equipment-price">{t.purchaseGBP ? `Buy ${gbp(t.purchaseGBP)}` : 'Not for sale'}</div>
+                    <div className="pse-equipment-price">{gbp(t.purchasePriceGBP)}</div>
                   </div>
+
                   <div className="pse-equipment-foot">
-                    <button className="pse-link" onClick={() => navigate('/marketplace')}>Upgrade</button>
+                    <button className="pse-link" onClick={() => navigate('/mine/tools')}>Manage</button>
                   </div>
                 </div>
               );
@@ -238,23 +201,26 @@ export const PSEMineDashboard: React.FC = () => {
             <div className="pse-settlement-row">
               <div>
                 <div className="pse-kicker">Settlement</div>
-                <div className="pse-settlement-status">{user.walletConnected ? 'Wallet connected' : 'Wallet not connected'}</div>
+                <div className="pse-settlement-status">{user.payoutWallet ? 'BEP-20 wallet connected' : 'No wallet'}</div>
               </div>
               <div>
-                <PseButton onClick={() => navigate('/wallet')} variant="secondary">Manage</PseButton>
+                <PseButton onClick={() => navigate('/mine/wallet')} variant="secondary">Manage</PseButton>
               </div>
             </div>
+
             <div className="pse-recent-activity">
               <div className="pse-kicker">Recent activity</div>
               {state.activities && state.activities.length > 0 ? (
-                <ul className="pse-ledger">
-                  {state.activities.slice(0,5).map(a => (
+                <ul className="pse-ledger" aria-live="polite">
+                  {state.activities.slice(0, 5).map(a => (
                     <li key={a.id} className="pse-ledger-row">
-                      <div className="pse-ledger-left">
+                      <div>
                         <div className="pse-ledger-desc">{a.title || a.type}</div>
-                        <div className="pse-ledger-time">{timeAgo(a.timestamp)}</div>
+                        <div className="pse-ledger-time">{timeAgo(a.createdAt || a.timestamp)}</div>
                       </div>
-                      <div className={"pse-ledger-amt " + (a.amount > 0 ? 'pos' : 'neg')}>{a.amount > 0 ? '+' + gbp(a.amount) : gbp(a.amount)}</div>
+                      <div className={"pse-ledger-amt " + ((a.amountGBP ?? 0) > 0 ? 'pos' : 'neg')}>
+                        {typeof a.amountGBP === 'number' ? (a.amountGBP > 0 ? '+' + gbp(a.amountGBP) : gbp(a.amountGBP)) : '—'}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -264,9 +230,7 @@ export const PSEMineDashboard: React.FC = () => {
             </div>
           </div>
         </aside>
-      </div>
-
-      {showGuide && <PseGuide mode="reference" onClose={closeGuide} />}
+      </section>
     </div>
   );
 };

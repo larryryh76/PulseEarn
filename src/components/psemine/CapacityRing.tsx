@@ -1,47 +1,59 @@
 import React from 'react';
 
 type CapacityRingProps = {
-  value: number;           // current value (e.g. GBP/hour capacity)
-  max?: number;            // maximum reference value for ring (optional)
-  size?: number;           // px size of the SVG (default 56)
-  strokeWidth?: number;    // ring stroke width
-  primary?: string;        // primary color (fallback to CSS var)
-  bg?: string;             // background ring color
-  label?: string;          // small label to show under or inside ring
+  /** Current value (e.g. GBP/hour capacity). */
+  value: number;
+  /** Reference value the ring is measured against. */
+  max?: number;
+  /** px size of the SVG (default 48). */
+  size?: number;
+  strokeWidth?: number;
+  primary?: string;
+  bg?: string;
+  /** Short figure printed in the middle. Omit to print the numeric value. */
+  label?: string;
   className?: string;
   ariaLabel?: string;
 };
 
+/**
+ * A single ratio, drawn. Used by the console status strip for the account's
+ * hourly capacity, so the ring is read at a glance and never carries a
+ * sentence: the centre holds one short figure, and the accessible name states
+ * the full figure and its ceiling.
+ */
 const CapacityRing: React.FC<CapacityRingProps> = ({
   value,
   max = 100,
-  size = 56,
-  strokeWidth = 6,
-  primary = 'var(--pse-primary)',
-  bg = 'rgba(255,255,255,0.04)',
+  size = 48,
+  strokeWidth = 4,
+  primary = 'var(--pse-accent-solid)',
+  bg = 'var(--pse-inset)',
   label,
   className = '',
   ariaLabel = 'Capacity',
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  // Clamp percent between 0 and 100.
-  const percent = Math.max(0, Math.min(100, (max > 0 ? (value / max) * 100 : 0)));
+  const percent = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const offset = circumference * (1 - percent / 100);
-
-  const formattedValue = Number.isFinite(value) ? value : 0;
+  const centre = label ?? (Number.isFinite(value) ? value.toFixed(2) : '0.00');
 
   return (
-    <div className={`pse-capacity-ring ${className}`} role="img" aria-label={ariaLabel} style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id="pseCapacityGrad" x1="0" x2="1">
-            <stop offset="0%" stopColor={primary} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={primary} stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-
-        {/* Background ring */}
+    <div
+      className={`pse-capacity-ring ${className}`.trim()}
+      role="img"
+      aria-label={ariaLabel}
+      style={{ position: 'relative', display: 'inline-block', width: size, height: size, flex: '0 0 auto' }}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden="true"
+        focusable="false"
+        style={{ position: 'absolute', inset: 0 }}
+      >
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -50,13 +62,11 @@ const CapacityRing: React.FC<CapacityRingProps> = ({
           strokeWidth={strokeWidth}
           fill="none"
         />
-
-        {/* Foreground progress ring */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="url(#pseCapacityGrad)"
+          stroke={primary}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -66,26 +76,25 @@ const CapacityRing: React.FC<CapacityRingProps> = ({
         />
       </svg>
 
-      {/* Center figure */}
-      <div style={{
-        position: 'relative',
-        marginTop: -size,
-        width: size,
-        height: size,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--pse-font-mono)', fontSize: 12, color: 'var(--pse-ink-dim)' }}>
-            {label ?? 'Capacity'}
-          </div>
-          <div style={{ fontFamily: 'var(--pse-font-mono)', fontWeight: 700, fontSize: 14, color: 'var(--pse-ink)' }}>
-            {formattedValue}
-          </div>
-        </div>
-      </div>
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: strokeWidth,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--pse-mono)',
+          fontVariantNumeric: 'tabular-nums',
+          fontSize: 9.5,
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
+          color: 'var(--pse-ink)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {centre}
+      </span>
     </div>
   );
 };

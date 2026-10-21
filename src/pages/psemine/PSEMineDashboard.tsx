@@ -1,42 +1,27 @@
 import '../../styles/psemine-dashboard.css';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
-import { usePSEMine } from '../../contexts/PSEMineContext';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 import {
-  cycleStateView, gbp, gbpHour, nowMs, remainingFrom, timeAgo,
-  useCampaignClock, campaignStatusView,
+  gbp, gbpHour, gbpRate, timeAgo, useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice,
   PseLoading,
 } from '../../components/psemine/PseBasics';
-import {
-  Cpu, Wallet, Clock, Users, ArrowUpRight, CheckCircle2,
-  AlertTriangle, RefreshCw, Layers, ChevronRight
-} from 'lucide-react';
 
 // Presentational helpers
 import MiniSparkline from '../../components/psemine/MiniSparkline';
 import CapacityRing from '../../components/psemine/CapacityRing';
 
-function toolDef(tool: PseStateTool) {
-  const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
-  return LOCKED_PSEMINE_TOOLS[id] || null;
-}
-
-function toolName(tool: PseStateTool): string {
-  return tool.toolName || toolDef(tool)?.name || 'Mining unit';
-}
-
-function toolRate(tool: PseStateTool): number {
-  if (typeof tool.hourlyRateGBP === 'number') return tool.hourlyRateGBP;
-  return toolDef(tool)?.hourlyRateGBP ?? 0;
-}
-
 const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
+
+/** Campaign date, printed short so the timeline head stays on one line. */
+function dateLabel(ms: number | null): string {
+  if (ms === null) return '—';
+  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 /**
  * Rebuilt PSEMine Dashboard — visual layer only. Preserves all business logic,
@@ -45,12 +30,13 @@ const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOr
  */
 export const PSEMineDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
-  const { maintainTool } = usePSEMine();
+  const {
+    state, campaignStatus, loading, error, refresh, refreshing,
+    activities, feedErrors, refreshFeed,
+  } = usePseState();
   const availableStr = useAvailableGBP();
 
-  const [maintaining, setMaintaining] = useState<Set<string>>(new Set());
+  // Keeps relative timestamps in the activity ledger honest between state reads.
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -63,7 +49,6 @@ export const PSEMineDashboard: React.FC = () => {
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
   const campaignDay = clock.dayNumber ?? null;
-  const campaignProgress = campaignDay === null ? 0 : Math.min(100, Math.max(0, (campaignDay / clock.totalDays) * 100));
 
   const isMiningLive = campaignStatus === 'active';
 
@@ -72,22 +57,10 @@ export const PSEMineDashboard: React.FC = () => {
   const totalCapacity = toolCapacity + referralCapacity;
 
   const ownedCountForTier = (tierId: string) => tools.filter(t => (t.toolId || '') === tierId).length;
+  // Oldest → newest, so the sparkline reads left to right. Real amounts only.
+  const activitySpark = activities.slice(0, 8).map(a => a.amountGBP ?? 0).reverse();
   const qualifiedCount = user?.qualifiedReferralsCount ?? 0;
   const maxQualified = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
-
-  const handleMaintain = async (ownershipId: string) => {
-    setMaintaining(prev => new Set(prev).add(ownershipId));
-    try {
-      await maintainTool(ownershipId);
-    } finally {
-      await refresh();
-      setMaintaining(prev => {
-        const next = new Set(prev);
-        next.delete(ownershipId);
-        return next;
-      });
-    }
-  };
 
   // Dashboard must not carry a Guide button — the shell does that.
 
@@ -110,7 +83,7 @@ export const PSEMineDashboard: React.FC = () => {
   );
 
   return (
-    <div className="pse-console-main">
+    <div className="pse-console-main pse-dash">
       {/* STATUS STRIP: minimal, authoritative */}
       <div className="pse-status-strip">
         <div className="pse-status-strip-left">
@@ -122,7 +95,13 @@ export const PSEMineDashboard: React.FC = () => {
         </div>
 
         <div className="pse-status-strip-right">
-          <CapacityRing value={totalCapacity} label={`+${gbpHour(totalCapacity)}`} />
+          <CapacityRing
+            value={totalCapacity}
+            max={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
+            size={52}
+            label={gbpRate(totalCapacity)}
+            ariaLabel={`Capacity ${gbpRate(totalCapacity)} of ${gbpRate(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}`}
+          />
         </div>
       </div>
 
@@ -134,7 +113,7 @@ export const PSEMineDashboard: React.FC = () => {
               <div>
                 <div className="pse-kicker">Accrued balance</div>
                 <div className="pse-balance-hero">
-                  <div className="pse-balance-amount">{user.accruedGBP.toFixed(2)}</div>
+                  <div className="pse-balance-amount">{gbp(user.accruedGBP)}</div>
                   <div className="pse-balance-sub">GBP — accrues hourly</div>
                 </div>
                 <div className="pse-mining-meta">
@@ -155,18 +134,23 @@ export const PSEMineDashboard: React.FC = () => {
                 <div className="pse-metric"><div className="pse-metric-label">Tool</div><div className="pse-metric-val">{gbpHour(toolCapacity)}/hr</div></div>
                 <div className="pse-metric"><div className="pse-metric-label">Referral</div><div className="pse-metric-val">{gbpHour(referralCapacity)}/hr</div></div>
                 <div className="pse-metric"><div className="pse-metric-label">Referrals</div><div className="pse-metric-val">{qualifiedCount}/{maxQualified}</div></div>
+                <div className="pse-metric"><div className="pse-metric-label">Available</div><div className="pse-metric-val">{availableStr}</div></div>
               </div>
-              <div style={{ marginTop: 8 }}><MiniSparkline /></div>
+              {activitySpark.length > 1 && (
+                <div className="pse-hero-spark">
+                  <MiniSparkline data={activitySpark} width={110} height={22} title="Recent activity amounts" />
+                </div>
+              )}
             </div>
           </div>
 
           <div className="pse-timeline-card" aria-label="Campaign timeline">
             <div className="pse-timeline-head">
               <div className="pse-kicker">Campaign</div>
-              <div className="pse-timeline-dates">{clock.startLabel} — {clock.endLabel}</div>
+              <div className="pse-timeline-dates">{dateLabel(clock.startMs)} — {dateLabel(clock.endMs)}</div>
             </div>
-            <div className="pse-timeline-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(campaignProgress)}>
-              <div className="pse-timeline-progress" style={{ width: `${campaignProgress}%` }} />
+            <div className="pse-timeline-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clock.progress)}>
+              <div className="pse-timeline-progress" style={{ width: `${clock.progress}%` }} />
             </div>
           </div>
         </div>
@@ -209,14 +193,31 @@ export const PSEMineDashboard: React.FC = () => {
             </div>
 
             <div className="pse-recent-activity">
-              <div className="pse-kicker">Recent activity</div>
-              {state.activities && state.activities.length > 0 ? (
+              <div className="pse-recent-head">
+                <div className="pse-kicker">Recent activity</div>
+                <button
+                  type="button"
+                  className="pse-link"
+                  onClick={() => void refreshFeed('activities')}
+                  disabled={refreshing}
+                >
+                  Refresh
+                </button>
+              </div>
+              {feedErrors.activities && (
+                <PseFeedNotice
+                  message="The activity feed could not be refreshed."
+                  onRetry={() => void refreshFeed('activities')}
+                  retrying={refreshing}
+                />
+              )}
+              {activities.length > 0 ? (
                 <ul className="pse-ledger" aria-live="polite">
-                  {state.activities.slice(0, 5).map(a => (
+                  {activities.slice(0, 5).map(a => (
                     <li key={a.id} className="pse-ledger-row">
                       <div>
-                        <div className="pse-ledger-desc">{a.title || a.type}</div>
-                        <div className="pse-ledger-time">{timeAgo(a.createdAt || a.timestamp)}</div>
+                        <div className="pse-ledger-desc">{a.title || a.type || 'Activity'}</div>
+                        <div className="pse-ledger-time">{timeAgo(a.createdAt)}</div>
                       </div>
                       <div className={"pse-ledger-amt " + ((a.amountGBP ?? 0) > 0 ? 'pos' : 'neg')}>
                         {typeof a.amountGBP === 'number' ? (a.amountGBP > 0 ? '+' + gbp(a.amountGBP) : gbp(a.amountGBP)) : '—'}
@@ -225,7 +226,9 @@ export const PSEMineDashboard: React.FC = () => {
                   ))}
                 </ul>
               ) : (
-                <PseEmptyNote title="No recent activity" />
+                <PseEmptyNote title="No recent activity">
+                  Purchases, accrual checkpoints and payouts appear here as the account moves.
+                </PseEmptyNote>
               )}
             </div>
           </div>

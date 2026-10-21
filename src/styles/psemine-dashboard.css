@@ -1,70 +1,50 @@
 /* ============================================================================
  * PSEmine — the DASHBOARD layer.
  *
- * The console home: status strip, balance, campaign timeline, equipment and the
- * recent-activity ledger.
+ * The console home: campaign status and capacity, the accrued balance, the
+ * campaign window, the equipment register, settlement and recent activity.
  *
  * SCOPE. Every rule below is prefixed `.pse-dash`, the wrapper this page puts on
  * its own root. Nothing here writes to `:root` and nothing here re-declares a
  * `.pse-console-main` property the shell owns, so the product bar, the campaign
  * band and the dock keep the layer they were drawn in.
  *
- * TOKENS ONLY, as in psemine.css and psemine-console.css: no colour and no
- * radius is invented here, so the light and dark consoles are the same drawing.
+ * TOKENS ONLY: no colour and no radius is invented here, so the light and dark
+ * consoles are the same drawing. Elevation is one ring, not a shadow stack.
  *
- * DENSITY. This is a working surface read on a phone first: 0.5–0.85rem of
- * internal padding, one hairline per panel, and the figure family for every
- * number so a column can be scanned down the page.
+ * DENSITY. A phone-first working surface: four metrics in one register, four
+ * equipment rows rather than four cards, and one hairline per panel.
  * ==========================================================================*/
 
 .pse-dash.pse-console-main {
-  gap: 0.7rem;
-  padding-bottom: 1.5rem;
+  gap: 0.75rem;
 }
 
 /* ── Status strip ────────────────────────────────────────────────────────
- * One line: where the campaign stands, and the capacity ring. No panel — it is
- * a caption to the page, not a card in it.
+ * A caption to the page, not a card: where the campaign stands and the one
+ * capacity figure the account holds. The ring that used to sit here is gone —
+ * a ratio against a theoretical ceiling is not a measurement a miner acts on.
  * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-status-strip {
+.pse-dash-strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
   gap: 0.75rem;
-  padding: 0;
-  background: none;
-  border: 0;
-  border-radius: 0;
-}
-
-.pse-dash .pse-status-strip-left {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
   min-width: 0;
 }
 
-.pse-dash .pse-status-strip-right {
+.pse-dash-strip-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-left: auto;
-}
-
-.pse-dash .pse-status-strip-clock {
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--pse-ink-3);
-  white-space: nowrap;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
 .pse-dash .pse-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  flex: 0 0 auto;
   padding: 0.2rem 0.5rem;
   border: 0;
   border-radius: 999px;
@@ -81,6 +61,11 @@
   color: var(--pse-accent);
 }
 
+.pse-dash .pse-chip[data-tone='hold'] {
+  background: color-mix(in srgb, var(--pse-warn) 12%, transparent);
+  color: var(--pse-warn);
+}
+
 .pse-dash .pse-chip-dot {
   width: 5px;
   height: 5px;
@@ -89,50 +74,76 @@
   flex: 0 0 auto;
 }
 
-.pse-dash .pse-strip-label {
-  line-height: 1.2;
+.pse-dash-strip-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
 }
 
-/* ── Hero grid ───────────────────────────────────────────────────────────
- * Two columns on a desk (balance + timeline | equipment + settlement), one on a
- * phone, in the order the account reads.
+.pse-dash-capacity {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+}
+
+.pse-dash-capacity-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-dash-capacity-value {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pse-ink);
+  white-space: nowrap;
+}
+
+/* ── Composition ─────────────────────────────────────────────────────────
+ * Two columns on a desk (balance + campaign | equipment + settlement), one on
+ * a phone in the order the account reads.
  * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-hero-grid {
+.pse-dash-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
-  gap: 0.7rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: start;
 }
 
-.pse-dash .pse-hero-left,
-.pse-dash .pse-hero-right {
+.pse-dash-column {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.75rem;
   min-width: 0;
 }
 
 @media (max-width: 900px) {
-  .pse-dash .pse-hero-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .pse-dash-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Balance ─────────────────────────────────────────────────────────────
- * The figure the page exists for. One surface step, one hairline, nothing else.
+ * The figure the page exists for. One surface step, one hairline.
  * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-balance-card {
+.pse-dash-balance,
+.pse-dash-panel {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
-  padding: 0.85rem;
+  padding: 0.9rem;
   background: var(--pse-surface);
-  border: 0;
   border-radius: var(--pse-r-sm);
   box-shadow: var(--pse-ring);
+  min-width: 0;
 }
 
-.pse-dash .pse-balance-head {
+.pse-dash-balance-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -140,7 +151,12 @@
   flex-wrap: wrap;
 }
 
-.pse-dash .pse-kicker {
+.pse-dash-balance-figure {
+  min-width: 0;
+}
+
+.pse-kicker {
+  margin: 0;
   font-size: 0.6875rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -148,296 +164,315 @@
   color: var(--pse-ink-3);
 }
 
-.pse-dash .pse-balance-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  margin-top: 0.15rem;
-}
-
-.pse-dash .pse-balance-amount {
+.pse-dash-amount {
+  margin: 0.1rem 0 0;
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.9rem;
-  line-height: 1.1;
+  font-size: 2rem;
+  line-height: 1.08;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--pse-ink);
 }
 
-.pse-dash .pse-balance-sub {
-  font-size: 0.6875rem;
+.pse-dash-caption {
+  max-width: 46ch;
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
   color: var(--pse-ink-3);
+  text-wrap: pretty;
 }
 
-.pse-dash .pse-mining-meta {
+.pse-dash-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.pse-dash-mining {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.5rem;
   font-size: 0.75rem;
   color: var(--pse-ink-2);
 }
 
-.pse-dash .pse-status-indicator {
+.pse-dash-mining-state {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   font-weight: 500;
 }
 
-.pse-dash .pse-pulse-dot {
+.pse-dash-mining-state[data-live='true'] .pse-pulse-dot {
+  background: var(--pse-good);
+}
+
+.pse-pulse-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--pse-good);
   flex: 0 0 auto;
+  background: var(--pse-ink-3);
 }
 
-.pse-dash .pse-dot-sep {
+.pse-dash-sep {
   width: 1px;
   height: 10px;
   background: var(--pse-rule);
 }
 
-.pse-dash .pse-hourly {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--pse-ink-2);
+.pse-dash-mining-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.pse-dash .pse-hero-actions {
-  display: flex;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-}
-
-/* ── Hero foot: four metrics and the activity sparkline ─────────────────── */
-.pse-dash .pse-hero-foot {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding-top: 0.6rem;
+/* Three figures, one register: units, referrals, and what settlement has
+   actually made available. The total capacity is stated once, above. */
+.pse-dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+  padding-top: 0.65rem;
   border-top: 1px solid var(--pse-rule-2);
 }
 
-.pse-dash .pse-hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, auto));
-  gap: 0.4rem 1rem;
-  min-width: 0;
-}
-
-.pse-dash .pse-metric {
+.pse-dash-metric {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  padding: 0;
-  background: none;
-  border: 0;
-  border-radius: 0;
+  gap: 0.15rem;
   min-width: 0;
 }
 
-.pse-dash .pse-metric-label {
+.pse-dash-metric dt {
   font-size: 0.625rem;
+  line-height: 1.3;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
-.pse-dash .pse-metric-val {
+.pse-dash-metric dd {
+  margin: 0;
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--pse-ink);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-.pse-dash .pse-hero-spark {
-  flex: 0 0 auto;
-  opacity: 0.9;
-}
-
-/* ── Campaign timeline ───────────────────────────────────────────────────
- * One rail. The dates are the backend's campaign window, printed short.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-timeline-card {
-  padding: 0.7rem 0.85rem;
-  background: var(--pse-surface);
-  border: 0;
-  border-radius: var(--pse-r-sm);
-  box-shadow: var(--pse-ring);
-}
-
-.pse-dash .pse-timeline-head {
+/* ── Panels ────────────────────────────────────────────────────────────── */
+.pse-dash-panel-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
-.pse-dash .pse-timeline-dates {
+.pse-dash-panel-meta {
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.6875rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-dash-panel-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
   color: var(--pse-ink-2);
 }
 
-.pse-dash .pse-timeline-track {
+.pse-dash-panel-note {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--pse-ink-3);
+}
+
+.pse-dash-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pse-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pse-dash-link:hover { color: var(--pse-accent-solid-hover); }
+.pse-dash-link:disabled { color: var(--pse-ink-3); cursor: default; }
+
+.pse-dash-link:focus-visible,
+.pse-dash-equipment-name:focus-visible,
+.pse-dash .pse-btn:focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 2px;
+}
+
+/* ── Campaign window ─────────────────────────────────────────────────────
+ * One rail with the backend's dates at its head and today's position beneath
+ * it. A missing date is printed as missing, never as day zero.
+ * ────────────────────────────────────────────────────────────────────── */
+.pse-dash-track {
   position: relative;
   height: 4px;
-  margin-top: 0.55rem;
   background: var(--pse-inset);
   border-radius: 999px;
   overflow: hidden;
 }
 
-.pse-dash .pse-timeline-progress {
+.pse-dash-track-fill {
   height: 100%;
   background: var(--pse-accent-solid);
   border-radius: inherit;
+  transition: width var(--pse-t) var(--pse-ease);
 }
 
-/* ── Equipment ───────────────────────────────────────────────────────────
- * A tile per tier: name and owned count, hourly output and price. Rows, not
- * cards stacked inside cards.
+@media (prefers-reduced-motion: reduce) {
+  .pse-dash-track-fill { transition: none; }
+}
+
+/* ── Equipment register ──────────────────────────────────────────────────
+ * Four rows on hairlines, not four cards: name and ownership on the left,
+ * output and price on the right, so the tiers compare down the column.
  * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-equipment-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.4rem;
-}
-
-.pse-dash .pse-equipment-tile {
+.pse-dash-equipment {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.6rem 0.7rem;
-  background: var(--pse-surface);
-  border: 0;
-  border-radius: var(--pse-r-sm);
-  box-shadow: var(--pse-ring);
-}
-
-.pse-dash .pse-equipment-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.pse-dash .pse-equipment-title {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--pse-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pse-dash .pse-equipment-count {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
-  color: var(--pse-ink-2);
-  flex: 0 0 auto;
-}
-
-.pse-dash .pse-equipment-body {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.pse-dash .pse-equipment-rate {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-}
-
-.pse-dash .pse-equipment-price {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.6875rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-dash .pse-equipment-foot {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* ── Settlement + recent activity ────────────────────────────────────────
- * The ledger is separated by rules, not by wrapping each row in a card.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash .pse-settlement-card {
-  padding: 0.7rem 0.85rem;
-  background: var(--pse-surface);
-  border: 0;
-  border-radius: var(--pse-r-sm);
-  box-shadow: var(--pse-ring);
-}
-
-.pse-dash .pse-settlement-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.pse-dash .pse-settlement-status {
-  margin-top: 0.15rem;
-  font-size: 0.8125rem;
-  color: var(--pse-ink-2);
-}
-
-.pse-dash .pse-recent-activity {
-  margin-top: 0.6rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-dash .pse-recent-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.3rem;
-}
-
-.pse-dash .pse-ledger {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.pse-dash .pse-ledger-row {
+.pse-dash-equipment-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.35rem 0;
-  background: none;
-  border-radius: 0;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--pse-rule-2);
 }
 
-.pse-dash .pse-ledger-row:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+.pse-dash-equipment-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-dash-equipment-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
-.pse-dash .pse-ledger-desc {
+.pse-dash-equipment-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pse-ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pse-dash-equipment-name:hover { color: var(--pse-accent); }
+
+.pse-dash-equipment-note {
+  font-size: 0.6875rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-dash-equipment-figs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.pse-dash-equipment-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pse-ink);
+  white-space: nowrap;
+}
+
+.pse-dash-equipment-sub {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.625rem;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+/* ── Settlement + ledger ───────────────────────────────────────────────── */
+.pse-dash-settlement {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-dash-settlement-state {
+  font-size: 0.8125rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-dash-settlement-addr {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-dash-ledger-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pse-dash-ledger {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-dash-ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-dash-ledger-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-dash-ledger-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.pse-dash-ledger-desc {
   font-size: 0.8125rem;
   color: var(--pse-ink);
   overflow: hidden;
@@ -445,46 +480,21 @@
   white-space: nowrap;
 }
 
-.pse-dash .pse-ledger-time {
+.pse-dash-ledger-time {
   font-size: 0.6875rem;
   color: var(--pse-ink-3);
 }
 
-.pse-dash .pse-ledger-amt {
+.pse-dash-ledger-amt {
+  flex: 0 0 auto;
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.8125rem;
   font-weight: 600;
-  flex: 0 0 auto;
+  color: var(--pse-ink-2);
 }
 
-.pse-dash .pse-ledger-amt.pos { color: var(--pse-good); }
-.pse-dash .pse-ledger-amt.neg { color: var(--pse-ink-2); }
-
-/* ── Links and the loading surface ──────────────────────────────────────── */
-.pse-dash .pse-link {
-  padding: 0;
-  background: none;
-  border: 0;
-  color: var(--pse-accent);
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.pse-dash .pse-link:hover { color: var(--pse-accent-solid-hover); }
-
-.pse-dash .pse-link:disabled {
-  color: var(--pse-ink-3);
-  cursor: default;
-}
-
-.pse-dash .pse-link:focus-visible,
-.pse-dash .pse-hero-actions .pse-btn:focus-visible {
-  outline: 2px solid var(--pse-accent);
-  outline-offset: 2px;
-}
+.pse-dash-ledger-amt.is-credit { color: var(--pse-good); }
 
 .pse-dash .pse-loading-surface {
   display: flex;
@@ -494,14 +504,22 @@
 }
 
 /* ── Phone ───────────────────────────────────────────────────────────────
- * Tighter figures, four metrics still on one line, sparkline dropped rather
- * than squeezed.
+ * The strip loses its explanatory sentence (the chip still states the state),
+ * the balance steps down one size, and the three figures keep their columns
+ * because their values are short. Nothing here becomes a horizontal scroll.
  * ────────────────────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
-  .pse-dash .pse-balance-card { padding: 0.75rem; }
-  .pse-dash .pse-balance-amount { font-size: 1.5rem; }
-  .pse-dash .pse-hero-foot { flex-direction: column; align-items: stretch; }
-  .pse-dash .pse-hero-metrics { gap: 0.35rem 0.75rem; }
-  .pse-dash .pse-hero-spark { display: none; }
-  .pse-dash .pse-status-strip-clock { display: none; }
+  .pse-dash-strip-note { display: none; }
+  .pse-dash-balance,
+  .pse-dash-panel { padding: 0.8rem; }
+  .pse-dash-amount { font-size: 1.65rem; }
+  .pse-dash-metrics { gap: 0.45rem; }
+  .pse-dash-metric dd { font-size: 0.78125rem; }
+  .pse-dash-equipment-figs { max-width: 46%; }
+}
+
+@media (max-width: 360px) {
+  .pse-dash-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pse-dash-mining-note { display: none; }
+  .pse-dash-sep { display: none; }
 }

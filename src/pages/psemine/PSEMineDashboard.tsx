@@ -1,19 +1,14 @@
 import '../../styles/psemine-dashboard.css';
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  gbp, gbpHour, gbpRate, timeAgo, useCampaignClock,
+  campaignStatusView, gbp, gbpHour, shortAddr, timeAgo, useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice,
-  PseLoading,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading,
 } from '../../components/psemine/PseBasics';
-
-// Presentational helpers
-import MiniSparkline from '../../components/psemine/MiniSparkline';
-import CapacityRing from '../../components/psemine/CapacityRing';
 
 const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
@@ -23,10 +18,21 @@ function dateLabel(ms: number | null): string {
   return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** The chip tone is a statement about the campaign, not decoration. */
+function statusTone(status: string | null): 'good' | 'hold' | 'idle' | undefined {
+  if (status === 'active') return 'good';
+  if (status === 'paused' || status === 'settling' || status === 'payout') return 'hold';
+  if (status === 'ended' || status === 'closed' || status === 'archived') return 'idle';
+  return undefined;
+}
+
 /**
- * Rebuilt PSEMine Dashboard — visual layer only. Preserves all business logic,
- * hooks and actions supplied by the providers. Mobile-first, compact, and
- * intentionally restrained.
+ * PSEMine Dashboard — the account's working surface.
+ *
+ * One balance, one campaign register, one compact equipment register and the two
+ * things that follow from them: settlement state and recent activity. Every
+ * figure is read from `usePseState()` / `useAvailableGBP()`; nothing here invents
+ * a balance, a rate or a history.
  */
 export const PSEMineDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -36,33 +42,27 @@ export const PSEMineDashboard: React.FC = () => {
   } = usePseState();
   const availableStr = useAvailableGBP();
 
-  // Keeps relative timestamps in the activity ledger honest between state reads.
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 15_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const tools = useMemo(() => state?.tools ?? [], [state?.tools]);
   const user = state?.user;
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
-  const campaignDay = clock.dayNumber ?? null;
+  const campaignView = campaignStatusView(campaignStatus);
+  const knownStatus = campaignStatus !== null;
 
-  const isMiningLive = campaignStatus === 'active';
-
+  const accruedLabel = typeof user?.accruedGBP === 'number' && Number.isFinite(user.accruedGBP)
+    ? gbp(user.accruedGBP)
+    : '—';
   const toolCapacity = user?.toolCapacityGBPPerHour ?? 0;
   const referralCapacity = user?.referralCapacityGBPPerHour ?? 0;
-  const totalCapacity = toolCapacity + referralCapacity;
+  const totalCapacity = typeof user?.totalCapacityGBPPerHour === 'number'
+    ? user.totalCapacityGBPPerHour
+    : toolCapacity + referralCapacity;
 
-  const ownedCountForTier = (tierId: string) => tools.filter(t => (t.toolId || '') === tierId).length;
-  // Oldest → newest, so the sparkline reads left to right. Real amounts only.
-  const activitySpark = activities.slice(0, 8).map(a => a.amountGBP ?? 0).reverse();
   const qualifiedCount = user?.qualifiedReferralsCount ?? 0;
   const maxQualified = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
 
-  // Dashboard must not carry a Guide button — the shell does that.
+  const ownedForTier = (tierId: string) => tools.filter(t => (t.toolId || '') === tierId);
+  const lastActivity = activities.slice(0, 5);
 
   if (loading) return (
     <div className="pse-console-main">
@@ -75,165 +75,231 @@ export const PSEMineDashboard: React.FC = () => {
   if (error || !state || !user) return (
     <div className="pse-console-main">
       <PseErrorNotice
-        error={error ?? { kind: 'data', title: "Account unavailable", retryable: true, message: 'Please retry.' }}
+        error={error ?? { kind: 'data', title: 'Account unavailable', retryable: true, message: 'Please retry.' }}
         onRetry={() => void refresh()}
         retrying={refreshing}
       />
     </div>
   );
 
+  const postMining = campaignStatus === 'ended' || campaignStatus === 'settling'
+    || campaignStatus === 'payout' || campaignStatus === 'closed' || campaignStatus === 'archived';
+  const campaignFootnote = clock.dayNumber !== null
+    ? `Day ${clock.dayNumber} of ${clock.totalDays}${clock.daysLeft !== null ? ` · ${clock.daysLeft} day${clock.daysLeft === 1 ? '' : 's'} left` : ''}`
+    : postMining && clock.endMs !== null
+      ? `Window closed ${dateLabel(clock.endMs)}`
+      : campaignStatus === 'scheduled' && clock.startMs !== null
+        ? `Opens ${dateLabel(clock.startMs)}`
+        : clock.startMs !== null
+          ? `Scheduled from ${dateLabel(clock.startMs)}`
+          : 'Campaign dates not reported';
+
   return (
     <div className="pse-console-main pse-dash">
-      {/* STATUS STRIP: minimal, authoritative */}
-      <div className="pse-status-strip">
-        <div className="pse-status-strip-left">
-          <span className="pse-chip" data-tone={isMiningLive ? 'good' : 'idle'}>
-            <span className="pse-chip-dot" aria-hidden />
-            <span className="pse-strip-label">{isMiningLive ? 'Active' : campaignStatus ?? 'Scheduled'}</span>
+      <h1 className="sr-only">Mining account</h1>
+
+      {/* STATUS: the campaign and the account's rate, stated once. */}
+      <div className="pse-dash-strip">
+        <div className="pse-dash-strip-left">
+          <span className="pse-chip" data-tone={knownStatus ? statusTone(campaignStatus) : 'idle'}>
+            <span className="pse-chip-dot" aria-hidden="true" />
+            <span>{knownStatus ? campaignView.label : 'Reading campaign'}</span>
           </span>
-          <span className="pse-status-strip-clock font-mono">{campaignDay !== null ? `Day ${campaignDay}` : 'Pre-launch'}</span>
+          <span className="pse-dash-strip-note">
+            {knownStatus ? campaignView.detail : 'Waiting for the campaign’s own status.'}
+          </span>
         </div>
 
-        <div className="pse-status-strip-right">
-          <CapacityRing
-            value={totalCapacity}
-            max={PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR}
-            size={52}
-            label={gbpRate(totalCapacity)}
-            ariaLabel={`Capacity ${gbpRate(totalCapacity)} of ${gbpRate(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}`}
-          />
+        <div className="pse-dash-capacity">
+          <span className="pse-dash-capacity-label">Total capacity</span>
+          <span className="pse-dash-capacity-value">{gbpHour(totalCapacity)}</span>
         </div>
       </div>
 
-      {/* HERO: primary balance + compact metrics */}
-      <section className="pse-hero-grid" aria-label="Primary workspace">
-        <div className="pse-hero-left">
-          <div className="pse-balance-card" aria-hidden={false}>
-            <div className="pse-balance-head">
-              <div>
-                <div className="pse-kicker">Accrued balance</div>
-                <div className="pse-balance-hero">
-                  <div className="pse-balance-amount">{gbp(user.accruedGBP)}</div>
-                  <div className="pse-balance-sub">GBP — accrues hourly</div>
-                </div>
-                <div className="pse-mining-meta">
-                  <span className="pse-status-indicator"><span className="pse-pulse-dot" />{isMiningLive ? 'Mining' : 'Standby'}</span>
-                  <span className="pse-dot-sep" />
-                  <span className="pse-hourly">{gbpHour(totalCapacity)} / hr</span>
-                </div>
+      <div className="pse-dash-grid">
+        <div className="pse-dash-column">
+          {/* BALANCE — the figure the page exists for. Accrual is not a payout:
+              the settlement-available balance is stated separately, from the
+              backend’s own field, and never relabelled. */}
+          <section className="pse-dash-balance" aria-labelledby="pse-balance-label">
+            <div className="pse-dash-balance-head">
+              <div className="pse-dash-balance-figure">
+                <h2 className="pse-kicker" id="pse-balance-label">Accrued balance</h2>
+                <p className="pse-dash-amount">{accruedLabel}</p>
+                <p className="pse-dash-caption">
+                  Accrued while your units operate. Settlement finalises it before a payout can be requested.
+                </p>
               </div>
 
-              <div className="pse-hero-actions">
+              <div className="pse-dash-actions">
                 <PseButton onClick={() => navigate('/mine/wallet')} variant="primary">Wallet</PseButton>
                 <PseButton onClick={() => navigate('/mine/tools')} variant="secondary">Tools</PseButton>
               </div>
             </div>
 
-            <div className="pse-hero-foot">
-              <div className="pse-hero-metrics">
-                <div className="pse-metric"><div className="pse-metric-label">Tool</div><div className="pse-metric-val">{gbpHour(toolCapacity)}/hr</div></div>
-                <div className="pse-metric"><div className="pse-metric-label">Referral</div><div className="pse-metric-val">{gbpHour(referralCapacity)}/hr</div></div>
-                <div className="pse-metric"><div className="pse-metric-label">Referrals</div><div className="pse-metric-val">{qualifiedCount}/{maxQualified}</div></div>
-                <div className="pse-metric"><div className="pse-metric-label">Available</div><div className="pse-metric-val">{availableStr}</div></div>
-              </div>
-              {activitySpark.length > 1 && (
-                <div className="pse-hero-spark">
-                  <MiniSparkline data={activitySpark} width={110} height={22} title="Recent activity amounts" />
-                </div>
-              )}
+            <div className="pse-dash-mining">
+              <span className="pse-dash-mining-state" data-live={campaignStatus === 'active'}>
+                <span className="pse-pulse-dot" aria-hidden="true" />
+                {campaignStatus === 'active' ? 'Mining live' : knownStatus ? campaignView.label : 'Status pending'}
+              </span>
+              <span className="pse-dash-sep" aria-hidden="true" />
+              <span className="pse-dash-mining-note">
+                {qualifiedCount} of {maxQualified} referral{maxQualified === 1 ? '' : 's'} qualified
+              </span>
             </div>
-          </div>
 
-          <div className="pse-timeline-card" aria-label="Campaign timeline">
-            <div className="pse-timeline-head">
-              <div className="pse-kicker">Campaign</div>
-              <div className="pse-timeline-dates">{dateLabel(clock.startMs)} — {dateLabel(clock.endMs)}</div>
+            <dl className="pse-dash-metrics">
+              <div className="pse-dash-metric">
+                <dt>Unit capacity</dt>
+                <dd>{gbpHour(toolCapacity)}</dd>
+              </div>
+              <div className="pse-dash-metric">
+                <dt>Referral capacity</dt>
+                <dd>{gbpHour(referralCapacity)}</dd>
+              </div>
+              <div className="pse-dash-metric">
+                <dt>Settlement-available</dt>
+                <dd>{availableStr}</dd>
+              </div>
+            </dl>
+          </section>
+
+          {/* CAMPAIGN — the backend's window, and where today sits inside it. */}
+          <section className="pse-dash-panel" aria-labelledby="pse-campaign-label">
+            <div className="pse-dash-panel-head">
+              <h2 className="pse-kicker" id="pse-campaign-label">Campaign</h2>
+              <span className="pse-dash-panel-meta">
+                {clock.startMs !== null && clock.endMs !== null
+                  ? `${dateLabel(clock.startMs)} — ${dateLabel(clock.endMs)}`
+                  : 'Dates not reported'}
+              </span>
             </div>
-            <div className="pse-timeline-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clock.progress)}>
-              <div className="pse-timeline-progress" style={{ width: `${clock.progress}%` }} />
+
+            <div
+              className="pse-dash-track"
+              role="progressbar"
+              aria-label="Campaign progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(clock.progress)}
+            >
+              <div className="pse-dash-track-fill" style={{ width: `${clock.progress}%` }} />
             </div>
-          </div>
+
+            <div className="pse-dash-panel-foot">
+              <span>{campaignFootnote}</span>
+              <span className="pse-dash-panel-meta">{clock.startMs === null ? 'Awaiting schedule' : `${clock.totalDays}-day window`}</span>
+            </div>
+          </section>
         </div>
 
-        <aside className="pse-hero-right" aria-label="Equipment and settlement">
-          <div className="pse-equipment-grid" role="list">
-            {ALL_TIERS.slice(0, 4).map(t => {
-              const id = t.id;
-              const count = ownedCountForTier(id as string);
-              const hourly = (t.hourlyRateGBP || 0) * count;
-              return (
-                <div key={id} className="pse-equipment-tile" role="listitem" aria-label={t.name}>
-                  <div className="pse-equipment-head">
-                    <div className="pse-equipment-title">{t.name}</div>
-                    <div className="pse-equipment-count">{count}</div>
-                  </div>
-
-                  <div className="pse-equipment-body">
-                    <div className="pse-equipment-rate">{gbpHour(hourly)}</div>
-                    <div className="pse-equipment-price">{gbp(t.purchasePriceGBP)}</div>
-                  </div>
-
-                  <div className="pse-equipment-foot">
-                    <button className="pse-link" onClick={() => navigate('/mine/tools')}>Manage</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="pse-settlement-card">
-            <div className="pse-settlement-row">
-              <div>
-                <div className="pse-kicker">Settlement</div>
-                <div className="pse-settlement-status">{user.payoutWallet ? 'BEP-20 wallet connected' : 'No wallet'}</div>
-              </div>
-              <div>
-                <PseButton onClick={() => navigate('/mine/wallet')} variant="secondary">Manage</PseButton>
-              </div>
+        <div className="pse-dash-column">
+          {/* EQUIPMENT — one row per tier, so the fleet can be compared down the
+              column instead of read one card at a time. */}
+          <section className="pse-dash-panel" aria-labelledby="pse-equipment-label">
+            <div className="pse-dash-panel-head">
+              <h2 className="pse-kicker" id="pse-equipment-label">Equipment</h2>
+              <Link to="/mine/tools" className="pse-dash-link">Manage tools</Link>
             </div>
 
-            <div className="pse-recent-activity">
-              <div className="pse-recent-head">
-                <div className="pse-kicker">Recent activity</div>
-                <button
-                  type="button"
-                  className="pse-link"
-                  onClick={() => void refreshFeed('activities')}
-                  disabled={refreshing}
-                >
-                  Refresh
-                </button>
-              </div>
-              {feedErrors.activities && (
-                <PseFeedNotice
-                  message="The activity feed could not be refreshed."
-                  onRetry={() => void refreshFeed('activities')}
-                  retrying={refreshing}
-                />
-              )}
-              {activities.length > 0 ? (
-                <ul className="pse-ledger" aria-live="polite">
-                  {activities.slice(0, 5).map(a => (
-                    <li key={a.id} className="pse-ledger-row">
-                      <div>
-                        <div className="pse-ledger-desc">{a.title || a.type || 'Activity'}</div>
-                        <div className="pse-ledger-time">{timeAgo(a.createdAt)}</div>
+            <ul className="pse-dash-equipment">
+              {ALL_TIERS.map(tier => {
+                const owned = ownedForTier(tier.id);
+                const count = owned.length;
+                const operating = owned.filter(t => t.cycleState === 'active').length;
+                const hourly = tier.hourlyRateGBP * count;
+                const stateLabel = count === 0
+                  ? 'Not owned'
+                  : operating === count
+                    ? count === 1 ? 'Operating' : 'All operating'
+                    : `${operating} of ${count} operating`;
+
+                return (
+                  <li key={tier.id} className="pse-dash-equipment-row">
+                    <div className="pse-dash-equipment-id">
+                      <Link to="/mine/tools" className="pse-dash-equipment-name">{tier.name}</Link>
+                      <span className="pse-dash-equipment-note">
+                        {count === 0 ? 'Not owned' : `${count} owned · ${stateLabel}`}
+                      </span>
+                    </div>
+                    <div className="pse-dash-equipment-figs">
+                      <span className="pse-dash-equipment-rate">{gbpHour(hourly)}</span>
+                      <span className="pse-dash-equipment-sub">
+                        {gbp(tier.purchasePriceGBP)} · {gbpHour(tier.hourlyRateGBP)} each
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="pse-dash-panel-note">
+              The figure is the capacity of the units you own. The status says how many are operating;
+              session units stop between sessions until restarted.
+            </p>
+          </section>
+
+          {/* SETTLEMENT + LEDGER */}
+          <section className="pse-dash-panel" aria-labelledby="pse-settlement-label">
+            <div className="pse-dash-panel-head">
+              <h2 className="pse-kicker" id="pse-settlement-label">Settlement</h2>
+              <Link to="/mine/wallet" className="pse-dash-link">Manage wallet</Link>
+            </div>
+
+            <div className="pse-dash-settlement">
+              <span className="pse-dash-settlement-state">
+                {user.payoutWallet ? 'BEP-20 payout wallet connected' : 'No payout wallet set'}
+              </span>
+              <span className="pse-dash-settlement-addr">
+                {user.payoutWallet ? shortAddr(user.payoutWallet) : 'Set one before the wallet cutoff'}
+              </span>
+            </div>
+
+            <div className="pse-dash-ledger-head">
+              <h3 className="pse-kicker">Recent activity</h3>
+              <button
+                type="button"
+                className="pse-dash-link"
+                onClick={() => void refreshFeed('activities')}
+                disabled={refreshing}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {feedErrors.activities && (
+              <PseFeedNotice
+                message="The activity feed could not be refreshed."
+                onRetry={() => void refreshFeed('activities')}
+                retrying={refreshing}
+              />
+            )}
+
+            {lastActivity.length > 0 ? (
+              <ul className="pse-dash-ledger" aria-live="polite">
+                {lastActivity.map(a => {
+                  const hasAmount = typeof a.amountGBP === 'number' && Number.isFinite(a.amountGBP);
+                  const amount = a.amountGBP ?? 0;
+                  return (
+                    <li key={a.id} className="pse-dash-ledger-row">
+                      <div className="pse-dash-ledger-id">
+                        <span className="pse-dash-ledger-desc">{a.title || a.type || 'Activity'}</span>
+                        <span className="pse-dash-ledger-time">{timeAgo(a.createdAt)}</span>
                       </div>
-                      <div className={"pse-ledger-amt " + ((a.amountGBP ?? 0) > 0 ? 'pos' : 'neg')}>
-                        {typeof a.amountGBP === 'number' ? (a.amountGBP > 0 ? '+' + gbp(a.amountGBP) : gbp(a.amountGBP)) : '—'}
-                      </div>
+                      <span className={'pse-dash-ledger-amt' + (hasAmount && amount > 0 ? ' is-credit' : '')}>
+                        {hasAmount ? (amount > 0 ? `+${gbp(amount)}` : gbp(amount)) : '—'}
+                      </span>
                     </li>
-                  ))}
-                </ul>
-              ) : (
-                <PseEmptyNote title="No recent activity">
-                  Purchases, accrual checkpoints and payouts appear here as the account moves.
-                </PseEmptyNote>
-              )}
-            </div>
-          </div>
-        </aside>
-      </section>
+                  );
+                })}
+              </ul>
+            ) : (
+              <PseEmptyNote title="No recent activity">
+                Purchases, referrals, maintenance and payouts appear here as the backend records them.
+              </PseEmptyNote>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 };

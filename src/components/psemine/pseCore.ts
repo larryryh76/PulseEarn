@@ -138,12 +138,10 @@ export function gbp(value: number | null | undefined): string {
   return `£${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Hourly capacity, with its unit — the ONLY hourly formatter in the product.
+ *  It prints the unit as part of the value, so a caller must never append one
+ *  ("£0.10/hr / hour" was the defect that produced two units on one figure). */
 export function gbpHour(v?: number | null): string {
-  const x = typeof v === 'number' && Number.isFinite(v) ? v : 0;
-  return `£${x.toFixed(2)}/hour`;
-}
-
-export function gbpRate(v?: number | null): string {
   const x = typeof v === 'number' && Number.isFinite(v) ? v : 0;
   return `£${x.toFixed(2)}/hr`;
 }
@@ -304,7 +302,16 @@ export function useCampaignClock(
     ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
     : null;
   const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
-  const progress = dayNumber === null ? 0 : Math.min(100, Math.max(0, (dayNumber / totalDays) * 100));
+  /* A post-mining state with a real end date in the past is a completed window,
+     not a window at zero. `dayNumber` is null once mining is no longer live, so
+     without this the rail of an ended campaign would read 0%. */
+  const windowComplete = dayNumber === null
+    && typeof endMs === 'number'
+    && now >= endMs
+    && ['ended', 'settling', 'payout', 'closed', 'archived'].includes(status);
+  const progress = dayNumber !== null
+    ? Math.min(100, Math.max(0, (dayNumber / totalDays) * 100))
+    : windowComplete ? 100 : 0;
   const phaseIndex = PHASE_INDEX[status] ?? 0;
 
   return {

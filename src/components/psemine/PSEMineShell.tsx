@@ -164,7 +164,13 @@ export const PSEMineShell: React.FC = () => {
 
   return (
     <div className={`pse pse-console-shell${inConsole ? ' pse-console-shell--docked' : ''}`}>
-      <ProductBar inConsole={inConsole} showGuide={inConsole} guideOpen={guideOpen} onOpenGuide={openGuide} />
+      <ProductBar
+        inConsole={inConsole}
+        showGuide={inConsole}
+        guideOpen={guideOpen}
+        onOpenGuide={openGuide}
+        onCloseGuide={closeGuide}
+      />
 
       {inConsole && !isDashboard && <CampaignBand />}
 
@@ -191,7 +197,8 @@ const ProductBar: React.FC<{
   showGuide: boolean;
   guideOpen: boolean;
   onOpenGuide: () => void;
-}> = ({ inConsole, showGuide, guideOpen, onOpenGuide }) => {
+  onCloseGuide: () => void;
+}> = ({ inConsole, showGuide, guideOpen, onOpenGuide, onCloseGuide }) => {
   const { logout } = usePSEMineAuth();
   const { unreadNotifications } = usePseState();
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -226,24 +233,18 @@ const ProductBar: React.FC<{
                 {item.label}
               </NavLink>
             ))}
-            {showGuide && (
-              <button
-                type="button"
-                className={`pse-nav-link ${guideOpen ? 'active' : ''}`}
-                onClick={onOpenGuide}
-              >
-                Guide
-              </button>
-            )}
           </nav>
 
           <div className="pse-bar-tools">
-            <PseIconButton
-              label="Campaign Guide"
-              onClick={onOpenGuide}
-            >
-              <GuideGlyph />
-            </PseIconButton>
+            {showGuide && (
+              <PseIconButton
+                label={guideOpen ? 'Close campaign guide' : 'Open campaign guide'}
+                onClick={guideOpen ? onCloseGuide : onOpenGuide}
+                aria-pressed={guideOpen}
+              >
+                <GuideGlyph />
+              </PseIconButton>
+            )}
 
             <PseIconButton
               label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : 'Notifications'}
@@ -376,7 +377,11 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   useScrollLock(true);
   useEscapeKey(true, onClose);
-  React.useEffect(() => { headRef.current?.focus(); }, []);
+  React.useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    headRef.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
 
   const markAll = async () => {
     setBusy(true);
@@ -451,34 +456,19 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 /** Every product document, once, at the end of the product. The console does not
     repeat legal links on each page: they are reachable from where a reader
     commits (a purchase, a payout wallet) and from here. */
-const ConsoleFoot: React.FC = () => {
-  const location = useLocation();
-  const isDashboard = location.pathname === '/mine/dashboard' || location.pathname === '/mine';
-
-  if (isDashboard) {
-    return (
-      <footer className="pse-console-foot text-center py-4 text-xs text-slate-500 border-t border-slate-800/60">
-        <div className="pse-console-foot-inner justify-center">
-          <span>© 2026 PSEmine · PSEmine</span>
-        </div>
-      </footer>
-    );
-  }
-
-  return (
-    <footer className="pse-console-foot">
-      <div className="pse-console-foot-inner">
-        <span>PSEmine · 90-day mining campaign</span>
-        <span className="pse-console-foot-links">
-          {PSE_DOC_ORDER.map(id => (
-            <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
-          ))}
-          <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
-        </span>
-      </div>
-    </footer>
-  );
-};
+const ConsoleFoot: React.FC = () => (
+  <footer className="pse-console-foot">
+    <div className="pse-console-foot-inner">
+      <span>PSEmine · 90-day mining campaign</span>
+      <span className="pse-console-foot-links">
+        {PSE_DOC_ORDER.map(id => (
+          <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
+        ))}
+        <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
+      </span>
+    </div>
+  </footer>
+);
 
 const PublicFooter: React.FC = () => (
   <footer className="pse-console-foot">

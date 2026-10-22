@@ -14,6 +14,7 @@ import {
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
+import '../../styles/psemine-rebuild.css';
 const MAX_REFERRALS = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
 const BONUS = PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR;
 

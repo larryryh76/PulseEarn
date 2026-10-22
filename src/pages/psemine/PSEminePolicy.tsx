@@ -412,24 +412,26 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'product',
         h: 'What PSEmine is',
         p: [
-          "PSEmine sells a unit with published hourly campaign capacity for one campaign. Capacity accrues only while the campaign is live and the unit is operating. After settlement, eligible balances are paid in BNB.",
-          "The campaign window, unit price, hourly capacity and ownership cap are published before purchase. These figures describe capacity, not a promised return.",
+          'PSEmine sells a recorded right to a mining unit\u2019s hourly capacity for the duration of a single campaign. A unit has a fixed price, a fixed capacity per hour denominated in GBP, and an ownership cap. That capacity accrues campaign earnings while the unit is operating and the campaign is live, and a settled balance is paid out in BNB after the campaign settles.',
+          'The product runs on published, locked figures rather than a projection: the campaign length, each unit\u2019s price, its hourly capacity and its ownership cap do not change while a campaign is running. What a unit costs and what it adds are therefore known before you buy.',
         ],
       },
       {
         id: 'campaign-based',
         h: 'How campaign earnings accrue and settle',
         p: [
-          "Capacity accrues only while the campaign is live and the unit is operating. Settlement finalises the recorded accrual for the campaign window; payouts are calculated from that settled amount.",
-          "Capacity is not a guaranteed return or forecast. Pauses, session schedules, operating time and settlement can make the final amount lower than a full-window estimate. Published campaign and unit figures are fixed for the campaign.",
+          'Hourly capacity is a campaign rate: it accrues while a unit is operating and the campaign is live, and it stops when either of those ends. The campaign runs its published window, settlement finalises the accrual at the end of it, and the settled figure is the recorded result of that window — and the figure a payout is calculated from.',
+          'A campaign rate is not a guaranteed return. PSEmine does not guarantee an outcome on a unit, and no figure in the product is a projection or a forecast. What a unit delivers depends on the campaign running for its published window and on the unit operating within it, so a settled figure can be lower than the capacity you hold would produce across a full window.',
+          'The published figures are what the campaign runs on. The campaign length, each unit\u2019s price, its hourly capacity and its ownership limit are fixed before the campaign opens and do not change while it runs, so what a unit costs and what it adds are known before you buy.',
         ],
       },
       {
         id: 'purchase',
         h: 'A purchase is a payment, made once',
         p: [
-          "A unit is a one-off purchase at the published price, paid in BNB. Confirmed blockchain payments cannot be recalled by PSEmine. The purchase grants the unit’s recorded capacity for the campaign window; it is not a claim on campaign revenue or a guaranteed return.",
-          "A change of mind or an outcome below expectations does not by itself create a refund entitlement. This does not limit rights under applicable consumer law.",
+          'Buying a unit is a one-off purchase at the published price: the price is paid in full in BNB at the time of purchase, and a confirmed on-chain payment cannot be recalled by PSEmine. A unit gives you its recorded hourly capacity for the campaign window, and the purchase price is not refundable as a change of mind.',
+          'Because what a unit produces depends on the campaign, a purchase is not a claim on the campaign\u2019s revenue or on any particular return, and the price is not refundable merely because the outcome differs from your expectations.',
+          'Nothing in this section limits rights you have under applicable consumer law.',
         ],
       },
       {
@@ -446,7 +448,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'market',
         h: 'Payment and currency risk',
         p: [
-          "Campaign accounting is in GBP; purchases and payouts use BNB. BNB’s market value changes, so the fiat value paid or received is not fixed. The payout record shows the settled GBP amount and the BNB sent at processing time.",
+          'Campaign accounting is in GBP, while the purchase and the payout are made in BNB. The value of BNB moves, so the value of what you pay and the value of what you are paid are both variable and are not fixed by the product. A payout\u2019s BNB amount depends on the rate at the time it is processed, and the payout record states both the settled GBP figure and the crypto amount sent.',
         ],
       },
       {

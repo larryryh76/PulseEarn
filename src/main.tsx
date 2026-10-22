@@ -27,9 +27,9 @@ import './styles/psemine-docs.css'
 // notification sheet and the guide overlay. Loaded last, for the same cascade
 // reason as the layers above it.
 import './styles/psemine-console.css'
-import App from './App.tsx'
-// Load after the page modules' legacy styles so the new console design owns the cascade.
+// Fresh console and document composition; routes and state remain unchanged.
 import './styles/psemine-rebuild.css'
+import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'

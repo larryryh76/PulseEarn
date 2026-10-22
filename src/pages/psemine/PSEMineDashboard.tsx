@@ -9,10 +9,10 @@ import {
   useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
-import '../../styles/psemine-rebuild.css';
   PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseNotice,
   PseOwnedUnit, PseSkeleton, PseSkeletonRows, PseStatus,
 } from '../../components/psemine/PseBasics';
+import '../../styles/psemine-rebuild.css';
 
 /** Campaign date, printed short so the register head stays on one line. */
 function dateLabel(ms: number | null): string {

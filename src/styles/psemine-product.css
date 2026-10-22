@@ -110,7 +110,12 @@
   color: var(--pse-ink);
 }
 
-.pse-console-foot {
+/* The public product page's console instrument carries its own footnote. It is
+   scoped to `.pse-console` because `.pse-console-foot` is also the class of the
+   AUTHENTICATED console's footer: unscoped, this rule turned that footer into a
+   shrink-to-fit flex row and restyled its padding. The two footers are different
+   objects and must not share a selector. */
+.pse-console .pse-console-foot {
   display: flex;
   align-items: center;
   gap: 0.5rem;

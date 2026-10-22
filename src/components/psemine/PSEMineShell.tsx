@@ -64,7 +64,7 @@ import {
 import { PseButton, PseIconButton, PseStatus } from './PseBasics';
 import { PseGuide } from './PseGuide';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
-import { PSE_DOC_LABEL, PSE_DOC_ORDER, PSE_DOC_PATH } from './pseDocs';
+import { PSE_DOC_LABEL, PSE_DOC_PATH } from './pseDocs';
 
 /** The section list, once. The bar renders all of it; the dock renders the first five. */
 const CONSOLE_SECTIONS: ReadonlyArray<{ to: string; label: string; dock: boolean }> = [
@@ -459,28 +459,94 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-/* ── Console foot ────────────────────────────────────────────────────────── */
-
-/** Every product document, once, at the end of the product. The console does not
-    repeat legal links on each page: they are reachable from where a reader
-    commits (a purchase, a payout wallet) and from here. */
+/* ── Console foot ──────────────────────────────────────────────────────────
+ * The end of the product, once. Four things, in this order, because that is the
+ * order a reader needs them in when they are leaving an account surface: who
+ * this is, where the rest of the product is, the documents they are agreeing to,
+ * and who to ask.
+ *
+ * IT IS NOT A PANEL. It is separated from the page by a hairline and by space,
+ * it shares the page's own measure, and it carries no card, no radius and no
+ * second navigation model: the section list here is an index of the product, not
+ * a competing navigation.
+ *
+ * ON A PHONE it is three link columns in two rows, each link a real 36px target,
+ * and the base row stacks. Nothing here can overflow: every column is
+ * `minmax(0, 1fr)` and every label wraps inside its column.
+ *
+ * The console does not render this footer twice: no console page renders its own
+ * footer, and the public chrome's footer is a different component (see
+ * PublicFooter below) with its own modifier.
+ * ────────────────────────────────────────────────────────────────────────── */
 const ConsoleFoot: React.FC = () => (
   <footer className="pse-console-foot">
     <div className="pse-console-foot-inner">
-      <span>PSEmine · 90-day mining campaign</span>
-      <span className="pse-console-foot-links">
-        {PSE_DOC_ORDER.map(id => (
-          <Link key={id} to={PSE_DOC_PATH[id]}>{PSE_DOC_LABEL[id]}</Link>
-        ))}
-        <Link to={GUIDE_REFERENCE}>How PSEmine works</Link>
-      </span>
+      <div className="pse-foot-brand">
+        <Link to="/mine/dashboard" className="pse-foot-brand-id">
+          <PSEmineMark size={22} decorative />
+          <span>PSEmine</span>
+        </Link>
+        <p className="pse-foot-descriptor">
+          90-day campaign mining. Earnings are GBP campaign accounting; settlement is paid in BNB on
+          BNB Smart Chain to the payout wallet you configure.
+        </p>
+      </div>
+
+      <nav className="pse-foot-cols" aria-label="PSEmine index">
+        <div className="pse-foot-col">
+          <h2 className="pse-foot-col-title">Console</h2>
+          <ul>
+            <li><Link to="/mine/dashboard">Dashboard</Link></li>
+            <li><Link to="/mine/tools">Mining tools</Link></li>
+            <li><Link to="/mine/wallet">Wallet &amp; payouts</Link></li>
+            <li><Link to="/mine/referrals">Referrals</Link></li>
+            <li><Link to="/mine/activity">Activity</Link></li>
+          </ul>
+        </div>
+
+        <div className="pse-foot-col">
+          <h2 className="pse-foot-col-title">Campaign</h2>
+          <ul>
+            <li><Link to={GUIDE_REFERENCE}>How PSEmine works</Link></li>
+            <li><Link to={GUIDE_ONBOARDING}>Onboarding</Link></li>
+            <li><Link to={PSE_DOC_PATH['campaign-terms']}>{PSE_DOC_LABEL['campaign-terms']}</Link></li>
+            <li><Link to={PSE_DOC_PATH['payout-policy']}>{PSE_DOC_LABEL['payout-policy']}</Link></li>
+            <li><Link to={PSE_DOC_PATH['referral-terms']}>{PSE_DOC_LABEL['referral-terms']}</Link></li>
+          </ul>
+        </div>
+
+        <div className="pse-foot-col">
+          <h2 className="pse-foot-col-title">Terms &amp; support</h2>
+          <ul>
+            <li><Link to={PSE_DOC_PATH.terms}>{PSE_DOC_LABEL.terms}</Link></li>
+            <li><Link to={PSE_DOC_PATH['purchase-terms']}>{PSE_DOC_LABEL['purchase-terms']}</Link></li>
+            <li><Link to={PSE_DOC_PATH.privacy}>{PSE_DOC_LABEL.privacy}</Link></li>
+            <li><Link to={PSE_DOC_PATH.cookies}>{PSE_DOC_LABEL.cookies}</Link></li>
+            <li><Link to={PSE_DOC_PATH.risk}>{PSE_DOC_LABEL.risk}</Link></li>
+            <li><Link to={PSE_DOC_PATH.support}>{PSE_DOC_LABEL.support}</Link></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div className="pse-console-foot-base">
+      <div className="pse-console-foot-base-inner">
+        <p>© {new Date().getFullYear()} PulseEarn · PSEmine</p>
+        <p>
+          Mining capacity is a campaign rate, not a guarantee of earnings.{' '}
+          <Link to={PSE_DOC_PATH.risk} className="pse-link">Read the risk disclosure</Link>.
+        </p>
+      </div>
     </div>
   </footer>
 );
 
+/** The public chrome's footer. It is a single line of documents on the plane, and
+    it keeps its own modifier so the console's structured footer cannot restyle
+    the marketing surface. */
 const PublicFooter: React.FC = () => (
   <footer className="pse-console-foot">
-    <div className="pse-console-foot-inner">
+    <div className="pse-console-foot-inner pse-console-foot-inner--public">
       <span>PSEmine · 90-day mining campaign</span>
       <span className="pse-console-foot-links">
         <Link to="/mine/terms">Terms</Link>

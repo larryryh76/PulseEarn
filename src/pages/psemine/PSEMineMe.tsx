@@ -6,8 +6,8 @@ import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenti
 import { auth } from '../../firebase/config';
 import { campaignStatusView, shortAddr } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseFact, PseFacts, PseField, PseInput, PseLoading, PseNotice,
-  PsePage, PseSection, PseSplit, PseStack, PseStatus,
+  PseButton, PseFact, PseFacts, PseField, PseInput, PseNotice,
+  PsePage, PseSection, PseSkeleton, PseSplit, PseStack, PseStatus,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 import { mapAuthError } from '../../utils/errors';
@@ -63,13 +63,10 @@ export const PSEMineMe: React.FC = () => {
     } finally { setPwBusy(false); }
   };
 
-  if (loading && !state && !currentUser) {
-    return (
-      <div className="pse-console-main">
-        <PseLoading label="Loading your account" />
-      </div>
-    );
-  }
+  /* The account's identity comes from the session, which is already resolved by
+     the route guard, so this page never waits on the mining state as a whole:
+     the two wallet facts that DO come from it are drawn as skeletons instead. */
+  const walletsPending = loading && !state;
 
   return (
     <PsePage
@@ -135,13 +132,17 @@ export const PSEMineMe: React.FC = () => {
             <PseFacts cols={1}>
               <PseFact
                 label="Connected wallet"
-                value={connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}
-                text={!connectedWallet}
+                value={walletsPending
+                  ? <PseSkeleton width="9ch" height="0.875rem" />
+                  : connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}
+                text={!walletsPending && !connectedWallet}
               />
               <PseFact
                 label="Payout wallet"
-                value={payoutWallet ? shortAddr(payoutWallet) : 'Not set'}
-                text={!payoutWallet}
+                value={walletsPending
+                  ? <PseSkeleton width="9ch" height="0.875rem" />
+                  : payoutWallet ? shortAddr(payoutWallet) : 'Not set'}
+                text={!walletsPending && !payoutWallet}
               />
             </PseFacts>
             <p className="pse-prose--sm">

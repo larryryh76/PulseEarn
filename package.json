@@ -12,6 +12,7 @@
     "check:isolation": "bun scripts/check-product-isolation.mjs",
     "verify:visual": "bun scripts/pse-visual-check.mjs",
     "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",
+    "verify:console": "bun scripts/pse-console-check.mjs",
     "verify:user-journey": "bun scripts/pse-user-journey.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
     "verify:a11y": "bun scripts/pse-a11y-check.mjs",

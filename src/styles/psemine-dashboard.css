@@ -79,6 +79,10 @@
 
 .pse-account-main {
   display: grid;
+  /* An implicit auto column sizes to its widest item's max-content, so a wide
+     child (a long figure, a skeleton) could push the whole band past the page.
+     The track is explicit and shrinkable instead. */
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 0.55rem;
   min-width: 0;
@@ -121,6 +125,7 @@
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
+  min-width: 0;
 }
 
 /* The secondary figure — what settlement has actually released. It is stated

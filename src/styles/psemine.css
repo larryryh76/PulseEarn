@@ -126,8 +126,12 @@
  * The console, when the application theme is dark. `:not(.pse-plane)` is what
  * keeps the product surface independent of the application's theme — it is the
  * single line that decides which PSEmine surface follows the app.
+ *
+ * The authenticated console is excluded because it owns one fixed graphite
+ * palette of its own (see psemine-console.css): an account surface must not
+ * change its financial figures' contrast with the operator's theme.
  */
-.dark .pse:not(.pse-plane) {
+.dark .pse:not(.pse-plane):not(.pse-console-shell) {
   --pse-canvas: #08090b;
   --pse-surface: #0f1115;
   --pse-surface-2: #14171d;

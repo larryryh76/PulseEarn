@@ -11,20 +11,24 @@ import {
 import { type PsePendingPurchase } from '../../engines/psemine/pseMineApi';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
-  bnbExactFromWei, cycleStateView, gbp, gbpHour, nowMs, shortAddr, shortHash,
+  bnbExactFromWei, copyText, gbp, gbpHour, nowMs, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseCell, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading,
-  PseNotice, PsePage, PseRow, PseSection, PseTable,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
+  PseOwnedUnit, PsePage, PseSection, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
 /**
- * The mining tool marketplace — MINIMAL FUNCTIONAL PRESENTATION.
+ * The mining tool marketplace — the canonical catalogue.
  *
- * The Duty & Ledger marketplace (spec matrix, module plates, receipt sheet) was
- * purged in `refactor(psemine): purge legacy design implementation`. What is
- * preserved exactly is the purchase behaviour: quote → bind payer → chain
+ * The page has one owner: browsing and buying equipment. It groups the units
+ * this account actually owns, the purchase that is in flight (if any) and the
+ * available catalogue, and it states each product's fixed price, capacity and
+ * ownership limit as a compact specification row rather than a promotional
+ * card.
+ *
+ * The purchase behaviour is preserved exactly: quote → bind payer → chain
  * assertion → sign → submit → on-chain verification → activation, with refresh
  * recovery of an in-flight intent. The UI never asserts success before the
  * backend verifies, and every displayed amount comes from the server quote's
@@ -67,20 +71,37 @@ export const PSEMineTools: React.FC = () => {
   const { state, refresh, loading, error, refreshing } = usePseState();
   const [purchasing, setPurchasing] = useState<PSEMineToolDefinition | null>(null);
 
-  const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
   const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
   // Every ownership the backend reports is listed: filtering to "operating"
   // statuses hid settling/ended tools and under-reported equipment (merged from
   // remote, which found the same defect).
   const ownedTools = useMemo(() => state?.tools ?? [], [state?.tools]);
 
-  const toolCapacity = state?.user?.toolCapacityGBPPerHour ?? pseUser?.toolCapacityGBPPerHour ?? 0;
-  const totalCapacity = state?.user?.totalCapacityGBPPerHour ?? pseUser?.totalCapacityGBPPerHour ?? 0;
-  const referralCapacity = state?.user?.referralCapacityGBPPerHour ?? pseUser?.referralCapacityGBPPerHour ?? 0;
+  // An unreported capacity prints as an em dash, never as £0.00 — the backend
+  // has not said the account holds zero, it has said nothing yet.
+  const toolCapacity = typeof state?.user?.toolCapacityGBPPerHour === 'number'
+    ? state.user.toolCapacityGBPPerHour
+    : typeof pseUser?.toolCapacityGBPPerHour === 'number' ? pseUser.toolCapacityGBPPerHour : null;
+  const totalCapacity = typeof state?.user?.totalCapacityGBPPerHour === 'number'
+    ? state.user.totalCapacityGBPPerHour
+    : typeof pseUser?.totalCapacityGBPPerHour === 'number' ? pseUser.totalCapacityGBPPerHour : null;
+  const referralCapacity = typeof state?.user?.referralCapacityGBPPerHour === 'number'
+    ? state.user.referralCapacityGBPPerHour
+    : typeof pseUser?.referralCapacityGBPPerHour === 'number' ? pseUser.referralCapacityGBPPerHour : null;
   const referralQualified = state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0;
-  const headroom = Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity);
-  const totalOwned = TOOLS.reduce((a, t) => a + (counts[t.id] || 0), 0);
-  const tierSlotsLeft = TOOLS.reduce((acc, t) => acc + Math.max(0, t.maxPerUser - (counts[t.id] || 0)), 0);
+  const headroom = toolCapacity !== null
+    ? Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity)
+    : null;
+  const toolCapacityLabel = toolCapacity !== null ? gbpHour(toolCapacity) : '—';
+  const headroomLabel = headroom !== null ? gbpHour(headroom) : '—';
+  const referralCapacityLabel = referralCapacity !== null ? gbpHour(referralCapacity) : '—';
+  const totalCapacityLabel = totalCapacity !== null ? gbpHour(totalCapacity) : '—';
+  // Ownership is counted from the backend's ownership records, not from the
+  // catalogue and not from the account's cached counts: a record is proof.
+  const tierSlotsLeft = TOOLS.reduce(
+    (acc, t) => acc + Math.max(0, t.maxPerUser - ownedTools.filter(o => (o.toolId || '') === t.id).length),
+    0,
+  );
 
   // ══ Refresh recovery: which pending purchase deserves the top notice ══════
   //   1. an IN-FLIGHT submission (transaction_submitted / confirming);
@@ -125,25 +146,40 @@ export const PSEMineTools: React.FC = () => {
     return <PurchaseFlow tool={purchasing} pending={pending} onClose={() => { setPurchasing(null); void refresh(); }} />;
   }
 
+  const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
+  const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
+
   return (
     <PsePage
       title="Mining tools"
-      objective="Tool capacity adds to your hourly mining capacity. Each tool has a fixed GBP price and a fixed hourly rate; purchases are paid in BNB."
-      actions={<PseButton onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
+      objective="The catalogue of mining equipment. Each tool has a fixed GBP price and a fixed hourly capacity; purchases are quoted and paid in BNB from your own wallet."
+      actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <PseSection title="Your position" meta="Capacity before and after any purchase below">
-        <PseFacts cols={2}>
-          <PseFact label="Tool capacity" value={gbpHour(toolCapacity)} />
-          <PseFact label="Referral capacity" value={gbpHour(referralCapacity)} hint={`${referralQualified} qualified referral${referralQualified === 1 ? '' : 's'}`} />
-          <PseFact label="Total capacity" value={gbpHour(totalCapacity)} />
-          <PseFact label="Tool capacity headroom" value={gbpHour(headroom)} hint={`of ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}`} />
-          <PseFact label="Tools owned" value={`${totalOwned}`} />
-          <PseFact label="Tier slots remaining" value={`${tierSlotsLeft}`} />
-        </PseFacts>
-      </PseSection>
+      <PseStatBar cols={4}>
+        <PseStat
+          label="Equipment owned"
+          value={`${ownedTools.length}`}
+          note={`${operatingOwned} operating · ${TOOLS.reduce((a, t) => a + t.maxPerUser, 0)} account slots`}
+        />
+        <PseStat
+          label="Tool capacity"
+          value={toolCapacityLabel}
+          note={`Max ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}`}
+        />
+        <PseStat
+          label="Capacity headroom"
+          value={headroomLabel}
+          note={`${tierSlotsLeft} tier slot${tierSlotsLeft === 1 ? '' : 's'} open`}
+        />
+        <PseStat
+          label="Referral capacity"
+          value={referralCapacityLabel}
+          note={`${referralQualified} qualified · total ${totalCapacityLabel}`}
+        />
+      </PseStatBar>
 
       {pendingPurchase && (
-        <PseNotice tone="attention">
+        <PseNotice tone="attention" title="Purchase in progress">
           {pendingInFlight
             ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
             : pendingQuoteLive
@@ -163,92 +199,112 @@ export const PSEMineTools: React.FC = () => {
       )}
 
       {!purchaseOpen && (
-        <PseNotice tone="attention">
-          Tool purchases are closed: the campaign status is {campaign?.status || 'scheduled'}. Nothing can be bought
-          until the campaign is active again.
+        <PseNotice tone="attention" title="Purchases closed">
+          The campaign status is {campaign?.status || 'scheduled'}. Nothing can be bought until the campaign is
+          active again; existing equipment keeps its state and accrual rules.
         </PseNotice>
       )}
 
-      <PseSection title="Catalogue" meta={`Prices and rates are fixed in GBP · paid in BNB on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}`}>
-        <PseTable
-          head={['Tool', 'Price', 'Capacity', 'Owned / limit', 'At limit', 'Availability', '']}
-          numeric={[1, 2, 4]}
-          caption="The mining tools, with their fixed GBP price, hourly capacity and ownership limit"
-        >
-          {TOOLS.map(tool => {
-            const owned = counts[tool.id] || 0;
-            const atLimit = owned >= tool.maxPerUser;
-            const continuous = dutyOf(tool) === 'continuous';
-            return (
-              <PseRow key={tool.id}>
-                <PseCell sub={continuous ? 'Continuous duty' : 'Session · manual restart'}>{tool.name}</PseCell>
-                <PseCell numeric>{gbp(tool.purchasePriceGBP)}</PseCell>
-                <PseCell numeric>{gbpHour(tool.hourlyRateGBP)}</PseCell>
-                <PseCell>{owned} / {tool.maxPerUser}</PseCell>
-                <PseCell numeric>{gbpHour(tool.hourlyRateGBP * tool.maxPerUser)}</PseCell>
-                <PseCell>{atLimit ? 'Limit reached' : `${tool.maxPerUser - owned} left`}</PseCell>
-                <PseCell>
-                  <PseButton
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPurchasing(tool)}
-                    disabled={!purchaseOpen || atLimit}
-                  >
-                    {atLimit ? 'Limit reached' : purchaseOpen ? `Buy ${tool.name}` : 'Closed'}
-                  </PseButton>
-                </PseCell>
-              </PseRow>
-            );
-          })}
-        </PseTable>
-        <p className="pse-block-note">
-          A session tool stops mining when its session ends until it is restarted; restart timing is derived by the
-          backend. Elite runs continuously while the campaign is active.
-        </p>
-      </PseSection>
-
-      <PseSection title="Your equipment" meta={`${ownedTools.length} ownership record${ownedTools.length === 1 ? '' : 's'}`}>
+      <PseSection
+        title="Your equipment"
+        meta={ownedTools.length === 0 ? 'No ownership records' : `${ownedTools.length} unit${ownedTools.length === 1 ? '' : 's'} owned`}
+      >
         {ownedTools.length === 0 ? (
-          <PseEmptyNote
-            glyph="activate"
-            title="No tools are owned on this account yet"
-            action={
-              purchaseOpen ? (
-                <PseButton variant="secondary" size="sm" onClick={() => setPurchasing(TOOLS[0])}>
-                  Buy {TOOLS[0].name}
-                </PseButton>
-              ) : undefined
-            }
-          >
-            Capacity comes from ownership. A tool is bought with BNB from your own wallet, and its hourly rate is added
-            to the account when the backend verifies the payment and activates it.
+          <PseEmptyNote title="No equipment owned on this account">
+            A tool becomes yours only after the backend verifies the payment on-chain and activates it.
+            Until then it is not drawn here, and no catalogue product is presented as owned. Available
+            equipment and its fixed prices are below.
           </PseEmptyNote>
         ) : (
-          <PseTable
-            head={['Tool', 'State', 'Rate', 'Directive']}
-            numeric={[2]}
-            caption="Tools owned by this account and what the backend is doing with each one"
-          >
-            {ownedTools.map(t => {
-              const cycle = cycleStateView(t.cycleState || t.status);
-              return (
-                <PseRow key={t.id}>
-                  <PseCell>{t.toolName || t.toolId || 'Mining tool'}</PseCell>
-                  <PseCell>{cycle.label}</PseCell>
-                  <PseCell numeric>{gbpHour(t.hourlyRateGBP ?? 0)}</PseCell>
-                  <PseCell>{cycle.description}</PseCell>
-                </PseRow>
-              );
-            })}
-          </PseTable>
+          <ul className="pse-rowlist">
+            {ownedTools.map(t => (
+              <PseOwnedUnit
+                key={t.id}
+                tool={t}
+                action={<Link to="/mine/dashboard" className="pse-textlink">Manage</Link>}
+              />
+            ))}
+          </ul>
         )}
-        <p className="pse-block-note">
-          <Link to="/mine/dashboard" className="pse-link">Restart tools and see the mining state on the console</Link>.
+        <p className="pse-prose--sm">
+          Restarts and live operating cycles are on the dashboard.{' '}
+          <Link to="/mine/dashboard" className="pse-link">Open the mining console</Link>.
         </p>
       </PseSection>
 
-      <PseSection title="Purchase mechanics">
-        <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
+      <section className="pse-block" id="pse-catalogue" aria-labelledby="pse-catalogue-title">
+        <div className="pse-block-head">
+          <h2 className="pse-block-title" id="pse-catalogue-title">Available tools</h2>
+          <span className="pse-block-meta">
+            Fixed GBP price · paid in BNB on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
+          </span>
+        </div>
+
+        {TOOLS.map(tool => {
+          const owned = ownedByTool(tool.id);
+          const atLimit = owned >= tool.maxPerUser;
+          const remaining = Math.max(0, tool.maxPerUser - owned);
+          const continuous = dutyOf(tool) === 'continuous';
+          return (
+            <article className="pse-product" key={tool.id}>
+              <div className="pse-product-id">
+                <h3 className="pse-product-name">
+                  {tool.name}
+                  <span className="pse-rowitem-meta">
+                    {continuous ? 'Continuous duty' : 'Session duty · manual restart'}
+                  </span>
+                </h3>
+                <p className="pse-product-desc">{tool.tagline}</p>
+              </div>
+
+              <dl className="pse-product-specs">
+                <div className="pse-product-spec">
+                  <dt>Price</dt>
+                  <dd>{gbp(tool.purchasePriceGBP)}</dd>
+                </div>
+                <div className="pse-product-spec">
+                  <dt>Capacity</dt>
+                  <dd>{gbpHour(tool.hourlyRateGBP)}</dd>
+                </div>
+                <div className="pse-product-spec">
+                  <dt>Owned</dt>
+                  <dd>{owned} / {tool.maxPerUser}</dd>
+                </div>
+              </dl>
+
+              <div className="pse-product-actions">
+                <span className="pse-product-avail">
+                  {atLimit
+                    ? 'Ownership limit reached'
+                    : purchaseOpen
+                      ? `${remaining} available`
+                      : 'Purchases closed'}
+                </span>
+                {atLimit ? (
+                  <span className="pse-rowitem-meta">Owned</span>
+                ) : (
+                  <PseButton
+                    size="sm"
+                    onClick={() => setPurchasing(tool)}
+                    disabled={!purchaseOpen}
+                  >
+                    Buy
+                  </PseButton>
+                )}
+              </div>
+            </article>
+          );
+        })}
+
+        <p className="pse-prose--sm">
+          Session tools stop when their session ends until restarted; restart timing is derived by the
+          backend. Elite runs continuously while the campaign is active. Prices and hourly rates are
+          fixed by the campaign and never change at the point of purchase.
+        </p>
+      </section>
+
+      <PseSection title="How a purchase works">
+        <ul className="pse-notes">
           <li>The GBP price is fixed; you pay it in BNB at the rate quoted when you request the purchase.</li>
           <li>The quote fixes the exact BNB amount for its window — underpayments are detected and activate nothing.</li>
           <li>Nothing is signed until you approve it in your own wallet; PSEmine never sends automatically.</li>
@@ -648,16 +704,25 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     <PsePage
       title={`Purchase ${tool.name}`}
       objective={`${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
-      actions={<PseButton onClick={onClose} disabled={step === 'verifying' && !showingRecovery}>Close</PseButton>}
+      actions={<PseButton variant="secondary" size="sm" onClick={onClose} disabled={step === 'verifying' && !showingRecovery}>Close</PseButton>}
     >
-      <p className="text-sm text-text-secondary">
-        Step {Math.max(1, stepIndex + 1)} of {STEP_ORDER.length} — {STEP_ORDER[Math.max(0, stepIndex)]?.label}
-      </p>
+      <ol className="pse-steps" aria-label="Purchase progress">
+        {STEP_ORDER.map((s, i) => (
+          <li
+            key={s.id}
+            className="pse-step"
+            data-state={i < stepIndex ? 'done' : i === stepIndex ? 'current' : 'pending'}
+            aria-current={i === stepIndex ? 'step' : undefined}
+          >
+            {s.label}
+          </li>
+        ))}
+      </ol>
 
       {/* ── Recovered purchase: a transaction was already submitted ── */}
       {showingRecovery && resume?.kind === 'submitted' && (
         <PseSection title={resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
-          <p className="text-sm text-text-secondary">
+          <p className="pse-prose">
             {tool.name} — a transaction was submitted for this purchase and the backend is verifying it on
             BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.
           </p>
@@ -710,13 +775,20 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
               {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
             </p>
-            <p className="text-sm text-text-secondary">
+            <p className="pse-prose">
               Adds {gbpHour(tool.hourlyRateGBP)} of capacity. You will own {owned} of {tool.maxPerUser} after this
               purchase. {continuous
                 ? 'Elite mines continuously — no manual session restarts.'
                 : 'This tier mines in sessions: when a session ends, mining stops until you restart the tool.'}
             </p>
-            <PseButton onClick={() => void navigator.clipboard?.writeText(quote.receiverWallet)}>
+            <PseButton
+              variant="secondary"
+              size="sm"
+              onClick={() => void copyText(quote.receiverWallet).then(ok => {
+                if (ok) toast.success('Receiving wallet copied.');
+                else toast.error('Could not copy the address. Select it and copy manually.');
+              })}
+            >
               Copy receiving wallet {shortAddr(quote.receiverWallet)}
             </PseButton>
 
@@ -734,7 +806,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               )}
             </div>
             {connectedWallet && (
-              <p className="text-xs text-text-tertiary">Paying from {shortAddr(connectedWallet)}</p>
+              <p className="pse-prose--sm">Paying from {shortAddr(connectedWallet)}</p>
             )}
           </PseSection>
         )
@@ -760,13 +832,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             <PseFact label="You pay exactly" value={`${exactBnb} BNB`} />
           </PseFacts>
 
-          <PseButton onClick={() => void navigator.clipboard?.writeText(exactBnb)}>Copy exact BNB amount</PseButton>
+          <PseButton
+            variant="secondary"
+            size="sm"
+            onClick={() => void copyText(exactBnb).then(ok => {
+              if (ok) toast.success('Exact BNB amount copied.');
+              else toast.error('Could not copy the amount. Select it and copy manually.');
+            })}
+          >
+            Copy exact BNB amount
+          </PseButton>
           <PseNotice tone="attention">
             Send the exact amount — underpayments are detected and will not activate a tool.
           </PseNotice>
 
           {boundPayer && (
-            <p className="text-sm text-text-secondary">
+            <p className="pse-prose">
               Bound payer {shortAddr(boundPayer)} — only this wallet can complete this purchase; the backend compares
               the on-chain sender against it.
             </p>
@@ -859,7 +940,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       {/* ── Step: verifying ── */}
       {!showingRecovery && step === 'verifying' && (
         <PseSection title="Verifying on BNB Smart Chain">
-          <p className="text-sm text-text-secondary" role="status" aria-live="polite">
+          <p className="pse-prose" role="status" aria-live="polite">
             Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
           </p>
           <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
@@ -876,7 +957,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   : 'Verification incomplete'
           }
         >
-          <p className="text-sm text-text-primary">{result.message}</p>
+          <p className="pse-prose pse-prose--ink">{result.message}</p>
           {result.hash && (
             <p className="text-sm">
               <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer" className="pse-link">
@@ -934,7 +1015,7 @@ const WalletConnectStep: React.FC = () => {
 
   return (
     <PseSection title="Connect a wallet">
-      <p className="text-sm text-text-secondary">
+      <p className="pse-prose">
         A wallet is required to sign the payment. PSEmine never requests automatic transfers — every payment must be
         approved in your wallet.
       </p>

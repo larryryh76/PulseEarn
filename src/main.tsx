@@ -1,11 +1,8 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// PSEmine product visual layer — Phase 1 (brand, loader, authentication family,
-// public landing page). The previous PSEmine design was purged in
-// `refactor(psemine): purge legacy design implementation`; this is the rebuild,
-// scoped to `.pse` so it never restyles PulseEarn. The authenticated console is
-// still the minimal functional presentation and gets its own phase.
+// PSEmine product visual layer (brand, loader, authentication family, public
+// landing page), scoped to `.pse` so it never restyles PulseEarn.
 import './styles/psemine.css'
 // The landing page's art-direction layer: the composed surfaces it is built from
 // (asymmetric split, application window tail, purchase console, settlement
@@ -25,10 +22,10 @@ import './styles/psemine-art.css'
 // type that nothing else renders, in its own layer so it adds no rules to the
 // landing page, authentication, the loader or the console.
 import './styles/psemine-docs.css'
-// The authenticated console's own layer: shell chrome, the campaign strip, the
-// fact register, the ledger, empty states, dialogs, the notification sheet and
-// the guide overlay. Loaded last, for the same cascade reason as the layers
-// above it. It follows the application theme, so it writes no colour of its own.
+// The authenticated console's own layer: its fixed graphite palette, shell
+// chrome, campaign strip, registers, ledgers, empty states, dialogs, the
+// notification sheet and the guide overlay. Loaded last, for the same cascade
+// reason as the layers above it.
 import './styles/psemine-console.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'

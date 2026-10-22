@@ -1,525 +1,438 @@
 /* ============================================================================
- * PSEmine — the DASHBOARD layer.
+ * PSEmine — the MINING ACCOUNT dashboard.
  *
- * The console home: campaign status and capacity, the accrued balance, the
- * campaign window, the equipment register, settlement and recent activity.
+ * The dashboard is the account, not the marketplace. Its composition answers
+ * three questions in order: what has this account accrued, what does it own and
+ * what is the campaign doing. The balance is the single strongest anchor; the
+ * operational figures sit beside it in one band; the equipment register and the
+ * campaign register follow on two columns. No catalogue product is ever drawn
+ * here — unowned equipment belongs to /mine/tools.
  *
- * SCOPE. Every rule below is prefixed `.pse-dash`, the wrapper this page puts on
- * its own root. Nothing here writes to `:root` and nothing here re-declares a
- * `.pse-console-main` property the shell owns, so the product bar, the campaign
- * band and the dock keep the layer they were drawn in.
- *
- * TOKENS ONLY: no colour and no radius is invented here, so the light and dark
- * consoles are the same drawing. Elevation is one ring, not a shadow stack.
- *
- * DENSITY. A phone-first working surface: four metrics in one register, four
- * equipment rows rather than four cards, and one hairline per panel.
- * ==========================================================================*/
+ * Cards are not the unit of composition: the account band is the one surface
+ * that carries a fill, and the registers below sit directly on the canvas,
+ * separated by hairlines. That is what keeps the page from reading as a stack of
+ * equally weighted panels.
+ * ========================================================================== */
 
-.pse-dash.pse-console-main {
-  gap: 0.75rem;
-}
+.pse-dash { gap: 1.35rem; }
 
-/* ── Status strip ────────────────────────────────────────────────────────
- * A caption to the page, not a card: where the campaign stands and the one
- * capacity figure the account holds. The ring that used to sit here is gone —
- * a ratio against a theoretical ceiling is not a measurement a miner acts on.
+/* ── Account head ────────────────────────────────────────────────────────
+ * The page's identity and the campaign's condition, on one line. The campaign
+ * status is the context every figure below it is read against, so it sits with
+ * the title rather than inside a panel of its own.
  * ────────────────────────────────────────────────────────────────────── */
-.pse-dash-strip {
+.pse-dash-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.pse-dash-strip-left {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
-}
-
-.pse-dash .pse-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  padding: 0.2rem 0.5rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--pse-inset);
-  color: var(--pse-ink-2);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.pse-dash .pse-chip[data-tone='good'] {
-  background: var(--pse-accent-quiet);
-  color: var(--pse-accent);
-}
-
-.pse-dash .pse-chip[data-tone='hold'] {
-  background: color-mix(in srgb, var(--pse-warn) 12%, transparent);
-  color: var(--pse-warn);
-}
-
-.pse-dash .pse-chip-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  flex: 0 0 auto;
-}
-
-.pse-dash-strip-note {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-dash-capacity {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  flex: 0 0 auto;
-}
-
-.pse-dash-capacity-label {
-  font-size: 0.625rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-dash-capacity-value {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-  white-space: nowrap;
-}
-
-/* ── Composition ─────────────────────────────────────────────────────────
- * Two columns on a desk (balance + campaign | equipment + settlement), one on
- * a phone in the order the account reads.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: start;
-}
-
-.pse-dash-column {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .pse-dash-grid { grid-template-columns: minmax(0, 1fr); }
-}
-
-/* ── Balance ─────────────────────────────────────────────────────────────
- * The figure the page exists for. One surface step, one hairline.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash-balance,
-.pse-dash-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 0.9rem;
-  background: var(--pse-surface);
-  border-radius: var(--pse-r-sm);
-  box-shadow: var(--pse-ring);
-  min-width: 0;
-}
-
-.pse-dash-balance-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
   flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem 1.5rem;
 }
 
-.pse-dash-balance-figure {
-  min-width: 0;
-}
+.pse-dash-head-id { display: grid; gap: 0.3rem; min-width: 0; }
 
-.pse-kicker {
-  margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-dash-amount {
-  margin: 0.1rem 0 0;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 2rem;
-  line-height: 1.08;
+.pse-dash-title {
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  line-height: 1.15;
+  letter-spacing: -0.032em;
   color: var(--pse-ink);
 }
 
-.pse-dash-caption {
-  max-width: 46ch;
-  margin: 0.3rem 0 0;
-  font-size: 0.75rem;
-  line-height: 1.45;
+@media (min-width: 768px) {
+  .pse-dash-title { font-size: 1.75rem; }
+}
+
+.pse-dash-head-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.85rem;
+}
+
+.pse-dash-head-note {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
   color: var(--pse-ink-3);
-  text-wrap: pretty;
 }
 
-.pse-dash-actions {
-  display: flex;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-}
-
-.pse-dash-mining {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--pse-ink-2);
-}
-
-.pse-dash-mining-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 500;
-}
-
-.pse-dash-mining-state[data-live='true'] .pse-pulse-dot {
-  background: var(--pse-good);
-}
-
-.pse-pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  background: var(--pse-ink-3);
-}
-
-.pse-dash-sep {
-  width: 1px;
-  height: 10px;
-  background: var(--pse-rule);
-}
-
-.pse-dash-mining-note {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Three figures, one register: units, referrals, and what settlement has
-   actually made available. The total capacity is stated once, above. */
-.pse-dash-metrics {
+/* ── Account band ────────────────────────────────────────────────────────
+ * The page's one filled surface. Accrued balance on the left at the page's
+ * largest figure; the three operational facts on the right, separated by a
+ * vertical hairline. At 320–700px it stacks, and the figures stay the same
+ * size — a balance a phone has to truncate is not a balance.
+ * ────────────────────────────────────────────────────────────────────── */
+.pse-account-band {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+  overflow: hidden;
+}
+
+@media (min-width: 860px) {
+  .pse-account-band { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+}
+
+.pse-account-main {
+  display: grid;
+  align-content: start;
   gap: 0.55rem;
-  margin: 0;
-  padding-top: 0.65rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-dash-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
   min-width: 0;
+  padding: clamp(1.15rem, 3.4vw, 1.9rem);
 }
 
-.pse-dash-metric dt {
+.pse-account-label {
+  font-family: var(--pse-mono);
   font-size: 0.625rem;
-  line-height: 1.3;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
-.pse-dash-metric dd {
-  margin: 0;
+.pse-account-figure {
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-feature-settings: 'tnum' 1;
+  font-size: clamp(2.25rem, 7vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.045em;
   color: var(--pse-ink);
   overflow-wrap: anywhere;
 }
 
-/* ── Panels ────────────────────────────────────────────────────────────── */
-.pse-dash-panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+.pse-account-note {
+  max-width: 46ch;
+  margin-top: 0.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
 }
 
-.pse-dash-panel-meta {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.6875rem;
+.pse-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* The secondary figure — what settlement has actually released. It is stated
+   here as a pointer, and again in full on the wallet; it is never shown in the
+   accrued balance's own type size, because they are not the same money. */
+.pse-account-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  margin-top: 0.2rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--pse-rule-2);
+  font-size: 0.75rem;
   color: var(--pse-ink-3);
 }
 
-.pse-dash-panel-foot {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  font-size: 0.75rem;
+.pse-account-sub strong {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--pse-ink-2);
 }
 
-.pse-dash-panel-note {
+.pse-account-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
-  font-size: 0.6875rem;
-  line-height: 1.45;
+  border-top: 1px solid var(--pse-rule);
+}
+
+@media (min-width: 860px) {
+  .pse-account-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 0;
+    border-left: 1px solid var(--pse-rule);
+  }
+}
+
+.pse-account-metric {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-account-metric:nth-child(2n) { border-left: 1px solid var(--pse-rule-2); }
+.pse-account-metric:last-child { border-bottom: 0; }
+.pse-account-metric:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+@media (min-width: 860px) {
+  .pse-account-metric { padding: 0.9rem 1.35rem; }
+  .pse-account-metric:nth-child(2n) { border-left: 0; }
+  .pse-account-metric + .pse-account-metric { border-top: 1px solid var(--pse-rule-2); }
+  .pse-account-metric:last-child:nth-child(odd) { grid-column: auto; }
+}
+
+.pse-account-metric dt {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
-.pse-dash-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--pse-accent);
-  text-decoration: none;
-  cursor: pointer;
+.pse-account-metric dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--pse-ink);
 }
 
-.pse-dash-link:hover { color: var(--pse-accent-solid-hover); }
-.pse-dash-link:disabled { color: var(--pse-ink-3); cursor: default; }
-
-.pse-dash-link:focus-visible,
-.pse-dash-equipment-name:focus-visible,
-.pse-dash .pse-btn:focus-visible {
-  outline: 2px solid var(--pse-accent);
-  outline-offset: 2px;
+.pse-account-metric dd.pse-account-metric-note {
+  font-family: var(--pse-font);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--pse-ink-3);
 }
 
-/* ── Campaign window ─────────────────────────────────────────────────────
- * One rail with the backend's dates at its head and today's position beneath
- * it. A missing date is printed as missing, never as day zero.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash-track {
+/* ── Two-register composition ───────────────────────────────────────────── */
+.pse-dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.9rem;
+  align-items: start;
+}
+
+@media (min-width: 980px) {
+  .pse-dash-grid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 2.4rem;
+  }
+}
+
+.pse-dash-col { display: grid; gap: 1.9rem; min-width: 0; }
+
+/* ── Equipment empty state ──────────────────────────────────────────────── */
+.pse-eq-empty {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.5rem 0 0.5rem;
+  border-top: 1px solid var(--pse-rule);
+}
+
+.pse-eq-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+.pse-eq-empty-note {
+  max-width: 54ch;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-eq-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+/* ── Campaign register ──────────────────────────────────────────────────── */
+.pse-campaign {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.pse-campaign-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--pse-ink-3);
+}
+
+.pse-campaign-track {
   position: relative;
   height: 4px;
-  background: var(--pse-inset);
-  border-radius: 999px;
+  border-radius: 2px;
+  background: var(--pse-surface-3);
   overflow: hidden;
 }
 
-.pse-dash-track-fill {
+.pse-campaign-fill {
   height: 100%;
-  background: var(--pse-accent-solid);
-  border-radius: inherit;
+  background: var(--pse-accent);
   transition: width var(--pse-t) var(--pse-ease);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pse-dash-track-fill { transition: none; }
-}
-
-/* ── Equipment register ──────────────────────────────────────────────────
- * Four rows on hairlines, not four cards: name and ownership on the left,
- * output and price on the right, so the tiers compare down the column.
- * ────────────────────────────────────────────────────────────────────── */
-.pse-dash-equipment {
+.pse-campaign-foot {
   display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pse-dash-equipment-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-
-.pse-dash-equipment-row:last-child { border-bottom: 0; padding-bottom: 0; }
-
-.pse-dash-equipment-id {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.pse-dash-equipment-name {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--pse-ink);
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pse-dash-equipment-name:hover { color: var(--pse-accent); }
-
-.pse-dash-equipment-note {
-  font-size: 0.6875rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-dash-equipment-figs {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  flex: 0 0 auto;
-  text-align: right;
-}
-
-.pse-dash-equipment-rate {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-  white-space: nowrap;
-}
-
-.pse-dash-equipment-sub {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.625rem;
-  color: var(--pse-ink-3);
-  white-space: nowrap;
-}
-
-/* ── Settlement + ledger ───────────────────────────────────────────────── */
-.pse-dash-settlement {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
   flex-wrap: wrap;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-
-.pse-dash-settlement-state {
-  font-size: 0.8125rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.75rem;
   color: var(--pse-ink-2);
 }
 
-.pse-dash-settlement-addr {
+.pse-campaign-foot span:last-child {
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
   color: var(--pse-ink-3);
 }
 
-.pse-dash-ledger-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+/* The five phases as one segmented rail. The labels are deliberately not
+   drawn: five words on a 320px column either wrap into a second line each or
+   shrink below legibility. The current phase is stated in text beneath the
+   rail, so colour is never the only signal. */
+.pse-phase-rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 0.15rem;
 }
 
-.pse-dash-ledger {
-  display: flex;
-  flex-direction: column;
+.pse-phase-seg {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--pse-surface-3);
+}
+
+.pse-phase-seg[data-state='done'] { background: color-mix(in srgb, var(--pse-accent) 42%, var(--pse-surface-3)); }
+.pse-phase-seg[data-state='current'] { background: var(--pse-accent); }
+
+.pse-phase-labels {
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.pse-dash-ledger-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-
-.pse-dash-ledger-row:last-child { border-bottom: 0; padding-bottom: 0; }
-
-.pse-dash-ledger-id {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.pse-dash-ledger-desc {
-  font-size: 0.8125rem;
-  color: var(--pse-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
   white-space: nowrap;
 }
 
-.pse-dash-ledger-time {
-  font-size: 0.6875rem;
+.pse-phase-labels li { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pse-phase-labels li[data-state='done'] { color: var(--pse-ink-2); }
+.pse-phase-labels li[data-state='current'] { color: var(--pse-accent); }
+
+@media (min-width: 620px) {
+  .pse-phase-labels { display: grid; }
+  /* The caption is the mobile statement of the same fact; once the phases are
+     named, repeating "Phase 2 of 5" beneath them is noise. */
+  .pse-phase-caption { display: none; }
+}
+
+.pse-phase-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
   color: var(--pse-ink-3);
 }
 
-.pse-dash-ledger-amt {
-  flex: 0 0 auto;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8125rem;
-  font-weight: 600;
+.pse-phase-caption strong {
+  font-weight: 500;
   color: var(--pse-ink-2);
 }
 
-.pse-dash-ledger-amt.is-credit { color: var(--pse-good); }
+.pse-campaign-unavailable {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+}
 
-.pse-dash .pse-loading-surface {
+/* ── Settlement register ────────────────────────────────────────────────── */
+.pse-settle {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.pse-settle-row {
   display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-settle-row:last-of-type { border-bottom: 0; padding-bottom: 0; }
+
+.pse-settle-key {
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-settle-val {
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  letter-spacing: -0.005em;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+}
+
+.pse-settle-actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  min-height: 40vh;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
 }
 
-/* ── Phone ───────────────────────────────────────────────────────────────
- * The strip loses its explanatory sentence (the chip still states the state),
- * the balance steps down one size, and the three figures keep their columns
- * because their values are short. Nothing here becomes a horizontal scroll.
- * ────────────────────────────────────────────────────────────────────── */
-@media (max-width: 560px) {
-  .pse-dash-strip-note { display: none; }
-  .pse-dash-balance,
-  .pse-dash-panel { padding: 0.8rem; }
-  .pse-dash-amount { font-size: 1.65rem; }
-  .pse-dash-metrics { gap: 0.45rem; }
-  .pse-dash-metric dd { font-size: 0.78125rem; }
-  .pse-dash-equipment-figs { max-width: 46%; }
+/* ── Recent activity ────────────────────────────────────────────────────── */
+.pse-dash-activity { display: grid; gap: 0.25rem; }
+
+/* ── Pending purchase notice ────────────────────────────────────────────── */
+.pse-dash-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+
+/* ── Narrow screens ─────────────────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .pse-dash-title { font-size: 1.375rem; }
+  .pse-account-figure { font-size: clamp(2rem, 10vw, 2.5rem); }
+  .pse-account-metric { padding: 0.75rem 0.7rem; }
+  .pse-account-metric dd { font-size: 1rem; }
 }
 
-@media (max-width: 360px) {
-  .pse-dash-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pse-dash-mining-note { display: none; }
-  .pse-dash-sep { display: none; }
+/* Motion is optional: the campaign rail is a state, not an animation. */
+@media (prefers-reduced-motion: reduce) {
+  .pse-campaign-fill { transition: none; }
 }

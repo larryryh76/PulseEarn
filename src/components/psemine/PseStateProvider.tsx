@@ -293,8 +293,13 @@ export function usePseState(): PseStateCtx {
  * (Backend is authoritative; this hook formats its explicit figure.) */
 export function useAvailableGBP(): string {
   const { state } = usePseState();
-  const availableMinor = state?.user?.availableMinor ?? 0;
-  return gbp(availableMinor / 100);
+  const availableMinor = state?.user?.availableMinor;
+  // A missing figure is not a zero: settlement-available is released money, and
+  // printing £0.00 for an unreported balance would state something the backend
+  // never said.
+  return typeof availableMinor === 'number' && Number.isFinite(availableMinor)
+    ? gbp(availableMinor / 100)
+    : '—';
 }
 
 export type { PseStateTool };

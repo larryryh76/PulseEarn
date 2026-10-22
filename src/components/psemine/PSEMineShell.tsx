@@ -61,7 +61,7 @@ import { usePseState } from './PseStateProvider';
 import {
   campaignStatusView, gbpHour, timeAgo, useEscapeKey, usePseDocumentTitle, useScrollLock,
 } from './pseCore';
-import { PseButton, PseIconButton } from './PseBasics';
+import { PseButton, PseIconButton, PseStatus } from './PseBasics';
 import { PseGuide } from './PseGuide';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 import { PSE_DOC_LABEL, PSE_DOC_ORDER, PSE_DOC_PATH } from './pseDocs';
@@ -159,6 +159,8 @@ export const PSEMineShell: React.FC = () => {
   usePseDocumentTitle(titleForPath(location.pathname));
 
   const isDashboard = location.pathname === '/mine/dashboard' || location.pathname === '/mine/dashboard/';
+  const currentSection = CONSOLE_SECTIONS.find(s => location.pathname.startsWith(s.to))?.label
+    ?? (isGuideRoute || guideInPlace ? 'Guide' : '');
 
   if (!chrome) return <Outlet />;
 
@@ -168,6 +170,7 @@ export const PSEMineShell: React.FC = () => {
         inConsole={inConsole}
         showGuide={inConsole}
         guideOpen={guideOpen}
+        currentSection={currentSection}
         onOpenGuide={openGuide}
         onCloseGuide={closeGuide}
       />
@@ -196,9 +199,10 @@ const ProductBar: React.FC<{
   inConsole: boolean;
   showGuide: boolean;
   guideOpen: boolean;
+  currentSection: string;
   onOpenGuide: () => void;
   onCloseGuide: () => void;
-}> = ({ inConsole, showGuide, guideOpen, onOpenGuide, onCloseGuide }) => {
+}> = ({ inConsole, showGuide, guideOpen, currentSection, onOpenGuide, onCloseGuide }) => {
   const { logout } = usePSEMineAuth();
   const { unreadNotifications } = usePseState();
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -223,9 +227,13 @@ const ProductBar: React.FC<{
       <header className="pse-bar">
         <div className="pse-bar-inner">
           <Link to="/mine/dashboard" className="pse-bar-brand" aria-label="PSEmine dashboard">
-            <PSEmineMark size={26} decorative />
+            <PSEmineMark size={24} decorative />
             <span className="pse-bar-name">PSEmine</span>
           </Link>
+
+          {currentSection && (
+            <span className="pse-bar-context" aria-hidden="true">{currentSection}</span>
+          )}
 
           <nav className="pse-nav" aria-label="PSEmine console">
             {CONSOLE_SECTIONS.map(item => (
@@ -340,15 +348,11 @@ const CampaignBand: React.FC = () => {
     <div className="pse-strip">
       <div className="pse-strip-inner">
         {known ? (
-          <span className="pse-chip" data-tone={tone}>
-            <span className="pse-chip-dot" aria-hidden="true" />
+          <PseStatus tone={tone === 'good' ? 'good' : tone === 'hold' ? 'hold' : 'idle'}>
             {view.label}
-          </span>
+          </PseStatus>
         ) : (
-          <span className="pse-chip" data-tone="idle">
-            <span className="pse-chip-dot" aria-hidden="true" />
-            Reading campaign
-          </span>
+          <PseStatus tone="idle">Reading campaign</PseStatus>
         )}
 
         <span className="pse-strip-fact">
@@ -356,6 +360,10 @@ const CampaignBand: React.FC = () => {
           <span className="pse-strip-val">
             {typeof capacity === 'number' ? gbpHour(capacity) : '—'}
           </span>
+        </span>
+
+        <span className="pse-strip-note">
+          {known ? view.detail : 'Waiting for the campaign’s own status.'}
         </span>
       </div>
     </div>

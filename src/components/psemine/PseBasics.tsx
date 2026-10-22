@@ -31,8 +31,10 @@
  */
 import React from 'react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
+import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 import { PseLoadFailure, PseLoader, type PseLoadStage } from './PseLoader';
 import { PseGlyph, type PseGlyphName } from './PseMechanism';
+import { CYCLE_STATE_MAP, cycleStateView, gbpHour, operatingModelView, toDateSafe } from './pseCore';
 
 /* ═══════════════ PAGE ═══════════════ */
 
@@ -186,6 +188,101 @@ export const PseIconButton: React.FC<
     )}
   </button>
 );
+
+/* ═══════════════ STATE LABELS ═══════════════ */
+
+export type PseStatusTone = 'good' | 'hold' | 'danger' | 'idle';
+
+/**
+ * A state, stated in words first. The dot and colour are the second reading, so
+ * a reader who cannot separate the tones still reads the exact state.
+ */
+export const PseStatus: React.FC<{ tone?: PseStatusTone; children: React.ReactNode }> = ({
+  tone = 'idle', children,
+}) => (
+  <span className="pse-status" data-tone={tone}>{children}</span>
+);
+
+/** The tone of a backend operating-cycle state. Never inferred from capacity. */
+function cycleTone(state?: string | null): PseStatusTone {
+  if (state === 'active') return 'good';
+  if (state === 'paused' || state === 'restarting' || state === 'cycle_complete'
+    || state === 'maintenance_required' || state === 'settling') return 'hold';
+  if (state === 'revoked' || state === 'expired') return 'danger';
+  return 'idle';
+}
+
+/* ═══════════════ FIGURES ═══════════════ */
+
+/**
+ * A compact operational strip: label, figure, optional qualifier. Figures are
+ * tabular and share one baseline, so a row of them is scanned rather than read.
+ */
+export const PseStatBar: React.FC<{ cols?: 2 | 3 | 4; children: React.ReactNode }> = ({
+  cols = 4, children,
+}) => (
+  <dl className="pse-statbar" style={{ ['--pse-statbar-cols' as string]: String(cols) }}>{children}</dl>
+);
+
+export const PseStat: React.FC<{ label: string; value: React.ReactNode; note?: React.ReactNode }> = ({
+  label, value, note,
+}) => (
+  <div className="pse-stat">
+    <dt className="pse-stat-key">{label}</dt>
+    <dd className="pse-stat-val">{value}</dd>
+    {note && <dd className="pse-stat-note">{note}</dd>}
+  </div>
+);
+
+/* ═══════════════ OWNED EQUIPMENT ═══════════════ */
+
+/** Activation date, printed once per unit; undated records say so. */
+function activatedLabel(tool: PseStateTool): string {
+  const d = toDateSafe(tool.activatedAt);
+  if (!d) return 'Activation date not reported';
+  return `Activated ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+/**
+ * One ownership record, as the backend reports it.
+ *
+ * This component never receives a catalogue definition: it renders a record the
+ * account actually owns. A tool's operating model, cycle state and hourly rate
+ * are all backend values; a missing rate prints as an em dash rather than being
+ * filled from a price list.
+ *
+ * The action is supplied by the page: restarting is the dashboard's business,
+ * while the marketplace only needs to point at it.
+ */
+export const PseOwnedUnit: React.FC<{ tool: PseStateTool; action?: React.ReactNode }> = ({
+  tool, action,
+}) => {
+  const cycleKey = tool.cycleState || tool.status || '';
+  const cycle = cycleKey && CYCLE_STATE_MAP[cycleKey]
+    ? cycleStateView(cycleKey)
+    : { label: 'State not reported', description: 'The backend has not reported this unit’s operating state.' };
+  const model = operatingModelView(tool.operatingModel);
+  const rate = typeof tool.hourlyRateGBP === 'number' && Number.isFinite(tool.hourlyRateGBP)
+    ? gbpHour(tool.hourlyRateGBP)
+    : '—';
+  return (
+    <li className="pse-owner" data-no-action={action ? undefined : 'true'}>
+      <div className="pse-owner-id">
+        <span className="pse-owner-name">{tool.toolName || tool.toolId || 'Mining tool'}</span>
+        <span className="pse-owner-meta">
+          {model.label} · {activatedLabel(tool)}
+        </span>
+      </div>
+      <span className="pse-owner-state">
+        <PseStatus tone={cycleTone(tool.cycleState || tool.status)}>{cycle.label}</PseStatus>
+      </span>
+      <div className="pse-owner-figs">
+        <span><strong>{rate}</strong> capacity</span>
+      </div>
+      {action && <div className="pse-owner-action">{action}</div>}
+    </li>
+  );
+};
 
 /* ═══════════════ STATE ═══════════════ */
 

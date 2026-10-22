@@ -1,73 +1,121 @@
 import '../../styles/psemine-dashboard.css';
-import React, { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
+import { usePSEMine } from '../../contexts/PSEMineContext';
+import { PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  campaignStatusView, gbp, gbpHour, shortAddr, timeAgo, useCampaignClock,
+  campaignStatusView, gbp, gbpHour, purchaseStatusView, shortAddr, timeAgo, toDateSafe,
+  useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading, PseNotice,
+  PseOwnedUnit, PseStatus,
 } from '../../components/psemine/PseBasics';
 
-const ALL_TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-
-/** Campaign date, printed short so the timeline head stays on one line. */
+/** Campaign date, printed short so the register head stays on one line. */
 function dateLabel(ms: number | null): string {
   if (ms === null) return '—';
   return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** The chip tone is a statement about the campaign, not decoration. */
-function statusTone(status: string | null): 'good' | 'hold' | 'idle' | undefined {
+/** The tone is a statement about the campaign, not decoration. */
+function campaignTone(status: string | null): 'good' | 'hold' | 'idle' {
   if (status === 'active') return 'good';
   if (status === 'paused' || status === 'settling' || status === 'payout') return 'hold';
-  if (status === 'ended' || status === 'closed' || status === 'archived') return 'idle';
-  return undefined;
+  return 'idle';
 }
 
 /**
- * PSEMine Dashboard — the account's working surface.
+ * PSEMine Dashboard — the account overview.
  *
- * One balance, one campaign register, one compact equipment register and the two
- * things that follow from them: settlement state and recent activity. Every
- * figure is read from `usePseState()` / `useAvailableGBP()`; nothing here invents
- * a balance, a rate or a history.
+ * OWNERSHIP IS THE AXIS OF THIS PAGE. The equipment register is built only from
+ * `state.tools`, the backend's projection of this account's ownership records.
+ * No catalogue entry, price, or purchase attempt is ever rendered as equipment.
+ * An account with no ownership records gets an honest empty register and one
+ * route to the marketplace — never a list of products it could buy, and never a
+ * "Manage" action for something it does not own.
+ *
+ * Financial labels are exact: the dominant figure is ACCRUED (campaign earnings,
+ * not withdrawable); settlement-available is stated separately from the backend's
+ * own `availableMinor` and never promoted to the hero position.
+ *
+ * Every other value is read from the canonical `/api/mine/state` response or the
+ * real activity / withdrawal feeds. Where the backend has not reported a value,
+ * the page prints an em dash and says so rather than filling the gap.
  */
 export const PSEMineDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const {
     state, campaignStatus, loading, error, refresh, refreshing,
-    activities, feedErrors, refreshFeed,
+    activities, withdrawals, feedErrors, refreshFeed,
   } = usePseState();
+  const { maintainTool } = usePSEMine();
   const availableStr = useAvailableGBP();
+  const [restarting, setRestarting] = useState<string | null>(null);
 
-  const tools = useMemo(() => state?.tools ?? [], [state?.tools]);
   const user = state?.user;
+  const ownedTools = useMemo(() => state?.tools ?? [], [state?.tools]);
+  const pendingPurchases = state?.pendingPurchases ?? [];
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
   const campaignView = campaignStatusView(campaignStatus);
   const knownStatus = campaignStatus !== null;
+  const campaignDatesKnown = clock.startMs !== null && clock.endMs !== null;
 
   const accruedLabel = typeof user?.accruedGBP === 'number' && Number.isFinite(user.accruedGBP)
     ? gbp(user.accruedGBP)
     : '—';
-  const toolCapacity = user?.toolCapacityGBPPerHour ?? 0;
-  const referralCapacity = user?.referralCapacityGBPPerHour ?? 0;
+  const toolCapacity = typeof user?.toolCapacityGBPPerHour === 'number' ? user.toolCapacityGBPPerHour : null;
+  const referralCapacity = typeof user?.referralCapacityGBPPerHour === 'number' ? user.referralCapacityGBPPerHour : null;
   const totalCapacity = typeof user?.totalCapacityGBPPerHour === 'number'
     ? user.totalCapacityGBPPerHour
-    : toolCapacity + referralCapacity;
+    : toolCapacity !== null
+      ? toolCapacity + (referralCapacity ?? 0)
+      : null;
 
-  const qualifiedCount = user?.qualifiedReferralsCount ?? 0;
-  const maxQualified = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
+  const qualifiedCount = typeof user?.qualifiedReferralsCount === 'number'
+    ? user.qualifiedReferralsCount
+    : null;
+  const ownedCount = ownedTools.length;
+  const activeCount = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
+  const payoutWallet = user?.payoutWallet ?? null;
+  const pendingPayout = withdrawals.some(w => ['pending', 'under_review', 'processing'].includes(String(w.status)));
 
-  const ownedForTier = (tierId: string) => tools.filter(t => (t.toolId || '') === tierId);
-  const lastActivity = activities.slice(0, 5);
+  const recentActivity = useMemo(
+    () => [...activities]
+      .sort((a, b) => (toDateSafe(b.createdAt)?.getTime() ?? 0) - (toDateSafe(a.createdAt)?.getTime() ?? 0))
+      .slice(0, 4),
+    [activities],
+  );
+
+  const postMining = campaignStatus === 'ended' || campaignStatus === 'settling'
+    || campaignStatus === 'payout' || campaignStatus === 'closed' || campaignStatus === 'archived';
+
+  const campaignPosition = campaignDatesKnown
+    ? clock.dayNumber !== null
+      ? `Day ${clock.dayNumber} of ${clock.totalDays}${clock.daysLeft !== null ? ` · ${clock.daysLeft} day${clock.daysLeft === 1 ? '' : 's'} left` : ''}`
+      : postMining
+        ? `Window closed ${dateLabel(clock.endMs)}`
+        : campaignStatus === 'scheduled'
+          ? `Opens ${dateLabel(clock.startMs)}`
+          : `Window ${dateLabel(clock.startMs)} — ${dateLabel(clock.endMs)}`
+    : null;
+
+  const restart = async (ownershipId: string) => {
+    setRestarting(ownershipId);
+    try {
+      const res = await maintainTool(ownershipId);
+      if (!res.success) return;  // the provider reports the backend's reason
+      await refresh();
+    } finally {
+      setRestarting(null);
+    }
+  };
 
   if (loading) return (
     <div className="pse-console-main">
       <div className="pse-loading-surface" role="status" aria-live="polite">
-        <PseLoading label="Loading PSEmine account…" />
+        <PseLoading label="Loading your mining account…" />
       </div>
     </div>
   );
@@ -82,221 +130,300 @@ export const PSEMineDashboard: React.FC = () => {
     </div>
   );
 
-  const postMining = campaignStatus === 'ended' || campaignStatus === 'settling'
-    || campaignStatus === 'payout' || campaignStatus === 'closed' || campaignStatus === 'archived';
-  const campaignFootnote = clock.dayNumber !== null
-    ? `Day ${clock.dayNumber} of ${clock.totalDays}${clock.daysLeft !== null ? ` · ${clock.daysLeft} day${clock.daysLeft === 1 ? '' : 's'} left` : ''}`
-    : postMining && clock.endMs !== null
-      ? `Window closed ${dateLabel(clock.endMs)}`
-      : campaignStatus === 'scheduled' && clock.startMs !== null
-        ? `Opens ${dateLabel(clock.startMs)}`
-        : clock.startMs !== null
-          ? `Scheduled from ${dateLabel(clock.startMs)}`
-          : 'Campaign dates not reported';
-
   return (
     <div className="pse-console-main pse-dash">
-      <h1 className="sr-only">Mining account</h1>
-
-      {/* STATUS: the campaign and the account's rate, stated once. */}
-      <div className="pse-dash-strip">
-        <div className="pse-dash-strip-left">
-          <span className="pse-chip" data-tone={knownStatus ? statusTone(campaignStatus) : 'idle'}>
-            <span className="pse-chip-dot" aria-hidden="true" />
-            <span>{knownStatus ? campaignView.label : 'Reading campaign'}</span>
-          </span>
-          <span className="pse-dash-strip-note">
-            {knownStatus ? campaignView.detail : 'Waiting for the campaign’s own status.'}
+      {/* A. ACCOUNT HEAD + CAMPAIGN STATUS — the context for every figure. */}
+      <header className="pse-dash-head">
+        <div className="pse-dash-head-id">
+          <p className="pse-eyebrow">Mining account</p>
+          <h1 className="pse-dash-title">Account overview</h1>
+        </div>
+        <div className="pse-dash-head-side">
+          <PseStatus tone={knownStatus ? campaignTone(campaignStatus) : 'idle'}>
+            {knownStatus ? campaignView.label : 'Reading campaign'}
+          </PseStatus>
+          <span className="pse-dash-head-note">
+            {campaignPosition ?? 'Campaign dates not reported'}
           </span>
         </div>
+      </header>
 
-        <div className="pse-dash-capacity">
-          <span className="pse-dash-capacity-label">Total capacity</span>
-          <span className="pse-dash-capacity-value">{gbpHour(totalCapacity)}</span>
+      {/* B + C. THE BALANCE, AND THE FEW FIGURES THAT OPERATE IT. */}
+      <section className="pse-account-band" aria-labelledby="pse-balance-label">
+        <div className="pse-account-main">
+          <p className="pse-account-label" id="pse-balance-label">Accrued balance</p>
+          <p className="pse-account-figure">{accruedLabel}</p>
+          <p className="pse-account-note">
+            Campaign earnings accrued by your equipment. Accrued funds are not settled and cannot be
+            withdrawn until the backend finalises the campaign settlement.
+          </p>
+
+          <div className="pse-account-sub">
+            <span>Settlement-available</span>
+            <strong>{availableStr}</strong>
+            <Link to="/mine/wallet" className="pse-textlink">Wallet</Link>
+          </div>
+
+          <div className="pse-account-actions">
+            <Link to="/mine/tools" className="pse-btn pse-btn--sm">
+              {ownedCount > 0 ? 'Add mining capacity' : 'Browse mining tools'}
+            </Link>
+            <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm">
+              {payoutWallet ? 'Payout detail' : 'Set payout wallet'}
+            </Link>
+          </div>
         </div>
-      </div>
+
+        <dl className="pse-account-metrics">
+          <div className="pse-account-metric">
+            <dt>Mining capacity</dt>
+            <dd>{totalCapacity !== null ? gbpHour(totalCapacity) : '—'}</dd>
+            <dd className="pse-account-metric-note">
+              {toolCapacity !== null ? `${gbpHour(toolCapacity)} equipment` : 'Equipment capacity not reported'}
+              {referralCapacity !== null && referralCapacity > 0 ? ` · ${gbpHour(referralCapacity)} referrals` : ''}
+            </dd>
+          </div>
+          <div className="pse-account-metric">
+            <dt>Equipment owned</dt>
+            <dd>{ownedCount}</dd>
+            <dd className="pse-account-metric-note">
+              {ownedCount === 0
+                ? 'No ownership records'
+                : `${activeCount} of ${ownedCount} operating`}
+            </dd>
+          </div>
+          <div className="pse-account-metric">
+            <dt>Qualified referrals</dt>
+            <dd>{qualifiedCount !== null ? `${qualifiedCount} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}` : '—'}</dd>
+            <dd className="pse-account-metric-note">
+              {qualifiedCount === null
+                ? 'Not reported by the backend'
+                : qualifiedCount === 0
+                  ? 'No referral capacity yet'
+                  : `${gbpHour(qualifiedCount * PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} capacity`}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {pendingPurchases.length > 0 && (
+        <PseNotice tone="attention" title="Purchase in progress">
+          <span className="pse-dash-pending">
+            {pendingPurchases.map(p => (
+              <span key={p.purchaseId}>
+                {p.toolName || p.toolId || 'Mining tool'} — {purchaseStatusView(p.status).label.toLowerCase()}.
+              </span>
+            ))}
+            <Link to="/mine/tools" className="pse-textlink">Resume in Tools</Link>
+          </span>
+        </PseNotice>
+      )}
 
       <div className="pse-dash-grid">
-        <div className="pse-dash-column">
-          {/* BALANCE — the figure the page exists for. Accrual is not a payout:
-              the settlement-available balance is stated separately, from the
-              backend’s own field, and never relabelled. */}
-          <section className="pse-dash-balance" aria-labelledby="pse-balance-label">
-            <div className="pse-dash-balance-head">
-              <div className="pse-dash-balance-figure">
-                <h2 className="pse-kicker" id="pse-balance-label">Accrued balance</h2>
-                <p className="pse-dash-amount">{accruedLabel}</p>
-                <p className="pse-dash-caption">
-                  Accrued while your units operate. Settlement finalises it before a payout can be requested.
+        <div className="pse-dash-col">
+          {/* E. OWNED EQUIPMENT — only records this account owns. */}
+          <section className="pse-block" aria-labelledby="pse-equipment-label">
+            <div className="pse-block-head">
+              <h2 className="pse-block-title" id="pse-equipment-label">Your equipment</h2>
+              <span className="pse-block-meta">
+                {ownedCount === 0 ? 'No units owned' : `${ownedCount} unit${ownedCount === 1 ? '' : 's'}`}
+              </span>
+            </div>
+
+            {ownedCount === 0 ? (
+              <div className="pse-eq-empty">
+                <p className="pse-eq-empty-title">No mining equipment on this account</p>
+                <p className="pse-eq-empty-note">
+                  Capacity comes from equipment you own. The catalogue — its prices, hourly rates and
+                  ownership limits — lives on the Tools page, where a purchase is quoted and verified
+                  on-chain before the tool activates.
                 </p>
+                <div className="pse-eq-empty-actions">
+                  <Link to="/mine/tools" className="pse-btn pse-btn--sm">Browse mining tools</Link>
+                  <Link
+                    to={{ pathname: '/mine/dashboard', search: '?guide=1' }}
+                    className="pse-btn pse-btn--secondary pse-btn--sm"
+                  >
+                    How PSEmine works
+                  </Link>
+                </div>
               </div>
-
-              <div className="pse-dash-actions">
-                <PseButton onClick={() => navigate('/mine/wallet')} variant="primary">Wallet</PseButton>
-                <PseButton onClick={() => navigate('/mine/tools')} variant="secondary">Tools</PseButton>
-              </div>
-            </div>
-
-            <div className="pse-dash-mining">
-              <span className="pse-dash-mining-state" data-live={campaignStatus === 'active'}>
-                <span className="pse-pulse-dot" aria-hidden="true" />
-                {campaignStatus === 'active' ? 'Mining live' : knownStatus ? campaignView.label : 'Status pending'}
-              </span>
-              <span className="pse-dash-sep" aria-hidden="true" />
-              <span className="pse-dash-mining-note">
-                {qualifiedCount} of {maxQualified} referral{maxQualified === 1 ? '' : 's'} qualified
-              </span>
-            </div>
-
-            <dl className="pse-dash-metrics">
-              <div className="pse-dash-metric">
-                <dt>Unit capacity</dt>
-                <dd>{gbpHour(toolCapacity)}</dd>
-              </div>
-              <div className="pse-dash-metric">
-                <dt>Referral capacity</dt>
-                <dd>{gbpHour(referralCapacity)}</dd>
-              </div>
-              <div className="pse-dash-metric">
-                <dt>Settlement-available</dt>
-                <dd>{availableStr}</dd>
-              </div>
-            </dl>
+            ) : (
+              <ul className="pse-rowlist">
+                {ownedTools.map(tool => {
+                  const needsRestart = tool.cycleState === 'cycle_complete'
+                    || tool.cycleState === 'maintenance_required';
+                  return (
+                    <PseOwnedUnit
+                      key={tool.id}
+                      tool={tool}
+                      action={needsRestart ? (
+                        <PseButton
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void restart(tool.id)}
+                          busy={restarting === tool.id}
+                          disabled={restarting !== null}
+                        >
+                          {restarting === tool.id ? 'Requesting…' : 'Restart'}
+                        </PseButton>
+                      ) : undefined}
+                    />
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
-          {/* CAMPAIGN — the backend's window, and where today sits inside it. */}
-          <section className="pse-dash-panel" aria-labelledby="pse-campaign-label">
-            <div className="pse-dash-panel-head">
-              <h2 className="pse-kicker" id="pse-campaign-label">Campaign</h2>
-              <span className="pse-dash-panel-meta">
-                {clock.startMs !== null && clock.endMs !== null
-                  ? `${dateLabel(clock.startMs)} — ${dateLabel(clock.endMs)}`
-                  : 'Dates not reported'}
+          {/* F. RECENT ACTIVITY — real backend events only. */}
+          <section className="pse-block" aria-labelledby="pse-activity-label">
+            <div className="pse-block-head">
+              <h2 className="pse-block-title" id="pse-activity-label">Recent activity</h2>
+              <span className="pse-block-meta">
+                <Link to="/mine/activity" className="pse-textlink">Full ledger</Link>
               </span>
-            </div>
-
-            <div
-              className="pse-dash-track"
-              role="progressbar"
-              aria-label="Campaign progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(clock.progress)}
-            >
-              <div className="pse-dash-track-fill" style={{ width: `${clock.progress}%` }} />
-            </div>
-
-            <div className="pse-dash-panel-foot">
-              <span>{campaignFootnote}</span>
-              <span className="pse-dash-panel-meta">{clock.startMs === null ? 'Awaiting schedule' : `${clock.totalDays}-day window`}</span>
-            </div>
-          </section>
-        </div>
-
-        <div className="pse-dash-column">
-          {/* EQUIPMENT — one row per tier, so the fleet can be compared down the
-              column instead of read one card at a time. */}
-          <section className="pse-dash-panel" aria-labelledby="pse-equipment-label">
-            <div className="pse-dash-panel-head">
-              <h2 className="pse-kicker" id="pse-equipment-label">Equipment</h2>
-              <Link to="/mine/tools" className="pse-dash-link">Manage tools</Link>
-            </div>
-
-            <ul className="pse-dash-equipment">
-              {ALL_TIERS.map(tier => {
-                const owned = ownedForTier(tier.id);
-                const count = owned.length;
-                const operating = owned.filter(t => t.cycleState === 'active').length;
-                const hourly = tier.hourlyRateGBP * count;
-                const stateLabel = count === 0
-                  ? 'Not owned'
-                  : operating === count
-                    ? count === 1 ? 'Operating' : 'All operating'
-                    : `${operating} of ${count} operating`;
-
-                return (
-                  <li key={tier.id} className="pse-dash-equipment-row">
-                    <div className="pse-dash-equipment-id">
-                      <Link to="/mine/tools" className="pse-dash-equipment-name">{tier.name}</Link>
-                      <span className="pse-dash-equipment-note">
-                        {count === 0 ? 'Not owned' : `${count} owned · ${stateLabel}`}
-                      </span>
-                    </div>
-                    <div className="pse-dash-equipment-figs">
-                      <span className="pse-dash-equipment-rate">{gbpHour(hourly)}</span>
-                      <span className="pse-dash-equipment-sub">
-                        {gbp(tier.purchasePriceGBP)} · {gbpHour(tier.hourlyRateGBP)} each
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="pse-dash-panel-note">
-              The figure is the capacity of the units you own. The status says how many are operating;
-              session units stop between sessions until restarted.
-            </p>
-          </section>
-
-          {/* SETTLEMENT + LEDGER */}
-          <section className="pse-dash-panel" aria-labelledby="pse-settlement-label">
-            <div className="pse-dash-panel-head">
-              <h2 className="pse-kicker" id="pse-settlement-label">Settlement</h2>
-              <Link to="/mine/wallet" className="pse-dash-link">Manage wallet</Link>
-            </div>
-
-            <div className="pse-dash-settlement">
-              <span className="pse-dash-settlement-state">
-                {user.payoutWallet ? 'BEP-20 payout wallet connected' : 'No payout wallet set'}
-              </span>
-              <span className="pse-dash-settlement-addr">
-                {user.payoutWallet ? shortAddr(user.payoutWallet) : 'Set one before the wallet cutoff'}
-              </span>
-            </div>
-
-            <div className="pse-dash-ledger-head">
-              <h3 className="pse-kicker">Recent activity</h3>
-              <button
-                type="button"
-                className="pse-dash-link"
-                onClick={() => void refreshFeed('activities')}
-                disabled={refreshing}
-              >
-                Refresh
-              </button>
             </div>
 
             {feedErrors.activities && (
               <PseFeedNotice
-                message="The activity feed could not be refreshed."
+                message="The activity feed could not be read."
                 onRetry={() => void refreshFeed('activities')}
                 retrying={refreshing}
               />
             )}
 
-            {lastActivity.length > 0 ? (
-              <ul className="pse-dash-ledger" aria-live="polite">
-                {lastActivity.map(a => {
-                  const hasAmount = typeof a.amountGBP === 'number' && Number.isFinite(a.amountGBP);
-                  const amount = a.amountGBP ?? 0;
+            {recentActivity.length === 0 ? (
+              <PseEmptyNote title="No account events recorded">
+                Purchases, referrals, restarts and payouts appear here when the backend records them.
+                An empty register is a statement about this account, not a loading state.
+              </PseEmptyNote>
+            ) : (
+              <ul className="pse-log pse-dash-activity">
+                {recentActivity.map(a => {
+                  const amount = typeof a.amountGBP === 'number' && Number.isFinite(a.amountGBP)
+                    ? a.amountGBP
+                    : null;
                   return (
-                    <li key={a.id} className="pse-dash-ledger-row">
-                      <div className="pse-dash-ledger-id">
-                        <span className="pse-dash-ledger-desc">{a.title || a.type || 'Activity'}</span>
-                        <span className="pse-dash-ledger-time">{timeAgo(a.createdAt)}</span>
-                      </div>
-                      <span className={'pse-dash-ledger-amt' + (hasAmount && amount > 0 ? ' is-credit' : '')}>
-                        {hasAmount ? (amount > 0 ? `+${gbp(amount)}` : gbp(amount)) : '—'}
+                    <li key={a.id} className="pse-log-row">
+                      <span className="pse-log-when">{timeAgo(a.createdAt)}</span>
+                      <span className="pse-log-body">
+                        <span className="pse-log-title">{a.title || 'Account event'}</span>
+                        {a.description && <span className="pse-log-note">{a.description}</span>}
+                        <span className="pse-log-meta">{a.type || 'event'}</span>
+                      </span>
+                      <span className={'pse-log-amount' + (amount !== null && amount > 0 ? ' is-credit' : '')}>
+                        {amount === null
+                          ? '—'
+                          : `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${gbp(Math.abs(amount))}`}
                       </span>
                     </li>
                   );
                 })}
               </ul>
-            ) : (
-              <PseEmptyNote title="No recent activity">
-                Purchases, referrals, maintenance and payouts appear here as the backend records them.
-              </PseEmptyNote>
             )}
+          </section>
+        </div>
+
+        <div className="pse-dash-col">
+          {/* D. CAMPAIGN — the backend's window and where today sits inside it. */}
+          <section className="pse-block" aria-labelledby="pse-campaign-label">
+            <div className="pse-block-head">
+              <h2 className="pse-block-title" id="pse-campaign-label">Campaign</h2>
+              {knownStatus && <PseStatus tone={campaignTone(campaignStatus)}>{campaignView.label}</PseStatus>}
+            </div>
+
+            {campaignDatesKnown ? (
+              <div className="pse-campaign">
+                <div className="pse-campaign-dates">
+                  <span>{dateLabel(clock.startMs)} — {dateLabel(clock.endMs)}</span>
+                  <span>{clock.daysLeft !== null ? `${clock.daysLeft} day${clock.daysLeft === 1 ? '' : 's'} remaining` : '—'}</span>
+                </div>
+
+                <div
+                  className="pse-campaign-track"
+                  role="progressbar"
+                  aria-label="Campaign progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(clock.progress)}
+                >
+                  <div className="pse-campaign-fill" style={{ width: `${clock.progress}%` }} />
+                </div>
+
+                <div className="pse-phase-rail" aria-hidden="true">
+                  {clock.phases.map(phase => (
+                    <span key={phase.key} className="pse-phase-seg" data-state={phase.state} />
+                  ))}
+                </div>
+                <ol className="pse-phase-labels" aria-label="Campaign phases">
+                  {clock.phases.map(phase => (
+                    <li
+                      key={phase.key}
+                      data-state={phase.state}
+                      aria-current={phase.state === 'current' ? 'step' : undefined}
+                    >
+                      {phase.label}
+                    </li>
+                  ))}
+                </ol>
+                <p className="pse-phase-caption">
+                  <strong>{clock.phases[clock.phaseIndex]?.label ?? 'Launch'}</strong>
+                  <span>Phase {clock.phaseIndex + 1} of {clock.phases.length}</span>
+                </p>
+
+                <p className="pse-campaign-foot">
+                  <span>{campaignPosition}</span>
+                  <span>{clock.totalDays}-day window</span>
+                </p>
+              </div>
+            ) : (
+              <p className="pse-campaign-unavailable">
+                The backend has not reported the campaign window. The campaign’s status is shown
+                above; dates and position will appear when they are available.
+              </p>
+            )}
+
+            <p className="pse-prose--sm">
+              {knownStatus ? campaignView.detail : 'Waiting for the campaign’s own status.'}
+            </p>
+          </section>
+
+          {/* SETTLEMENT — the payout wallet, and what settlement has released. */}
+          <section className="pse-block" aria-labelledby="pse-settlement-label">
+            <div className="pse-block-head">
+              <h2 className="pse-block-title" id="pse-settlement-label">Settlement</h2>
+              <Link to="/mine/wallet" className="pse-textlink">Manage wallet</Link>
+            </div>
+
+            <div className="pse-settle">
+              <div className="pse-settle-row">
+                <span className="pse-settle-key">Payout wallet</span>
+                <span className="pse-settle-val">
+                  {payoutWallet ? shortAddr(payoutWallet) : 'Not set'}
+                </span>
+              </div>
+              <div className="pse-settle-row">
+                <span className="pse-settle-key">Settlement-available</span>
+                <span className="pse-settle-val">{availableStr}</span>
+              </div>
+              <div className="pse-settle-row">
+                <span className="pse-settle-key">Payout requests</span>
+                <span className="pse-settle-val">
+                  {pendingPayout ? 'One under review' : withdrawals.length > 0 ? `${withdrawals.length} recorded` : 'None recorded'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pse-settle-actions">
+              <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm">
+                {payoutWallet ? 'Payout settings' : 'Set payout wallet'}
+              </Link>
+              {!payoutWallet && (
+                <span className="pse-prose--sm">
+                  Settlements are paid to this wallet only. It can be changed until the campaign reaches settlement.
+                </span>
+              )}
+            </div>
           </section>
         </div>
       </div>

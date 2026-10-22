@@ -639,8 +639,6 @@ export const PsePolicyLinks: React.FC<{ className?: string; ariaLabel?: string; 
  */
 export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
   const d = DOCS[doc];
-  const others = PSE_DOC_ORDER.filter(id => id !== doc);
-
   usePseDocumentTitle(PSE_DOC_LABEL[doc]);
 
   React.useEffect(() => {

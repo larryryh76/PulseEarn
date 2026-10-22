@@ -64,7 +64,7 @@ import {
 import { PseButton, PseIconButton, PseStatus } from './PseBasics';
 import { PseGuide } from './PseGuide';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
-import { PSE_DOC_LABEL, PSE_DOC_PATH } from './pseDocs';
+import { PSE_DOC_PATH } from './pseDocs';
 
 /** The section list, once. The bar renders all of it; the dock renders the first five. */
 const CONSOLE_SECTIONS: ReadonlyArray<{ to: string; label: string; dock: boolean }> = [

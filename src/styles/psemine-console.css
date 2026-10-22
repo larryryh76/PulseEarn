@@ -11,37 +11,98 @@
  * so a re-composition sits later in the cascade by construction rather than by
  * specificity tricks.
  *
- * THE SAME LAWS AS THE PUBLIC SURFACES, because it is the same product:
- *   • TOKENS ONLY. No colour is written here. The console follows the
- *     application theme (see the `.pse` / `.dark .pse:not(.pse-plane)` rules in
- *     psemine.css), so every value below resolves through --pse-* and the light
- *     and dark consoles are the same drawing.
- *   • ONE HAIRLINE. Structure comes from --pse-rule-2, never from a heavier
- *     border. A ledger is separated by 1px rules, not by wrapping rows in cards.
- *   • ELEVATION IS LUMINANCE, NOT SHADOW. Panels step up (canvas → surface →
- *     surface-2); two lifts exist and nothing here invents a third.
- *   • SPACE IS THE SEPARATOR. The campaign strip, the page head and each panel
+ * THE CONSOLE'S OWN LAWS:
+ *   • ONE FIXED PALETTE. The authenticated product is always graphite, with one
+ *     sage accent for meaningful actions and positive operational states. The
+ *     palette is declared once on `.pse-console-shell` (below) so every register,
+ *     overlay and loader inside the console resolves the same values.
+ *   • ONE HAIRLINE. Structure comes from --pse-rule / --pse-rule-2, never from a
+ *     heavier border. A ledger is separated by 1px rules, not by wrapping rows
+ *     in cards.
+ *   • ELEVATION IS LUMINANCE, NOT SHADOW. A filled surface is reserved for the
+ *     one anchor a page owns (the account band, the two wallet balances, the
+ *     invite). Registers sit directly on the canvas.
+ *   • SPACE IS THE SEPARATOR. The campaign strip, the page head and each register
  *     are told apart by distance and by a surface step, not by a rule between
  *     every pair.
- *   • THE TABLE IS AN INSTRUMENT. Figures are tabular, right-aligned in numeric
- *     columns and printed in the figure family, so a column can be scanned down
- *     the page — which is the only reason a ledger is a table at all.
+ *   • THE FIGURE IS AN INSTRUMENT. Amounts are tabular, right-aligned in their
+ *     column and printed in the figure family; labels stay in the interface
+ *     family so the numbers can be scanned without the words competing.
  *
  * DENSITY. The console is a working surface, so it runs a step tighter than the
  * marketing page: 0.55–1.1rem of internal padding rather than 1.1rem everywhere,
  * and a 0.9rem body step. Nothing here should read as a hero.
  * ==========================================================================*/
 
-/* ── Shell ────────────────────────────────────────────────────────────────
- * One column: bar, campaign strip, stage, foot. The stage grows, so a short
- * page still puts the foot at the bottom of the viewport instead of floating it
- * somewhere in the middle of the screen.
+/* ── The console surface ──────────────────────────────────────────────────
+ * THE AUTHENTICATED PRODUCT IS ALWAYS GRAPHITE.
+ *
+ * The public pages are the product's marketing surface; the console is the
+ * account. It keeps one fixed palette regardless of the operator's app theme, so
+ * a signed-in miner reads the same instrument at 3am as at noon, and every
+ * figure sits on the surface it was composed for. The values are the product's
+ * own: deep graphite, one sage accent reserved for meaningful actions and
+ * positive operational states, muted amber for pending work, an accessible red
+ * for failure. No second hue competes with the accent.
+ *
+ * Tokens are declared here rather than in psemine.css because the public plane
+ * must keep following its own art direction; `:not(.pse-console-shell)` in the
+ * dark-theme rule there keeps that layer from reaching this one.
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-console-shell {
+  --pse-canvas: #121512;
+  --pse-surface: #191d19;
+  --pse-surface-2: #202520;
+  --pse-surface-3: #262c26;
+  --pse-band: #151915;
+  --pse-inset: rgba(240, 242, 236, 0.035);
+
+  --pse-ink: #f0f2ec;
+  --pse-ink-2: #a0a99f;
+  --pse-ink-3: #7e887f;
+
+  --pse-rule: #303730;
+  --pse-rule-2: rgba(240, 242, 236, 0.09);
+  --pse-rule-strong: #3d463d;
+  --pse-hair: rgba(240, 242, 236, 0.08);
+
+  --pse-accent: #b4d3a4;
+  --pse-accent-solid: #b4d3a4;
+  --pse-accent-solid-hover: #c6e0b7;
+  --pse-accent-quiet: rgba(180, 211, 164, 0.13);
+  --pse-on-accent: #131713;
+
+  --pse-good: #b4d3a4;
+  --pse-warn: #d8b077;
+  --pse-danger: #e58b7f;
+  --pse-bnb: #e0c069;
+  --pse-cyan: #a0a99f;
+  --pse-violet: #a0a99f;
+
+  --pse-r-xs: 5px;
+  --pse-r-sm: 8px;
+  --pse-r: 12px;
+  --pse-r-lg: 16px;
+
+  --pse-ring: 0 0 0 1px var(--pse-rule);
+  --pse-ring-strong: 0 0 0 1px var(--pse-rule-strong);
+  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 16px 40px -28px rgba(0, 0, 0, 0.9);
+  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 32px 70px -30px rgba(0, 0, 0, 0.95);
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   background: var(--pse-canvas);
+  color: var(--pse-ink);
+}
+
+/* One page measure, shared by every band so the console's chrome and its body
+   end on the same edge. Wide enough for a ledger, never a full-bleed stretch. */
+.pse-console-main,
+.pse-bar-inner,
+.pse-strip-inner,
+.pse-console-foot-inner {
+  --pse-measure: 1280px;
 }
 
 .pse-stage {
@@ -61,18 +122,13 @@
 .pse-console-main {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--pse-measure);
   margin-inline: auto;
-  padding: 1.15rem var(--pse-gutter) 1.75rem;
+  padding: 1.35rem var(--pse-gutter) 2rem;
 }
 
-@media (min-width: 1280px) {
-  .pse-console-main {
-    max-width: 1380px;
-  }
-}
 
 /* ── Product bar ──────────────────────────────────────────────────────────
  * The console's header. It is a bar, not a hero: brand, the sections, then the
@@ -83,40 +139,72 @@
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--pse-canvas);
-  border-bottom: 1px solid var(--pse-rule-2);
+  background: var(--pse-surface);
+  border-bottom: 1px solid var(--pse-rule);
 }
 
 .pse-bar-inner {
   display: flex;
   align-items: center;
-  gap: 0.6rem 1.25rem;
+  gap: 0.5rem 1.5rem;
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--pse-measure);
   margin-inline: auto;
   padding-inline: var(--pse-gutter);
-  min-height: 56px;
+  min-height: 60px;
 }
 
 .pse-bar-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   min-height: 44px;
   color: var(--pse-ink);
   text-decoration: none;
 }
 
 .pse-bar-name {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  letter-spacing: -0.014em;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+/* The current section's name, shown beside the mark only below the navigation
+   breakpoint where the bar has no room for the section list. It is context, not
+   a second navigation: the dock below still owns the destinations. */
+.pse-bar-context {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--pse-ink-3);
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pse-bar-context::before {
+  content: '/';
+  margin-right: 0.5rem;
+  color: var(--pse-rule-strong);
+}
+
+/* At 320–400px the bar's three controls, the brand and the section name cannot
+   share one line without clipping. The section is still stated by the active
+   dock destination and the page's own heading. */
+@media (max-width: 420px) {
+  .pse-bar-context { display: none; }
+}
+
+@media (min-width: 960px) {
+  .pse-bar-context { display: none; }
 }
 
 .pse-bar-tools {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.25rem;
   margin-left: auto;
 }
 
@@ -128,7 +216,7 @@
 .pse-nav {
   display: none;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.1rem;
 }
 
 .pse-nav-link {
@@ -138,12 +226,12 @@
   /* 44px, not 40: the section names are the console's primary navigation and
      they are tapped, not just read. */
   min-height: 44px;
-  padding-inline: 0.65rem;
+  padding-inline: 0.7rem;
   border-radius: var(--pse-r-xs);
   color: var(--pse-ink-2);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  letter-spacing: -0.006em;
+  letter-spacing: -0.004em;
   text-decoration: none;
   transition: color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
 }
@@ -218,9 +306,8 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  border-top: 1px solid var(--pse-rule-2);
+  border-top: 1px solid var(--pse-rule);
   background: var(--pse-surface);
-  box-shadow: 0 -14px 34px -26px rgba(16, 19, 24, 0.5);
 }
 
 .pse-dock-link {
@@ -228,12 +315,13 @@
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   min-height: var(--pse-dock-h);
-  padding: 0.35rem 0.2rem;
+  padding: 0.4rem 0.2rem;
   min-width: 0;
   color: var(--pse-ink-3);
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
   transition: color var(--pse-t-fast) var(--pse-ease);
 }
 
@@ -344,10 +432,10 @@
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-strip {
   position: sticky;
-  top: 56px;
+  top: 61px;
   z-index: 29;
   background: var(--pse-band);
-  border-bottom: 1px solid var(--pse-rule-2);
+  border-bottom: 1px solid var(--pse-rule);
 }
 
 .pse-strip-inner {
@@ -356,9 +444,9 @@
   align-items: center;
   gap: 0.4rem 1rem;
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--pse-measure);
   margin-inline: auto;
-  padding: 0.5rem var(--pse-gutter);
+  padding: 0.55rem var(--pse-gutter);
 }
 
 .pse-strip-fact {
@@ -390,6 +478,24 @@
 /* The band states its facts and no rail: the campaign's position belongs to the
    dashboard's campaign register, and a measure drawn in the chrome and again on
    the page is the same date stated twice. */
+/* On a phone the band stays one compact line: status and capacity are the
+   context a reader needs in the chrome; the campaign's explanation belongs to
+   the page that owns the campaign register. */
+.pse-strip-note { display: none; }
+
+@media (min-width: 860px) {
+  .pse-strip-note {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: auto;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--pse-ink-3);
+    text-align: right;
+  }
+}
+
 .pse-strip-actions { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
 
 /* ── Page head ────────────────────────────────────────────────────────────
@@ -400,30 +506,30 @@
 .pse-page-head {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  padding-bottom: 1.05rem;
-  border-bottom: 1px solid var(--pse-rule-2);
+  gap: 0.9rem;
+  padding-bottom: 1.15rem;
+  border-bottom: 1px solid var(--pse-rule);
 }
 
 @media (min-width: 768px) {
-  .pse-page-head { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
+  .pse-page-head { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 2rem; }
 }
 
 .pse-page-title {
-  font-size: 1.375rem;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.026em;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
   color: var(--pse-ink);
 }
 
 @media (min-width: 768px) {
-  .pse-page-title { font-size: 1.5rem; }
+  .pse-page-title { font-size: 1.6875rem; }
 }
 
 .pse-page-objective {
-  max-width: 68ch;
-  margin-top: 0.3rem;
+  max-width: 66ch;
+  margin-top: 0.4rem;
   font-size: 0.875rem;
   line-height: 1.55;
   color: var(--pse-ink-2);
@@ -432,12 +538,33 @@
 
 .pse-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
+/* A technical eyebrow above a page or block title. Used sparingly: it names the
+   register ("Mining account", "Settlement"), never decorates a heading. */
+.pse-eyebrow {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-prose {
+  max-width: 70ch;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+.pse-prose--sm { font-size: 0.75rem; color: var(--pse-ink-3); }
+
 /* ── Panel ────────────────────────────────────────────────────────────────
  * A console block: a lowercase term, an optional right-hand meta, then its
  * content. The head is separated by a hairline, so a long page reads as a
  * sequence of named registers rather than as a column of boxes.
  * ────────────────────────────────────────────────────────────────────────── */
-.pse-block { display: flex; flex-direction: column; gap: 0.85rem; }
+.pse-block { display: flex; flex-direction: column; gap: 0.9rem; }
 
 .pse-block-head {
   display: flex;
@@ -445,8 +572,8 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0.35rem 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--pse-rule-2);
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--pse-rule);
 }
 
 /* A section heading must outrank the text it heads. The console used to set
@@ -460,7 +587,7 @@
   font-family: var(--pse-font);
   font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.014em;
+  letter-spacing: -0.016em;
   text-transform: none;
   color: var(--pse-ink);
 }
@@ -468,7 +595,7 @@
 .pse-block-meta {
   font-family: var(--pse-mono);
   font-size: 0.6875rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--pse-ink-3);
 }
 
@@ -495,10 +622,8 @@
      address, the grid overflowed its column, and `overflow: hidden` then
      CLIPPED the value on a 390px viewport instead of wrapping it. */
   grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
-  background: var(--pse-rule-2);
-  border-radius: var(--pse-r-sm);
-  overflow: hidden;
+  gap: 0;
+  border-top: 1px solid var(--pse-rule);
 }
 
 @media (min-width: 720px) {
@@ -506,14 +631,30 @@
   .pse-facts--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+/* A FACT REGISTER IS NOT A SET OF CARDS. Key/value pairs sit directly on the
+   surface, separated by the page's own hairline, so the page keeps one
+   continuous plane instead of a mosaic of boxes. */
 .pse-fact {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
   min-width: 0;
-  padding: 0.6rem 0.85rem;
-  background: var(--pse-surface-2);
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+/* A key and a value can both be long (an email, a wallet address). The pair
+   wraps instead of forcing the register wider than the page. */
+.pse-console-shell .pse-fact { flex-wrap: wrap; }
+.pse-console-shell .pse-fact-val { flex: 0 1 auto; min-width: 0; }
+
+@media (min-width: 720px) {
+  .pse-facts--2 .pse-fact:nth-child(odd) { padding-right: 1.25rem; }
+  .pse-facts--2 .pse-fact:nth-child(even) { padding-left: 1.25rem; border-left: 1px solid var(--pse-rule-2); }
+  .pse-facts--3 .pse-fact { padding-inline: 1.1rem; }
+  .pse-facts--3 .pse-fact:first-child { padding-left: 0; }
+  .pse-facts--3 .pse-fact + .pse-fact { border-left: 1px solid var(--pse-rule-2); }
 }
 
 .pse-fact-key {
@@ -674,11 +815,17 @@
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-empty {
   display: grid;
-  gap: 0.5rem;
-  padding: 1.1rem 1.15rem;
-  border-radius: var(--pse-r-sm);
-  background: var(--pse-inset);
-  box-shadow: inset 0 0 0 1px var(--pse-rule-2);
+  gap: 0.55rem;
+  padding: 1.35rem 0 1.4rem;
+  border-top: 1px solid var(--pse-rule);
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+/* Inside a panel that already owns a surface, the empty state drops its own
+   rules: one border treatment per region, never a box inside a box. */
+.pse-surface-panel .pse-empty {
+  border-top: 0;
+  padding-top: 0.4rem;
 }
 
 .pse-empty-title {
@@ -983,6 +1130,732 @@ button.pse-link {
   letter-spacing: 0.04em;
   color: var(--pse-ink-3);
 }
+
+/* Controls are flat in the console: a hover shadow reads as a glow against
+   graphite, and the accent is already the strongest colour on the page. */
+.pse-console-shell .pse-btn:hover,
+.pse-console-shell .pse-btn:focus-visible {
+  box-shadow: none;
+}
+
+/* ── Status labels ────────────────────────────────────────────────────────
+ * A state is text first: the label is the information, the dot and the colour
+ * are the second reading. Square-ish, never a pill — the console does not own
+ * a row of lozenges.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 24px;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r-xs);
+  background: transparent;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--pse-ink-2);
+}
+
+.pse-status::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pse-status[data-tone='good'] {
+  color: var(--pse-good);
+  border-color: color-mix(in srgb, var(--pse-good) 30%, transparent);
+  background: color-mix(in srgb, var(--pse-good) 7%, transparent);
+}
+
+.pse-status[data-tone='hold'] {
+  color: var(--pse-warn);
+  border-color: color-mix(in srgb, var(--pse-warn) 30%, transparent);
+  background: color-mix(in srgb, var(--pse-warn) 7%, transparent);
+}
+
+.pse-status[data-tone='danger'] {
+  color: var(--pse-danger);
+  border-color: color-mix(in srgb, var(--pse-danger) 32%, transparent);
+  background: color-mix(in srgb, var(--pse-danger) 7%, transparent);
+}
+
+.pse-status[data-tone='idle'] { color: var(--pse-ink-3); }
+
+/* ── Stat bar ─────────────────────────────────────────────────────────────
+ * The compact operational strip under a page head. Three or four figures, one
+ * line of labels, separated by the page's hairline — not four cards.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-statbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--pse-rule);
+  border-bottom: 1px solid var(--pse-rule);
+}
+
+@media (min-width: 640px) {
+  .pse-statbar { grid-template-columns: repeat(var(--pse-statbar-cols, 4), minmax(0, 1fr)); }
+}
+
+/* `pse-stat` also exists on the public product page, so these rules are scoped
+   to the console shell rather than restyling the landing page's own stat row. */
+.pse-console-shell .pse-stat {
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+  min-width: 0;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-console-shell .pse-stat:last-child { border-bottom: 0; }
+
+@media (min-width: 640px) {
+  .pse-console-shell .pse-stat {
+    padding: 0.9rem 1.15rem;
+    border-bottom: 0;
+  }
+  .pse-console-shell .pse-stat:first-child { padding-left: 0; }
+  .pse-console-shell .pse-stat + .pse-stat { border-left: 1px solid var(--pse-rule-2); }
+}
+
+.pse-console-shell .pse-stat-key {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-console-shell .pse-stat-val {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--pse-ink);
+}
+
+.pse-console-shell .pse-stat-note {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--pse-ink-3);
+  margin: 0;
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────────────
+ * A register of real objects — owned units, catalogue products, ledger entries.
+ * One row per object, separated by a hairline. Not a card per object: the
+ * console is read down its registers, not by opening a stack of panels.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-rowlist { display: grid; margin: 0; padding: 0; list-style: none; }
+
+.pse-rowitem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem 1rem;
+  align-items: start;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+  min-width: 0;
+}
+
+.pse-rowitem:last-child { border-bottom: 0; padding-bottom: 0; }
+.pse-rowitem:first-child { padding-top: 0; }
+
+.pse-rowitem-id { display: grid; gap: 0.15rem; min-width: 0; }
+
+.pse-rowitem-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  line-height: 1.35;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+}
+
+.pse-rowitem-meta {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.pse-rowitem-note {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+}
+
+.pse-rowitem-figs {
+  display: grid;
+  gap: 0.1rem;
+  justify-items: end;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  color: var(--pse-ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pse-rowitem-figs small {
+  font-family: var(--pse-font);
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+/* A row's action line sits under its identity on a phone and in its own column
+   from 640px, so a product's price, ownership and action never collide. */
+.pse-rowitem-action {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .pse-rowitem-action {
+    grid-column: auto;
+    justify-content: flex-end;
+    align-self: center;
+  }
+}
+
+/* ── Money band ───────────────────────────────────────────────────────────
+ * The wallet's two balances, side by side and never conflated: accrued campaign
+ * earnings, and the balance settlement has actually released. One filled
+ * surface, two figures, distinct labels.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-money {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+  overflow: hidden;
+}
+
+@media (min-width: 780px) {
+  .pse-money { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+}
+
+.pse-money-cell {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: clamp(1.1rem, 3vw, 1.65rem);
+}
+
+.pse-money-cell + .pse-money-cell { border-top: 1px solid var(--pse-rule); }
+
+@media (min-width: 780px) {
+  .pse-money-cell + .pse-money-cell {
+    border-top: 0;
+    border-left: 1px solid var(--pse-rule);
+  }
+}
+
+.pse-money-label {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-money-figure {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+}
+
+.pse-money-figure--settled { color: var(--pse-ink); }
+
+.pse-money-note {
+  max-width: 46ch;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
+.pse-money-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.75rem;
+  margin-top: 0.25rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--pse-ink-2);
+}
+
+/* ── Owned unit row ───────────────────────────────────────────────────────
+ * One row per ownership record the backend reports. State, rate and the one
+ * valid next action, aligned so a fleet can be scanned down the page.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-unit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 0.85rem;
+  align-items: center;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-unit:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-owner-id { display: grid; gap: 0.15rem; min-width: 0; }
+
+.pse-owner-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink);
+}
+
+.pse-owner-meta {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+}
+
+.pse-owner-state { justify-self: start; }
+
+.pse-owner-figs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.25rem;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.75rem;
+  color: var(--pse-ink-2);
+}
+
+.pse-owner-figs strong {
+  color: var(--pse-ink);
+  font-weight: 500;
+}
+
+.pse-owner-action { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+@media (min-width: 680px) {
+  .pse-unit {
+    grid-template-columns: minmax(0, 1fr) auto 8.5rem auto;
+    gap: 0.5rem 1.35rem;
+  }
+  .pse-owner-state { justify-self: end; }
+  .pse-owner[data-no-action='true'] { grid-template-columns: minmax(0, 1fr) auto 8.5rem; }
+  .pse-owner-figs {
+    grid-column: auto;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+  .pse-owner-action { grid-column: auto; grid-row: 1; }
+}
+
+/* ── Product row (marketplace catalogue) ──────────────────────────────────
+ * A product is presented as a compact specification row: identity, three fixed
+ * facts, then the one action its state allows. It is a catalogue entry, not a
+ * promotional card the reader has to interpret.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-product {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-product:last-child { border-bottom: 0; padding-bottom: 0; }
+.pse-product:first-child { padding-top: 0; }
+
+.pse-product-id { display: grid; gap: 0.3rem; min-width: 0; }
+
+.pse-product-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--pse-ink);
+}
+
+.pse-product-desc {
+  max-width: 62ch;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+}
+
+.pse-product-specs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 0.9rem;
+  margin: 0;
+}
+
+.pse-product-spec { display: grid; gap: 0.05rem; min-width: 0; }
+
+.pse-product-spec dt {
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-product-spec dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  color: var(--pse-ink);
+  white-space: nowrap;
+}
+
+.pse-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.pse-product-avail {
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-prose--ink { color: var(--pse-ink); }
+
+@media (min-width: 760px) {
+  .pse-product {
+    grid-template-columns: minmax(0, 1fr) 16rem auto;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 0;
+  }
+  .pse-product-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+}
+
+/* ── Log / ledger rows ────────────────────────────────────────────────────
+ * Activity and payout history. A time column, the record, and its amount. No
+ * horizontal scroll and no table required: at phone width the time folds into
+ * the record's own metadata line instead of shrinking five columns to nothing.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-log { display: grid; margin: 0; padding: 0; list-style: none; }
+
+.pse-log-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 0.85rem;
+  align-items: baseline;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+  min-width: 0;
+}
+
+.pse-log-row:last-child { border-bottom: 0; }
+
+.pse-log-when {
+  display: none;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+  white-space: nowrap;
+}
+
+.pse-log-body { display: grid; gap: 0.12rem; min-width: 0; }
+
+.pse-log-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  line-height: 1.4;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+}
+
+.pse-log-note {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.pse-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-log-amount {
+  justify-self: end;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  color: var(--pse-ink-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pse-log-amount.is-credit { color: var(--pse-good); }
+.pse-log-amount.is-debit { color: var(--pse-ink-2); }
+
+@media (min-width: 720px) {
+  .pse-log-row { grid-template-columns: 8.5rem minmax(0, 1fr) auto; }
+  .pse-log-when { display: block; }
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────
+ * Filtering controls in one line above the register they filter. Fields share
+ * the row until 720px, then the row wraps rather than compressing controls. */
+.pse-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.75rem;
+}
+
+.pse-toolbar .pse-field { min-width: 0; flex: 1 1 11rem; }
+.pse-toolbar .pse-input { min-height: 44px; font-size: 0.875rem; }
+
+/* ── Section actions and inline controls ────────────────────────────────── */
+.pse-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pse-accent);
+  font-family: var(--pse-font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: -0.004em;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pse-textlink:hover { color: var(--pse-ink); text-decoration: underline; }
+
+.pse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pse-stack-form { display: grid; gap: 0.85rem; }
+
+.pse-payout-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.pse-payout-field { flex: 1 1 12rem; min-width: 0; }
+
+.pse-security-form { display: grid; gap: 0.85rem; max-width: 28rem; }
+
+.pse-activity-day { display: grid; gap: 0.1rem; }
+
+.pse-kv { display: grid; gap: 0.55rem; }
+
+.pse-kv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-kv-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-kv-key {
+  font-size: 0.75rem;
+  color: var(--pse-ink-3);
+}
+
+.pse-kv-val {
+  font-family: var(--pse-mono);
+  font-size: 0.75rem;
+  letter-spacing: -0.005em;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* ── Invite band ──────────────────────────────────────────────────────────
+ * The referral page's one filled surface: the code, the link, and the actions
+ * that hand it over. A code is a technical object, so it is set in the figure
+ * family with tracked caps and allowed to wrap rather than truncate.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-invite {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid var(--pse-rule);
+  border-radius: var(--pse-r);
+  background: var(--pse-surface);
+}
+
+@media (min-width: 780px) {
+  .pse-invite { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.5rem; }
+}
+
+.pse-invite-id { display: grid; gap: 0.35rem; min-width: 0; }
+
+.pse-invite-code {
+  font-family: var(--pse-mono);
+  font-size: clamp(1.375rem, 5vw, 1.875rem);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  color: var(--pse-ink);
+  overflow-wrap: anywhere;
+}
+
+.pse-invite-link {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--pse-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.pse-invite-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* ── Qualification stages ───────────────────────────────────────────────── */
+.pse-stage-list { display: grid; margin: 0; padding: 0; list-style: none; }
+
+.pse-stage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-stage-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.pse-stage-id { display: grid; gap: 0.1rem; min-width: 0; flex: 1 1 14rem; }
+.pse-stage-name { font-size: 0.8125rem; font-weight: 500; color: var(--pse-ink); }
+.pse-stage-help { font-size: 0.75rem; line-height: 1.5; color: var(--pse-ink-3); }
+
+.pse-stage-count {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--pse-ink);
+}
+
+/* ── Purchase steps ───────────────────────────────────────────────────────
+ * Where the reader is in a five-step payment. One row, text labels, and the
+ * current step stated by weight and the accent rather than by five filled pills.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--pse-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-step::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pse-rule-strong);
+}
+
+.pse-step[data-state='done'] { color: var(--pse-ink-2); }
+.pse-step[data-state='done']::before { background: var(--pse-ink-3); }
+
+.pse-step[data-state='current'] { color: var(--pse-accent); }
+.pse-step[data-state='current']::before { background: var(--pse-accent); }
 
 /* ── Guide overlay ────────────────────────────────────────────────────────
  * The guide is an application surface ON TOP of the product, not a page of
@@ -1572,7 +2445,7 @@ button.pse-link {
   align-items: center;
   gap: 0.5rem 1.25rem;
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--pse-measure);
   margin-inline: auto;
   padding: 1.15rem var(--pse-gutter);
   font-size: 0.8125rem;

@@ -12,10 +12,11 @@
  * specificity tricks.
  *
  * THE CONSOLE'S OWN LAWS:
- *   • ONE FIXED PALETTE. The authenticated product is always graphite, with one
- *     sage accent for meaningful actions and positive operational states. The
- *     palette is declared once on `.pse-console-shell` (below) so every register,
- *     overlay and loader inside the console resolves the same values.
+ *   • ONE FIXED PALETTE, AND IT IS THE BRAND'S BLUE. The authenticated product
+ *     is always a blue-black surface with the brand's blue as the single
+ *     interactive accent. The palette is declared once on `.pse-console-shell`
+ *     (below) so every register, overlay and loader inside the console resolves
+ *     the same values.
  *   • ONE HAIRLINE. Structure comes from --pse-rule / --pse-rule-2, never from a
  *     heavier border. A ledger is separated by 1px rules, not by wrapping rows
  *     in cards.
@@ -35,49 +36,65 @@
  * ==========================================================================*/
 
 /* ── The console surface ──────────────────────────────────────────────────
- * THE AUTHENTICATED PRODUCT IS ALWAYS GRAPHITE.
+ * THE AUTHENTICATED PRODUCT IS ALWAYS THE BRAND'S BLUE-BLACK.
  *
  * The public pages are the product's marketing surface; the console is the
  * account. It keeps one fixed palette regardless of the operator's app theme, so
  * a signed-in miner reads the same instrument at 3am as at noon, and every
- * figure sits on the surface it was composed for. The values are the product's
- * own: deep graphite, one sage accent reserved for meaningful actions and
- * positive operational states, muted amber for pending work, an accessible red
- * for failure. No second hue competes with the accent.
+ * figure sits on the surface it was composed for.
+ *
+ * WHERE THESE VALUES COME FROM. They are the PulseEarn/PSEmine brand's own blue,
+ * taken from the product plane in psemine.css (`--pse-plane`: accent #6f9bff,
+ * solid #2f5cf5, good #34d399, warn #f0b24a, danger #f87171, BNB #f0b90b) and
+ * stepped onto blue-black surfaces rather than grey graphite. The blue is the
+ * ACCENT, not an atmosphere: it is spent on meaningful actions, the current
+ * section and positive operational state, never as a gradient wash behind
+ * everything. Semantic green, amber and red stay semantic.
  *
  * Tokens are declared here rather than in psemine.css because the public plane
  * must keep following its own art direction; `:not(.pse-console-shell)` in the
  * dark-theme rule there keeps that layer from reaching this one.
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-console-shell {
-  --pse-canvas: #121512;
-  --pse-surface: #191d19;
-  --pse-surface-2: #202520;
-  --pse-surface-3: #262c26;
-  --pse-band: #151915;
-  --pse-inset: rgba(240, 242, 236, 0.035);
+  --pse-canvas: #0b0f17;
+  --pse-surface: #111827;
+  --pse-surface-2: #172033;
+  --pse-surface-3: #1e2839;
+  --pse-band: #0e1521;
+  --pse-inset: rgba(148, 180, 226, 0.05);
 
-  --pse-ink: #f0f2ec;
-  --pse-ink-2: #a0a99f;
-  --pse-ink-3: #7e887f;
+  --pse-ink: #f3f6fc;
+  --pse-ink-2: #a7b6cb;
+  --pse-ink-3: #8697ad;
 
-  --pse-rule: #303730;
-  --pse-rule-2: rgba(240, 242, 236, 0.09);
-  --pse-rule-strong: #3d463d;
-  --pse-hair: rgba(240, 242, 236, 0.08);
+  --pse-rule: #273449;
+  --pse-rule-2: rgba(150, 180, 220, 0.14);
+  --pse-rule-strong: #38486a;
+  --pse-hair: rgba(150, 180, 220, 0.10);
 
-  --pse-accent: #b4d3a4;
-  --pse-accent-solid: #b4d3a4;
-  --pse-accent-solid-hover: #c6e0b7;
-  --pse-accent-quiet: rgba(180, 211, 164, 0.13);
-  --pse-on-accent: #131713;
+  --pse-accent: #6f9bff;
+  --pse-accent-solid: #2f5cf5;
+  --pse-accent-solid-hover: #2450e6;
+  --pse-accent-quiet: rgba(111, 155, 255, 0.14);
+  --pse-on-accent: #ffffff;
 
-  --pse-good: #b4d3a4;
-  --pse-warn: #d8b077;
-  --pse-danger: #e58b7f;
-  --pse-bnb: #e0c069;
-  --pse-cyan: #a0a99f;
-  --pse-violet: #a0a99f;
+  --pse-good: #34d399;
+  --pse-warn: #f0b24a;
+  --pse-danger: #f87171;
+  --pse-bnb: #f0b90b;
+  --pse-cyan: #2fc9e6;
+  --pse-violet: #8b6cff;
+
+  /* The emblem's facets, in the dark-surface arrangement the product plane
+     already uses. Without these the console inherits the LIGHT arrangement
+     (a near-black upper facet and a white inner notch), which on a blue-black
+     surface reads as a white shard — the mark's own dark-surface variant is
+     the correct one here. */
+  --pse-brand-blade: #4c82ff;
+  --pse-brand-top: #eef0f3;
+  --pse-brand-side: rgba(255, 255, 255, 0.34);
+  --pse-brand-cut: #0b0f17;
+  --pse-brand-crest: #22d3ee;
 
   --pse-r-xs: 5px;
   --pse-r-sm: 8px;
@@ -91,8 +108,21 @@
 
   display: flex;
   flex-direction: column;
+  /* `100vh` is the phone's LARGE viewport (browser chrome already retracted),
+     so a vh-sized console is taller than the screen it is drawn on and its foot
+     sits under the browser bar. dvh tracks the viewport actually available, and
+     the vh line above it is the fallback for engines without dvh. */
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--pse-canvas);
+  background-image: radial-gradient(120% 60% at 50% 0%, rgba(47, 92, 245, 0.07) 0%, rgba(11, 15, 23, 0) 62%);
+  background-repeat: no-repeat;
+  /* NO HORIZONTAL PAGE SCROLL. `clip` (not `hidden`) contains a decoration or a
+     long identifier WITHOUT creating a scroll container, so the sticky bar and
+     the fixed dock keep working. Component-level overflow is still fixed where
+     it belongs: ledgers scroll inside .pse-ledger-wrap, identifiers wrap. */
+  overflow-x: clip;
+  color-scheme: dark;
   color: var(--pse-ink);
 }
 
@@ -1039,6 +1069,12 @@ button.pse-link {
   border-radius: var(--pse-r);
   background: var(--pse-surface-2);
   box-shadow: var(--pse-ring), var(--pse-lift-2);
+  /* A confirmation the reader has to type into can be taller than a short
+     viewport. It scrolls INSIDE its own plate; a dialog that extends past the
+     bottom of the screen has no reachable Confirm control. */
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .pse-dialog-title {
@@ -1132,7 +1168,7 @@ button.pse-link {
 }
 
 /* Controls are flat in the console: a hover shadow reads as a glow against
-   graphite, and the accent is already the strongest colour on the page. */
+   blue-black, and the accent is already the strongest colour on the page. */
 .pse-console-shell .pse-btn:hover,
 .pse-console-shell .pse-btn:focus-visible {
   box-shadow: none;
@@ -1426,17 +1462,23 @@ button.pse-link {
 /* ── Owned unit row ───────────────────────────────────────────────────────
  * One row per ownership record the backend reports. State, rate and the one
  * valid next action, aligned so a fleet can be scanned down the page.
+ *
+ * The row is `.pse-owner`, which is what PseOwnedUnit renders. It used to be
+ * styled as `.pse-unit` here while the component emitted `.pse-owner`, so the
+ * row never received this layout — and `.pse-unit` is the PUBLIC product page's
+ * unit class, so the rules leaked onto the landing page instead.
  * ────────────────────────────────────────────────────────────────────────── */
-.pse-unit {
+.pse-owner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem 0.85rem;
   align-items: center;
   padding: 0.9rem 0;
   border-bottom: 1px solid var(--pse-rule-2);
+  min-width: 0;
 }
 
-.pse-unit:last-child { border-bottom: 0; padding-bottom: 0; }
+.pse-owner:last-child { border-bottom: 0; padding-bottom: 0; }
 
 .pse-owner-id { display: grid; gap: 0.15rem; min-width: 0; }
 
@@ -1478,7 +1520,7 @@ button.pse-link {
 .pse-owner-action { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 @media (min-width: 680px) {
-  .pse-unit {
+  .pse-owner {
     grid-template-columns: minmax(0, 1fr) auto 8.5rem auto;
     gap: 0.5rem 1.35rem;
   }
@@ -1530,9 +1572,16 @@ button.pse-link {
 
 .pse-product-specs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem 0.9rem;
   margin: 0;
+}
+
+/* Three specification columns need ~300px of content width. Below that the
+   third would be squeezed to a label over a figure that cannot fit, so the
+   register takes two columns and the third wraps onto a second row. */
+@media (min-width: 420px) {
+  .pse-product-specs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 .pse-product-spec { display: grid; gap: 0.05rem; min-width: 0; }
@@ -1758,7 +1807,9 @@ button.pse-link {
  * ────────────────────────────────────────────────────────────────────────── */
 .pse-invite {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+  min-width: 0;
   padding: clamp(1.1rem, 3vw, 1.6rem);
   border: 1px solid var(--pse-rule);
   border-radius: var(--pse-r);
@@ -1769,7 +1820,7 @@ button.pse-link {
   .pse-invite { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.5rem; }
 }
 
-.pse-invite-id { display: grid; gap: 0.35rem; min-width: 0; }
+.pse-invite-id { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.35rem; min-width: 0; }
 
 .pse-invite-code {
   font-family: var(--pse-mono);
@@ -1789,7 +1840,7 @@ button.pse-link {
   overflow-wrap: anywhere;
 }
 
-.pse-invite-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.pse-invite-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
 
 /* ── Qualification stages ───────────────────────────────────────────────── */
 .pse-stage-list { display: grid; margin: 0; padding: 0; list-style: none; }
@@ -2430,31 +2481,196 @@ button.pse-link {
 
 .pse-stack { display: flex; flex-direction: column; gap: 1.15rem; min-width: 0; }
 
+/* ── Skeletons ────────────────────────────────────────────────────────────
+ * The console's loading shape. A skeleton is NOT a loader: the page head, the
+ * registers and the shell are already real and readable, and only the figures
+ * that are still in flight are drawn as their own geometry. Each bar matches
+ * the height of the line it stands in for, so the arrival of real data moves
+ * nothing.
+ *
+ * The animation is a slow luminance travel, not a shine: on a blue-black surface
+ * a specular sweep reads as a fake progress effect, which is exactly what this
+ * product refuses to show.
+ * ────────────────────────────────────────────────────────────────────────── */
+.pse-skel {
+  display: block;
+  /* A placeholder is sized by the caller, but NEVER wider than the column it
+     sits in: a skeleton that overflows is a layout defect that disappears only
+     when the data arrives, which is the worst possible time to hide one. */
+  width: var(--pse-skel-w, 100%);
+  max-width: 100%;
+  height: var(--pse-skel-h, 0.75rem);
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--pse-inset) 0%,
+    rgba(148, 180, 226, 0.11) 38%,
+    var(--pse-inset) 76%
+  );
+  background-size: 220% 100%;
+  animation: pse-skel-travel 2.2s var(--pse-ease) infinite;
+}
+
+@keyframes pse-skel-travel {
+  from { background-position: 130% 0; }
+  to { background-position: -130% 0; }
+}
+
+.pse-skel-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; min-width: 0; }
+
+.pse-skel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem 1rem;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--pse-rule-2);
+}
+
+.pse-skel-row:last-child { border-bottom: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pse-skel { animation: none; background: rgba(148, 180, 226, 0.09); }
+}
+
 /* ── Console footer ───────────────────────────────────────────────────────
  * The product's documents and the account, once, at the end of the product
  * rather than repeated on every page.
  * ────────────────────────────────────────────────────────────────────────── */
+/* An in-page destination clears the sticky bar and the campaign band, so a
+   section reached by an anchor never starts underneath the chrome. */
+.pse-console-shell :target { scroll-margin-top: 118px; }
+
 .pse-console-foot {
+  /* Block, not flex: the footer's own grid owns its composition. */
+  display: block;
+  padding: 0;
   border-top: 1px solid var(--pse-rule-2);
   background: var(--pse-band);
 }
 
+/* Brand column on the left, three link columns beside it. Below the breakpoint
+   it is one column and the link columns wrap into two rows — never a row of
+   links running off the page because a track could not shrink. */
 .pse-console-foot-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.35rem;
+  width: 100%;
+  max-width: var(--pse-measure);
+  margin-inline: auto;
+  padding: 1.5rem var(--pse-gutter) 1.25rem;
+}
+
+@media (min-width: 860px) {
+  .pse-console-foot-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
+    gap: 2.5rem;
+  }
+}
+
+.pse-foot-brand { display: grid; align-content: start; gap: 0.5rem; min-width: 0; }
+
+.pse-foot-brand-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 32px;
+  color: var(--pse-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  text-decoration: none;
+}
+
+.pse-foot-brand-id:hover { color: var(--pse-accent); }
+
+.pse-foot-descriptor {
+  max-width: 38ch;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--pse-ink-3);
+  text-wrap: pretty;
+}
+
+/* Three columns at every width: the footer is an index, and three narrow
+   columns keep it to one block on a phone instead of three stacked rows. Each
+   column is shrinkable, so a long label wraps inside its own column. */
+.pse-foot-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem 1rem;
+  min-width: 0;
+}
+
+.pse-foot-col { display: grid; align-content: start; gap: 0.35rem; min-width: 0; }
+
+.pse-foot-col-title {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-size: 0.5625rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-foot-col ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.pse-foot-col a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--pse-ink-2);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color var(--pse-t-fast) var(--pse-ease);
+}
+
+.pse-foot-col a:hover { color: var(--pse-ink); text-decoration: underline; }
+
+.pse-console-foot-base { border-top: 1px solid var(--pse-rule-2); }
+
+.pse-console-foot-base-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1.5rem;
+  width: 100%;
+  max-width: var(--pse-measure);
+  margin-inline: auto;
+  padding: 0.85rem var(--pse-gutter);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-3);
+}
+
+.pse-console-foot-base-inner p { margin: 0; max-width: 70ch; }
+
+/* The public chrome's own footer: one line of documents, and only that. */
+.pse-console-foot-inner--public {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.25rem;
-  width: 100%;
-  max-width: var(--pse-measure);
-  margin-inline: auto;
-  padding: 1.15rem var(--pse-gutter);
+  padding-block: 1.15rem;
   font-size: 0.8125rem;
-  color: var(--pse-ink-3);
 }
 
 .pse-console-foot-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
 
-/* Every document link is a real 44px target, and the row is held tight by
+/* Every document link is a real tap target, and the row is held tight by
    cancelling the extra height with a negative block margin — a footer of legal
    links should be reachable with a thumb without becoming four stacked rules. */
 .pse-console-foot-links a {

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { fmtDateTime, gbp, timeAgo, toDateSafe } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseField, PseInput, PseLoading,
-  PsePage, PseSection, PseStat, PseStatBar,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseField, PseInput,
+  PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 
 /**
@@ -113,18 +113,30 @@ export const PSEMineActivity: React.FC = () => {
     return { credited, debited, newest };
   }, [activities]);
 
+  /* The page keeps its head, its controls and its ledger shape while the records
+     are read; only the rows are placeholders. A ledger is not a page-level wait. */
   if (loading && !state) {
     return (
-      <div className="pse-console-main">
-        <PseLoading label="Loading your ledger" />
-      </div>
+      <PsePage
+        title="Activity"
+        objective="Every recorded PSEmine event on this account, newest first, grouped by day with its recorded amount."
+      >
+        <PseStatBar cols={4}>
+          {['Recorded events', 'Credited', 'Debited', 'Net recorded'].map(label => (
+            <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
+          ))}
+        </PseStatBar>
+        <PseSection title="Records" meta="Reading the ledger">
+          <PseSkeletonRows rows={6} label="Loading your activity ledger" />
+        </PseSection>
+      </PsePage>
     );
   }
   if (error && !state) {
     return (
-      <div className="pse-console-main">
+      <PsePage title="Activity" objective="Every recorded PSEmine event on this account, newest first, grouped by day with its recorded amount.">
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
-      </div>
+      </PsePage>
     );
   }
 

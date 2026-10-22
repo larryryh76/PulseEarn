@@ -8,8 +8,9 @@ import {
   copyText, gbpHour, referralStageView, timeAgo, REFERRAL_STAGES,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading, PseNotice,
-  PsePage, PseSection, PseSplit, PseStack, PseStat, PseStatBar, PseStatus, type PseStatusTone,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseNotice,
+  PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseSplit, PseStack, PseStat, PseStatBar,
+  PseStatus, type PseStatusTone,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
@@ -89,16 +90,47 @@ export const PSEMineReferrals: React.FC = () => {
 
   if (loading && !state) {
     return (
-      <div className="pse-console-main">
-        <PseLoading label="Loading referral capacity" />
-      </div>
+      <PsePage
+        title="Referrals"
+        objective={`Each qualified referral adds £${BONUS.toFixed(2)}/hour to your mining capacity, up to ${MAX_REFERRALS} referrals (+${gbpHour(maxReferralCapacity)}). Capacity applies from the qualification moment forward — never retroactively.`}
+      >
+        <section className="pse-invite" aria-busy="true" aria-live="polite" role="status">
+          <span className="sr-only">Loading your referral code</span>
+          <div className="pse-invite-id">
+            <PseSkeleton width="10ch" height="0.625rem" />
+            <PseSkeleton width="12ch" height="1.75rem" />
+            <PseSkeleton width="34ch" height="0.6875rem" />
+          </div>
+          <div className="pse-invite-actions">
+            <PseSkeleton width="6.5rem" height="2.75rem" />
+            <PseSkeleton width="6.5rem" height="2.75rem" />
+          </div>
+        </section>
+        <PseStatBar cols={4}>
+          {['Qualified referrals', 'Referral capacity', 'In progress', 'Total capacity'].map(label => (
+            <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
+          ))}
+        </PseStatBar>
+        <PseSplit>
+          <PseStack>
+            <PseSection title="Recorded invites" meta="Reading the ledger">
+              <PseSkeletonRows rows={4} label="Loading recorded invites" />
+            </PseSection>
+          </PseStack>
+          <PseStack>
+            <PseSection title="Qualification stages" meta="Reading stages">
+              <PseSkeletonRows rows={4} label="Loading qualification stages" />
+            </PseSection>
+          </PseStack>
+        </PseSplit>
+      </PsePage>
     );
   }
   if (error && !state) {
     return (
-      <div className="pse-console-main">
+      <PsePage title="Referrals" objective="Your referral code, the capacity it has earned and the recorded invites behind it.">
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
-      </div>
+      </PsePage>
     );
   }
 

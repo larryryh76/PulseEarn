@@ -110,7 +110,7 @@ export const PseLoader: React.FC<{
 
   return (
     <div
-      className={`pse-loader ${isPage ? 'min-h-[60vh]' : ''} ${className}`}
+      className={`pse-loader ${isPage ? 'min-h-[60dvh]' : ''} ${className}`}
       role={live ? 'status' : undefined}
       aria-live={live ? 'polite' : undefined}
       aria-busy="true"

@@ -15,7 +15,7 @@ import {
 } from '../../components/psemine/pseCore';
 import {
   PseButton, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
-  PseOwnedUnit, PsePage, PseSection, PseStat, PseStatBar,
+  PseOwnedUnit, PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
@@ -126,18 +126,34 @@ export const PSEMineTools: React.FC = () => {
     pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
   );
 
+  const toolsObjective = 'The catalogue of mining equipment. Each tool has a fixed GBP price and a fixed hourly capacity; purchases are quoted and paid in BNB from your own wallet.';
+
+  /* THE CATALOGUE IS PUBLIC; THE ACCOUNT'S SLOTS ARE NOT. The price list is a
+     static definition, so it renders immediately and honestly — only the
+     ownership, pending-purchase and capacity figures are still being read. That
+     is why this page opens on its catalogue rather than on a loader. */
   if (loading && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
-        <PseLoading label="Loading the marketplace" />
-      </div>
+      <PsePage title="Mining tools" objective={toolsObjective}>
+        <PseStatBar cols={4}>
+          {['Equipment owned', 'Tool capacity', 'Capacity headroom', 'Referral capacity'].map(label => (
+            <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
+          ))}
+        </PseStatBar>
+        <PseSection title="Your equipment" meta="Reading ownership">
+          <PseSkeletonRows rows={2} label="Loading your equipment" />
+        </PseSection>
+        <PseSection title="Available tools" meta="Reading purchase state">
+          <PseSkeletonRows rows={4} label="Loading your purchase state" />
+        </PseSection>
+      </PsePage>
     );
   }
   if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+      <PsePage title="Mining tools" objective={toolsObjective}>
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
-      </div>
+      </PsePage>
     );
   }
 

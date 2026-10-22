@@ -127,7 +127,7 @@
  * keeps the product surface independent of the application's theme — it is the
  * single line that decides which PSEmine surface follows the app.
  *
- * The authenticated console is excluded because it owns one fixed graphite
+ * The authenticated console is excluded because it owns one fixed blue-black
  * palette of its own (see psemine-console.css): an account surface must not
  * change its financial figures' contrast with the operator's theme.
  */

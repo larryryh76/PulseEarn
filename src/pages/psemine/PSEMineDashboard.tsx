@@ -9,8 +9,8 @@ import {
   useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseLoading, PseNotice,
-  PseOwnedUnit, PseStatus,
+  PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseNotice,
+  PseOwnedUnit, PseSkeleton, PseSkeletonRows, PseStatus,
 } from '../../components/psemine/PseBasics';
 
 /** Campaign date, printed short so the register head stays on one line. */
@@ -112,13 +112,92 @@ export const PSEMineDashboard: React.FC = () => {
     }
   };
 
-  if (loading) return (
-    <div className="pse-console-main">
-      <div className="pse-loading-surface" role="status" aria-live="polite">
-        <PseLoading label="Loading your mining account…" />
+  /* THE HEAD IS REAL BEFORE THE FIGURES ARE. The shell, the campaign status and
+     the page's own title are already known at mount, so the account's structure
+     is drawn with skeletons in the exact places its figures will land. This
+     replaces a centred loader that hid the page it was loading. */
+  if (!state && (loading || error)) {
+    return (
+      <div className="pse-console-main pse-dash">
+        <header className="pse-dash-head">
+          <div className="pse-dash-head-id">
+            <p className="pse-eyebrow">Mining account</p>
+            <h1 className="pse-dash-title">Account overview</h1>
+          </div>
+          <div className="pse-dash-head-side">
+            <PseStatus tone={knownStatus ? campaignTone(campaignStatus) : 'idle'}>
+              {knownStatus ? campaignView.label : 'Reading campaign'}
+            </PseStatus>
+            <span className="pse-dash-head-note">
+              {knownStatus ? campaignPosition ?? 'Campaign dates not reported' : 'Reading the campaign window'}
+            </span>
+          </div>
+        </header>
+
+        {error ? (
+          <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
+        ) : (
+          <>
+            <section className="pse-account-band" aria-busy="true" aria-live="polite" role="status">
+              <span className="sr-only">Loading your accrued balance and account figures</span>
+              <div className="pse-account-main">
+                <PseSkeleton width="9ch" height="0.625rem" />
+                <PseSkeleton width="13ch" height="2.75rem" />
+                <PseSkeleton width="38ch" height="0.75rem" />
+                <PseSkeleton width="24ch" height="0.6875rem" />
+                <div className="pse-account-actions">
+                  <PseSkeleton width="10rem" height="2.75rem" />
+                  <PseSkeleton width="8rem" height="2.75rem" />
+                </div>
+              </div>
+              <div className="pse-account-metrics">
+                {[0, 1, 2].map(i => (
+                  <div className="pse-account-metric" key={i}>
+                    <PseSkeleton width="8ch" height="0.5rem" />
+                    <PseSkeleton width="7ch" height="1rem" />
+                    <PseSkeleton width="12ch" height="0.625rem" />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div className="pse-dash-grid">
+              <div className="pse-dash-col">
+                <section className="pse-block" aria-busy="true">
+                  <div className="pse-block-head">
+                    <h2 className="pse-block-title">Your equipment</h2>
+                    <span className="pse-block-meta">Reading ownership</span>
+                  </div>
+                  <PseSkeletonRows rows={2} label="Loading your equipment" />
+                </section>
+                <section className="pse-block" aria-busy="true">
+                  <div className="pse-block-head">
+                    <h2 className="pse-block-title">Recent activity</h2>
+                    <span className="pse-block-meta">Reading the ledger</span>
+                  </div>
+                  <PseSkeletonRows rows={3} label="Loading recent activity" />
+                </section>
+              </div>
+              <div className="pse-dash-col">
+                <section className="pse-block" aria-busy="true">
+                  <div className="pse-block-head">
+                    <h2 className="pse-block-title">Campaign</h2>
+                  </div>
+                  <PseSkeletonRows rows={2} label="Loading the campaign register" />
+                </section>
+                <section className="pse-block" aria-busy="true">
+                  <div className="pse-block-head">
+                    <h2 className="pse-block-title">Settlement</h2>
+                  </div>
+                  <PseSkeletonRows rows={3} label="Loading settlement" />
+                </section>
+              </div>
+            </div>
+          </>
+        )}
       </div>
-    </div>
-  );
+    );
+  }
 
   if (error || !state || !user) return (
     <div className="pse-console-main">

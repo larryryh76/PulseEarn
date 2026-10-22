@@ -290,9 +290,59 @@ export const PseOwnedUnit: React.FC<{ tool: PseStateTool; action?: React.ReactNo
  * Loading. Delegates to the product's single loader so a console page and the
  * authentication surfaces show the same honest, escalating loading state instead
  * of a text line that never changes and never times out.
+ *
+ * Page-level waits use the skeleton family below instead: the console shell and
+ * the page's own head are already real, so replacing the whole page with a
+ * centred loader hides more than it explains.
  */
 export const PseLoading: React.FC<{ label?: string; stage?: PseLoadStage }> = ({ label, stage }) => (
   <PseLoader variant="inline" stage={stage} label={label} />
+);
+
+/**
+ * A placeholder for one line of content that is still being read.
+ *
+ * It stands in for a specific line, not for "the page": its width and height
+ * are the caller's, so the real figure lands exactly where the placeholder was.
+ * A skeleton that is the wrong size is a layout shift with a nicer name.
+ */
+export const PseSkeleton: React.FC<{
+  /** CSS width of the bar, e.g. '12ch' or '60%'. */
+  width?: string;
+  /** CSS height, matched to the line it replaces. */
+  height?: string;
+  className?: string;
+}> = ({ width, height, className = '' }) => (
+  <span
+    className={`pse-skel ${className}`}
+    aria-hidden="true"
+    style={{
+      ['--pse-skel-w' as string]: width,
+      ['--pse-skel-h' as string]: height,
+    }}
+  />
+);
+
+/**
+ * A register's worth of skeleton rows: two lines of identity on the left, one
+ * figure on the right, separated by the same hairlines the real rows use.
+ *
+ * It is announced ONCE, as a busy region, by the calling block — the individual
+ * bars are decorative and carry nothing for a screen reader.
+ */
+export const PseSkeletonRows: React.FC<{ rows?: number; label?: string }> = ({ rows = 4, label }) => (
+  <div role="status" aria-busy="true" aria-live="polite" className="pse-skel-stack">
+    {label && <span className="sr-only">{label}</span>}
+    {Array.from({ length: rows }, (_, i) => (
+      <span className="pse-skel-row" key={i}>
+        <span className="pse-skel-stack" style={{ gap: '0.4rem' }}>
+          <PseSkeleton width={i % 2 === 0 ? '46%' : '38%'} height="0.8125rem" />
+          <PseSkeleton width={i % 2 === 0 ? '68%' : '56%'} height="0.625rem" />
+        </span>
+        <PseSkeleton width="4.5rem" height="0.8125rem" />
+      </span>
+    ))}
+  </div>
 );
 
 /**

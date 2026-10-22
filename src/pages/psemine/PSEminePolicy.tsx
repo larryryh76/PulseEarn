@@ -705,13 +705,12 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
             {/* What the document states about itself: its version, and how to
                 cite a part of it. Not an editorial note — see the build-state
                 comment at the top of this file. */}
-            <p className="pse-notice" data-tone="hold">
-              <span>
-                <span className="pse-notice-title">{d.status}.</span> This document describes how PSEmine operates and is
-                written from the product's own behaviour and its published campaign figures. Clauses are numbered so a
-                specific one can be cited, and each clause is maintained independently. If anything here does not match
-                what the product did, raise it through Support with the clause number.
-              </span>
+            <p className="pse-doc-statusline">
+              <span className="pse-doc-status-dot" aria-hidden="true" />
+              <span>{d.status}</span>
+              <span aria-hidden="true">·</span>
+              <span>Current version</span>
+              <Link to="/mine/support">Questions? Contact support</Link>
             </p>
           </header>
 
@@ -762,30 +761,18 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
       </main>
 
       <footer className="pse-foot pse-doc-foot">
-        <div className="pse-wrap pse-foot-grid">
-          <div className="space-y-3">
-            <span className="pse-mark">
-              <PSEmineMark size={24} decorative />
-              <span className="pse-wordmark">
-                <span className="pse-wordmark-name">PSEmine</span>
-                <span className="pse-wordmark-sub">Campaign mining</span>
-              </span>
-            </span>
-            <p className="pse-small max-w-[46ch]">
-              The rest of the PSEmine documents are listed beside this one. If something here does not match what the
-              product did, raise it through Support with the identifier it concerns.
-            </p>
-          </div>
-          <nav className="pse-foot-links pse-foot-links--stack" aria-label="PSEmine documents">
-            {others.map(id => (
-              <Link key={id} className="pse-foot-link" to={PSE_DOC_PATH[id]}>
-                {PSE_DOC_LABEL[id]}
-              </Link>
-            ))}
-            <a className="pse-foot-link" href="/mine#campaign">
-              Campaign guide
-            </a>
+        <div className="pse-wrap pse-doc-foot-inner">
+          <Link to="/mine" className="pse-doc-foot-brand" aria-label="Return to PSEmine">
+            <PSEmineMark size={22} decorative />
+            <span><strong>PSEmine</strong><small>Campaign mining</small></span>
+          </Link>
+          <nav className="pse-doc-foot-links" aria-label="More PSEmine information">
+            <Link to="/mine/guide">Campaign guide</Link>
+            <Link to="/mine/support">Support</Link>
+            <Link to={PSE_DOC_PATH.terms}>Terms</Link>
+            <Link to={PSE_DOC_PATH.privacy}>Privacy</Link>
           </nav>
+          <span className="pse-doc-foot-copy">© {new Date().getFullYear()} PulseEarn</span>
         </div>
       </footer>
     </div>

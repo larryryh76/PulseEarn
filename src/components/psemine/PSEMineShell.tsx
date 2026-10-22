@@ -486,64 +486,20 @@ const ConsoleFoot: React.FC = () => (
           <PSEmineMark size={22} decorative />
           <span>PSEmine</span>
         </Link>
-        <p className="pse-foot-descriptor">
-          90-day campaign mining. Earnings are GBP campaign accounting; settlement is paid in BNB on
-          BNB Smart Chain to the payout wallet you configure.
-        </p>
+        <p className="pse-foot-descriptor">90-day campaign mining · GBP accounting · BNB settlement</p>
       </div>
-
-      <nav className="pse-foot-cols" aria-label="PSEmine index">
-        <div className="pse-foot-col">
-          <h2 className="pse-foot-col-title">Console</h2>
-          <ul>
-            <li><Link to="/mine/dashboard">Dashboard</Link></li>
-            <li><Link to="/mine/tools">Mining tools</Link></li>
-            <li><Link to="/mine/wallet">Wallet &amp; payouts</Link></li>
-            <li><Link to="/mine/referrals">Referrals</Link></li>
-            <li><Link to="/mine/activity">Activity</Link></li>
-          </ul>
-        </div>
-
-        <div className="pse-foot-col">
-          <h2 className="pse-foot-col-title">Campaign</h2>
-          <ul>
-            <li><Link to={GUIDE_REFERENCE}>How PSEmine works</Link></li>
-            <li><Link to={GUIDE_ONBOARDING}>Onboarding</Link></li>
-            <li><Link to={PSE_DOC_PATH['campaign-terms']}>{PSE_DOC_LABEL['campaign-terms']}</Link></li>
-            <li><Link to={PSE_DOC_PATH['payout-policy']}>{PSE_DOC_LABEL['payout-policy']}</Link></li>
-            <li><Link to={PSE_DOC_PATH['referral-terms']}>{PSE_DOC_LABEL['referral-terms']}</Link></li>
-          </ul>
-        </div>
-
-        <div className="pse-foot-col">
-          <h2 className="pse-foot-col-title">Terms &amp; support</h2>
-          <ul>
-            <li><Link to={PSE_DOC_PATH.terms}>{PSE_DOC_LABEL.terms}</Link></li>
-            <li><Link to={PSE_DOC_PATH['purchase-terms']}>{PSE_DOC_LABEL['purchase-terms']}</Link></li>
-            <li><Link to={PSE_DOC_PATH.privacy}>{PSE_DOC_LABEL.privacy}</Link></li>
-            <li><Link to={PSE_DOC_PATH.cookies}>{PSE_DOC_LABEL.cookies}</Link></li>
-            <li><Link to={PSE_DOC_PATH.risk}>{PSE_DOC_LABEL.risk}</Link></li>
-            <li><Link to={PSE_DOC_PATH.support}>{PSE_DOC_LABEL.support}</Link></li>
-          </ul>
-        </div>
+      <nav className="pse-console-foot-links" aria-label="PSEmine help and policies">
+        <Link to="/mine/guide">How it works</Link>
+        <Link to={PSE_DOC_PATH.terms}>Terms</Link>
+        <Link to={PSE_DOC_PATH.privacy}>Privacy</Link>
+        <Link to={PSE_DOC_PATH.risk}>Risk disclosure</Link>
+        <Link to={PSE_DOC_PATH.support}>Support</Link>
       </nav>
-    </div>
-
-    <div className="pse-console-foot-base">
-      <div className="pse-console-foot-base-inner">
-        <p>© {new Date().getFullYear()} PulseEarn · PSEmine</p>
-        <p>
-          Mining capacity is a campaign rate, not a guarantee of earnings.{' '}
-          <Link to={PSE_DOC_PATH.risk} className="pse-link">Read the risk disclosure</Link>.
-        </p>
-      </div>
+      <span className="pse-console-foot-copy">© {new Date().getFullYear()} PulseEarn · PSEmine</span>
     </div>
   </footer>
 );
 
-/** The public chrome's footer. It is a single line of documents on the plane, and
-    it keeps its own modifier so the console's structured footer cannot restyle
-    the marketing surface. */
 const PublicFooter: React.FC = () => (
   <footer className="pse-console-foot">
     <div className="pse-console-foot-inner pse-console-foot-inner--public">

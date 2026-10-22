@@ -2696,3 +2696,11 @@ button.pse-link {
   .pse-guide-scrim,
   .pse-crail-fill { animation: none; transition: none; }
 }
+
+/* Compact console footer: utility links, not a second sitemap. */
+.pse-console-foot-inner{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem 1.5rem;min-width:0}
+.pse-console-foot-links{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.5rem 1rem;min-width:0}
+.pse-console-foot-links a{font-size:.75rem;white-space:normal;overflow-wrap:anywhere}
+.pse-console-foot-copy{grid-column:1/-1;padding-top:.7rem;border-top:1px solid var(--pse-rule-2);font-size:.7rem;color:var(--pse-ink-3)}
+.pse-foot-descriptor{max-width:42ch}
+@media(max-width:639px){.pse-console-foot-inner{grid-template-columns:minmax(0,1fr);gap:.75rem}.pse-console-foot-links{justify-content:flex-start;gap:.65rem 1rem}.pse-console-foot-copy{grid-column:auto}}

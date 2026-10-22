@@ -18,6 +18,7 @@ import {
   PseOwnedUnit, PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
+import '../../styles/psemine-rebuild.css';
 
 /**
  * The mining tool marketplace — the canonical catalogue.

@@ -13,6 +13,7 @@ import {
   PseSection, PseSkeleton, PseSkeletonRows, PseStatus, type PseStatusTone,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
+import '../../styles/psemine-rebuild.css';
 
 /**
  * The wallet.

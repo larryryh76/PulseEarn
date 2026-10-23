@@ -141,25 +141,40 @@ export const PSEMineDashboard: React.FC = () => {
             <section className="pse-account-band" aria-busy="true" aria-live="polite" role="status">
               <span className="sr-only">Loading your accrued balance and account figures</span>
               <div className="pse-account-main">
-                <PseSkeleton width="9ch" height="0.625rem" />
-                <PseSkeleton width="13ch" height="2.75rem" />
-                <PseSkeleton width="38ch" height="0.75rem" />
-                <PseSkeleton width="24ch" height="0.6875rem" />
-                <div className="pse-account-actions">
-                  <PseSkeleton width="10rem" height="2.75rem" />
-                  <PseSkeleton width="8rem" height="2.75rem" />
+                <div className="pse-account-topline">
+                  <PseSkeleton width="11rem" height="0.625rem" />
+                  <PseSkeleton width="5rem" height="0.625rem" />
+                </div>
+                <PseSkeleton width="13rem" height="3.5rem" />
+                <PseSkeleton width="20rem" height="0.75rem" />
+                <div className="pse-account-bottom">
+                  <div className="pse-account-available">
+                    <PseSkeleton width="8rem" height="0.625rem" />
+                    <PseSkeleton width="6rem" height="1.25rem" />
+                  </div>
+                  <div className="pse-account-actions">
+                    <PseSkeleton width="8rem" height="2.5rem" />
+                    <PseSkeleton width="7rem" height="2.5rem" />
+                  </div>
                 </div>
               </div>
-              <div className="pse-account-metrics">
-                {[0, 1, 2].map(i => (
-                  <div className="pse-account-metric" key={i}>
-                    <PseSkeleton width="8ch" height="0.5rem" />
-                    <PseSkeleton width="7ch" height="1rem" />
-                    <PseSkeleton width="12ch" height="0.625rem" />
-                  </div>
-                ))}
-              </div>
+              <aside className="pse-account-aside">
+                <PseSkeleton width="6rem" height="0.625rem" />
+                <PseSkeleton width="7rem" height="1.5rem" />
+                <PseSkeleton width="9rem" height="1rem" />
+                <PseSkeleton width="9rem" height="1rem" />
+              </aside>
             </section>
+
+            <dl className="pse-account-metrics" aria-label="Loading mining account metrics" aria-busy="true">
+              {[0, 1, 2].map(i => (
+                <div className="pse-account-metric" key={i}>
+                  <PseSkeleton width="8ch" height="0.5rem" />
+                  <PseSkeleton width="7ch" height="1.25rem" />
+                  <PseSkeleton width="12ch" height="0.625rem" />
+                </div>
+              ))}
+            </dl>
 
             <div className="pse-dash-grid">
               <div className="pse-dash-col">
@@ -230,59 +245,80 @@ export const PSEMineDashboard: React.FC = () => {
       {/* B + C. THE BALANCE, AND THE FEW FIGURES THAT OPERATE IT. */}
       <section className="pse-account-band" aria-labelledby="pse-balance-label">
         <div className="pse-account-main">
-          <p className="pse-account-label" id="pse-balance-label">Accrued balance</p>
+          <div className="pse-account-topline">
+            <p className="pse-account-label" id="pse-balance-label">Total accrued earnings</p>
+            <span className="pse-account-live"><span aria-hidden="true" />Live account</span>
+          </div>
           <p className="pse-account-figure">{accruedLabel}</p>
           <p className="pse-account-note">
-            Accrued funds become withdrawable after campaign settlement.
+            Earnings are recorded during the campaign and released after settlement.
           </p>
-
-          <div className="pse-account-sub">
-            <span>Settlement-available</span>
-            <strong>{availableStr}</strong>
-            <Link to="/mine/wallet" className="pse-textlink">Wallet</Link>
-          </div>
-
-          <div className="pse-account-actions">
-            <Link to="/mine/tools" className="pse-btn pse-btn--sm">
-              {ownedCount > 0 ? 'Add mining capacity' : 'Browse mining tools'}
-            </Link>
-            <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm">
-              {payoutWallet ? 'Payout detail' : 'Set payout wallet'}
-            </Link>
+          <div className="pse-account-bottom">
+            <div className="pse-account-available">
+              <span>Available to withdraw</span>
+              <strong>{availableStr}</strong>
+            </div>
+            <div className="pse-account-actions">
+              <Link to="/mine/wallet" className="pse-btn pse-btn--sm">
+                {payoutWallet ? 'Open wallet' : 'Set up wallet'}
+              </Link>
+              <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">
+                Explore tools
+              </Link>
+            </div>
           </div>
         </div>
-
-        <dl className="pse-account-metrics">
-          <div className="pse-account-metric">
-            <dt>Mining capacity</dt>
-            <dd>{totalCapacity !== null ? gbpHour(totalCapacity) : '—'}</dd>
-            <dd className="pse-account-metric-note">
-              {toolCapacity !== null ? `${gbpHour(toolCapacity)} equipment` : 'Equipment capacity not reported'}
-              {referralCapacity !== null && referralCapacity > 0 ? ` · ${gbpHour(referralCapacity)} referrals` : ''}
-            </dd>
+        <aside className="pse-account-aside" aria-label="Campaign account status">
+          <div className="pse-account-status">
+            <span className="pse-account-aside-label">Campaign status</span>
+            <PseStatus tone={knownStatus ? campaignTone(campaignStatus) : 'idle'}>
+              {knownStatus ? campaignView.label : 'Status pending'}
+            </PseStatus>
           </div>
-          <div className="pse-account-metric">
-            <dt>Equipment owned</dt>
-            <dd>{ownedCount}</dd>
-            <dd className="pse-account-metric-note">
-              {ownedCount === 0
-                ? 'No ownership records'
-                : `${activeCount} of ${ownedCount} operating`}
-            </dd>
+          <div className="pse-account-aside-row">
+            <span>Campaign window</span>
+            <strong>{campaignPosition ?? 'Not reported'}</strong>
           </div>
-          <div className="pse-account-metric">
-            <dt>Qualified referrals</dt>
-            <dd>{qualifiedCount !== null ? `${qualifiedCount} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}` : '—'}</dd>
-            <dd className="pse-account-metric-note">
-              {qualifiedCount === null
-                ? 'Not reported by the backend'
-                : qualifiedCount === 0
-                  ? 'No referral capacity yet'
-                  : `${gbpHour(qualifiedCount * PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} capacity`}
-            </dd>
+          <div className="pse-account-aside-row">
+            <span>Payout destination</span>
+            <strong>{payoutWallet ? shortAddr(payoutWallet) : 'Not configured'}</strong>
           </div>
-        </dl>
+          <div className="pse-account-aside-foot">
+            {payoutWallet
+              ? 'Your payout destination is configured.'
+              : 'Add a payout wallet before requesting settlement.'}
+          </div>
+        </aside>
       </section>
+
+      <dl className="pse-account-metrics" aria-label="Mining account metrics">
+        <div className="pse-account-metric">
+          <dt>Mining capacity</dt>
+          <dd>{totalCapacity !== null ? gbpHour(totalCapacity) : '—'}</dd>
+          <dd className="pse-account-metric-note">
+            {toolCapacity !== null ? `${gbpHour(toolCapacity)} equipment` : 'Equipment capacity not reported'}
+            {referralCapacity !== null && referralCapacity > 0 ? ` · ${gbpHour(referralCapacity)} referrals` : ''}
+          </dd>
+        </div>
+        <div className="pse-account-metric">
+          <dt>Equipment owned</dt>
+          <dd>{ownedCount}</dd>
+          <dd className="pse-account-metric-note">
+            {ownedCount === 0 ? 'No units owned' : `${activeCount} of ${ownedCount} operating`}
+          </dd>
+        </div>
+        <div className="pse-account-metric">
+          <dt>Qualified referrals</dt>
+          <dd>{qualifiedCount !== null ? `${qualifiedCount} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}` : '—'}</dd>
+          <dd className="pse-account-metric-note">
+            {qualifiedCount === null
+              ? 'Not reported by the backend'
+              : qualifiedCount === 0
+                ? 'No referral capacity yet'
+                : `${gbpHour(qualifiedCount * PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} capacity`}
+          </dd>
+        </div>
+      </dl>
 
       {pendingPurchases.length > 0 && (
         <PseNotice tone="attention" title="Purchase in progress">

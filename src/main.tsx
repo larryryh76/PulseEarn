@@ -22,12 +22,15 @@ import './styles/psemine-art.css'
 // type that nothing else renders, in its own layer so it adds no rules to the
 // landing page, authentication, the loader or the console.
 import './styles/psemine-docs.css'
+// Import the app graph first so page-level CSS is evaluated before the authenticated
+// console layer. The console layer then owns the final cascade for authenticated
+// routes instead of being silently overridden by CSS imported by route components.
+import App from './App.tsx'
+import './styles/psemine-console.css'
 // The authenticated console's own layer: its fixed graphite palette, shell
 // chrome, campaign strip, registers, ledgers, empty states, dialogs, the
 // notification sheet and the guide overlay. Loaded last, for the same cascade
 // reason as the layers above it.
-import './styles/psemine-console.css'
-import App from './App.tsx'
 // Load after the page modules' legacy styles so the new console design owns the cascade.
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

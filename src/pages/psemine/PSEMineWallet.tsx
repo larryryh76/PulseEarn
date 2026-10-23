@@ -386,7 +386,7 @@ export const PSEMineWallet: React.FC = () => {
                 </div>
           <div className="pse-wallet-settlement-note">
             <span className="pse-wallet-note-mark" aria-hidden="true">i</span>
-            <p><strong>How PSEmine pays you</strong><span>Campaign earnings are accounted for in GBP. Once settlement releases your balance, an eligible payout request is reviewed and paid in BNB on BNB Smart Chain. Minimum request: ${gbp(PAYOUT_REQUEST_MIN_GBP)}.</span></p>
+            <p><strong>How PSEmine pays you</strong><span>Campaign earnings are accounted for in GBP. Once settlement releases your balance, an eligible payout request is reviewed and paid in BNB on BNB Smart Chain. Minimum request: {gbp(PAYOUT_REQUEST_MIN_GBP)}.</span></p>
             <Link to="/mine/payout-policy" className="pse-link">Payout policy ↗</Link>
           </div>
         </div>
@@ -421,7 +421,7 @@ export const PSEMineWallet: React.FC = () => {
                       ) : withdrawals.length === 0 ? (
                         <PseEmptyNote
                           title="No transactions yet"
-                          action={<a href="#pse-payout-request" className="pse-btn pse-btn--secondary pse-btn--sm">How settlement works</a>}
+                          action={<button type="button" className="pse-btn pse-btn--secondary pse-btn--sm" onClick={() => setWalletTab('overview')}>View payout options</button>}
                         >
                           Payouts appear here once settlement releases your balance and you request a payout — with
                           the recorded status and, once paid, the transaction on BNB Smart Chain.

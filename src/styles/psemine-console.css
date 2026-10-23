@@ -1534,107 +1534,130 @@ button.pse-link {
   .pse-owner-action { grid-column: auto; grid-row: 1; }
 }
 
-/* ── Product row (marketplace catalogue) ──────────────────────────────────
- * A product is presented as a compact specification row: identity, three fixed
- * facts, then the one action its state allows. It is a catalogue entry, not a
- * promotional card the reader has to interpret.
+/* ── Equipment tiles (marketplace catalogue) ─────────────────────────────
+ * Each tool is an object with its own face, specifications and purchase state.
+ * The catalogue is a set of equipment, not a spreadsheet row register.
  * ────────────────────────────────────────────────────────────────────────── */
-.pse-product {
+#pse-catalogue {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.8rem;
-  padding: 1.1rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
+  align-items: stretch;
+  gap: .85rem;
 }
-
-.pse-product:last-child { border-bottom: 0; padding-bottom: 0; }
-.pse-product:first-child { padding-top: 0; }
-
-.pse-product-id { display: grid; gap: 0.3rem; min-width: 0; }
-
+#pse-catalogue > .pse-block-head,
+#pse-catalogue > .pse-prose--sm { grid-column: 1 / -1; }
+#pse-catalogue > .pse-block-head { margin-bottom: .15rem; }
+.pse-product {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: start;
+  gap: .9rem;
+  min-width: 0;
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(111,155,255,.18);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(99,91,255,.1), transparent 58%),
+    linear-gradient(145deg, rgba(22,32,53,.92), rgba(14,20,32,.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  transition: border-color var(--pse-t-fast) var(--pse-ease), transform var(--pse-t-fast) var(--pse-ease);
+}
+.pse-product:hover { border-color: rgba(111,155,255,.42); transform: translateY(-2px); }
+.pse-product::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: .85rem;
+  right: .85rem;
+  width: 3.6rem;
+  height: 3.6rem;
+  border: 1px solid rgba(111,155,255,.27);
+  border-radius: 11px;
+  background:
+    linear-gradient(90deg, transparent 47%, rgba(111,155,255,.18) 48% 50%, transparent 51%),
+    linear-gradient(0deg, transparent 47%, rgba(111,155,255,.18) 48% 50%, transparent 51%),
+    radial-gradient(circle at 50% 50%, rgba(47,201,230,.17) 0 4px, transparent 5px),
+    rgba(8,13,23,.4);
+  box-shadow: inset 0 0 0 5px rgba(111,155,255,.035), 0 0 24px rgba(99,91,255,.07);
+  opacity: .9;
+}
+.pse-product::after {
+  content: "";
+  position: absolute;
+  top: 1.18rem;
+  right: 1.18rem;
+  width: 2.95rem;
+  height: 2.95rem;
+  border: 1px solid rgba(47,201,230,.2);
+  border-radius: 8px;
+  transform: rotate(45deg) scale(.68);
+  pointer-events: none;
+}
+.pse-product-id { display: grid; gap: .4rem; min-width: 0; padding-right: 3.5rem; }
 .pse-product-name {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  letter-spacing: -0.012em;
+  gap: .45rem;
+  margin: 0;
   color: var(--pse-ink);
+  font-size: .95rem;
+  font-weight: 550;
+  letter-spacing: -.025em;
 }
-
 .pse-product-desc {
-  max-width: 62ch;
-  font-size: 0.75rem;
-  line-height: 1.55;
+  max-width: 34ch;
+  margin: 0;
   color: var(--pse-ink-3);
+  font-size: .72rem;
+  line-height: 1.45;
 }
-
 .pse-product-specs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .45rem;
   margin: 0;
+  padding: .8rem 0;
+  border-top: 1px solid var(--pse-rule-2);
+  border-bottom: 1px solid var(--pse-rule-2);
 }
-
-/* Three specification columns need ~300px of content width. Below that the
-   third would be squeezed to a label over a figure that cannot fit, so the
-   register takes two columns and the third wraps onto a second row. */
-@media (min-width: 420px) {
-  .pse-product-specs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-.pse-product-spec { display: grid; gap: 0.05rem; min-width: 0; }
-
+.pse-product-spec { display: grid; gap: .35rem; min-width: 0; }
 .pse-product-spec dt {
-  font-family: var(--pse-mono);
-  font-size: 0.5625rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--pse-ink-3);
+  font: 500 .55rem/1.3 var(--pse-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
-
 .pse-product-spec dd {
   margin: 0;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  font-size: 0.8125rem;
-  letter-spacing: -0.01em;
   color: var(--pse-ink);
-  white-space: nowrap;
+  font: 500 clamp(.75rem, 3.3vw, .9rem)/1.25 var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.04em;
+  overflow-wrap: anywhere;
 }
-
-.pse-product-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 0.65rem;
-}
-
-.pse-product-avail {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
+.pse-product-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.pse-product-actions .pse-btn { min-height: 38px; padding-inline: 1rem; border-radius: 9px; }
+.pse-product-avail { color: var(--pse-ink-3); font: 500 .58rem/1.35 var(--pse-mono); letter-spacing: .025em; }
+.pse-product .pse-rowitem-meta { font-size: .58rem; }
 .pse-prose--ink { color: var(--pse-ink); }
 
-@media (min-width: 760px) {
-  .pse-product {
-    grid-template-columns: minmax(0, 1fr) 16rem auto;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1rem 0;
-  }
-  .pse-product-actions {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.35rem;
-  }
+@media (min-width: 640px) {
+  #pse-catalogue { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  #pse-catalogue > .pse-block-head,
+  #pse-catalogue > .pse-prose--sm { grid-column: 1 / -1; }
+  .pse-product { padding: 1.15rem; }
+}
+@media (min-width: 1040px) {
+  #pse-catalogue { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  #pse-catalogue > .pse-block-head,
+  #pse-catalogue > .pse-prose--sm { grid-column: 1 / -1; }
+  .pse-product { padding: 1.2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pse-product { transition: none; }
 }
 
 /* ── Log / ledger rows ────────────────────────────────────────────────────

@@ -46,112 +46,31 @@
 
 /* ── Tokens ───────────────────────────────────────────────────────────────── */
 
-/* Light console (the app theme is light and we are outside the product plane). */
+/* One product identity across every PSEmine route: dark graphite, PulseEarn
+   blue-violet interaction, cyan operational state. The host app's light theme
+   must never leak into authenticated or public mining surfaces. */
 .pse {
-  --pse-canvas: #ffffff;
-  --pse-surface: #ffffff;
-  --pse-surface-2: #f7f8fa;
-  --pse-surface-3: #eef0f3;
-  --pse-band: #f7f8fa;
-  --pse-inset: rgba(16, 19, 24, 0.04);
-  --pse-glow: none;
+  --pse-canvas: #0b0f17;
+  --pse-surface: #111827;
+  --pse-surface-2: #172033;
+  --pse-surface-3: #1e2839;
+  --pse-band: #0e1521;
+  --pse-inset: rgba(148, 180, 226, 0.05);
+  --pse-glow: radial-gradient(100% 48% at 100% 0%, rgba(99, 91, 255, 0.08) 0%, rgba(11, 15, 23, 0) 62%);
 
-  --pse-ink: #0e1116;
-  --pse-ink-2: #545d69;
-  --pse-ink-3: #5b6472;
+  --pse-ink: #f3f6fc;
+  --pse-ink-2: #a7b6cb;
+  --pse-ink-3: #8697ad;
 
-  --pse-rule: rgba(16, 19, 24, 0.13);
-  --pse-rule-2: rgba(16, 19, 24, 0.075);
-  --pse-rule-strong: rgba(16, 19, 24, 0.26);
-  --pse-hair: rgba(16, 19, 24, 0.08);
+  --pse-rule: #273449;
+  --pse-rule-2: rgba(150, 180, 220, 0.14);
+  --pse-rule-strong: #38486a;
+  --pse-hair: rgba(150, 180, 220, 0.10);
 
-  --pse-accent: #1c47c9;
-  --pse-accent-solid: #1c47c9;
-  --pse-accent-solid-hover: #16389f;
-  --pse-accent-quiet: rgba(28, 71, 201, 0.1);
-  --pse-on-accent: #ffffff;
-
-  --pse-cyan: #0d7c94;
-  --pse-violet: #5b46d9;
-  --pse-good: #1c47c9;
-  --pse-warn: #7d4b00;
-  --pse-danger: #a51f19;
-  --pse-bnb: #8a6a00;
-
-  --pse-brand-blade: #2f6bff;
-  --pse-brand-top: #0e1116;
-  --pse-brand-side: rgba(16, 19, 24, 0.34);
-  --pse-brand-cut: #ffffff;
-  --pse-brand-crest: #0d7c94;
-
-  --pse-font: 'Inter', system-ui, -apple-system, sans-serif;
-  --pse-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  --pse-shell: 1180px;
-  --pse-gutter: 20px;
-  --pse-section-y: clamp(64px, 8vw, 116px);
-  --pse-r-xs: 6px;
-  --pse-r-sm: 10px;
-  --pse-r: 14px;
-  --pse-r-lg: 20px;
-
-  /* One easing, three durations. Nothing animates on its own easing curve. */
-  --pse-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --pse-t-fast: 160ms;
-  --pse-t: 220ms;
-  --pse-t-slow: 620ms;
-
-  /* Elevation is a ring plus a whisper of depth — never a dark-on-dark blur. */
-  --pse-ring: 0 0 0 1px var(--pse-hair);
-  --pse-ring-strong: 0 0 0 1px var(--pse-rule);
-  --pse-lift: 0 1px 2px rgba(16, 19, 24, 0.04), 0 12px 32px -12px rgba(16, 19, 24, 0.16);
-  --pse-lift-2: 0 2px 4px rgba(16, 19, 24, 0.05), 0 32px 64px -24px rgba(16, 19, 24, 0.22);
-
-  color: var(--pse-ink);
-  font-family: var(--pse-font);
-  font-size: 16px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-@media (min-width: 768px) {
-  .pse { --pse-gutter: 32px; }
-}
-@media (min-width: 1120px) {
-  .pse { --pse-gutter: 40px; }
-}
-
-/*
- * The console, when the application theme is dark. `:not(.pse-plane)` is what
- * keeps the product surface independent of the application's theme — it is the
- * single line that decides which PSEmine surface follows the app.
- *
- * The authenticated console is excluded because it owns one fixed blue-black
- * palette of its own (see psemine-console.css): an account surface must not
- * change its financial figures' contrast with the operator's theme.
- */
-.dark .pse:not(.pse-plane):not(.pse-console-shell) {
-  --pse-canvas: #08090b;
-  --pse-surface: #0f1115;
-  --pse-surface-2: #14171d;
-  --pse-surface-3: #191d24;
-  --pse-band: #0c0e12;
-  --pse-inset: rgba(255, 255, 255, 0.045);
-
-  --pse-ink: #f2f4f8;
-  --pse-ink-2: #a3abba;
-  --pse-ink-3: #838c99;
-
-  --pse-rule: rgba(255, 255, 255, 0.11);
-  --pse-rule-2: rgba(255, 255, 255, 0.06);
-  --pse-rule-strong: rgba(255, 255, 255, 0.2);
-  --pse-hair: rgba(255, 255, 255, 0.08);
-
-  --pse-accent: #6f9bff;
-  --pse-accent-solid: #2f5cf5;
-  --pse-accent-solid-hover: #2450e6;
-  --pse-accent-quiet: rgba(111, 155, 255, 0.16);
+  --pse-accent: #8a91ff;
+  --pse-accent-solid: #635bff;
+  --pse-accent-solid-hover: #4b55c4;
+  --pse-accent-quiet: rgba(99, 91, 255, 0.16);
   --pse-on-accent: #ffffff;
 
   --pse-cyan: #2fc9e6;
@@ -161,15 +80,53 @@
   --pse-danger: #f87171;
   --pse-bnb: #f0b90b;
 
-  --pse-brand-blade: #4c82ff;
+  --pse-brand-blade: #5e6ad2;
   --pse-brand-top: #eef0f3;
   --pse-brand-side: rgba(255, 255, 255, 0.34);
-  --pse-brand-cut: #08090b;
-  --pse-brand-crest: #22d3ee;
+  --pse-brand-cut: #0b0f17;
+  --pse-brand-crest: #2fc9e6;
 
-  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
-  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 32px 64px -24px rgba(0, 0, 0, 0.75);
+  --pse-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --pse-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --pse-shell: 1180px;
+  --pse-gutter: 20px;
+  --pse-section-y: clamp(64px, 8vw, 116px);
+  --pse-r-xs: 5px;
+  --pse-r-sm: 8px;
+  --pse-r: 12px;
+  --pse-r-lg: 16px;
+
+  --pse-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --pse-t-fast: 160ms;
+  --pse-t: 220ms;
+  --pse-t-slow: 620ms;
+
+  --pse-ring: 0 0 0 1px var(--pse-hair);
+  --pse-ring-strong: 0 0 0 1px var(--pse-rule);
+  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 16px 40px -28px rgba(0, 0, 0, 0.9);
+  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 32px 70px -30px rgba(0, 0, 0, 0.95);
+
+  color: var(--pse-ink);
+  font-family: var(--pse-font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background: var(--pse-canvas);
+  color-scheme: dark;
 }
+
+@media (min-width: 768px) {
+  .pse { --pse-gutter: 32px; }
+}
+@media (min-width: 1120px) {
+  .pse { --pse-gutter: 40px; }
+}
+
+/* The authenticated console declares its exact brand tokens in
+   psemine-console.css. No host-theme branch is kept here: PSEmine is dark on
+   every route and every device. */
 
 /*
  * THE PRODUCT SURFACE — landing, authentication, loader. Always dark graphite,
@@ -197,10 +154,10 @@
   --pse-rule-strong: rgba(255, 255, 255, 0.2);
   --pse-hair: rgba(255, 255, 255, 0.08);
 
-  --pse-accent: #6f9bff;
-  --pse-accent-solid: #2f5cf5;
-  --pse-accent-solid-hover: #2450e6;
-  --pse-accent-quiet: rgba(111, 155, 255, 0.16);
+  --pse-accent: #8a91ff;
+  --pse-accent-solid: #635bff;
+  --pse-accent-solid-hover: #4b55c4;
+  --pse-accent-quiet: rgba(99, 91, 255, 0.16);
   --pse-on-accent: #ffffff;
 
   --pse-cyan: #2fc9e6;
@@ -210,11 +167,11 @@
   --pse-danger: #f87171;
   --pse-bnb: #f0b90b;
 
-  --pse-brand-blade: #4c82ff;
+  --pse-brand-blade: #5e6ad2;
   --pse-brand-top: #eef0f3;
   --pse-brand-side: rgba(255, 255, 255, 0.34);
   --pse-brand-cut: #08090b;
-  --pse-brand-crest: #22d3ee;
+  --pse-brand-crest: #2fc9e6;
 
   --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.7);
   --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 40px 80px -32px rgba(0, 0, 0, 0.85);

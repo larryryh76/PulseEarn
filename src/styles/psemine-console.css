@@ -49,7 +49,7 @@
  * stepped onto blue-black surfaces rather than grey graphite. The blue is the
  * ACCENT, not an atmosphere: it is spent on meaningful actions, the current
  * section and positive operational state, never as a gradient wash behind
- * everything. Semantic green, amber and red stay semantic.
+ * everything. Cyan marks positive operational state; amber and red remain semantic.
  *
  * Tokens are declared here rather than in psemine.css because the public plane
  * must keep following its own art direction; `:not(.pse-console-shell)` in the

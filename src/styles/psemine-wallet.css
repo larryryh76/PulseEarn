@@ -1,624 +1,76 @@
-/* ============================================================================
- * PSEmine — the WALLET.
- *
- * This page is the product's wallet surface, and it is composed as one: a wallet
- * header that states which wallet is connected and on which chain, one dominant
- * balance with its accounting split stated beside it, the wallet's actions in a
- * row immediately under that balance, then the transaction ledger.
- *
- * WHAT IT IS NOT. It is not a statistics page with a wallet icon: no chart, no
- * fabricated asset list, no "portfolio" language. PSEmine's money is campaign
- * accounting denominated in GBP; BNB is the settlement rail. The two are stated
- * as different things in different places, because a wallet that conflates them
- * is a wallet that lies about what its user can withdraw.
- *
- * MOBILE FIRST. The balance is the first readable figure at 320px, the four
- * actions sit in one thumb-reachable row under it, and a transaction row is a
- * three-part grid (mark, record, amount) that never widens the page: the hash
- * and the address are truncated in the row and carried in full, with a copy
- * control, in the row's own detail panel.
- * ========================================================================== */
-
-.pse-wallet { gap: 1.25rem; }
-
-/* ── Wallet header ────────────────────────────────────────────────────────
- * Which wallet, on which chain, and the balance's owner. Status is stated in
- * words; the address is truncated and copyable, never printed as a 42-character
- * line that a phone has to clip.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding-bottom: 1.05rem;
-  border-bottom: 1px solid var(--pse-rule);
+/* Wallet surface — complete replacement, not an override layer. */
+.pse-wallet { display:grid; gap:28px; min-width:0; }
+.pse-w-head { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; padding-bottom:22px; border-bottom:1px solid var(--pse-rule); }
+.pse-w-head-id { min-width:0; display:grid; gap:8px; }
+.pse-w-title { margin:0; font-size:clamp(24px,4vw,34px); letter-spacing:-.055em; line-height:1.1; font-weight:650; }
+.pse-eyebrow { margin:0; color:var(--pse-ink-3); font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.pse-w-head-note { max-width:520px; color:var(--pse-ink-2); font-size:12px; line-height:1.65; }
+.pse-w-head-side { display:grid; justify-items:end; gap:10px; min-width:0; }
+.pse-w-chip { display:grid; gap:4px; justify-items:end; }
+.pse-w-chip-value { font-size:11px; color:var(--pse-ink-2); font-variant-numeric:tabular-nums; }
+.pse-w-addr { display:flex; align-items:center; gap:7px; max-width:100%; }
+.pse-w-addr-text { max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px ui-monospace,monospace; color:var(--pse-ink-2); }
+.pse-w-addr-copy { border:1px solid var(--pse-rule); background:transparent; color:var(--pse-ink-2); border-radius:7px; padding:5px 8px; font-size:10px; }
+.pse-w-figures { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr); border:1px solid var(--pse-rule-2); border-radius:16px; overflow:hidden; background:radial-gradient(ellipse at 0 0,rgba(98,92,245,.17),transparent 68%),#0e131e; }
+.pse-w-figure { min-width:0; padding:clamp(20px,3vw,32px); }
+.pse-w-figure + .pse-w-figure { border-left:1px solid var(--pse-rule); background:rgba(255,255,255,.012); }
+.pse-w-balance { display:grid; gap:8px; }
+.pse-w-hero { display:grid; gap:8px; }
+.pse-w-hero-label { color:var(--pse-ink-3); font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.pse-w-hero-figure { display:flex; align-items:baseline; flex-wrap:wrap; gap:7px; font-size:clamp(34px,6vw,54px); font-weight:650; line-height:1; letter-spacing:-.065em; font-variant-numeric:tabular-nums; }
+.pse-w-hero-unit { color:var(--pse-ink-3); font-size:13px; font-weight:550; letter-spacing:0; }
+.pse-w-hero-note,.pse-w-figure-note { margin-top:7px; color:var(--pse-ink-3); font-size:11px; line-height:1.6; }
+.pse-w-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:20px; }
+.pse-w-action { min-width:0; min-height:66px; padding:10px 7px; display:grid; align-content:center; justify-items:center; gap:7px; border:1px solid var(--pse-rule); border-radius:10px; color:var(--pse-ink-2); background:rgba(255,255,255,.018); font-size:10px; font-weight:600; text-align:center; }
+.pse-w-action:hover { color:var(--pse-ink); border-color:var(--pse-rule-2); background:var(--pse-surface-2); }
+.pse-w-action--primary { border-color:rgba(119,117,255,.4); background:rgba(119,117,255,.11); color:#c1bfff; }
+.pse-w-action-glyph { font-size:17px; line-height:1; }
+.pse-w-action-label { line-height:1.25; }
+.pse-w-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr); gap:32px; align-items:start; }
+.pse-stack { display:grid; align-content:start; gap:28px; min-width:0; }
+.pse-block { min-width:0; }
+.pse-block-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding-bottom:12px; margin-bottom:2px; border-bottom:1px solid var(--pse-rule); }
+.pse-block-title { margin:0; font-size:15px; font-weight:650; letter-spacing:-.025em; }
+.pse-block-meta { color:var(--pse-ink-3); font-size:11px; }
+.pse-w-txlist { border-top:1px solid var(--pse-rule); }
+.pse-w-tx { border-bottom:1px solid var(--pse-rule); }
+.pse-w-txrow { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:12px; align-items:center; padding:15px 0; min-width:0; }
+.pse-w-txmark { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--pse-rule); border-radius:9px; color:var(--pse-ink-2); }
+.pse-w-txid { min-width:0; }
+.pse-w-txtitle { color:var(--pse-ink); font-size:12px; font-weight:620; overflow-wrap:anywhere; }
+.pse-w-txmeta { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; color:var(--pse-ink-3); font-size:10px; }
+.pse-w-txhash { font-family:ui-monospace,monospace; overflow-wrap:anywhere; }
+.pse-w-txfig { text-align:right; min-width:0; }
+.pse-w-txamount { font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pse-w-txwhen { margin-top:4px; color:var(--pse-ink-3); font-size:10px; white-space:nowrap; }
+.pse-w-txdetail { padding:0 0 15px 46px; }
+.pse-w-kv { display:grid; grid-template-columns:minmax(90px,.5fr) minmax(0,1fr); gap:12px; padding:7px 0; border-top:1px solid var(--pse-rule); font-size:11px; }
+.pse-w-kv-key { color:var(--pse-ink-3); }
+.pse-w-kv-val { color:var(--pse-ink-2); overflow-wrap:anywhere; text-align:right; }
+.pse-w-net { display:grid; gap:0; }
+.pse-w-net-row { display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding:13px 0; border-bottom:1px solid var(--pse-rule); }
+.pse-w-net-key { color:var(--pse-ink-3); font-size:11px; }
+.pse-w-net-val { text-align:right; font-size:12px; font-weight:620; font-variant-numeric:tabular-nums; }
+.pse-w-request { border-top:1px solid var(--pse-rule); padding-top:18px; display:grid; gap:16px; }
+.pse-w-request-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.pse-w-request-figure { font-size:22px; letter-spacing:-.04em; font-weight:650; font-variant-numeric:tabular-nums; }
+.pse-w-request-form { display:grid; gap:12px; }
+.pse-w-anchor { scroll-margin-top:100px; }
+.pse-w-skel-balance { display:grid; gap:14px; padding:24px; border:1px solid var(--pse-rule); border-radius:14px; background:var(--pse-surface); }
+.pse-console-main { min-width:0; }
+@media(max-width:900px) {
+ .pse-w-grid { grid-template-columns:minmax(0,1fr); gap:28px; }
+ .pse-w-figures { grid-template-columns:minmax(0,1fr); }
+ .pse-w-figure + .pse-w-figure { border-left:0; border-top:1px solid var(--pse-rule); }
 }
-
-@media (min-width: 768px) {
-  .pse-w-head {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 2rem;
-  }
-}
-
-.pse-w-head-id { display: grid; gap: 0.3rem; min-width: 0; }
-
-.pse-w-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  color: var(--pse-ink);
-}
-
-@media (min-width: 768px) {
-  .pse-w-title { font-size: 1.6875rem; }
-}
-
-.pse-w-head-note {
-  max-width: 62ch;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--pse-ink-2);
-  text-wrap: pretty;
-}
-
-.pse-w-head-side {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-/* A wallet/network chip. Square-ish, mono, monochrome until it encodes a real
-   state — the connected chain and the connection itself are the two states. */
-.pse-w-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: 100%;
-  min-height: 28px;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-xs);
-  background: var(--pse-inset);
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.03em;
-  line-height: 1.3;
-  color: var(--pse-ink-2);
-}
-
-.pse-w-chip::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--pse-ink-3);
-}
-
-.pse-w-chip[data-tone='good'] {
-  color: var(--pse-good);
-  border-color: color-mix(in srgb, var(--pse-good) 32%, transparent);
-  background: color-mix(in srgb, var(--pse-good) 8%, transparent);
-}
-.pse-w-chip[data-tone='good']::before { background: var(--pse-good); }
-
-.pse-w-chip[data-tone='hold'] {
-  color: var(--pse-warn);
-  border-color: color-mix(in srgb, var(--pse-warn) 32%, transparent);
-  background: color-mix(in srgb, var(--pse-warn) 8%, transparent);
-}
-.pse-w-chip[data-tone='hold']::before { background: var(--pse-warn); }
-
-.pse-w-chip[data-tone='accent'] {
-  color: var(--pse-accent);
-  border-color: color-mix(in srgb, var(--pse-accent) 34%, transparent);
-  background: color-mix(in srgb, var(--pse-accent) 9%, transparent);
-}
-.pse-w-chip[data-tone='accent']::before { background: var(--pse-accent); }
-
-.pse-w-chip-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Wallet address control ───────────────────────────────────────────────
- * The address is a control: it copies itself and confirms it did. Its hit area
- * is 44px, its printed footprint is one line of mono, and the full value is in
- * the accessible name so a screen reader is never given the ellipsis.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-addr {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 44px;
-  max-width: 100%;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-xs);
-  background: var(--pse-inset);
-  color: var(--pse-ink);
-  font-family: var(--pse-mono);
-  font-size: 0.8125rem;
-  letter-spacing: -0.005em;
-  cursor: pointer;
-  transition: border-color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
-}
-
-.pse-w-addr:hover { border-color: var(--pse-rule-strong); background: color-mix(in srgb, var(--pse-ink) 6%, transparent); }
-.pse-w-addr-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pse-w-addr-copy { flex: none; color: var(--pse-ink-3); display: inline-flex; }
-.pse-w-addr:hover .pse-w-addr-copy { color: var(--pse-accent); }
-
-/* ── Balance ──────────────────────────────────────────────────────────────
- * ONE dominant balance: what settlement has released and can be requested.
- * Accrued, in-review and the payout destination are stated BESIDE it as
- * separate accounting facts, never summed into it.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-balance {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-lg);
-  background:
-    linear-gradient(180deg, rgba(47, 92, 245, 0.10) 0%, rgba(17, 24, 39, 0) 58%),
-    var(--pse-surface);
-  overflow: hidden;
-}
-
-.pse-w-hero {
-  display: grid;
-  /* Explicit shrinkable track: an implicit auto column would size itself to the
-     widest child (a balance figure, a skeleton) and push the panel past the
-     page instead of wrapping inside it. */
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: 0.35rem;
-  min-width: 0;
-  padding: clamp(1.15rem, 3.6vw, 1.9rem);
-}
-
-.pse-w-hero-label {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-w-hero-figure {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  font-size: clamp(2.125rem, 8vw, 3.125rem);
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.045em;
-  color: var(--pse-ink);
-  overflow-wrap: anywhere;
-}
-
-.pse-w-hero-unit {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--pse-ink-3);
-}
-
-.pse-w-hero-note {
-  max-width: 52ch;
-  margin-top: 0.1rem;
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--pse-ink-2);
-  text-wrap: pretty;
-}
-
-.pse-w-figures {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0;
-  min-width: 0;
-  border-top: 1px solid var(--pse-rule);
-  background: color-mix(in srgb, var(--pse-surface) 82%, transparent);
-}
-
-@media (min-width: 560px) {
-  .pse-w-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-.pse-w-figure {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: 0.1rem;
-  min-width: 0;
-  padding: 0.8rem clamp(0.9rem, 3vw, 1.4rem);
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-
-.pse-w-figure:last-child { border-bottom: 0; }
-
-@media (min-width: 560px) {
-  .pse-w-figure { border-bottom: 0; }
-  .pse-w-figure + .pse-w-figure { border-left: 1px solid var(--pse-rule-2); }
-}
-
-.pse-w-figure dt {
-  font-family: var(--pse-mono);
-  font-size: 0.5625rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-w-figure dd {
-  margin: 0;
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.35;
-  color: var(--pse-ink);
-  overflow-wrap: anywhere;
-}
-
-.pse-w-figure dd.pse-w-figure-note {
-  font-family: var(--pse-font);
-  font-size: 0.6875rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.45;
-  color: var(--pse-ink-3);
-}
-
-/* ── Wallet actions ───────────────────────────────────────────────────────
- * The row a thumb reaches for: copy, settle, history, connect. Four across at
- * 320px — equal tracks, a 56px target, a glyph over its label — and they stay
- * one row until there is genuinely more than four.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
-  gap: 0.5rem;
-}
-
-.pse-w-action {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 0.3rem;
-  min-height: 64px;
-  min-width: 0;
-  padding: 0.55rem 0.35rem;
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-sm);
-  background: var(--pse-surface);
-  color: var(--pse-ink-2);
-  font-family: var(--pse-font);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: -0.002em;
-  line-height: 1.2;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color var(--pse-t-fast) var(--pse-ease), border-color var(--pse-t-fast) var(--pse-ease), background-color var(--pse-t-fast) var(--pse-ease);
-}
-
-.pse-w-action:hover:not(:disabled) {
-  color: var(--pse-ink);
-  border-color: color-mix(in srgb, var(--pse-accent) 40%, var(--pse-rule));
-  background: var(--pse-accent-quiet);
-}
-
-.pse-w-action:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.pse-w-action-glyph { display: inline-flex; color: var(--pse-accent); }
-.pse-w-action-label { min-width: 0; overflow-wrap: anywhere; }
-
-/* The primary action in the row is the one the page exists for. */
-.pse-w-action--primary {
-  border-color: color-mix(in srgb, var(--pse-accent) 45%, var(--pse-rule));
-  background: var(--pse-accent-quiet);
-  color: var(--pse-ink);
-}
-
-/* ── Composition ───────────────────────────────────────────────────────── */
-.pse-w-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-@media (min-width: 980px) {
-  .pse-w-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.75rem; }
-}
-
-/* ── Transaction ledger ───────────────────────────────────────────────────
- * A wallet's list, not a financial table. Each row is one record: a mark for
- * the direction, the record and its meta, the amount. The row is a control —
- * it opens the record's own detail (full destination, full hash, reference),
- * which is where a 66-character hash belongs.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-txlist { display: grid; margin: 0; padding: 0; list-style: none; }
-
-.pse-w-tx {
-  border-bottom: 1px solid var(--pse-rule-2);
-  min-width: 0;
-}
-
-.pse-w-tx:last-child { border-bottom: 0; }
-
-.pse-w-txrow {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  gap: 0.15rem 0.75rem;
-  align-items: center;
-  width: 100%;
-  min-height: 56px;
-  padding: 0.7rem 0;
-  border: 0;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-}
-
-.pse-w-txrow:hover { background: var(--pse-inset); }
-
-.pse-w-txmark {
-  grid-row: 1 / span 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--pse-rule);
-  background: var(--pse-surface-2);
-  color: var(--pse-ink-2);
-}
-
-.pse-w-tx[data-state='pending'] .pse-w-txmark {
-  color: var(--pse-warn);
-  border-color: color-mix(in srgb, var(--pse-warn) 34%, transparent);
-  background: color-mix(in srgb, var(--pse-warn) 10%, transparent);
-}
-
-.pse-w-tx[data-state='paid'] .pse-w-txmark {
-  color: var(--pse-good);
-  border-color: color-mix(in srgb, var(--pse-good) 34%, transparent);
-  background: color-mix(in srgb, var(--pse-good) 10%, transparent);
-}
-
-.pse-w-tx[data-state='failed'] .pse-w-txmark {
-  color: var(--pse-danger);
-  border-color: color-mix(in srgb, var(--pse-danger) 34%, transparent);
-  background: color-mix(in srgb, var(--pse-danger) 10%, transparent);
-}
-
-.pse-w-txid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.1rem; min-width: 0; }
-
-.pse-w-txtitle {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.5rem;
-  min-width: 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  line-height: 1.35;
-  color: var(--pse-ink);
-}
-
-.pse-w-txmeta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.5rem;
-  min-width: 0;
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
-  color: var(--pse-ink-3);
-}
-
-/* The identifier is truncated HERE, in the row, and printed in full in the
-   detail panel: a hash that pushes the page wider is the defect this prevents. */
-.pse-w-txhash {
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pse-w-txfig {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: end;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.pse-w-txamount {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  font-size: 0.8125rem;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-  color: var(--pse-ink);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.pse-w-txwhen {
-  font-family: var(--pse-mono);
-  font-size: 0.5625rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-  white-space: nowrap;
-}
-
-/* The detail panel: the record's machine facts, in the record's own fold. */
-.pse-w-txdetail {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0 0 0.8rem 2.9rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--pse-rule-2);
-  border-radius: var(--pse-r-sm);
-  background: var(--pse-surface);
-}
-
-@media (max-width: 420px) {
-  .pse-w-txdetail { margin-left: 0; }
-}
-
-.pse-w-kv {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.pse-w-kv-key {
-  font-family: var(--pse-mono);
-  font-size: 0.5625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-w-kv-val {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
-  min-width: 0;
-  font-family: var(--pse-mono);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  letter-spacing: -0.005em;
-  color: var(--pse-ink);
-  overflow-wrap: anywhere;
-}
-
-/* ── Network / asset register ───────────────────────────────────────────── */
-.pse-w-net { display: grid; margin: 0; }
-
-.pse-w-net-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.1rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-
-.pse-w-net-row:last-child { border-bottom: 0; padding-bottom: 0; }
-
-.pse-w-net-key {
-  font-size: 0.75rem;
-  line-height: 1.4;
-  color: var(--pse-ink-3);
-}
-
-.pse-w-net-val {
-  font-family: var(--pse-mono);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  letter-spacing: -0.005em;
-  color: var(--pse-ink);
-  overflow-wrap: anywhere;
-}
-
-@media (min-width: 460px) {
-  .pse-w-net-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 0.75rem;
-  }
-  .pse-w-net-val { text-align: right; }
-}
-
-/* ── Payout request ───────────────────────────────────────────────────────
- * One line of prose and one field on a wide screen; the field takes the whole
- * width on a phone. The availability rule is stated in the register above the
- * control rather than in a tooltip.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-request {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.pse-w-request-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem 1rem;
-}
-
-.pse-w-request-figure {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9375rem;
-  letter-spacing: -0.015em;
-  color: var(--pse-ink);
-}
-
-.pse-w-request-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.6rem;
-  align-items: end;
-}
-
-@media (min-width: 620px) {
-  .pse-w-request-form { grid-template-columns: minmax(0, 14rem) auto auto; }
-}
-
-/* An in-page destination has to clear the sticky bar and the campaign band,
-   or the section it scrolls to starts underneath the chrome. */
-.pse-w-anchor { scroll-margin-top: 118px; }
-
-/* ── Skeleton ─────────────────────────────────────────────────────────────
- * The wallet's own loading shape: the balance block, the action row, the
- * ledger. Same dimensions as the content it replaces, so nothing jumps when
- * the figures arrive.
- * ────────────────────────────────────────────────────────────────────────── */
-.pse-w-skel-balance {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.6rem;
-  min-width: 0;
-  padding: clamp(1.15rem, 3.6vw, 1.9rem);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-r-lg);
-  background: var(--pse-surface);
+@media(max-width:620px) {
+ .pse-w-head { flex-direction:column; gap:15px; }
+ .pse-w-head-side { justify-items:start; }
+ .pse-w-chip { justify-items:start; }
+ .pse-w-actions { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+ .pse-w-action { padding:9px 3px; min-height:62px; font-size:9px; }
+ .pse-w-txrow { grid-template-columns:30px minmax(0,1fr) auto; gap:8px; }
+ .pse-w-txmark { width:28px; height:28px; }
+ .pse-w-txdetail { padding-left:0; }
+ .pse-w-hero-figure { font-size:38px; }
 }

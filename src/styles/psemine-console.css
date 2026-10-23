@@ -328,3 +328,213 @@
  .pse-guide-roster-rate { grid-column:2; }
  .pse-log-row { grid-template-columns:65px minmax(0,1fr); gap:9px; }
 }
+
+
+/* --------------------------------------------------------------------------
+   Console contract repair + route composition.
+   These are the classes emitted by PseBasics.tsx, not the older prototype
+   vocabulary. The authenticated console is intentionally styled from this
+   single system; this block repairs component contracts and gives each route
+   its own information hierarchy instead of making every page look identical.
+   -------------------------------------------------------------------------- */
+.pse-console-main {
+  display:grid;
+  align-content:start;
+  gap:clamp(22px,2.6vw,32px);
+  min-width:0;
+  width:100%;
+}
+.pse-console-main > * { min-width:0; }
+.pse-console-main .pse-page-head {
+  align-items:flex-end;
+  gap:24px;
+  margin:0;
+  padding:0 0 20px;
+  border-bottom:1px solid var(--pse-rule);
+}
+.pse-console-main .pse-page-head-main { display:grid; gap:9px; }
+.pse-console-main .pse-page-title {
+  margin:0;
+  color:var(--pse-ink);
+  font-size:clamp(29px,4vw,42px);
+  line-height:1.02;
+  letter-spacing:-.065em;
+  font-weight:640;
+}
+.pse-console-main .pse-page-objective {
+  max-width:58ch;
+  margin:0;
+  color:var(--pse-ink-2);
+  font-size:13px;
+  line-height:1.65;
+  font-weight:400;
+}
+.pse-console-main .pse-page-actions { flex:none; }
+.pse-console-main .pse-block {
+  display:grid;
+  align-content:start;
+  min-width:0;
+  gap:0;
+}
+.pse-console-main .pse-block-head {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  min-width:0;
+  margin:0 0 12px;
+}
+.pse-console-main .pse-block-title {
+  margin:0;
+  color:var(--pse-ink);
+  font-size:14px;
+  font-weight:620;
+  line-height:1.35;
+  letter-spacing:-.025em;
+}
+.pse-console-main .pse-block-meta {
+  flex:none;
+  color:var(--pse-ink-3);
+  font-size:10px;
+  font-variant-numeric:tabular-nums;
+}
+.pse-console-main .pse-split-console {
+  display:grid;
+  grid-template-columns:minmax(0,1.55fr) minmax(260px,.85fr);
+  align-items:start;
+  gap:clamp(22px,3vw,40px);
+  min-width:0;
+}
+.pse-console-main .pse-stack {
+  display:grid;
+  align-content:start;
+  gap:24px;
+  min-width:0;
+}
+.pse-console-main .pse-statbar {
+  width:100%;
+  border-radius:12px;
+  background:linear-gradient(115deg,rgba(99,91,255,.055),transparent 55%),var(--pse-surface);
+}
+.pse-console-main .pse-stat { min-width:0; }
+.pse-console-main .pse-stat-key {
+  font-size:9px;
+  letter-spacing:.075em;
+  font-weight:600;
+}
+.pse-console-main .pse-stat-val {
+  font-size:clamp(17px,2vw,24px);
+  font-weight:560;
+  letter-spacing:-.055em;
+}
+.pse-console-main .pse-stat-note { font-size:10px; line-height:1.45; }
+.pse-console-main .pse-btn { min-height:40px; }
+.pse-console-main .pse-btn--sm { min-height:34px; }
+.pse-console-main .pse-input,
+.pse-console-main input:not([type=checkbox]),
+.pse-console-main select,
+.pse-console-main textarea { min-height:42px; }
+.pse-console-main .pse-facts { border-top:1px solid var(--pse-rule); }
+.pse-console-main .pse-fact { padding:13px 12px 13px 0; }
+.pse-console-main .pse-fact-val { font-weight:520; }
+.pse-console-main .pse-empty-note {
+  padding:22px 0;
+  border-top:1px solid var(--pse-rule);
+  border-bottom:1px solid var(--pse-rule);
+}
+.pse-console-main .pse-skel-row { grid-template-columns:minmax(0,1fr) minmax(48px,auto); }
+
+/* Dashboard: campaign state and actual capacity are the visual anchor. */
+.pse-route-dashboard .pse-page-head {
+  border-bottom:0;
+  padding-bottom:0;
+}
+.pse-route-dashboard .pse-page-title { font-size:clamp(31px,4.6vw,48px); }
+.pse-route-dashboard > .pse-statbar {
+  border-color:rgba(119,117,255,.22);
+  background:linear-gradient(105deg,rgba(99,91,255,.12),rgba(47,201,230,.025) 60%),#0d121d;
+}
+.pse-route-dashboard > .pse-split-console {
+  grid-template-columns:minmax(0,1.6fr) minmax(250px,.8fr);
+}
+.pse-route-dashboard .pse-block + .pse-block { margin-top:2px; }
+
+/* Marketplace: a catalogue should read as products, not as a dashboard. */
+.pse-route-tools .pse-page-head { border-bottom:1px solid var(--pse-rule); }
+.pse-route-tools .pse-block-title { font-size:15px; }
+.pse-route-tools .pse-product-list { border-top:1px solid var(--pse-rule); }
+
+/* Wallet: financial summaries get a quiet blue-violet register and clear rows. */
+.pse-route-wallet > .pse-statbar {
+  background:linear-gradient(115deg,rgba(99,91,255,.09),transparent 70%),var(--pse-surface);
+}
+.pse-route-wallet .pse-block + .pse-block { margin-top:3px; }
+.pse-route-wallet .pse-ledger td:last-child,
+.pse-route-wallet .pse-ledger th:last-child { text-align:right; }
+
+/* Activity: controls stay in one toolbar; the event log remains a true ledger. */
+.pse-route-activity .pse-toolbar {
+  display:grid;
+  grid-template-columns:minmax(140px,.65fr) minmax(200px,1.35fr) auto;
+  align-items:end;
+  gap:10px;
+  margin-bottom:16px;
+}
+.pse-route-activity .pse-activity-day { margin-top:20px; }
+.pse-route-activity .pse-log-row,
+.pse-route-activity .pse-activity-row { border-color:rgba(190,205,235,.09); }
+
+/* Referrals: make the invite code the primary object; metrics stay secondary. */
+.pse-route-referrals .pse-invite { margin-bottom:2px; }
+.pse-route-referrals .pse-invite-code { font-family:ui-monospace,SFMono-Regular,monospace; }
+
+/* Account: settings should be calm, legible and form-led, not a marketing page. */
+.pse-route-account .pse-security-form { max-width:560px; }
+.pse-route-account .pse-block + .pse-block { padding-top:4px; }
+.pse-route-account .pse-page-title { font-size:clamp(28px,3.8vw,38px); }
+
+/* Reading surface: the guide is an overlay, with its own contained scroll. */
+.pse-guide { overscroll-behavior:contain; scrollbar-gutter:stable; }
+.pse-guide-stage { max-width:780px; }
+.pse-guide-sub,.pse-guide-lede,.pse-guide-point-note { max-width:68ch; }
+.pse-guide-point { align-items:start; }
+.pse-guide-point-title { font-size:13px; }
+
+/* Focus, touch targets, and reduced-motion states are explicit on every route. */
+.pse-console-shell a,
+.pse-console-shell button,
+.pse-console-shell input,
+.pse-console-shell select,
+.pse-console-shell textarea { -webkit-tap-highlight-color:transparent; }
+.pse-console-shell button:active:not(:disabled) { transform:translateY(1px); }
+.pse-console-shell input::placeholder,
+.pse-console-shell textarea::placeholder { color:#64718a; opacity:1; }
+.pse-console-shell .pse-btn:focus-visible,
+.pse-console-shell .pse-nav-link:focus-visible,
+.pse-console-shell .pse-dock-link:focus-visible { outline:2px solid #7775ff; outline-offset:3px; }
+
+@media(max-width:900px) {
+  .pse-console-main .pse-split-console,
+  .pse-route-dashboard > .pse-split-console { grid-template-columns:minmax(0,1fr); }
+  .pse-console-main .pse-page-head { align-items:flex-start; }
+  .pse-console-main .pse-page-actions { width:auto; }
+}
+@media(max-width:620px) {
+  .pse-console-main { gap:22px; }
+  .pse-console-main .pse-page-head { gap:13px; padding-bottom:16px; }
+  .pse-console-main .pse-page-title { font-size:31px; }
+  .pse-console-main .pse-page-objective { font-size:12px; line-height:1.6; }
+  .pse-console-main .pse-page-actions { width:100%; }
+  .pse-console-main .pse-page-actions .pse-btn { flex:0 0 auto; }
+  .pse-console-main .pse-block-head { margin-bottom:10px; }
+  .pse-console-main .pse-block-meta { text-align:right; }
+  .pse-console-main .pse-statbar { border-radius:10px; }
+  .pse-console-main .pse-stat { padding:12px 10px; }
+  .pse-console-main .pse-stat-val { font-size:18px; }
+  .pse-console-main .pse-stat-note { font-size:9px; }
+  .pse-console-main .pse-facts { grid-template-columns:minmax(0,1fr); }
+  .pse-console-main .pse-fact { padding:12px 0; }
+  .pse-route-activity .pse-toolbar { grid-template-columns:minmax(0,1fr); }
+  .pse-route-activity .pse-toolbar .pse-field { width:100%; }
+  .pse-route-account .pse-security-form { max-width:none; }
+}

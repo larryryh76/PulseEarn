@@ -1,542 +1,77 @@
-/*
- * PSEmine authentication family — the additions that only sign-in, create
- * account, password reset and verification need.
- *
- * WHY THIS IS A SEPARATE FILE
- * `src/styles/psemine.css` owns the product's visual language and is loaded by
- * `src/main.tsx`; it is also consumed by the landing page, the loader and the
- * console primitives. These rules extend it for the auth surfaces only, so they
- * live here and load immediately after it — which is what makes the
- * re-compositions below safe: the same specificity, later in the cascade by
- * construction, deliberately scoped to the auth family and to nothing else.
- *
- * The plane is NOT declared here. It comes from `.pse-plane` in psemine.css, so
- * a sign-in surface and the landing page are the same product.
- *
- * THE FORM'S SURFACE CHANGES WITH THE COMPOSITION, ON PURPOSE
- *   < 768px   the form is a full-bleed column: on a phone width is the scarce
- *             resource and a card would only eat it.
- *   768-1023  the form IS the page, so it becomes a card — a lifted surface with
- *             the shadow-as-border ring and one accent hairline across its top
- *             edge, because at that size it needs a defined edge to read as a
- *             surface rather than as loose controls.
- *   ≥ 1024px  the brand panel arrives and takes over the page's surface, so the
- *             form drops back to a plain column. Two competing surfaces on one
- *             screen is the thing that makes a sign-in page look assembled
- *             rather than designed.
- * ───────────────────────────────────────────────────────────────────────── */
-
-/* ── The composition ──────────────────────────────────────────────────────── */
-.pse-auth-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  padding: 0;
-}
-
-.pse-auth-formwrap {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 2.75rem var(--pse-gutter) 3.5rem;
-}
-
-/* ── The brand panel ───────────────────────────────────────────────────────
- * Artwork, not information: a precision plate holding the emblem, the lockup, a
- * calibration rail down its left edge, one inset hairline frame, and the emblem
- * again as a faint watermark. Nothing here states a figure or a state — which is
- * why the whole panel is `aria-hidden` in the markup.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-panel { display: none; }
-
-@media (min-width: 1024px) {
-  .pse-auth-panel {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 540px;
-    padding: 3rem;
-    overflow: hidden;
-    background: var(--pse-surface);
-    border-right: 1px solid var(--pse-rule-2);
-  }
-
-  /* One hairline frame inset from the panel's edges: engineered, not decorative. */
-  .pse-auth-panel::before {
-    content: '';
-    position: absolute;
-    inset: 2.25rem;
-    /* At 7.5% this frame was invisible on the product's dark surface, which is
-       why the panel read as undrawn rather than as restrained. */
-    border: 1px solid var(--pse-rule);
-    border-radius: var(--pse-r-lg);
-  }
-
-  .pse-auth-panel-rail {
-    position: absolute;
-    left: 3.4rem;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .pse-auth-panel-rail::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: -0.5rem;
-    bottom: -0.5rem;
-    width: 1px;
-    background: var(--pse-rule-2);
-  }
-
-  .pse-auth-panel-tick { position: relative; display: block; width: 7px; height: 1px; background: var(--pse-rule); }
-
-  .pse-auth-panel-node {
-    position: relative;
-    display: block;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    background: var(--pse-accent);
-    box-shadow: 0 0 0 3px var(--pse-surface);
-  }
-
-  .pse-auth-panel-watermark {
-    position: absolute;
-    right: -4.5rem;
-    bottom: -3.5rem;
-    opacity: 0.085;
-    color: var(--pse-ink);
-    pointer-events: none;
-  }
-
-  .pse-auth-panel-watermark svg { display: block; }
-
-  .pse-auth-panel-lockup {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.35rem;
-  }
-
-  .pse-auth-plate {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 104px;
-    height: 104px;
-    border-radius: var(--pse-r-lg);
-    background: linear-gradient(180deg, var(--pse-surface-2), var(--pse-surface));
-    box-shadow: var(--pse-ring), var(--pse-lift-2);
-  }
-
-  .pse-auth-panel-wordmark { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
-
-  .pse-auth-panel-name {
-    font-size: 1.375rem;
-    font-weight: 500;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    color: var(--pse-ink);
-  }
-
-  .pse-auth-panel-sub {
-    font-family: var(--pse-mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--pse-ink-3);
-  }
-
-  /* The legend under the lockup. The panel measured 2.5% content coverage in a
-   * 928×839 area, so the space it was given was never earning itself; these are
-   * published campaign facts, set quietly, never anything about an account. */
-  .pse-auth-panel-legend {
-    display: grid;
-    gap: 1px;
-    width: min(21rem, 100%);
-    border-radius: var(--pse-r-sm);
-    overflow: hidden;
-    background: var(--pse-rule-2);
-  }
-
-  .pse-auth-panel-legend-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.5rem 0.75rem;
-    background: var(--pse-surface);
-  }
-
-  .pse-auth-panel-legend-key {
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: var(--pse-ink-3);
-  }
-
-  .pse-auth-panel-legend-val {
-    font-family: var(--pse-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8125rem;
-    letter-spacing: -0.012em;
-    color: var(--pse-ink);
-    white-space: nowrap;
-  }
-
-  .pse-auth-main { grid-template-columns: minmax(0, 1fr) minmax(0, 512px); }
-  .pse-auth-formwrap { align-items: center; padding: 3.5rem 3.5rem 3.5rem 4rem; }
-
-  /* One surface owns the screen: the panel. The form is a column again. */
-  .pse-auth-col { max-width: 400px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
-  .pse-auth-col::before { content: none; }
-}
-
-/* ── The form as an instrument ─────────────────────────────────────────────
- * The card treatment, for the one band where the form is the whole page.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-col { position: relative; width: 100%; max-width: 392px; }
-
-/* DESKTOP COMPOSITION.
- *
- * The form column is the task and the brand panel is the composition. From
- * 1024px the column is given enough measure that a 48px field, its plain label
- * and its error line sit comfortably without the panel crowding them; the panel
- * takes the remaining width. Below 1024px the panel folds into the compact brand
- * strip above the form, so the column is already full-width there and this rule
- * does not apply. */
-@media (min-width: 1024px) {
-  .pse-auth-col { max-width: 424px; }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .pse-auth-col {
-    max-width: 452px;
-    padding: 2rem 2rem 1.75rem;
-    border-radius: var(--pse-r-lg);
-    background: var(--pse-surface);
-    box-shadow: var(--pse-ring), var(--pse-lift-2);
-  }
-
-  /* One accent hairline across the top edge — the same mark every instrument in
-     the product carries, and the only colour on the screen until a control is
-     actually used. */
-  .pse-auth-col::before {
-    content: '';
-    position: absolute;
-    inset-inline: 12% 12%;
-    top: -1px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--pse-accent), transparent);
-    opacity: 0.5;
-  }
-}
-
-/* ── Brand presence at the task ─────────────────────────────────────────────
- * Name only — no descriptor, because the descriptor is a product statement and
- * this is a form.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1.35rem;
-}
-
-/* From 1024px the panel carries the lockup, so the form must NOT repeat it: two
-   lockups on one screen is what makes a sign-in page look assembled. Declared
-   here, after the base rule, so the cascade order is the whole mechanism. */
-@media (min-width: 1024px) {
-  .pse-auth-brand { display: none; }
-}
-
-.pse-auth-brand-name {
-  font-family: var(--pse-font);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: -0.012em;
-  color: var(--pse-ink-2);
-}
-
-.pse-auth-title {
-  font-size: clamp(1.625rem, 1.5rem + 0.6vw, 1.9375rem);
-  line-height: 1.12;
-  letter-spacing: -0.03em;
-}
-
-/* ── Password quality ───────────────────────────────────────────────────────
- * Four steps on one rail, driven by the real input and shown only once there is
- * an input. It reports a quality band, never a score and never a percentage,
- * and the colour only moves through the semantic set the product already uses.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-meter {
-  display: block;
-  height: 3px;
-  border-radius: 3px;
-  background: var(--pse-rule-2);
-  overflow: hidden;
-}
-
-.pse-meter > span {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--pse-accent);
-  transition:
-    width var(--pse-t) var(--pse-ease),
-    background-color var(--pse-t) var(--pse-ease);
-}
-
-/* ── Agreement ─────────────────────────────────────────────────────────────
- * A real control with a real hit area: the label is 44px tall, the checkbox it
- * wraps is the focusable element, and the drawn box is the only thing that
- * changes colour. Nothing here is decorative — the form will not submit without
- * it (see PSEmineAuth.tsx), and the box is drawn rather than set in a font so it
- * renders identically everywhere.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-check {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.15rem 0.6rem;
-}
-
-.pse-check-control {
-  position: relative;
-  display: inline-flex;
-  justify-content: center;
-  align-items: flex-start;
-  width: 26px;
-  min-height: 44px;
-  padding-top: 5px;
-  cursor: pointer;
-}
-
-.pse-check-control input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.pse-check-box {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  border: 1px solid var(--pse-rule-strong);
-  background: var(--pse-surface-2);
-  color: var(--pse-on-accent);
-  transition:
-    background-color var(--pse-t-fast) var(--pse-ease),
-    border-color var(--pse-t-fast) var(--pse-ease);
-}
-
-.pse-check-box svg {
-  opacity: 0;
-  transition: opacity var(--pse-t-fast) var(--pse-ease);
-}
-
-.pse-check-control:hover .pse-check-box { border-color: var(--pse-ink-3); }
-
-.pse-check-control input:checked + .pse-check-box {
-  border-color: var(--pse-accent-solid);
-  background: var(--pse-accent-solid);
-}
-
-.pse-check-control input:checked + .pse-check-box svg { opacity: 1; }
-
-.pse-check-control input:focus-visible + .pse-check-box { border-color: var(--pse-accent); }
-
-.pse-check[data-invalid='true'] .pse-check-box { border-color: var(--pse-danger); }
-
-.pse-check-text {
-  flex: 1;
-  min-width: 0;
-  padding-top: 0.35rem;
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--pse-ink-2);
-}
-
-.pse-check-error {
-  flex-basis: 100%;
-  padding-left: 2rem;
-}
-
-/* ── The documents at the task ─────────────────────────────────────────────
- * Four links, one rule, and the same small type the footer's column headings
- * use. An authentication screen stays quiet: it carries only what the person
- * signing up is actually accepting.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-docs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.1rem;
-  margin-top: 1rem;
-}
-
-.pse-auth-docs .pse-link {
-  display: inline-flex;
-  align-items: center;
-  /* A real 44px target, not the inline-prose exception: these are standalone
-     navigations at the end of a form, so they get the product's control
-     geometry rather than the text-link one. */
-  min-height: 44px;
-  /* A short label ("Support") would otherwise be exactly 44px wide, i.e. on the
-     boundary of the product's own target rule. The padding makes every one of
-     these links comfortably clear of it in both axes. */
-  padding-inline: 0.3rem;
-  margin-inline: -0.3rem;
-  font-size: 0.75rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-auth-docs .pse-link:hover { color: var(--pse-ink); }
-
-.pse-meter[data-step='1'] > span { background: var(--pse-danger); }
-.pse-meter[data-step='2'] > span { background: var(--pse-warn); }
-.pse-meter[data-step='3'] > span { background: var(--pse-accent); }
-.pse-meter[data-step='4'] > span { background: var(--pse-good); }
-
-/* ── Product context at the task ───────────────────────────────────────────
- * What an account gives access to, stated as capabilities taken from the
- * published price list and the campaign rules. It is context, so it sits between
- * the supporting line and the first field — and on a phone it is ordered BELOW
- * the form, because at 390px the form is the task and context can wait its turn.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-context { margin-top: 1.6rem; }
-
-.pse-auth-context-rows {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-auth-context-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.44fr) minmax(0, 0.56fr);
-  gap: 0.85rem;
-  align-items: baseline;
-}
-
-.pse-auth-context-row dt {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  color: var(--pse-ink);
-}
-
-.pse-auth-context-row dd {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--pse-ink-2);
-}
-
-/* A two-column key/value row becomes a squeezed table on the smallest screens,
-   so each row stacks there instead of compressing. */
-@media (max-width: 560px) {
-  .pse-auth-context-row { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
-}
-
-/* FORM FIRST ON A PHONE. The column becomes an ordered stack below 768px, so a
-   reader who lands straight on a route always meets the task before the context
-   that explains it. Above that width the context sits above the form, and the
-   brand panel carries the composition. */
-@media (max-width: 767px) {
-  .pse-auth-col { display: flex; flex-direction: column; }
-
-  .pse-auth-col > * { order: 1; }
-  .pse-auth-col > .pse-auth-form { order: 2; }
-  .pse-auth-col > .pse-auth-actions { order: 3; }
-  .pse-auth-col > .pse-auth-context { order: 4; }
-  .pse-auth-col > .pse-auth-foot { order: 5; }
-}
-
-/* ── The error summary ─────────────────────────────────────────────────────
- * One announced summary above a rejected form, each line a real control that puts
- * the cursor in the field it names. The inline errors stay where they were; this
- * exists so a rejected submit is never a set of red borders and nothing else.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-summary {
-  padding: 0.7rem 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--pse-danger) 26%, transparent);
-  border-radius: var(--pse-r-sm);
-  background: color-mix(in srgb, var(--pse-danger) 9%, transparent);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-/* The summary takes focus on a rejected submit, so it needs a visible one. */
-.pse-auth-summary:focus {
-  outline: 2px solid color-mix(in srgb, var(--pse-danger) 55%, transparent);
-  outline-offset: 2px;
-}
-
-.pse-auth-summary-title {
-  display: block;
-  font-weight: 500;
-  color: var(--pse-danger);
-}
-
-.pse-auth-summary-list { display: grid; gap: 0.15rem; margin-top: 0.5rem; }
-
-.pse-auth-summary-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  color: var(--pse-danger);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.pse-auth-summary-link:hover { color: var(--pse-ink); }
-
-/* ── The documents a consent line refers to ────────────────────────────────
- * Under the agreement control: one real target per document, named exactly as
- * the sentence names it. A word inside the sentence cannot be 44px tall without
- * turning the sentence into a list of buttons, so the list lives here instead.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-auth-doc-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: -0.35rem;
-}
-
-.pse-auth-doc-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 0.85rem;
-  border: 1px solid var(--pse-rule-2);
-  border-radius: var(--pse-r-xs);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: -0.008em;
-  color: var(--pse-ink-2);
-  transition: color var(--pse-t) var(--pse-ease), border-color var(--pse-t) var(--pse-ease);
-}
-
-.pse-auth-doc-chip:hover { color: var(--pse-ink); border-color: var(--pse-rule-strong); }
+/* PSEmine authentication — complete replacement of the former auth art direction. */
+.pse-auth-main { min-height:100vh; display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,.9fr); background:#080b12; color:#f1f4fc; }
+.pse-auth-col { display:flex; flex-direction:column; min-width:0; min-height:100vh; }
+.pse-auth-bar { width:100%; border-bottom:1px solid rgba(190,205,235,.1); }
+.pse-auth-bar-inner { min-height:66px; max-width:1200px; padding:0 28px; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.pse-auth-brand { display:flex; align-items:center; gap:10px; color:#f1f4fc; text-decoration:none; }
+.pse-auth-brand-name { font-size:14px; font-weight:700; letter-spacing:-.04em; }
+.pse-auth-context { color:#6e7b92; font-size:11px; }
+.pse-auth-formwrap { width:min(430px,100%); margin:auto; padding:42px 26px 48px; }
+.pse-auth-title { margin:0; font-size:clamp(28px,4vw,38px); line-height:1.08; letter-spacing:-.06em; font-weight:650; }
+.pse-auth-sub { margin:12px 0 27px; color:#a0abc0; font-size:13px; line-height:1.7; }
+.pse-auth-form { display:grid; gap:17px; }
+.pse-auth-form .pse-field { display:grid; gap:7px; }
+.pse-auth-form .pse-label { color:#a0abc0; font-size:11px; font-weight:600; }
+.pse-auth-form .pse-input-wrap { position:relative; display:flex; align-items:center; }
+.pse-auth-form .pse-input,.pse-auth-form input:not([type=checkbox]) { width:100%; min-height:48px; padding:12px 13px; border:1px solid rgba(190,205,235,.2); border-radius:9px; background:#0d121d; color:#f1f4fc; outline:none; font:inherit; font-size:13px; }
+.pse-auth-form .pse-input:focus,.pse-auth-form input:focus { border-color:#7775ff; box-shadow:0 0 0 3px rgba(119,117,255,.12); }
+.pse-auth-form .pse-input::placeholder,.pse-auth-form input::placeholder { color:#566278; }
+.pse-auth-form .pse-input-toggle { position:absolute; right:8px; display:grid; place-items:center; width:34px; height:34px; border:0; border-radius:7px; background:transparent; color:#a0abc0; }
+.pse-auth-form .pse-field-error,.pse-check-error { color:#ff647c; font-size:11px; line-height:1.5; }
+.pse-auth-form .pse-label-hint { color:#6e7b92; font-size:10px; }
+.pse-auth-form .pse-btn { min-height:46px; }
+.pse-auth-actions { display:grid; gap:10px; }
+.pse-auth-or { display:flex; align-items:center; gap:12px; color:#6e7b92; font-size:10px; }
+.pse-auth-or::before,.pse-auth-or::after { content:""; height:1px; flex:1; background:rgba(190,205,235,.12); }
+.pse-auth-docs { margin-top:18px; color:#6e7b92; font-size:10px; line-height:1.7; }
+.pse-auth-doc-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.pse-auth-doc-chip { display:inline-flex; align-items:center; padding:6px 9px; border:1px solid rgba(190,205,235,.14); border-radius:7px; color:#a0abc0; text-decoration:none; font-size:10px; }
+.pse-auth-doc-chip:hover { border-color:rgba(119,117,255,.45); color:#c1bfff; }
+.pse-auth-foot { margin-top:auto; padding:17px 26px; border-top:1px solid rgba(190,205,235,.1); color:#566278; font-size:10px; }
+.pse-auth-panel { position:relative; display:flex; flex-direction:column; justify-content:space-between; min-height:100vh; padding:clamp(28px,5vw,60px); overflow:hidden; border-left:1px solid rgba(190,205,235,.12); background:radial-gradient(ellipse at 70% 18%,rgba(98,92,245,.16),transparent 42%),#0c111b; }
+.pse-auth-panel::before { content:""; position:absolute; inset:12%; border:1px solid rgba(190,205,235,.08); border-radius:50%; transform:scaleX(.72); pointer-events:none; }
+.pse-auth-panel-rail { position:absolute; top:14%; right:13%; bottom:14%; width:1px; background:linear-gradient(transparent,rgba(119,117,255,.45),transparent); }
+.pse-auth-panel-tick { position:absolute; right:calc(13% - 3px); width:7px; height:7px; border-radius:50%; background:#7775ff; box-shadow:0 0 18px rgba(119,117,255,.5); }
+.pse-auth-panel-tick:nth-child(2) { top:27%; }.pse-auth-panel-tick:nth-child(3) { top:49%; }.pse-auth-panel-tick:nth-child(4) { top:72%; }
+.pse-auth-panel-node { position:relative; z-index:1; max-width:420px; }
+.pse-auth-panel-lockup { display:flex; align-items:center; gap:11px; }
+.pse-auth-panel-wordmark { color:#f1f4fc; font-size:15px; font-weight:700; letter-spacing:-.04em; }
+.pse-auth-panel-name { margin:clamp(48px,10vh,100px) 0 0; max-width:480px; font-size:clamp(30px,4vw,50px); line-height:1.03; letter-spacing:-.065em; font-weight:650; }
+.pse-auth-panel-sub { max-width:390px; margin:17px 0 0; color:#a0abc0; font-size:13px; line-height:1.8; }
+.pse-auth-panel-watermark { position:absolute; right:6%; bottom:8%; color:rgba(119,117,255,.06); font-size:clamp(100px,20vw,240px); font-weight:800; letter-spacing:-.12em; line-height:1; pointer-events:none; }
+.pse-auth-panel-legend { position:relative; z-index:1; max-width:440px; border-top:1px solid rgba(190,205,235,.14); }
+.pse-auth-panel-legend-row { display:flex; justify-content:space-between; gap:18px; padding:12px 0; border-bottom:1px solid rgba(190,205,235,.1); }
+.pse-auth-panel-legend-key { color:#6e7b92; font-size:10px; }
+.pse-auth-panel-legend-val { color:#a0abc0; font-size:11px; text-align:right; }
+.pse-auth-context-rows { display:grid; gap:0; margin-top:18px; border-top:1px solid rgba(190,205,235,.12); }
+.pse-auth-context-row { display:flex; justify-content:space-between; gap:14px; padding:12px 0; border-bottom:1px solid rgba(190,205,235,.12); color:#a0abc0; font-size:11px; }
+.pse-auth-context-row strong { color:#f1f4fc; font-weight:600; text-align:right; }
+.pse-auth-summary { margin:0 0 18px; padding:14px 0; border-top:1px solid rgba(255,100,124,.35); border-bottom:1px solid rgba(255,100,124,.35); color:#ff9aaa; font-size:12px; }
+.pse-auth-summary-title { margin:0 0 8px; font-weight:650; }
+.pse-auth-summary-list { margin:0; padding-left:18px; }
+.pse-auth-summary-link { color:#ff9aaa; }
+.pse-check { display:flex; align-items:flex-start; gap:10px; color:#a0abc0; font-size:11px; line-height:1.65; }
+.pse-check-control { flex:none; position:relative; width:18px; height:18px; }
+.pse-check-control input { position:absolute; inset:0; opacity:0; }
+.pse-check-box { width:18px; height:18px; display:grid; place-items:center; border:1px solid rgba(190,205,235,.3); border-radius:5px; color:white; }
+.pse-check-control input:checked + .pse-check-box { border-color:#635bff; background:#635bff; }
+.pse-check-control input:focus-visible + .pse-check-box { outline:2px solid #7775ff; outline-offset:3px; }
+.pse-check-text a,.pse-auth-context a,.pse-auth-form a,.pse-auth-docs a,.pse-link { color:#aaa8ff; text-decoration:none; }
+.pse-check-text a:hover,.pse-auth-context a:hover,.pse-auth-form a:hover,.pse-auth-docs a:hover,.pse-link:hover { color:#d0cfff; text-decoration:underline; }
+.pse-meter { display:flex; height:4px; overflow:hidden; border-radius:10px; background:#252b3b; }
+.pse-meter > span { display:block; height:100%; background:#7775ff; transition:width .18s; }
+.pse-auth-form .pse-notice { padding:13px 0; border-top:1px solid rgba(190,205,235,.16); border-bottom:1px solid rgba(190,205,235,.16); color:#a0abc0; font-size:11px; line-height:1.7; }
+.pse-auth-form .pse-notice-title { display:block; color:#f1f4fc; font-weight:650; }
+.pse-auth-form .pse-card { border:1px solid rgba(190,205,235,.14); border-radius:12px; background:#0e131e; }
+.pse-auth-form .pse-card-body { padding:16px; }
+.pse-auth-form .pse-figure { font-variant-numeric:tabular-nums; }
+.pse-auth-form .pse-surface { background:#0e131e; }
+.pse-auth-form .pse-small { color:#a0abc0; font-size:11px; line-height:1.7; }
+.pse-auth-form .pse-micro { color:#6e7b92; font-size:10px; }
+.pse-auth-form .pse-h3 { font-size:14px; font-weight:650; }
+.pse-auth-form .pse-strong { color:#f1f4fc; font-weight:650; }
+.pse-wrap { width:min(1200px,100%); margin:auto; }
+.pse-reassure { color:#6e7b92; font-size:10px; line-height:1.7; }
+.pse-mast-link { color:#a0abc0; text-decoration:none; }
+@media(max-width:780px) { .pse-auth-main { grid-template-columns:minmax(0,1fr); } .pse-auth-panel { display:none; } .pse-auth-bar-inner { padding:0 18px; } .pse-auth-formwrap { padding:38px 20px 42px; } .pse-auth-col { min-height:100vh; } }
+@media(prefers-reduced-motion:reduce) { .pse-auth-form * { transition:none!important; } }

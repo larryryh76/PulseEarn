@@ -1,379 +1,75 @@
-/* PSEmine account dashboard — composed for the phone first.
-   One financial hero, a compact instrument rail, then two contrasting work zones.
-   The canvas stays quiet; only the real account anchor receives a filled surface. */
-
-.pse-dash {
-  display: grid;
-  gap: 1.6rem;
-  min-width: 0;
-  padding-bottom: 1rem;
+/* PSEmine dashboard — a focused account instrument, fully replacing the previous layout. */
+.pse-dash { display:grid; gap:28px; min-width:0; }
+.pse-dash-head { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; }
+.pse-dash-head-id { display:grid; gap:7px; }
+.pse-dash-title { margin:0; font-size:clamp(26px,4vw,38px); font-weight:650; line-height:1.08; letter-spacing:-.06em; }
+.pse-dash-head-side { display:grid; justify-items:end; gap:6px; }
+.pse-dash-head-note { color:var(--pse-ink-3); font-size:10px; font-variant-numeric:tabular-nums; }
+.pse-dash .pse-eyebrow { margin:0; color:var(--pse-ink-3); font-size:10px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+.pse-account-band { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr); border:1px solid rgba(119,117,255,.28); border-radius:16px; overflow:hidden; background:radial-gradient(ellipse at 0 0,rgba(98,92,245,.17),transparent 64%),#0e131e; }
+.pse-account-main { min-width:0; padding:clamp(22px,3.6vw,36px); display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+.pse-account-label { color:var(--pse-ink-3); font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.pse-account-figure { margin:13px 0 0; font-size:clamp(36px,6vw,58px); line-height:1; letter-spacing:-.07em; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.pse-account-note { margin:10px 0 0; color:var(--pse-ink-2); font-size:12px; line-height:1.6; }
+.pse-account-sub { margin-top:5px; color:var(--pse-ink-3); font-size:11px; }
+.pse-account-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:23px; }
+.pse-account-metrics { display:grid; align-content:stretch; border-left:1px solid var(--pse-rule); }
+.pse-account-metric { padding:17px 22px; display:grid; align-content:center; gap:5px; }
+.pse-account-metric + .pse-account-metric { border-top:1px solid var(--pse-rule); }
+.pse-account-metric dt { color:var(--pse-ink-3); font-size:10px; font-weight:650; text-transform:uppercase; letter-spacing:.07em; }
+.pse-account-metric dd { margin:0; color:var(--pse-ink); font-size:18px; line-height:1.25; letter-spacing:-.03em; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.pse-account-metric-note { color:var(--pse-ink-3); font-size:10px; line-height:1.45; }
+.pse-dash-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr); gap:36px; align-items:start; }
+.pse-dash-col { display:grid; gap:30px; min-width:0; }
+.pse-dash .pse-block { min-width:0; }
+.pse-dash .pse-block-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding-bottom:12px; margin-bottom:0; border-bottom:1px solid var(--pse-rule); }
+.pse-dash .pse-block-title { margin:0; font-size:15px; font-weight:650; }
+.pse-dash .pse-block-meta { color:var(--pse-ink-3); font-size:11px; }
+.pse-dash-pending { padding:24px 0; border-bottom:1px solid var(--pse-rule); color:var(--pse-ink-3); font-size:12px; }
+.pse-eq-empty { padding:24px 0; border-bottom:1px solid var(--pse-rule); }
+.pse-eq-empty-title { margin:0; font-size:13px; font-weight:650; }
+.pse-eq-empty-note { max-width:480px; margin:8px 0 0; color:var(--pse-ink-2); font-size:12px; line-height:1.7; }
+.pse-eq-empty-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+.pse-rowlist,.pse-log { border-top:1px solid var(--pse-rule); }
+.pse-log-row { display:grid; grid-template-columns:90px minmax(0,1fr); gap:14px; padding:14px 0; border-bottom:1px solid var(--pse-rule); }
+.pse-log-when { color:var(--pse-ink-3); font-size:10px; line-height:1.5; }
+.pse-log-body { min-width:0; }
+.pse-log-title { font-size:12px; font-weight:620; overflow-wrap:anywhere; }
+.pse-log-note { margin-top:4px; color:var(--pse-ink-2); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.pse-log-meta { margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; color:var(--pse-ink-3); font-size:10px; }
+.pse-campaign { padding:20px 0 0; }
+.pse-campaign-dates { display:flex; justify-content:space-between; gap:12px; color:var(--pse-ink-3); font-size:10px; }
+.pse-campaign-track { height:5px; margin:12px 0; overflow:hidden; border-radius:999px; background:#252b3b; }
+.pse-campaign-fill { height:100%; background:var(--pse-accent); border-radius:inherit; transition:width .3s ease; }
+.pse-phase-rail { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; margin-top:17px; }
+.pse-phase-seg { min-width:0; height:3px; border-radius:999px; background:#252b3b; }
+.pse-phase-seg.is-complete,.pse-phase-seg[data-state=complete] { background:var(--pse-accent); }
+.pse-phase-labels { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:8px; color:var(--pse-ink-3); font-size:9px; }
+.pse-phase-caption { margin-top:13px; color:var(--pse-ink-2); font-size:11px; line-height:1.6; }
+.pse-campaign-foot { display:flex; justify-content:space-between; gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--pse-rule); color:var(--pse-ink-3); font-size:10px; }
+.pse-campaign-unavailable { padding:18px 0; color:var(--pse-ink-3); font-size:12px; line-height:1.6; }
+.pse-settle { border-top:1px solid var(--pse-rule); }
+.pse-settle-row { display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding:13px 0; border-bottom:1px solid var(--pse-rule); }
+.pse-settle-key { color:var(--pse-ink-3); font-size:11px; }
+.pse-settle-val { text-align:right; font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; }
+.pse-settle-actions { display:flex; flex-wrap:wrap; gap:8px; padding-top:14px; }
+@media(max-width:900px) {
+ .pse-account-band { grid-template-columns:minmax(0,1fr); }
+ .pse-account-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); border-left:0; border-top:1px solid var(--pse-rule); }
+ .pse-account-metric { padding:14px; }
+ .pse-account-metric + .pse-account-metric { border-top:0; border-left:1px solid var(--pse-rule); }
+ .pse-dash-grid { grid-template-columns:minmax(0,1fr); gap:30px; }
 }
-
-.pse-dash-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .75rem;
-  min-width: 0;
+@media(max-width:620px) {
+ .pse-dash { gap:22px; }
+ .pse-dash-head { align-items:flex-start; }
+ .pse-account-main { padding:22px 18px; }
+ .pse-account-figure { font-size:40px; }
+ .pse-account-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .pse-account-metric { padding:12px 9px; gap:5px; }
+ .pse-account-metric dt { font-size:9px; }
+ .pse-account-metric dd { font-size:14px; }
+ .pse-account-metric-note { font-size:9px; }
+ .pse-log-row { grid-template-columns:68px minmax(0,1fr); gap:10px; }
 }
-.pse-dash-head-id { display: grid; gap: .2rem; min-width: 0; }
-.pse-dash-title {
-  margin: 0;
-  color: var(--pse-ink);
-  font-size: clamp(1.35rem, 5vw, 1.75rem);
-  line-height: 1.08;
-  letter-spacing: -.045em;
-  font-weight: 560;
-}
-.pse-dash-head-side {
-  display: grid;
-  justify-items: end;
-  gap: .35rem;
-  flex: 0 0 auto;
-  max-width: 48%;
-}
-.pse-dash-head-note {
-  color: var(--pse-ink-3);
-  font: 500 .625rem/1.35 var(--pse-mono);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.pse-dash .pse-eyebrow {
-  margin: 0;
-  color: var(--pse-cyan);
-  font: 600 .625rem/1.3 var(--pse-mono);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-/* The hero is a single deliberate surface, not a card grid. The circular
-   instrument is drawn from CSS and stays decorative; all figures are backend data. */
-.pse-account-band {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid rgba(111,155,255,.23);
-  border-radius: 20px;
-  background:
-    radial-gradient(ellipse at 100% 0%, rgba(47,92,245,.19), transparent 54%),
-    linear-gradient(135deg, #111b30 0%, #0e1523 52%, #101827 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 18px 44px -36px rgba(47,92,245,.65);
-}
-.pse-account-band::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  width: 13.5rem;
-  height: 13.5rem;
-  top: -6.8rem;
-  right: -4.6rem;
-  border: 1px solid rgba(111,155,255,.22);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1.5rem rgba(111,155,255,.035), 0 0 0 3rem rgba(111,155,255,.025);
-  pointer-events: none;
-}
-.pse-account-main {
-  display: grid;
-  align-content: start;
-  gap: .55rem;
-  min-width: 0;
-  padding: 1.2rem 1.1rem 1.05rem;
-}
-.pse-account-label {
-  margin: 0;
-  color: #a6b8d8;
-  font: 600 .625rem/1.4 var(--pse-mono);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-.pse-account-figure {
-  max-width: 100%;
-  margin: .1rem 0 0;
-  color: #f4f7ff;
-  font: 500 clamp(2.2rem, 10vw, 3.4rem)/1 var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.075em;
-  overflow-wrap: anywhere;
-}
-.pse-account-note {
-  max-width: 37ch;
-  margin: .15rem 0 0;
-  color: #98a9c4;
-  font-size: .75rem;
-  line-height: 1.45;
-}
-.pse-account-sub {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: .35rem .6rem;
-  margin-top: .55rem;
-  padding-top: .75rem;
-  border-top: 1px solid rgba(171,194,234,.13);
-  color: #9aaac3;
-  font-size: .7rem;
-}
-.pse-account-sub strong {
-  color: #e6edfc;
-  font: 500 .8rem/1.3 var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-}
-.pse-account-sub .pse-textlink { margin-left: auto; }
-.pse-account-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  margin-top: .55rem;
-}
-.pse-account-actions .pse-btn {
-  min-height: 40px;
-  border-radius: 9px;
-  font-size: .75rem;
-}
-.pse-account-actions .pse-btn:not(.pse-btn--secondary) {
-  color: #fff;
-  border-color: #635bff;
-  background: linear-gradient(135deg, #635bff, #4b55c4);
-  box-shadow: 0 5px 16px -10px rgba(99,91,255,.85);
-}
-.pse-account-actions .pse-btn--secondary {
-  color: #d8e4fa;
-  border-color: rgba(163,187,228,.2);
-  background: rgba(255,255,255,.035);
-}
-.pse-account-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-  padding: .1rem 0 0;
-  border-top: 1px solid rgba(171,194,234,.13);
-  background: rgba(4,8,16,.18);
-}
-.pse-account-metric {
-  display: grid;
-  align-content: start;
-  gap: .35rem;
-  min-width: 0;
-  padding: .85rem .65rem .95rem;
-}
-.pse-account-metric + .pse-account-metric { border-left: 1px solid rgba(171,194,234,.12); }
-.pse-account-metric dt {
-  color: #8498b8;
-  font: 500 .55rem/1.35 var(--pse-mono);
-  letter-spacing: .045em;
-  text-transform: uppercase;
-}
-.pse-account-metric dd {
-  margin: 0;
-  color: #edf3ff;
-  font: 500 clamp(.82rem, 3.4vw, 1.1rem)/1.2 var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -.045em;
-  overflow-wrap: anywhere;
-}
-.pse-account-metric dd.pse-account-metric-note {
-  color: #8293ad;
-  font: 400 .59rem/1.35 var(--pse-font);
-  letter-spacing: 0;
-}
-.pse-dash-pending { display: flex; flex-wrap: wrap; gap: .4rem .75rem; }
-
-/* Two work zones; no equal-weight stack of panels. */
-.pse-dash-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.8rem;
-  align-items: start;
-}
-.pse-dash-col { display: grid; gap: 1.8rem; min-width: 0; }
-.pse-dash .pse-block {
-  display: grid;
-  gap: .9rem;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.pse-dash .pse-block-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .65rem;
-  min-width: 0;
-  padding-bottom: .7rem;
-  border-bottom: 1px solid var(--pse-rule);
-}
-.pse-dash .pse-block-title {
-  margin: 0;
-  color: var(--pse-ink);
-  font-size: .95rem;
-  line-height: 1.25;
-  font-weight: 560;
-  letter-spacing: -.025em;
-}
-.pse-dash .pse-block-meta {
-  color: var(--pse-ink-3);
-  font: 500 .625rem/1.3 var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-}
-.pse-dash .pse-textlink {
-  color: #8eafff;
-  font-size: .72rem;
-  font-weight: 500;
-  text-decoration: none;
-}
-.pse-dash .pse-textlink:hover { color: #c4d5ff; }
-
-/* Ownership is a register. Rows are equipment, not product catalogue cards. */
-.pse-eq-empty {
-  display: grid;
-  justify-items: start;
-  gap: .6rem;
-  padding: 1rem 0 .2rem;
-}
-.pse-eq-empty-title {
-  margin: 0;
-  color: var(--pse-ink);
-  font-size: .9rem;
-  font-weight: 550;
-  letter-spacing: -.02em;
-}
-.pse-eq-empty-note {
-  max-width: 39ch;
-  margin: 0;
-  color: var(--pse-ink-2);
-  font-size: .75rem;
-  line-height: 1.5;
-}
-.pse-eq-empty-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .2rem; }
-.pse-dash .pse-rowlist { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.pse-dash .pse-rowlist > li + li { border-top: 1px solid var(--pse-rule-2); }
-
-/* Campaign becomes a timeline instrument rather than a paragraph in a box. */
-.pse-campaign { display: grid; gap: .8rem; }
-.pse-campaign-dates {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: .35rem .6rem;
-  color: var(--pse-ink-3);
-  font: 500 .62rem/1.4 var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-}
-.pse-campaign-track {
-  height: 5px;
-  overflow: hidden;
-  border-radius: 99px;
-  background: #202b40;
-}
-.pse-campaign-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #2f5cf5, #2fc9e6);
-  box-shadow: 0 0 14px rgba(47,92,245,.35);
-  transition: width 220ms ease;
-}
-.pse-phase-rail { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 4px; }
-.pse-phase-seg { height: 3px; border-radius: 99px; background: #263247; }
-.pse-phase-seg[data-state="done"] { background: #4777ed; }
-.pse-phase-seg[data-state="current"] { background: #2fc9e6; box-shadow: 0 0 10px rgba(47,201,230,.28); }
-.pse-phase-labels { display: none; }
-.pse-phase-caption {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .5rem;
-  margin: 0;
-  color: var(--pse-ink-2);
-  font-size: .72rem;
-}
-.pse-phase-caption strong { color: var(--pse-ink); font-weight: 550; }
-.pse-phase-caption span { color: var(--pse-ink-3); font: 500 .62rem/1.4 var(--pse-mono); }
-.pse-campaign-foot {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: .35rem .6rem;
-  margin: 0;
-  padding-top: .7rem;
-  border-top: 1px solid var(--pse-rule-2);
-  color: var(--pse-ink-2);
-  font-size: .7rem;
-}
-.pse-campaign-foot span:last-child { color: var(--pse-ink-3); font: 500 .62rem/1.4 var(--pse-mono); }
-.pse-campaign-unavailable { margin: 0; color: var(--pse-ink-2); font-size: .75rem; line-height: 1.5; }
-.pse-dash .pse-prose--sm { margin: 0; color: var(--pse-ink-3); font-size: .7rem; line-height: 1.45; }
-
-/* Settlement is a compact ledger with a single obvious next action. */
-.pse-settle { display: grid; }
-.pse-settle-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .8rem;
-  padding: .72rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-.pse-settle-key { color: var(--pse-ink-3); font-size: .72rem; }
-.pse-settle-val {
-  max-width: 58%;
-  color: var(--pse-ink);
-  text-align: right;
-  font: 500 .7rem/1.4 var(--pse-mono);
-  overflow-wrap: anywhere;
-}
-.pse-settle-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; padding-top: .25rem; }
-.pse-dash .pse-log { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.pse-dash .pse-log-row {
-  display: grid;
-  grid-template-columns: 3.3rem minmax(0,1fr) auto;
-  align-items: start;
-  gap: .6rem;
-  padding: .85rem 0;
-  border-bottom: 1px solid var(--pse-rule-2);
-}
-.pse-dash .pse-log-when { color: var(--pse-ink-3); font: 500 .58rem/1.45 var(--pse-mono); }
-.pse-dash .pse-log-body { display: grid; gap: .2rem; min-width: 0; }
-.pse-dash .pse-log-title { color: var(--pse-ink); font-size: .75rem; line-height: 1.35; }
-.pse-dash .pse-log-note { color: var(--pse-ink-3); font-size: .67rem; line-height: 1.4; }
-.pse-dash .pse-log-meta { color: #7996d7; font: 500 .56rem/1.4 var(--pse-mono); text-transform: uppercase; letter-spacing: .06em; }
-.pse-dash .pse-log-amount { color: var(--pse-ink-3); font: 500 .68rem/1.4 var(--pse-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pse-dash .pse-log-amount.is-credit { color: #65d7ef; }
-
-/* Loading/error states preserve the same composition instead of replacing the
-   whole account with a generic centered spinner. */
-.pse-dash [aria-busy="true"] { min-width: 0; }
-.pse-dash .pse-skeleton { border-radius: 6px; background: linear-gradient(90deg,#172033,#202c43,#172033); background-size: 200% 100%; animation: pse-dash-shimmer 1.5s ease-in-out infinite; }
-@keyframes pse-dash-shimmer { to { background-position: -200% 0; } }
-
-@media (min-width: 560px) {
-  .pse-dash { gap: 1.9rem; }
-  .pse-account-main { padding: 1.5rem 1.55rem 1.2rem; }
-  .pse-account-metric { padding: .9rem 1rem 1rem; }
-  .pse-account-metric dt { font-size: .59rem; }
-  .pse-account-metric dd.pse-account-metric-note { font-size: .64rem; }
-  .pse-account-actions .pse-btn { min-height: 42px; }
-}
-@media (min-width: 900px) {
-  .pse-dash { gap: 2rem; }
-  .pse-dash-head { align-items: end; }
-  .pse-dash-grid { grid-template-columns: minmax(0,1.35fr) minmax(18rem,.85fr); gap: 2.5rem; }
-  .pse-dash-col { gap: 2.3rem; }
-  .pse-account-band { grid-template-columns: minmax(0,1.35fr) minmax(19rem,.85fr); }
-  .pse-account-main { padding: 1.7rem 1.8rem; }
-  .pse-account-metrics { grid-template-columns: minmax(0,1fr); align-content: stretch; border-top: 0; border-left: 1px solid rgba(171,194,234,.13); }
-  .pse-account-metric { padding: .8rem 1.25rem; }
-  .pse-account-metric + .pse-account-metric { border-left: 0; border-top: 1px solid rgba(171,194,234,.12); }
-  .pse-account-metric dt { font-size: .61rem; }
-  .pse-account-metric dd { font-size: 1.05rem; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pse-dash .pse-skeleton { animation: none; }
-  .pse-campaign-fill { transition: none; }
-}
+@media(prefers-reduced-motion:reduce) { .pse-campaign-fill { transition:none; } }

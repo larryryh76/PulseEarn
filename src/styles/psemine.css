@@ -124,54 +124,9 @@
   .pse { --pse-gutter: 40px; }
 }
 
-/*
- * The console, when the application theme is dark. `:not(.pse-plane)` is what
- * keeps the product surface independent of the application's theme — it is the
- * single line that decides which PSEmine surface follows the app.
- *
- * The authenticated console is excluded because it owns one fixed blue-black
- * palette of its own (see psemine-console.css): an account surface must not
- * change its financial figures' contrast with the operator's theme.
- */
-.dark .pse:not(.pse-plane):not(.pse-console-shell) {
-  --pse-canvas: #08090b;
-  --pse-surface: #0f1115;
-  --pse-surface-2: #14171d;
-  --pse-surface-3: #191d24;
-  --pse-band: #0c0e12;
-  --pse-inset: rgba(255, 255, 255, 0.045);
-
-  --pse-ink: #f2f4f8;
-  --pse-ink-2: #a3abba;
-  --pse-ink-3: #838c99;
-
-  --pse-rule: rgba(255, 255, 255, 0.11);
-  --pse-rule-2: rgba(255, 255, 255, 0.06);
-  --pse-rule-strong: rgba(255, 255, 255, 0.2);
-  --pse-hair: rgba(255, 255, 255, 0.08);
-
-  --pse-accent: #8a91ff;
-  --pse-accent-solid: #635bff;
-  --pse-accent-solid-hover: #4b55c4;
-  --pse-accent-quiet: rgba(99, 91, 255, 0.16);
-  --pse-on-accent: #ffffff;
-
-  --pse-cyan: #2fc9e6;
-  --pse-violet: #8b6cff;
-  --pse-good: #2fc9e6;
-  --pse-warn: #f0b24a;
-  --pse-danger: #f87171;
-  --pse-bnb: #f0b90b;
-
-  --pse-brand-blade: #5e6ad2;
-  --pse-brand-top: #eef0f3;
-  --pse-brand-side: rgba(255, 255, 255, 0.34);
-  --pse-brand-cut: #08090b;
-  --pse-brand-crest: #2fc9e6;
-
-  --pse-lift: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
-  --pse-lift-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 32px 64px -24px rgba(0, 0, 0, 0.75);
-}
+/* The authenticated console declares its exact brand tokens in
+   psemine-console.css. No host-theme branch is kept here: PSEmine is dark on
+   every route and every device. */
 
 /*
  * THE PRODUCT SURFACE — landing, authentication, loader. Always dark graphite,

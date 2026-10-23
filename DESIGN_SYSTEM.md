@@ -164,16 +164,16 @@ Both are already loaded by `index.html`; this adds no font request.
 | `--pse-inset` | inner fill | `rgba(255,255,255,.045)` | `rgba(16,19,24,.04)` |
 | `--pse-ink` / `-2` / `-3` | primary, secondary, label | `#f2f4f8` / `#a3abba` / `#838c99` | `#0e1116` / `#545d69` / `#5b6472` |
 | `--pse-rule` / `-2` / `-strong` | structure | `rgba(255,255,255,.11/.06/.2)` | `rgba(16,19,24,.13/.075/.26)` |
-| `--pse-accent` / `-solid` | **interaction and state** | `#6f9bff` / `#2f5cf5` | `#1c47c9` |
+| `--pse-accent` / `-solid` | **interaction and state** | `#8a91ff` / `#635bff` | `#1c47c9` |
 | `--pse-cyan` | referral capacity, the payout row, Elite's crest and rail | `#2fc9e6` | `#0d7c94` |
 | `--pse-violet` | Advanced tier only | `#8b6cff` | `#5b46d9` |
-| `--pse-good` / `-warn` / `-danger` | reported outcomes | `#34d399` / `#f0b24a` / `#f87171` | semantic greens/ambers/reds |
+| `--pse-good` / `-warn` / `-danger` | reported outcomes | `#2fc9e6` / `#f0b24a` / `#f87171` | blue / amber / red semantic states |
 | `--pse-bnb` | **payment context only** | `#f0b90b` | `#8a6a00` |
 
 - **Accent is never decoration.** It marks a section index, a focus ring, a real
   proportion, the primary button, a selected lifecycle phase, a live state, and
   the one hairline at the top of an auth instrument.
-- **Restraint over saturation.** Cyan appears where capacity genuinely comes from
+- **Restraint over saturation.** PulseEarn's blue-violet family (`#5E6AD2`, `#635BFF`) anchors interactions; cyan appears where capacity genuinely comes from
   referrals, on the payout row, and in the Elite instrument's crest and rail;
   violet exists only inside the Advanced instrument; BNB yellow appears only
   where the payment asset is named. No colour is used because a section wanted

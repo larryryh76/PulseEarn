@@ -139,6 +139,7 @@ const OwnedToolRow: React.FC<{
         <div className="pse-owned-tool-facts">
           <span>Cycle <b>{typeof tool.cycleIndex === 'number' ? `#${tool.cycleIndex}` : '—'}</b></span>
           <span>{nextStart ? 'Restart' : 'Cycle'} <b>{countdown || (isContinuous ? 'Campaign-led' : 'Not scheduled')}</b></span>
+          <span>Restart delay <b>{isContinuous ? 'Not required' : typeof tool.restartDelayMinutes === 'number' ? `${tool.restartDelayMinutes} min` : def?.operating.restartDelayMinutes ? `${def.operating.restartDelayMinutes} min default` : '—'}</b></span>
           <span>Next step <b>{maintenanceAvailable ? 'Maintenance' : isContinuous ? 'Automatic' : stateKey === 'restarting' ? 'Wait for restart' : stateKey === 'active' ? 'Operating' : 'Check status'}</b></span>
         </div>
         {maintenanceAvailable && (
@@ -439,7 +440,7 @@ export const PSEMineTools: React.FC = () => {
           </div>
           <div className="pse-marketplace-footnote">
             <strong>Operating rules</strong>
-            <span>Session tools run a 24-hour cycle, then enter the backend-controlled restart / maintenance lifecycle. The configured restart delay is {TOOLS[0].operating.restartDelayMinutes} minutes; the actual next-start time shown on each owned unit comes from the backend.</span>
+            <span>Session tools run a 24-hour cycle, then enter the backend-controlled restart / maintenance lifecycle. Each owned unit shows its backend-reported restart delay and scheduled next-start time; the catalogue default is {TOOLS[0].operating.restartDelayMinutes} minutes.</span>
             <span>Elite tools operate continuously while campaign mining is enabled. Displayed specifications are catalogue definitions; live state and timing are always taken from your account’s backend records.</span>
           </div>
         </section>

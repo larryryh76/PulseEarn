@@ -339,23 +339,6 @@ export const PSEMineWallet: React.FC = () => {
         )}
       </div>
 
-      {!connectedWallet && (
-        <PseNotice>
-          No wallet is connected in this browser. A connected wallet is only needed to sign a tool
-          purchase — your balances, payout wallet and history below do not depend on it.
-        </PseNotice>
-      )}
-
-      {connectedWallet && chainKnown && !chainIsRequired && (
-        <PseNotice tone="attention" title="Wallet network">
-          This wallet is on chain {walletChainId}, and PSEmine payments are made on BNB Smart Chain
-          (chain {REQUIRED_CHAIN_ID}). Balances and payouts are unaffected; switch the wallet before a
-          purchase.
-        </PseNotice>
-      )}
-
-      {/* THE PAYOUT REQUEST sits immediately under the balance and its actions:
-          it is the one thing a settled balance is for. */}
       <nav className="pse-wallet-tabs" aria-label="Wallet sections">
         <button type="button" className={walletTab === 'overview' ? 'is-active' : ''} aria-current={walletTab === 'overview' ? 'page' : undefined} onClick={() => setWalletTab('overview')}>Overview</button>
         <button type="button" className={walletTab === 'activity' ? 'is-active' : ''} aria-current={walletTab === 'activity' ? 'page' : undefined} onClick={() => setWalletTab('activity')}>Activity <span>{withdrawals.length}</span></button>

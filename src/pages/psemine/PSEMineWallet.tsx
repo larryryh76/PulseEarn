@@ -293,7 +293,12 @@ export const PSEMineWallet: React.FC = () => {
 
       {/* THE ACTIONS — each one performs the operation it names. */}
       <div className="pse-w-actions" aria-label="Wallet actions">
-        <button type="button" className="pse-w-action pse-w-action--primary" onClick={() => setWalletTab('overview')}>
+        <button type="button" className="pse-w-action pse-w-action--primary" onClick={() => {
+            setWalletTab('overview');
+            window.setTimeout(() => {
+              document.getElementById('pse-payout-request')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+          }}>
           <span className="pse-w-action-glyph" aria-hidden="true"><PayoutGlyph /></span>
           <span className="pse-w-action-label">Payout</span>
         </button>

@@ -445,24 +445,24 @@
 .pse-console-main .pse-skel-row { grid-template-columns:minmax(0,1fr) minmax(48px,auto); }
 
 /* Dashboard: campaign state and actual capacity are the visual anchor. */
-.pse-route-dashboard .pse-page-head {
+.pse-dash .pse-page-head {
   border-bottom:0;
   padding-bottom:0;
 }
-.pse-route-dashboard .pse-page-title { font-size:clamp(31px,4.6vw,48px); }
-.pse-route-dashboard > .pse-statbar {
+.pse-dash .pse-page-title { font-size:clamp(31px,4.6vw,48px); }
+.pse-dash > .pse-statbar {
   border-color:rgba(119,117,255,.22);
   background:linear-gradient(105deg,rgba(99,91,255,.12),rgba(47,201,230,.025) 60%),#0d121d;
 }
-.pse-route-dashboard > .pse-split-console {
+.pse-dash > .pse-split-console {
   grid-template-columns:minmax(0,1.6fr) minmax(250px,.8fr);
 }
-.pse-route-dashboard .pse-block + .pse-block { margin-top:2px; }
+.pse-dash .pse-block + .pse-block { margin-top:2px; }
 
 /* Marketplace: a catalogue should read as products, not as a dashboard. */
-.pse-route-tools .pse-page-head { border-bottom:1px solid var(--pse-rule); }
-.pse-route-tools .pse-block-title { font-size:15px; }
-.pse-route-tools .pse-product-list { border-top:1px solid var(--pse-rule); }
+.pse-route-mining-tools .pse-page-head { border-bottom:1px solid var(--pse-rule); }
+.pse-route-mining-tools .pse-block-title { font-size:15px; }
+.pse-route-mining-tools .pse-product-list { border-top:1px solid var(--pse-rule); }
 
 /* Wallet: financial summaries get a quiet blue-violet register and clear rows. */
 .pse-route-wallet > .pse-statbar {
@@ -515,7 +515,7 @@
 
 @media(max-width:900px) {
   .pse-console-main .pse-split-console,
-  .pse-route-dashboard > .pse-split-console { grid-template-columns:minmax(0,1fr); }
+  .pse-dash > .pse-split-console { grid-template-columns:minmax(0,1fr); }
   .pse-console-main .pse-page-head { align-items:flex-start; }
   .pse-console-main .pse-page-actions { width:auto; }
 }
@@ -537,4 +537,46 @@
   .pse-route-activity .pse-toolbar { grid-template-columns:minmax(0,1fr); }
   .pse-route-activity .pse-toolbar .pse-field { width:100%; }
   .pse-route-account .pse-security-form { max-width:none; }
+}
+
+
+/* The dashboard and wallet are intentionally bespoke compositions rather than
+   generic PsePage forms; their own roots receive the same repaired contracts. */
+.pse-dash {
+  display:grid;
+  align-content:start;
+  gap:clamp(22px,2.8vw,34px);
+  min-width:0;
+}
+.pse-dash .pse-block { display:grid; align-content:start; gap:0; min-width:0; }
+.pse-dash .pse-block-head {
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:12px; margin:0 0 12px; min-width:0;
+}
+.pse-dash .pse-block-title { margin:0; font-size:14px; line-height:1.35; font-weight:620; }
+.pse-dash .pse-block-meta { color:var(--pse-ink-3); font-size:10px; }
+.pse-dash .pse-statbar { border-color:rgba(119,117,255,.22); }
+.pse-dash .pse-stat-key { font-size:9px; letter-spacing:.075em; }
+.pse-dash .pse-stat-val { font-size:clamp(17px,2vw,24px); font-weight:560; }
+.pse-dash .pse-dash-grid { align-items:start; }
+.pse-dash .pse-dash-col { display:grid; align-content:start; gap:26px; min-width:0; }
+.pse-dash .pse-account-band {
+  border:1px solid rgba(119,117,255,.28);
+  background:radial-gradient(ellipse at 8% 0%,rgba(98,92,245,.17),transparent 58%),linear-gradient(115deg,#101726,#0c111b 72%);
+}
+.pse-dash .pse-account-figure { font-variant-numeric:tabular-nums; letter-spacing:-.065em; }
+.pse-dash .pse-campaign-track { overflow:hidden; border-radius:999px; }
+.pse-dash .pse-campaign-fill { background:linear-gradient(90deg,#625cf5,#7775ff 72%,#2fc9e6); }
+.pse-dash .pse-phase-seg[data-state=complete] { background:#625cf5; }
+.pse-dash .pse-settle-row { border-bottom:1px solid var(--pse-rule); }
+.pse-dash .pse-settle-val { font-variant-numeric:tabular-nums; }
+.pse-dash .pse-log-row { grid-template-columns:76px minmax(0,1fr) auto; }
+.pse-dash .pse-log-amount { align-self:start; }
+@media(max-width:760px) {
+  .pse-dash { gap:22px; }
+  .pse-dash .pse-dash-grid { grid-template-columns:minmax(0,1fr); }
+  .pse-dash .pse-dash-col { gap:22px; }
+  .pse-dash .pse-account-band { padding:20px 16px; }
+  .pse-dash .pse-log-row { grid-template-columns:58px minmax(0,1fr); }
+  .pse-dash .pse-log-amount { grid-column:2; text-align:left; }
 }

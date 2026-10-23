@@ -135,9 +135,9 @@
 }
 .pse-account-actions .pse-btn:not(.pse-btn--secondary) {
   color: #fff;
-  border-color: #3b6df6;
-  background: linear-gradient(135deg, #3974ff, #2854d9);
-  box-shadow: 0 5px 16px -10px rgba(68,119,255,.9);
+  border-color: #635bff;
+  background: linear-gradient(135deg, #635bff, #4b55c4);
+  box-shadow: 0 5px 16px -10px rgba(99,91,255,.85);
 }
 .pse-account-actions .pse-btn--secondary {
   color: #d8e4fa;

@@ -221,109 +221,117 @@ export const PSEMineTools: React.FC = () => {
         </PseNotice>
       )}
 
-      <PseSection
-        title="Your equipment"
-        meta={ownedTools.length === 0 ? 'No ownership records' : `${ownedTools.length} unit${ownedTools.length === 1 ? '' : 's'} owned`}
-      >
-        {ownedTools.length === 0 ? (
-          <PseEmptyNote title="Nothing owned yet">
-            Equipment appears here after payment is verified and activation completes.
-          </PseEmptyNote>
-        ) : (
-          <ul className="pse-rowlist">
-            {ownedTools.map(t => (
-              <PseOwnedUnit
-                key={t.id}
-                tool={t}
-                action={<Link to="/mine/dashboard" className="pse-textlink">Manage</Link>}
-              />
-            ))}
-          </ul>
-        )}
-        <p className="pse-prose--sm">
-          Live cycles and restarts: <Link to="/mine/dashboard" className="pse-link">Dashboard</Link>.
-        </p>
-      </PseSection>
+      <div className="pse-marketplace-layout">
+        <section className="pse-marketplace-catalogue" id="pse-catalogue" aria-labelledby="pse-catalogue-title">
+          <div className="pse-marketplace-heading">
+            <div>
+              <p className="pse-marketplace-kicker">Equipment exchange</p>
+              <h2 id="pse-catalogue-title">Choose your capacity</h2>
+              <p>Fixed campaign pricing. Every purchase is verified on BNB Smart Chain before activation.</p>
+            </div>
+            <span className="pse-marketplace-count">{TOOLS.length} tool types</span>
+          </div>
 
-      <section className="pse-block" id="pse-catalogue" aria-labelledby="pse-catalogue-title">
-        <div className="pse-block-head">
-          <h2 className="pse-block-title" id="pse-catalogue-title">Available tools</h2>
-          <span className="pse-block-meta">
-            Fixed GBP price · paid in BNB on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-          </span>
-        </div>
+          <div className="pse-marketplace-products">
+            {TOOLS.map((tool, index) => {
+              const owned = ownedByTool(tool.id);
+              const atLimit = owned >= tool.maxPerUser;
+              const remaining = Math.max(0, tool.maxPerUser - owned);
+              const continuous = dutyOf(tool) === 'continuous';
+              return (
+                <article className="pse-product" key={tool.id} data-product-index={index + 1}>
+                  <div className="pse-product-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+                  <div className="pse-product-id">
+                    <h3 className="pse-product-name">
+                      {tool.name}
+                      <span className="pse-rowitem-meta">
+                        {continuous ? 'Continuous operation' : 'Session-based · restart required'}
+                      </span>
+                    </h3>
+                    <p className="pse-product-desc">{tool.tagline}</p>
+                  </div>
 
-        {TOOLS.map(tool => {
-          const owned = ownedByTool(tool.id);
-          const atLimit = owned >= tool.maxPerUser;
-          const remaining = Math.max(0, tool.maxPerUser - owned);
-          const continuous = dutyOf(tool) === 'continuous';
-          return (
-            <article className="pse-product" key={tool.id}>
-              <div className="pse-product-id">
-                <h3 className="pse-product-name">
-                  {tool.name}
-                  <span className="pse-rowitem-meta">
-                    {continuous ? 'Continuous duty' : 'Session duty · manual restart'}
-                  </span>
-                </h3>
-                <p className="pse-product-desc">{tool.tagline}</p>
+                  <dl className="pse-product-specs">
+                    <div className="pse-product-spec">
+                      <dt>Purchase price</dt>
+                      <dd>{gbp(tool.purchasePriceGBP)}</dd>
+                    </div>
+                    <div className="pse-product-spec">
+                      <dt>Hourly capacity</dt>
+                      <dd>{gbpHour(tool.hourlyRateGBP)}</dd>
+                    </div>
+                    <div className="pse-product-spec">
+                      <dt>Owned</dt>
+                      <dd>{owned} <span>/ {tool.maxPerUser}</span></dd>
+                    </div>
+                  </dl>
+
+                  <div className="pse-product-actions">
+                    <span className="pse-product-avail">
+                      {atLimit
+                        ? 'Limit reached'
+                        : purchaseOpen
+                          ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
+                          : 'Campaign purchases closed'}
+                    </span>
+                    {atLimit ? (
+                      <span className="pse-rowitem-meta">At account limit</span>
+                    ) : (
+                      <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
+                        {purchaseOpen ? 'Select tool' : 'Unavailable'}
+                      </PseButton>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <p className="pse-marketplace-footnote">
+            Session tools need a restart after each cycle. Continuous tools run during an active campaign.
+            Rates remain fixed for the campaign.
+          </p>
+        </section>
+
+        <aside className="pse-marketplace-rail">
+          <section className="pse-marketplace-owned" aria-labelledby="pse-owned-title">
+            <div className="pse-marketplace-rail-head">
+              <div>
+                <p className="pse-marketplace-kicker">Your account</p>
+                <h2 id="pse-owned-title">Owned equipment</h2>
               </div>
-
-              <dl className="pse-product-specs">
-                <div className="pse-product-spec">
-                  <dt>Price</dt>
-                  <dd>{gbp(tool.purchasePriceGBP)}</dd>
-                </div>
-                <div className="pse-product-spec">
-                  <dt>Capacity</dt>
-                  <dd>{gbpHour(tool.hourlyRateGBP)}</dd>
-                </div>
-                <div className="pse-product-spec">
-                  <dt>Owned</dt>
-                  <dd>{owned} / {tool.maxPerUser}</dd>
-                </div>
-              </dl>
-
-              <div className="pse-product-actions">
-                <span className="pse-product-avail">
-                  {atLimit
-                    ? 'Ownership limit reached'
-                    : purchaseOpen
-                      ? `${remaining} available`
-                      : 'Purchases closed'}
-                </span>
-                {atLimit ? (
-                  <span className="pse-rowitem-meta">Owned</span>
-                ) : (
-                  <PseButton
-                    size="sm"
-                    onClick={() => setPurchasing(tool)}
-                    disabled={!purchaseOpen}
-                  >
-                    Buy
-                  </PseButton>
-                )}
+              <span className="pse-marketplace-owned-count">{ownedTools.length}</span>
+            </div>
+            {ownedTools.length === 0 ? (
+              <div className="pse-marketplace-empty">
+                <span className="pse-marketplace-empty-mark" aria-hidden="true">—</span>
+                <strong>No equipment yet</strong>
+                <p>After payment verification, activated tools will appear here with their live cycle status.</p>
               </div>
-            </article>
-          );
-        })}
+            ) : (
+              <ul className="pse-rowlist">
+                {ownedTools.map(t => (
+                  <PseOwnedUnit
+                    key={t.id}
+                    tool={t}
+                    action={<Link to="/mine/dashboard" className="pse-textlink">Manage</Link>}
+                  />
+                ))}
+              </ul>
+            )}
+            <Link to="/mine/dashboard" className="pse-marketplace-inline-link">View mining dashboard <span aria-hidden="true">↗</span></Link>
+          </section>
 
-        <p className="pse-prose--sm">
-          Session tools need a restart after each cycle. Elite runs continuously during an active campaign.
-          Prices and hourly rates stay fixed for the campaign.
-        </p>
-      </section>
-
-      <PseSection title="How a purchase works">
-        <ul className="pse-notes">
-          <li>The GBP price is fixed; you pay it in BNB at the rate quoted when you request the purchase.</li>
-          <li>The quote fixes the exact BNB amount for its window — underpayments are detected and activate nothing.</li>
-          <li>Nothing is signed until you approve it in your own wallet; PSEmine never sends automatically.</li>
-          <li>The purchase becomes bound to the paying wallet before any signature exists, and only that wallet can complete it.</li>
-          <li>The backend verifies sender, recipient, exact amount and confirmation depth on-chain before activation.</li>
-        </ul>
-      </PseSection>
+          <section className="pse-marketplace-how" aria-labelledby="pse-how-title">
+            <p className="pse-marketplace-kicker">Purchase protocol</p>
+            <h2 id="pse-how-title">From quote to activation</h2>
+            <ol className="pse-marketplace-steps">
+              <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
+              <li><span>02</span><div><strong>Approve in your wallet</strong><p>You review and sign the payment yourself. PSEmine never sends funds automatically.</p></div></li>
+              <li><span>03</span><div><strong>Wait for verification</strong><p>The backend checks payer, recipient, amount and chain confirmations before activation.</p></div></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
     </PsePage>
   );
 };

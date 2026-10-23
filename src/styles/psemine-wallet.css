@@ -74,3 +74,91 @@
  .pse-w-txdetail { padding-left:0; }
  .pse-w-hero-figure { font-size:38px; }
 }
+
+
+/* Compact wallet app composition: overview first, secondary tools behind tabs. */
+.pse-wallet { gap:16px; max-width:1160px; }
+.pse-wallet .pse-w-head { align-items:center; gap:16px; padding-bottom:12px; border-bottom:0; }
+.pse-wallet .pse-w-head-id { gap:4px; }
+.pse-wallet .pse-eyebrow { font-size:9px; letter-spacing:.09em; }
+.pse-wallet .pse-w-title { font-size:clamp(23px,3vw,29px); letter-spacing:-.045em; }
+.pse-wallet .pse-w-head-note { max-width:44ch; margin:0; font-size:10px; line-height:1.45; }
+.pse-wallet .pse-w-head-side { display:flex; align-items:center; justify-items:initial; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.pse-wallet .pse-w-chip { display:flex; align-items:center; justify-items:initial; padding:6px 8px; border:1px solid var(--pse-rule); border-radius:7px; font-size:9px; }
+.pse-wallet .pse-w-chip-value { font-size:9px; }
+.pse-wallet .pse-w-balance { gap:0; border:1px solid rgba(190,205,235,.14); border-radius:15px; overflow:hidden; background:#0d131e; }
+.pse-wallet .pse-w-hero { padding:23px 24px 19px; gap:8px; background:linear-gradient(120deg,#121c2b,#0d131e 65%); }
+.pse-wallet .pse-w-hero-label { margin:0; font-size:9px; letter-spacing:.09em; }
+.pse-wallet .pse-w-hero-figure { margin:0; font-size:clamp(35px,5vw,46px); letter-spacing:-.055em; }
+.pse-wallet .pse-w-hero-note { max-width:54ch; margin:0; font-size:10px; }
+.pse-wallet .pse-w-figures { grid-template-columns:repeat(3,minmax(0,1fr)); border:0; border-top:1px solid var(--pse-rule); border-radius:0; background:transparent; }
+.pse-wallet .pse-w-figure { padding:13px 17px; }
+.pse-wallet .pse-w-figure + .pse-w-figure { border-left:1px solid var(--pse-rule); border-top:0; background:transparent; }
+.pse-wallet .pse-w-figure dt { color:var(--pse-ink-3); font-size:9px; }
+.pse-wallet .pse-w-figure dd { margin-top:4px; font-size:14px; font-variant-numeric:tabular-nums; }
+.pse-wallet .pse-w-figure-note { margin-top:3px; font-size:9px; line-height:1.4; }
+.pse-wallet .pse-w-actions { display:flex; gap:10px; margin:0; padding:0 2px; }
+.pse-wallet .pse-w-action { flex:1 1 0; min-height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; border:0; border-radius:9px; background:transparent; font-size:9px; cursor:pointer; }
+.pse-wallet .pse-w-action:hover { background:rgba(255,255,255,.045); }
+.pse-wallet .pse-w-action--primary { background:#293b59; color:#e7efff; }
+.pse-wallet .pse-w-action--primary:hover { background:#324968; }
+.pse-wallet .pse-w-action-glyph { display:flex; align-items:center; justify-content:center; }
+.pse-wallet .pse-w-action-glyph svg { width:19px; height:19px; }
+.pse-wallet-tabs { display:flex; gap:4px; padding:4px; border:1px solid var(--pse-rule); border-radius:10px; background:#0a0f17; }
+.pse-wallet-tabs button { flex:1; display:flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:8px 10px; border:0; border-radius:7px; color:var(--pse-ink-3); background:transparent; font-size:10px; font-weight:600; cursor:pointer; }
+.pse-wallet-tabs button.is-active { color:var(--pse-ink); background:#202c3f; box-shadow:inset 0 0 0 1px rgba(190,205,235,.1); }
+.pse-wallet-tabs button span { min-width:17px; padding:2px 5px; border-radius:5px; background:rgba(190,205,235,.08); font-size:9px; font-variant-numeric:tabular-nums; }
+.pse-wallet-view { min-width:0; animation:pse-wallet-in .16s ease-out; }
+.pse-wallet .pse-w-request { padding:15px 16px; border:1px solid var(--pse-rule); border-radius:12px; background:#0d131e; gap:12px; }
+.pse-wallet .pse-w-request-head { align-items:center; }
+.pse-wallet .pse-w-request-head .pse-prose { max-width:52ch; font-size:10px; line-height:1.5; }
+.pse-wallet .pse-w-request-figure { white-space:nowrap; font-size:18px; }
+.pse-wallet .pse-w-request-form { grid-template-columns:minmax(0,1fr) auto auto; align-items:end; gap:8px; }
+.pse-wallet .pse-w-request-form .pse-field { margin:0; }
+.pse-wallet-settlement-note { display:flex; align-items:center; gap:11px; padding:13px 2px 0; }
+.pse-wallet-note-mark { flex:none; display:grid; place-items:center; width:22px; height:22px; border:1px solid var(--pse-rule); border-radius:50%; color:var(--pse-ink-3); font-size:10px; }
+.pse-wallet-settlement-note p { display:grid; gap:3px; flex:1; margin:0; }
+.pse-wallet-settlement-note strong { color:var(--pse-ink-2); font-size:10px; font-weight:650; }
+.pse-wallet-settlement-note p span { color:var(--pse-ink-3); font-size:9px; line-height:1.5; }
+.pse-wallet-settlement-note > a { flex:none; font-size:9px; white-space:nowrap; }
+.pse-wallet .pse-block-head { align-items:center; padding-bottom:10px; margin-bottom:0; }
+.pse-wallet .pse-block-title { font-size:13px; }
+.pse-wallet .pse-w-txrow { padding:12px 5px; }
+.pse-wallet .pse-w-txmark { border:0; background:#1b293a; color:#b6c6de; }
+.pse-wallet .pse-w-txtitle { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+.pse-wallet .pse-w-txmeta { font-size:9px; }
+.pse-wallet .pse-w-txamount { font-size:11px; }
+.pse-wallet-manage-grid { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); gap:18px; align-items:start; }
+.pse-wallet-manage-primary,.pse-wallet-manage-secondary { min-width:0; display:grid; align-content:start; gap:18px; }
+.pse-wallet-manage .pse-block { padding:15px; border:1px solid var(--pse-rule); border-radius:11px; background:#0d131e; }
+.pse-wallet-manage .pse-block-head { padding-bottom:10px; }
+.pse-wallet-manage .pse-prose--sm { font-size:9px; line-height:1.5; }
+.pse-wallet-manage .pse-w-net-row { padding:9px 0; }
+.pse-wallet-manage .pse-w-net-key { font-size:9px; }
+.pse-wallet-manage .pse-w-net-val { font-size:10px; }
+.pse-wallet-manage .pse-notice { font-size:10px; line-height:1.5; }
+.pse-wallet-manage .pse-stack-form { gap:10px; }
+@keyframes pse-wallet-in { from { opacity:.7; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
+@media(max-width:760px) {
+  .pse-wallet { gap:12px; }
+  .pse-wallet .pse-w-head { align-items:flex-start; flex-direction:row; gap:8px; }
+  .pse-wallet .pse-w-head-side { max-width:45%; }
+  .pse-wallet .pse-w-chip { max-width:100%; }
+  .pse-wallet .pse-w-chip-value { max-width:150px; overflow-wrap:anywhere; }
+  .pse-wallet .pse-w-hero { padding:19px 17px 15px; }
+  .pse-wallet .pse-w-figures { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .pse-wallet .pse-w-figure { padding:11px 9px; }
+  .pse-wallet .pse-w-figure dd { font-size:12px; }
+  .pse-wallet .pse-w-figure-note { font-size:8px; }
+  .pse-wallet .pse-w-actions { gap:2px; }
+  .pse-wallet .pse-w-action { min-width:0; padding:8px 2px; }
+  .pse-wallet .pse-w-action-label { font-size:8px; }
+  .pse-wallet-tabs button { min-height:36px; padding:7px 4px; font-size:9px; }
+  .pse-wallet .pse-w-request-form { grid-template-columns:minmax(0,1fr) auto; }
+  .pse-wallet .pse-w-request-form .pse-field { grid-column:1 / -1; }
+  .pse-wallet-manage-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .pse-wallet-settlement-note { align-items:flex-start; flex-wrap:wrap; }
+  .pse-wallet-settlement-note p { min-width:0; }
+  .pse-wallet-settlement-note > a { margin-left:33px; }
+}
+@media(prefers-reduced-motion:reduce) { .pse-wallet-view { animation:none; } }

@@ -11,7 +11,6 @@ import {
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 import { mapAuthError } from '../../utils/errors';
-import '../../styles/psemine-rebuild.css';
 
 /**
  * Account — the console's settings surface.

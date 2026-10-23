@@ -29,7 +29,6 @@ import './styles/psemine-docs.css'
 import './styles/psemine-console.css'
 import App from './App.tsx'
 // Load after the page modules' legacy styles so the new console design owns the cascade.
-import './styles/psemine-rebuild.css'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'

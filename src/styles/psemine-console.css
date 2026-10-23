@@ -45,7 +45,7 @@
  *
  * WHERE THESE VALUES COME FROM. They are the PulseEarn/PSEmine brand's own blue,
  * taken from the product plane in psemine.css (`--pse-plane`: accent #6f9bff,
- * solid #2f5cf5, good #34d399, warn #f0b24a, danger #f87171, BNB #f0b90b) and
+ * solid #2f5cf5, good #2fc9e6, warn #f0b24a, danger #f87171, BNB #f0b90b) and
  * stepped onto blue-black surfaces rather than grey graphite. The blue is the
  * ACCENT, not an atmosphere: it is spent on meaningful actions, the current
  * section and positive operational state, never as a gradient wash behind
@@ -78,7 +78,7 @@
   --pse-accent-quiet: rgba(111, 155, 255, 0.14);
   --pse-on-accent: #ffffff;
 
-  --pse-good: #34d399;
+  --pse-good: #2fc9e6;
   --pse-warn: #f0b24a;
   --pse-danger: #f87171;
   --pse-bnb: #f0b90b;

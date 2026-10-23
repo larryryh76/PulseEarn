@@ -99,18 +99,9 @@ export const PSEMineReferrals: React.FC = () => {
             <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
           ))}
         </PseStatBar>
-        <PseSplit>
-          <PseStack>
-            <PseSection title="Recorded invites" meta="Reading the ledger">
-              <PseSkeletonRows rows={4} label="Loading recorded invites" />
-            </PseSection>
-          </PseStack>
-          <PseStack>
-            <PseSection title="Qualification stages" meta="Reading stages">
-              <PseSkeletonRows rows={4} label="Loading qualification stages" />
-            </PseSection>
-          </PseStack>
-        </PseSplit>
+        <PseSection title="Invite ledger" meta="Loading">
+          <PseSkeletonRows rows={4} label="Loading recorded invites" />
+        </PseSection>
       </PsePage>
     );
   }

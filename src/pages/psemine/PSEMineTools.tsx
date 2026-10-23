@@ -168,7 +168,7 @@ export const PSEMineTools: React.FC = () => {
   return (
     <PsePage
       title="Mining tools"
-      objective="The catalogue of mining equipment. Each tool has a fixed GBP price and a fixed hourly capacity; purchases are quoted and paid in BNB from your own wallet."
+      objective="Fixed-price equipment. Pay in BNB; capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
       <PseStatBar cols={4}>
@@ -226,10 +226,8 @@ export const PSEMineTools: React.FC = () => {
         meta={ownedTools.length === 0 ? 'No ownership records' : `${ownedTools.length} unit${ownedTools.length === 1 ? '' : 's'} owned`}
       >
         {ownedTools.length === 0 ? (
-          <PseEmptyNote title="No equipment owned on this account">
-            A tool becomes yours only after the backend verifies the payment on-chain and activates it.
-            Until then it is not drawn here, and no catalogue product is presented as owned. Available
-            equipment and its fixed prices are below.
+          <PseEmptyNote title="Nothing owned yet">
+            Equipment appears here after payment is verified and activation completes.
           </PseEmptyNote>
         ) : (
           <ul className="pse-rowlist">
@@ -243,8 +241,7 @@ export const PSEMineTools: React.FC = () => {
           </ul>
         )}
         <p className="pse-prose--sm">
-          Restarts and live operating cycles are on the dashboard.{' '}
-          <Link to="/mine/dashboard" className="pse-link">Open the mining console</Link>.
+          Live cycles and restarts: <Link to="/mine/dashboard" className="pse-link">Dashboard</Link>.
         </p>
       </PseSection>
 
@@ -313,9 +310,8 @@ export const PSEMineTools: React.FC = () => {
         })}
 
         <p className="pse-prose--sm">
-          Session tools stop when their session ends until restarted; restart timing is derived by the
-          backend. Elite runs continuously while the campaign is active. Prices and hourly rates are
-          fixed by the campaign and never change at the point of purchase.
+          Session tools need a restart after each cycle. Elite runs continuously during an active campaign.
+          Prices and hourly rates stay fixed for the campaign.
         </p>
       </section>
 

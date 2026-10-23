@@ -233,8 +233,7 @@ export const PSEMineDashboard: React.FC = () => {
           <p className="pse-account-label" id="pse-balance-label">Accrued balance</p>
           <p className="pse-account-figure">{accruedLabel}</p>
           <p className="pse-account-note">
-            Campaign earnings accrued by your equipment. Accrued funds are not settled and cannot be
-            withdrawn until the backend finalises the campaign settlement.
+            Accrued funds become withdrawable after campaign settlement.
           </p>
 
           <div className="pse-account-sub">
@@ -313,9 +312,7 @@ export const PSEMineDashboard: React.FC = () => {
               <div className="pse-eq-empty">
                 <p className="pse-eq-empty-title">No mining equipment on this account</p>
                 <p className="pse-eq-empty-note">
-                  Capacity comes from equipment you own. The catalogue — its prices, hourly rates and
-                  ownership limits — lives on the Tools page, where a purchase is quoted and verified
-                  on-chain before the tool activates.
+                  Your owned equipment and live capacity will appear here.
                 </p>
                 <div className="pse-eq-empty-actions">
                   <Link to="/mine/tools" className="pse-btn pse-btn--sm">Browse mining tools</Link>
@@ -372,9 +369,8 @@ export const PSEMineDashboard: React.FC = () => {
             )}
 
             {recentActivity.length === 0 ? (
-              <PseEmptyNote title="No account events recorded">
-                Purchases, referrals, restarts and payouts appear here when the backend records them.
-                An empty register is a statement about this account, not a loading state.
+              <PseEmptyNote title="No activity yet">
+                Purchases, referrals and payouts appear here.
               </PseEmptyNote>
             ) : (
               <ul className="pse-log pse-dash-activity">
@@ -457,13 +453,12 @@ export const PSEMineDashboard: React.FC = () => {
               </div>
             ) : (
               <p className="pse-campaign-unavailable">
-                The backend has not reported the campaign window. The campaign’s status is shown
-                above; dates and position will appear when they are available.
+                Campaign dates will appear when available.
               </p>
             )}
 
             <p className="pse-prose--sm">
-              {knownStatus ? campaignView.detail : 'Waiting for the campaign’s own status.'}
+              {knownStatus ? campaignView.detail : 'Campaign status pending.'}
             </p>
           </section>
 

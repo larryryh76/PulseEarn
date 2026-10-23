@@ -91,6 +91,18 @@ export const PSEMineDashboard: React.FC = () => {
   const postMining = campaignStatus === 'ended' || campaignStatus === 'settling'
     || campaignStatus === 'payout' || campaignStatus === 'closed' || campaignStatus === 'archived';
 
+  // One actionable next step makes this an operations dashboard rather than a
+  // page of repeated campaign facts. Priority is based on real account state.
+  const nextAction = pendingPurchases.length > 0
+    ? { title: 'Resume purchase', detail: 'A tool purchase is awaiting completion.', to: '/mine/tools', label: 'Open tools' }
+    : !payoutWallet
+      ? { title: 'Set payout destination', detail: 'Add the wallet that should receive eligible settlements.', to: '/mine/wallet', label: 'Set up wallet' }
+      : ownedCount === 0
+        ? { title: 'Add your first tool', detail: 'Your equipment register is empty.', to: '/mine/tools', label: 'Browse tools' }
+        : postMining
+          ? { title: 'Review settlement', detail: 'The campaign is in its settlement or closed phase.', to: '/mine/wallet', label: 'View wallet' }
+          : { title: 'Monitor equipment', detail: ownedCount ? (activeCount + ' of ' + ownedCount + ' owned units currently operating.') : 'No equipment owned.', to: '/mine/tools', label: 'Manage tools' };
+
   const campaignPosition = campaignDatesKnown
     ? clock.dayNumber !== null
       ? `Day ${clock.dayNumber} of ${clock.totalDays}${clock.daysLeft !== null ? ` · ${clock.daysLeft} day${clock.daysLeft === 1 ? '' : 's'} left` : ''}`
@@ -250,9 +262,6 @@ export const PSEMineDashboard: React.FC = () => {
             <span className="pse-account-live"><span aria-hidden="true" />Live account</span>
           </div>
           <p className="pse-account-figure">{accruedLabel}</p>
-          <p className="pse-account-note">
-            Earnings are recorded during the campaign and released after settlement.
-          </p>
           <div className="pse-account-bottom">
             <div className="pse-account-available">
               <span>Available to withdraw</span>
@@ -268,25 +277,19 @@ export const PSEMineDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        <aside className="pse-account-aside" aria-label="Campaign account status">
+        <aside className="pse-account-aside" aria-label="Recommended next action">
           <div className="pse-account-status">
-            <span className="pse-account-aside-label">Campaign status</span>
-            <PseStatus tone={knownStatus ? campaignTone(campaignStatus) : 'idle'}>
-              {knownStatus ? campaignView.label : 'Status pending'}
-            </PseStatus>
+            <span className="pse-account-aside-label">Next action</span>
+            <span className="pse-account-action-mark" aria-hidden="true">↗</span>
           </div>
-          <div className="pse-account-aside-row">
-            <span>Campaign window</span>
-            <strong>{campaignPosition ?? 'Not reported'}</strong>
-          </div>
-          <div className="pse-account-aside-row">
-            <span>Payout destination</span>
-            <strong>{payoutWallet ? shortAddr(payoutWallet) : 'Not configured'}</strong>
-          </div>
+          <h2 className="pse-account-next-title">{nextAction.title}</h2>
+          <p className="pse-account-next-detail">{nextAction.detail}</p>
+          <Link to={nextAction.to} className="pse-account-next-link">
+            {nextAction.label}<span aria-hidden="true"> →</span>
+          </Link>
           <div className="pse-account-aside-foot">
-            {payoutWallet
-              ? 'Your payout destination is configured.'
-              : 'Add a payout wallet before requesting settlement.'}
+            Campaign <strong>{knownStatus ? campaignView.label : 'status pending'}</strong>
+            {campaignPosition ? <span> · {campaignPosition}</span> : null}
           </div>
         </aside>
       </section>
@@ -493,9 +496,6 @@ export const PSEMineDashboard: React.FC = () => {
               </p>
             )}
 
-            <p className="pse-prose--sm">
-              {knownStatus ? campaignView.detail : 'Campaign status pending.'}
-            </p>
           </section>
 
           {/* SETTLEMENT — the payout wallet, and what settlement has released. */}

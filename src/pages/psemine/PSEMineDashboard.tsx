@@ -141,25 +141,40 @@ export const PSEMineDashboard: React.FC = () => {
             <section className="pse-account-band" aria-busy="true" aria-live="polite" role="status">
               <span className="sr-only">Loading your accrued balance and account figures</span>
               <div className="pse-account-main">
-                <PseSkeleton width="9ch" height="0.625rem" />
-                <PseSkeleton width="13ch" height="2.75rem" />
-                <PseSkeleton width="38ch" height="0.75rem" />
-                <PseSkeleton width="24ch" height="0.6875rem" />
-                <div className="pse-account-actions">
-                  <PseSkeleton width="10rem" height="2.75rem" />
-                  <PseSkeleton width="8rem" height="2.75rem" />
+                <div className="pse-account-topline">
+                  <PseSkeleton width="11rem" height="0.625rem" />
+                  <PseSkeleton width="5rem" height="0.625rem" />
+                </div>
+                <PseSkeleton width="13rem" height="3.5rem" />
+                <PseSkeleton width="20rem" height="0.75rem" />
+                <div className="pse-account-bottom">
+                  <div className="pse-account-available">
+                    <PseSkeleton width="8rem" height="0.625rem" />
+                    <PseSkeleton width="6rem" height="1.25rem" />
+                  </div>
+                  <div className="pse-account-actions">
+                    <PseSkeleton width="8rem" height="2.5rem" />
+                    <PseSkeleton width="7rem" height="2.5rem" />
+                  </div>
                 </div>
               </div>
-              <div className="pse-account-metrics">
-                {[0, 1, 2].map(i => (
-                  <div className="pse-account-metric" key={i}>
-                    <PseSkeleton width="8ch" height="0.5rem" />
-                    <PseSkeleton width="7ch" height="1rem" />
-                    <PseSkeleton width="12ch" height="0.625rem" />
-                  </div>
-                ))}
-              </div>
+              <aside className="pse-account-aside">
+                <PseSkeleton width="6rem" height="0.625rem" />
+                <PseSkeleton width="7rem" height="1.5rem" />
+                <PseSkeleton width="9rem" height="1rem" />
+                <PseSkeleton width="9rem" height="1rem" />
+              </aside>
             </section>
+
+            <dl className="pse-account-metrics" aria-label="Loading mining account metrics" aria-busy="true">
+              {[0, 1, 2].map(i => (
+                <div className="pse-account-metric" key={i}>
+                  <PseSkeleton width="8ch" height="0.5rem" />
+                  <PseSkeleton width="7ch" height="1.25rem" />
+                  <PseSkeleton width="12ch" height="0.625rem" />
+                </div>
+              ))}
+            </dl>
 
             <div className="pse-dash-grid">
               <div className="pse-dash-col">

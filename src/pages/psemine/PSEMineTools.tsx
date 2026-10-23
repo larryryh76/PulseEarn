@@ -8,14 +8,16 @@ import {
   isSubmissionUncertain,
   resolvePaymentPayer,
 } from '../../engines/psemine/pseWallet';
-import { type PsePendingPurchase } from '../../engines/psemine/pseMineApi';
+import { type PsePendingPurchase, type PseStateTool } from '../../engines/psemine/pseMineApi';
+import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
   bnbExactFromWei, copyText, gbp, gbpHour, nowMs, shortAddr, shortHash,
+  CYCLE_STATE_MAP, cycleStateView, operatingModelView,
 } from '../../components/psemine/pseCore';
 import {
   PseButton, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
-  PseOwnedUnit, PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
+  PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
 
@@ -39,6 +41,120 @@ const EVM = /^0x[0-9a-fA-F]{40}$/;
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
 const dutyOf = (t: PSEMineToolDefinition) => (t.operating?.model === 'continuous' ? 'continuous' as const : 'session' as const);
+
+const timeRemaining = (value: string | null | undefined, now: number) => {
+  if (!value) return null;
+  const ms = Date.parse(value) - now;
+  if (!Number.isFinite(ms)) return null;
+  if (ms <= 0) return 'Due now';
+  const total = Math.ceil(ms / 1000);
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (days) return `${days}d ${hours}h remaining`;
+  if (hours) return `${hours}h ${minutes}m remaining`;
+  return `${minutes}m ${seconds}s remaining`;
+};
+
+/** Purpose-drawn equipment faces: each tier has its own chassis geometry, not a reused stock icon. */
+const ToolArt: React.FC<{ tier: number; name: string; compact?: boolean }> = ({ tier, name, compact = false }) => {
+  const accent = tier === 1 ? '#8fa5bf' : tier === 2 ? '#9a94f5' : tier === 3 ? '#71b8cf' : '#d1b27c';
+  return (
+    <div className={`pse-tool-art pse-tool-art--tier-${tier}${compact ? ' pse-tool-art--compact' : ''}`} role="img" aria-label={`${name} equipment illustration`}>
+      <svg viewBox="0 0 160 112" aria-hidden="true" focusable="false">
+        <path d="M10 96H150" stroke="#293448" strokeWidth="1" />
+        <path d="M19 91L80 102L141 91" fill="none" stroke="#293448" strokeWidth="1" />
+        {tier === 1 && <>
+          <path d="M44 30L80 18L116 30L80 42Z" fill="#273447" stroke={accent} strokeOpacity=".85" />
+          <path d="M44 30V76L80 91V42Z" fill="#172130" stroke={accent} strokeOpacity=".65" />
+          <path d="M116 30V76L80 91V42Z" fill="#101722" stroke={accent} strokeOpacity=".8" />
+          <path d="M55 39L80 49L105 39M55 49L80 59L105 49M55 59L80 69L105 59" fill="none" stroke={accent} strokeOpacity=".65" />
+          <circle cx="80" cy="31" r="4" fill={accent} />
+        </>}
+        {tier === 2 && <>
+          <path d="M31 34L67 22L94 31L58 44Z" fill="#273447" stroke={accent} />
+          <path d="M31 34V73L58 85V44Z" fill="#172130" stroke={accent} strokeOpacity=".7" />
+          <path d="M94 31V70L58 85V44Z" fill="#101722" stroke={accent} strokeOpacity=".8" />
+          <path d="M67 22L103 11L130 21L94 31Z" fill="#344057" stroke={accent} />
+          <path d="M94 31L130 21V60L94 70Z" fill="#101722" stroke={accent} strokeOpacity=".8" />
+          <path d="M103 11V49L130 60M67 22V61L94 70" fill="none" stroke={accent} strokeOpacity=".65" />
+          <path d="M42 49L55 54M42 58L55 63M105 32L119 28M105 41L119 37" stroke={accent} strokeWidth="2" />
+        </>}
+        {tier === 3 && <>
+          {[0,1,2,3].map((n) => {
+            const x = 39 + (n % 2) * 43, y = 22 + Math.floor(n / 2) * 31;
+            return <g key={n}>
+              <path d={`M${x} ${y+5}l19 -6l17 6l-19 7z`} fill="#344057" stroke={accent} strokeOpacity=".9" />
+              <path d={`M${x} ${y+5}v21l17 7V${y+12}z`} fill="#172130" stroke={accent} strokeOpacity=".6" />
+              <path d={`M${x+36} ${y+5}v21l-19 7V${y+12}z`} fill="#101722" stroke={accent} strokeOpacity=".75" />
+              <path d={`M${x+8} ${y+12}l9 4l9 -4`} fill="none" stroke={accent} strokeWidth="1.5" />
+            </g>;
+          })}
+        </>}
+        {tier === 4 && <>
+          <path d="M26 28L80 12L134 28L80 44Z" fill="#344057" stroke={accent} />
+          <path d="M26 28V78L80 96V44Z" fill="#172130" stroke={accent} strokeOpacity=".8" />
+          <path d="M134 28V78L80 96V44Z" fill="#101722" stroke={accent} strokeOpacity=".9" />
+          {[0,1,2,3].map(n => <g key={n}>
+            <path d={`M${43+n*18} 37v43`} stroke={accent} strokeOpacity=".7" strokeWidth="2" />
+            <path d={`M${43+n*18} 47l8 -3M${43+n*18} 58l8 -3M${43+n*18} 69l8 -3`} stroke={accent} strokeOpacity=".55" />
+          </g>)}
+          <path d="M38 28L80 16L122 28" fill="none" stroke={accent} strokeWidth="2" />
+        </>}
+        <path d="M22 89l7 -2M131 87l7 -2" stroke={accent} strokeWidth="2" strokeLinecap="round" />
+      </svg>
+      <span className="pse-tool-art-code">PSE / T{tier}</span>
+    </div>
+  );
+};
+
+const OwnedToolRow: React.FC<{
+  tool: PseStateTool;
+  now: number;
+  maintaining: boolean;
+  onMaintain: () => void;
+}> = ({ tool, now, maintaining, onMaintain }) => {
+  const def = TOOLS.find(item => item.id === (tool.toolId || '')) || TOOLS.find(item => item.name === tool.toolName);
+  const stateKey = tool.cycleState || tool.status || '';
+  const cycle = CYCLE_STATE_MAP[stateKey] ? cycleStateView(stateKey) : {
+    label: 'State not reported',
+    description: 'The backend has not reported this unit’s operating state.',
+    live: false,
+  };
+  const model = operatingModelView(tool.operatingModel || def?.operating.model);
+  const isContinuous = (tool.operatingModel || def?.operating.model) === 'continuous';
+  const maintenanceAvailable = !isContinuous && (tool.maintenanceRequired === true || stateKey === 'cycle_complete' || stateKey === 'maintenance_required');
+  const nextStart = tool.restartResumesAt;
+  const countdown = timeRemaining(nextStart || tool.cycleEndsAt, now);
+  return (
+    <li className="pse-owned-tool" key={tool.id}>
+      <ToolArt tier={def?.tier || 1} name={tool.toolName || def?.name || 'Mining tool'} compact />
+      <div className="pse-owned-tool-main">
+        <div className="pse-owned-tool-titleline">
+          <strong>{tool.toolName || def?.name || tool.toolId || 'Mining tool'}</strong>
+          <span className={`pse-tool-state${cycle.live ? ' is-live' : maintenanceAvailable ? ' is-attention' : ''}`} title={cycle.description}>{cycle.label}</span>
+        </div>
+        <p className="pse-owned-tool-sub">{model.label} · {typeof tool.hourlyRateGBP === 'number' ? gbpHour(tool.hourlyRateGBP) : def ? gbpHour(def.hourlyRateGBP) : '—'} capacity</p>
+        <div className="pse-owned-tool-facts">
+          <span>Cycle <b>{typeof tool.cycleIndex === 'number' ? `#${tool.cycleIndex}` : '—'}</b></span>
+          <span>{nextStart ? 'Restart' : 'Cycle'} <b>{countdown || (isContinuous ? 'Campaign-led' : 'Not scheduled')}</b></span>
+          <span>Restart delay <b>{isContinuous ? 'Not required' : typeof tool.restartDelayMinutes === 'number' ? `${tool.restartDelayMinutes} min` : def?.operating.restartDelayMinutes ? `${def.operating.restartDelayMinutes} min default` : '—'}</b></span>
+          <span>Next step <b>{maintenanceAvailable ? 'Maintenance' : isContinuous ? 'Automatic' : stateKey === 'restarting' ? 'Wait for restart' : stateKey === 'active' ? 'Operating' : 'Check status'}</b></span>
+        </div>
+        {maintenanceAvailable && (
+          <div className="pse-owned-tool-maintenance">
+            <span>Session ended. Maintenance restores future earning eligibility; it does not create a reward.</span>
+            <button type="button" className="pse-btn pse-btn--secondary pse-btn--sm" onClick={onMaintain} disabled={maintaining}>
+              {maintaining ? 'Maintaining…' : 'Maintain tool'}
+            </button>
+          </div>
+        )}
+        {tool.lastAccruedAt && <p className="pse-owned-tool-updated">Last accrual checkpoint: {new Date(tool.lastAccruedAt).toLocaleString()}</p>}
+      </div>
+    </li>
+  );
+};
 
 type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
 
@@ -70,6 +186,33 @@ export const PSEMineTools: React.FC = () => {
   const { pseUser, campaign } = usePSEMine();
   const { state, refresh, loading, error, refreshing } = usePseState();
   const [purchasing, setPurchasing] = useState<PSEMineToolDefinition | null>(null);
+  const [clockNow, setClockNow] = useState(nowMs());
+  const [maintainingId, setMaintainingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(nowMs()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const maintainTool = async (ownershipId: string) => {
+    if (maintainingId) return;
+    setMaintainingId(ownershipId);
+    try {
+      const result = await PSEMineEngine.maintainTool(ownershipId);
+      if (result.success) {
+        toast.success(result.resumesAt
+          ? `Maintenance accepted. Next session scheduled for ${new Date(result.resumesAt).toLocaleTimeString()}.`
+          : 'Maintenance accepted. Syncing the tool’s next state.');
+        await refresh();
+      } else {
+        toast.error(result.error || 'Maintenance could not be completed. Sync and try again.');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Maintenance could not be completed.');
+    } finally {
+      setMaintainingId(null);
+    }
+  };
 
   const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
   // Every ownership the backend reports is listed: filtering to "operating"
@@ -240,7 +383,7 @@ export const PSEMineTools: React.FC = () => {
               const continuous = dutyOf(tool) === 'continuous';
               return (
                 <article className="pse-product" key={tool.id} data-product-index={index + 1}>
-                  <div className="pse-product-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+                  <ToolArt tier={tool.tier} name={tool.name} />
                   <div className="pse-product-id">
                     <h3 className="pse-product-name">
                       {tool.name}
@@ -248,7 +391,8 @@ export const PSEMineTools: React.FC = () => {
                         {continuous ? 'Continuous operation' : 'Session-based · restart required'}
                       </span>
                     </h3>
-                    <p className="pse-product-desc">{tool.tagline}</p>
+                    <p className="pse-product-desc">{tool.description}</p>
+                    <span className="pse-product-tier">TIER {tool.tier} · {tool.specs.hashRateClass}</span>
                   </div>
 
                   <dl className="pse-product-specs">
@@ -263,6 +407,14 @@ export const PSEMineTools: React.FC = () => {
                     <div className="pse-product-spec">
                       <dt>Owned</dt>
                       <dd>{owned} <span>/ {tool.maxPerUser}</span></dd>
+                    </div>
+                    <div className="pse-product-spec">
+                      <dt>Efficiency</dt>
+                      <dd>{tool.specs.powerEfficiency}</dd>
+                    </div>
+                    <div className="pse-product-spec">
+                      <dt>Warranty</dt>
+                      <dd>{tool.specs.warrantyDays} <span>days</span></dd>
                     </div>
                   </dl>
 
@@ -286,10 +438,11 @@ export const PSEMineTools: React.FC = () => {
               );
             })}
           </div>
-          <p className="pse-marketplace-footnote">
-            Session tools need a restart after each cycle. Continuous tools run during an active campaign.
-            Rates remain fixed for the campaign.
-          </p>
+          <div className="pse-marketplace-footnote">
+            <strong>Operating rules</strong>
+            <span>Session tools run a 24-hour cycle, then enter the backend-controlled restart / maintenance lifecycle. Each owned unit shows its backend-reported restart delay and scheduled next-start time; the catalogue default is {TOOLS[0].operating.restartDelayMinutes} minutes.</span>
+            <span>Elite tools operate continuously while campaign mining is enabled. Displayed specifications are catalogue definitions; live state and timing are always taken from your account’s backend records.</span>
+          </div>
         </section>
 
         <aside className="pse-marketplace-rail">
@@ -310,10 +463,12 @@ export const PSEMineTools: React.FC = () => {
             ) : (
               <ul className="pse-rowlist">
                 {ownedTools.map(t => (
-                  <PseOwnedUnit
+                  <OwnedToolRow
                     key={t.id}
                     tool={t}
-                    action={<Link to="/mine/dashboard" className="pse-textlink">Manage</Link>}
+                    now={clockNow}
+                    maintaining={maintainingId === t.id}
+                    onMaintain={() => void maintainTool(t.id)}
                   />
                 ))}
               </ul>

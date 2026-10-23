@@ -1,361 +1,45 @@
-/*
- * PSEmine product documents — the layer for the policy and support surfaces.
- *
- * WHY A SEPARATE STYLESHEET
- * Everything here belongs to one surface type (a document), which nothing else in
- * the product renders. Keeping it in its own file, loaded after the product
- * layers in `src/main.tsx`, means the document surface can be reasoned about and
- * replaced on its own, and that it adds no rules to the landing page, the
- * authentication family, the loader or the console.
- *
- * WHAT IT REUSES
- * All of the product's foundations come from `psemine.css`: the canvas, surface
- * steps, hairlines, radii, type roles, notices, chips and footer. Nothing is
- * re-declared here. This file only composes those into a document: a slim bar
- * that returns to the product, a title plate carrying the review state and the
- * revision, numbered clauses with their own anchors, and a contents rail.
- *
- * THE READER'S REAL QUESTION IS "IS THIS FINAL?", so the review state is part of
- * the title plate rather than small print, and the revision and date sit beside
- * it as machine facts in the figure face.
- * ───────────────────────────────────────────────────────────────────────── */
-
-.pse-doc-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--pse-canvas);
-}
-
-/* ── Footer: two labelled columns ───────────────────────────────────────────
- * The product's footer grid holds the brand and one column group. The group
- * splits into a product list and a document list, each with its own heading, so
- * a 13-link footer still reads as two short answers rather than one long list.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-foot-navs {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.75rem 2.5rem;
-  align-content: start;
-}
-
-/* From 1024px the two-column footer becomes three — the brand, the product list
-   and the document list — and each list becomes a single column, because it now
-   owns a whole footer column instead of sharing one. Thirteen links in two
-   columns inside a third of the footer is what makes a footer look cramped; the
-   same thirteen in three columns read as three short answers.
-
-   Scoped with a modifier rather than to `.pse-foot-grid`, so the document pages'
-   own footer is untouched by it. */
-@media (min-width: 1024px) {
-  .pse-foot-grid--navs { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr) minmax(0, 1fr); }
-  .pse-foot-navs { display: contents; }
-  .pse-foot-navs .pse-foot-links { grid-template-columns: minmax(0, 1fr); }
-}
-
-.pse-foot-col-head {
-  grid-column: 1 / -1;
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-  padding-bottom: 0.35rem;
-}
-
-@media (min-width: 640px) {
-  .pse-foot-navs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Each list is one column once it is sharing the footer with another list: two
-     nested two-column grids inside one footer column is what turns a link into a
-     44px box with a clipped label. */
-  .pse-foot-navs .pse-foot-links { grid-template-columns: minmax(0, 1fr); }
-}
-
-/* A single-column list, for a footer nav that is not part of the product/page
-   pair (the document pages' own footer). */
-.pse-foot-links--stack { grid-template-columns: minmax(0, 1fr); }
-
-/* ── The documents at the point of decision ────────────────────────────────
- * One line under the paragraph that commits the reader to the thing the
- * documents govern. It is a rule plus small tracked links, not a card: a card
- * here would compete with the instrument above it.
- * ───────────────────────────────────────────────────────────────────────── */
-.pse-docline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 1.1rem;
-  margin-top: 1.75rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-docline-label {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-docline-link {
-  font-size: 0.8125rem;
-}
-
-/* ── The bar ─────────────────────────────────────────────────────────────── */
-.pse-doc-bar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  border-bottom: 1px solid var(--pse-rule-2);
-  background: color-mix(in srgb, var(--pse-canvas) 88%, transparent);
-  backdrop-filter: blur(12px);
-}
-
-.pse-doc-bar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 60px;
-}
-
-.pse-doc-bar-nav {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-}
-
-.pse-doc-bar-back {
-  color: var(--pse-ink);
-}
-
-/* ── The document frame ──────────────────────────────────────────────────── */
-.pse-doc-main {
-  flex: 1;
-  padding-block: clamp(2.25rem, 5vw, 4rem) clamp(3rem, 7vw, 5.5rem);
-}
-
-.pse-doc {
-  display: block;
-}
-
-.pse-doc-head {
-  max-width: 46rem;
-}
-
-.pse-doc-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-doc-kicker-mark {
-  display: inline-flex;
-  color: var(--pse-ink-3);
-}
-
-.pse-doc-title {
-  margin-top: 1.1rem;
-  font-size: clamp(1.75rem, 1.5rem + 1.4vw, 2.5rem);
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.032em;
-  color: var(--pse-ink);
-}
-
-.pse-doc-summary {
-  margin-top: 1rem;
-  max-width: 58ch;
-}
-
-.pse-doc-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem 2.5rem;
-  margin-top: 1.9rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-.pse-doc-meta > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.pse-doc-meta dt {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--pse-ink-3);
-}
-
-.pse-doc-meta dd {
-  font-size: 0.875rem;
-  color: var(--pse-ink);
-}
-
-.pse-doc-head .pse-notice {
-  margin-top: 1.9rem;
-  max-width: 60ch;
-}
-
-/* ── The body: contents rail + numbered clauses ──────────────────────────── */
-.pse-doc-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2.5rem;
-  margin-top: clamp(2.5rem, 5vw, 3.75rem);
-  padding-top: clamp(1.75rem, 3vw, 2.5rem);
-  border-top: 1px solid var(--pse-rule);
-}
-
-.pse-doc-toc ol {
-  display: flex;
-  flex-direction: column;
-  margin-top: 0.9rem;
-  list-style: none;
-  padding: 0;
-}
-
-.pse-doc-toc a {
-  display: flex;
-  align-items: baseline;
-  gap: 0.65rem;
-  padding: 0.45rem 0;
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  color: var(--pse-ink-2);
-  text-decoration: none;
-  transition: color var(--pse-t-fast) var(--pse-ease);
-}
-
-.pse-doc-toc a > span:first-child {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  color: var(--pse-ink-3);
-}
-
-.pse-doc-toc a:hover,
-.pse-doc-toc a:focus-visible {
-  color: var(--pse-ink);
-}
-
-.pse-doc-clauses {
-  max-width: 46rem;
-}
-
-.pse-doc-clause {
-  padding-block: 1.9rem;
-  border-top: 1px solid var(--pse-rule-2);
-  scroll-margin-top: 84px;
-}
-
-.pse-doc-clause:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.pse-doc-clause-h {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  font-size: 1.0625rem;
-  font-weight: 500;
-  letter-spacing: -0.018em;
-  color: var(--pse-ink);
-}
-
-.pse-doc-clause-num {
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--pse-ink-3);
-}
-
-.pse-doc-para {
-  margin-top: 0.85rem;
-  color: var(--pse-ink-2);
-}
-
-.pse-doc-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-top: 1rem;
-  list-style: none;
-  padding: 0;
-}
-
-.pse-doc-list > li {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.9375rem;
-  line-height: 1.62;
-  color: var(--pse-ink-2);
-}
-
-.pse-doc-bullet {
-  flex: none;
-  width: 4px;
-  height: 4px;
-  margin-top: 0.6rem;
-  border-radius: 1px;
-  background: var(--pse-rule-strong);
-}
-
-.pse-doc-foot {
-  border-top: 1px solid var(--pse-rule-2);
-}
-
-@media (min-width: 1024px) {
-  /* The document is centred as a block rather than pinned to the left edge of a
-     wider shell. A document whose text and contents rail both stop well short of
-     the right edge reads as a column that ran out, not as a designed page; a
-     centred block of one known width reads as a document. */
-  .pse-doc {
-    max-width: 62.5rem;
-    margin-inline: auto;
-  }
-
-  .pse-doc-body {
-    grid-template-columns: 200px minmax(0, 1fr);
-    gap: 4rem;
-  }
-
-  .pse-doc-toc {
-    position: sticky;
-    top: 84px;
-    align-self: start;
-  }
-}
-
-@media (max-width: 639px) {
-  /* On a phone the contents rail is still the fastest way into a long document,
-     so it is kept — it simply sits above the clauses and drops its sticky
-     behaviour, which would otherwise eat the scarce vertical axis. */
-  .pse-doc-toc {
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--pse-rule-2);
-  }
-
-  .pse-doc-bar-nav .pse-mast-link:not(.pse-doc-bar-back) {
-    display: none;
-  }
-
-  .pse-doc-meta {
-    gap: 1.25rem 1.75rem;
-  }
-}
+/* PSEmine documents — complete document surface replacement. */
+.pse-doc-page { min-height:100vh; background:#080b12; color:#f1f4fc; }
+.pse-doc-bar { position:sticky; top:0; z-index:20; border-bottom:1px solid rgba(190,205,235,.12); background:rgba(8,11,18,.94); backdrop-filter:blur(18px); }
+.pse-doc-bar-inner { width:min(1120px,100%); min-height:64px; margin:auto; padding:0 22px; display:flex; align-items:center; gap:24px; }
+.pse-doc-bar a,.pse-doc-foot a { color:#a0abc0; text-decoration:none; }
+.pse-doc-bar a:hover,.pse-doc-foot a:hover { color:#f1f4fc; }
+.pse-doc-bar-nav { display:flex; align-items:center; gap:18px; margin-left:auto; font-size:11px; }
+.pse-doc-bar-back { font-size:12px; }
+.pse-doc-main { width:min(1120px,100%); margin:auto; padding:clamp(26px,5vw,64px) 22px 76px; }
+.pse-doc { display:grid; grid-template-columns:minmax(0,1fr) 230px; gap:clamp(30px,6vw,72px); align-items:start; }
+.pse-doc-head { padding-bottom:27px; border-bottom:1px solid rgba(190,205,235,.16); }
+.pse-doc-kicker { display:flex; align-items:center; gap:9px; color:#9996ff; font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.pse-doc-kicker-mark { width:7px; height:7px; border-radius:2px; background:#7775ff; }
+.pse-doc-title { margin:17px 0 0; max-width:780px; font-size:clamp(30px,5vw,48px); line-height:1.06; letter-spacing:-.06em; font-weight:650; }
+.pse-doc-summary { max-width:680px; margin:15px 0 0; color:#a0abc0; font-size:14px; line-height:1.8; }
+.pse-doc-meta { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:19px; color:#6e7b92; font-size:10px; }
+.pse-doc-toc { position:sticky; top:88px; padding:16px 0; border-top:1px solid rgba(190,205,235,.16); border-bottom:1px solid rgba(190,205,235,.16); }
+.pse-doc-toc-title { margin:0 0 10px; color:#6e7b92; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+.pse-doc-toc a { display:block; padding:7px 0; color:#a0abc0; text-decoration:none; font-size:11px; line-height:1.45; }
+.pse-doc-toc a:hover { color:#aaa8ff; }
+.pse-doc-body { min-width:0; }
+.pse-doc-clauses { display:grid; }
+.pse-doc-clause { display:grid; grid-template-columns:32px minmax(0,1fr); gap:13px; padding:26px 0; border-bottom:1px solid rgba(190,205,235,.12); scroll-margin-top:90px; }
+.pse-doc-clause-num { padding-top:3px; color:#7775ff; font-size:10px; font-variant-numeric:tabular-nums; }
+.pse-doc-clause-h { margin:0 0 12px; color:#f1f4fc; font-size:17px; font-weight:630; letter-spacing:-.03em; }
+.pse-doc-para { margin:0 0 12px; color:#a0abc0; font-size:13px; line-height:1.9; overflow-wrap:anywhere; }
+.pse-doc-para:last-child { margin-bottom:0; }
+.pse-doc-list { display:grid; gap:9px; margin:12px 0; padding-left:18px; color:#a0abc0; font-size:13px; line-height:1.8; }
+.pse-doc-bullet { padding-left:3px; }
+.pse-doc-foot { margin-top:32px; padding-top:18px; border-top:1px solid rgba(190,205,235,.12); color:#6e7b92; font-size:11px; line-height:1.7; }
+.pse-foot-navs { margin-top:50px; padding-top:26px; border-top:1px solid rgba(190,205,235,.12); }
+.pse-foot-grid { display:grid; grid-template-columns:1.2fr repeat(2,minmax(0,1fr)); gap:28px; }
+.pse-foot-grid--navs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.pse-foot-col-head { margin:0 0 12px; color:#f1f4fc; font-size:11px; font-weight:650; }
+.pse-foot-links { display:flex; flex-wrap:wrap; gap:10px 16px; }
+.pse-foot-links--stack { display:grid; gap:9px; }
+.pse-foot-links a,.pse-foot-link { color:#6e7b92; text-decoration:none; font-size:11px; }
+.pse-docline { display:flex; justify-content:space-between; gap:14px; padding:13px 0; border-bottom:1px solid rgba(190,205,235,.12); }
+.pse-docline-label { color:#a0abc0; font-size:12px; }
+.pse-docline-link { color:#aaa8ff; font-size:11px; text-decoration:none; }
+.pse-doc-page .pse-notice { margin:22px 0; padding:15px 0; border-top:1px solid rgba(190,205,235,.16); border-bottom:1px solid rgba(190,205,235,.16); color:#a0abc0; font-size:12px; line-height:1.7; }
+.pse-doc-page .pse-mark,.pse-doc-page .pse-wordmark { color:#f1f4fc; }
+.pse-doc-page .pse-wordmark-name { color:#f1f4fc; }
+@media(max-width:760px) { .pse-doc { grid-template-columns:minmax(0,1fr); gap:25px; } .pse-doc-toc { position:static; order:-1; } .pse-doc-bar-nav { gap:10px; } .pse-doc-bar-inner { padding:0 16px; gap:12px; } .pse-doc-main { padding-left:17px; padding-right:17px; } .pse-doc-title { font-size:34px; } .pse-foot-grid,.pse-foot-grid--navs { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:440px) { .pse-doc-bar-nav a:nth-child(n+3) { display:none; } .pse-doc-clause { grid-template-columns:24px minmax(0,1fr); gap:8px; } .pse-foot-grid,.pse-foot-grid--navs { grid-template-columns:minmax(0,1fr); } }

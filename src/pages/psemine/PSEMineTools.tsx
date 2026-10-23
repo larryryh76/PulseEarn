@@ -14,7 +14,7 @@ import {
   bnbExactFromWei, copyText, gbp, gbpHour, nowMs, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseEmptyNote, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
+  PseButton, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
   PseOwnedUnit, PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';

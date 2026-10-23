@@ -49,9 +49,9 @@ export const PsePage: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, objective, actions, children }) => (
-  <div className="pse-console-main">
+  <div className={`pse-console-main pse-route-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} data-pse-route={title.toLowerCase().replace(/[^a-z0-9]+/g, '-') }>
     <header className="pse-page-head">
-      <div className="min-w-0">
+      <div className="pse-page-head-main min-w-0">
         <h1 className="pse-page-title">{title}</h1>
         {objective && <p className="pse-page-objective">{objective}</p>}
       </div>

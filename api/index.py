@@ -7907,12 +7907,13 @@ def get_current_bnb_gbp_price():
 
 @app.route('/api/mine/campaign/status', methods=['GET'])
 def get_psemine_campaign_status():
-    """Return the active PSEmine campaign, or its default public configuration."""
+    """Return the public campaign projection after enforcing scheduled start/end."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    if camp_doc.exists:
-        return jsonify({"success": True, "campaign": camp_doc.to_dict()})
+    import psemine_engine as _pse_engine
+    camp, _effective, _ = _pse_engine.campaign_lifecycle_state(db)
+    if camp:
+        return jsonify({"success": True, "campaign": camp})
     return jsonify({"success": True, "campaign": {
         "id": "active_campaign",
         "name": "PSEmine Genesis 90-Day Campaign",
@@ -7948,12 +7949,13 @@ def generate_psemine_tool_quote():
             "message": "Active mining campaign is not currently configured."
         }), 404
 
-    camp_data = camp_doc.to_dict() or {}
-    if camp_data.get('status') != 'active' or not camp_data.get('purchaseEnabled', True):
+    import psemine_engine as _pse_engine
+    camp_data, effective_status, _ = _pse_engine.campaign_lifecycle_state(db)
+    if effective_status != 'active' or not camp_data.get('purchaseEnabled', True):
         return jsonify({
             "success": False,
             "error": "PURCHASES_DISABLED",
-            "message": "Tool purchases are currently closed for this campaign."
+            "message": "Tool purchases are closed until the campaign is active."
         }), 403
 
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
@@ -8608,8 +8610,8 @@ def admin_campaign_action():
             "durationDays": duration_days,
             "walletChangeDeadline": deadline_iso,
             "miningEnabled": False,
-            "purchaseEnabled": True,
-            "referralEnabled": True,
+            "purchaseEnabled": False,
+            "referralEnabled": False,
             "scheduledAt": now_dt.isoformat(),
             "scheduledBy": uid,
             "restartHistory": firestore.ArrayUnion([previous_window]),

@@ -4,9 +4,9 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
-import { campaignStatusView, shortAddr } from '../../components/psemine/pseCore';
+import { campaignStatusView, shortAddr, timeAgo } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseFact, PseFacts, PseField, PseInput, PseNotice,
+  PseButton, PseEmptyNote, PseFact, PseFacts, PseField, PseInput, PseNotice,
   PsePage, PseSection, PseSkeleton, PseSplit, PseStack, PseStatus,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
@@ -24,7 +24,7 @@ import { mapAuthError } from '../../utils/errors';
  */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout } = usePSEMineAuth();
-  const { state, campaignStatus, loading } = usePseState();
+  const { state, campaignStatus, loading, activities, notifications, feedErrors, refreshFeed } = usePseState();
   const navigate = useNavigate();
 
   const [currentPw, setCurrentPw] = useState('');
@@ -98,6 +98,35 @@ export const PSEMineMe: React.FC = () => {
             )}
           </PseSection>
 
+          <PseSection title="Recent activity" meta={activities.length ? `${activities.length} recent records loaded` : 'Account event ledger'}>
+            {feedErrors.activities && (
+              <PseNotice tone="attention" title="Activity could not be synchronized">
+                The recent event list may be out of date. Use the activity page to retry the feed.
+              </PseNotice>
+            )}
+            {activities.length === 0 ? (
+              <PseEmptyNote title="No activity records loaded">
+                Purchases, wallet changes, referral milestones and campaign events appear here when the backend records them.
+              </PseEmptyNote>
+            ) : (
+              <ul className="pse-notes">
+                {activities.slice(0, 3).map(activity => (
+                  <li key={activity.id}>
+                    <strong>{activity.title || 'Account event'}</strong>
+                    {activity.description ? ` — ${activity.description}` : ''}
+                    <span className="pse-prose--sm"> · {activity.createdAt ? timeAgo(activity.createdAt) : 'Time not reported'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="pse-actions">
+              <Link to="/mine/activity" className="pse-btn pse-btn--secondary pse-btn--sm">Open full activity</Link>
+              {feedErrors.activities && (
+                <PseButton variant="secondary" size="sm" onClick={() => void refreshFeed('activities')}>Retry activity</PseButton>
+              )}
+            </div>
+          </PseSection>
+
           <PseSection title="Security">
             {isPasswordAccount ? (
               <form onSubmit={changePassword} className="pse-security-form" noValidate>
@@ -151,6 +180,29 @@ export const PSEMineMe: React.FC = () => {
             </p>
             <div className="pse-actions">
               <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm">Manage wallets</Link>
+            </div>
+          </PseSection>
+
+          <PseSection title="Notifications" meta={`${notifications.filter(n => !n.read).length} unread`}>
+            <PseFacts cols={2}>
+              <PseFact label="Unread" value={String(notifications.filter(n => !n.read).length)} />
+              <PseFact label="Loaded" value={String(notifications.length)} />
+            </PseFacts>
+            {feedErrors.notifications && (
+              <PseNotice tone="attention" title="Notifications may be out of date">
+                The notification service did not confirm the latest read status.
+              </PseNotice>
+            )}
+            <p className="pse-prose--sm">
+              Purchase updates, campaign announcements, referral milestones and account events are delivered through the notification center.
+            </p>
+            <div className="pse-actions">
+              <PseButton variant="secondary" size="sm" onClick={() => window.dispatchEvent(new Event('psemine:open-notifications'))}>
+                Open notifications
+              </PseButton>
+              {feedErrors.notifications && (
+                <PseButton variant="secondary" size="sm" onClick={() => void refreshFeed('notifications')}>Sync notifications</PseButton>
+              )}
             </div>
           </PseSection>
 

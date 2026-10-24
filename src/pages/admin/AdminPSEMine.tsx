@@ -75,6 +75,7 @@ export const AdminPSEMine: React.FC = () => {
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [scheduleStartAt, setScheduleStartAt] = useState('');
   const [resolving, setResolving] = useState<string | null>(null);
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
 
@@ -136,11 +137,25 @@ export const AdminPSEMine: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   /** Campaign lifecycle actions, confirmed before execution. */
-  const campaignAction = async (action: 'pause' | 'resume' | 'settle' | 'shutdown') => {
+  const campaignAction = async (action: 'pause' | 'resume' | 'schedule' | 'settle' | 'shutdown') => {
     if (!currentUser) return;
+    let startAtIso: string | undefined;
+    if (action === 'schedule') {
+      if (!scheduleStartAt) {
+        toast.error('Choose the scheduled start date and time first.');
+        return;
+      }
+      const parsed = new Date(scheduleStartAt);
+      if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+        toast.error('The scheduled start must be a valid future date and time.');
+        return;
+      }
+      startAtIso = parsed.toISOString();
+    }
     const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
       pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
       resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
+      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${new Date(startAtIso!).toLocaleString()}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals remain open while scheduled.` },
       settle: { title: 'Begin settlement?', detail: 'Mining ends, purchases close, ownership states settle, and payout review opens. A settlement job is created and this is recorded in the audit log. Not casually reversible.' },
       shutdown: { title: 'SHUTDOWN — archive the campaign?', detail: 'Permanently archives the campaign: mining, purchases, and referrals close, and public mining interfaces close. This is recorded in the audit log.', requireText: 'shutdown' },
     };
@@ -149,8 +164,8 @@ export const AdminPSEMine: React.FC = () => {
       title: m.title,
       consequence: m.detail,
       affected: 'psemine_campaigns/active_campaign',
-      confirmLabel: action === 'shutdown' ? 'Archive campaign' : action.charAt(0).toUpperCase() + action.slice(1) + ' campaign',
-      danger: action === 'shutdown',
+      confirmLabel: action === 'shutdown' ? 'Archive campaign' : action === 'schedule' ? 'Schedule campaign' : action.charAt(0).toUpperCase() + action.slice(1) + ' campaign',
+      danger: action === 'shutdown' || action === 'schedule',
       requireText: m.requireText,
       run: async () => {
         setActionBusy(action);
@@ -159,15 +174,17 @@ export const AdminPSEMine: React.FC = () => {
           const res = await fetch('/api/admin/mine/campaign/action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ action, reason: `Admin console: ${action}` }),
+            body: JSON.stringify({ action, reason: `Admin console: ${action}`, ...(startAtIso ? { startAt: startAtIso } : {}) }),
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
-            toast.success(`Campaign action "${action}" executed.`);
+            toast.success(action === 'schedule'
+              ? `Campaign scheduled for ${new Date(data.startAt || startAtIso!).toLocaleString()}.`
+              : `Campaign action "${action}" executed.`);
             await refreshCampaign();
             await load(true);
           } else {
-            toast.error(data.error || data.message || `Action "${action}" failed.`);
+            toast.error(data.message || data.error || `Action "${action}" failed.`);
           }
         } catch (e) {
           toast.error(e instanceof Error ? e.message : 'Execution error.');
@@ -350,7 +367,37 @@ export const AdminPSEMine: React.FC = () => {
                 }
                 hint="Accrued · paid out"
               />
+              <PseFact label="Campaign duration" value={campaign?.durationDays ? `${campaign.durationDays} days` : '—'} />
+              <PseFact label="Scheduled start" value={campaign?.startAt ? fmtDateTime(campaign.startAt) : '—'} />
+              <PseFact label="Scheduled end" value={campaign?.endAt ? fmtDateTime(campaign.endAt) : '—'} />
             </PseFacts>
+
+            <div className="pse-block">
+              <PseField label="Schedule next campaign window" htmlFor="pse-campaign-start">
+                <PseInput
+                  id="pse-campaign-start"
+                  type="datetime-local"
+                  value={scheduleStartAt}
+                  onChange={e => setScheduleStartAt(e.target.value)}
+                  min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+                  autoComplete="off"
+                />
+              </PseField>
+              <p className="pse-prose--sm">
+                Set the exact start time. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <PseButton
+                  variant="secondary"
+                  tone="danger"
+                  onClick={() => void campaignAction('schedule')}
+                  disabled={actionBusy !== null || !scheduleStartAt}
+                  busy={actionBusy === 'schedule'}
+                >
+                  {actionBusy === 'schedule' ? 'Scheduling…' : 'Schedule 90-day campaign'}
+                </PseButton>
+              </div>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {(['pause', 'resume', 'settle', 'shutdown'] as const).map(action => (

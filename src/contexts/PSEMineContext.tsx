@@ -45,6 +45,7 @@ import {
   subscribeWalletEvents,
 } from '../engines/psemine/pseWallet';
 import toast from 'react-hot-toast';
+import { nowMs } from '../components/psemine/pseCore';
 
 /**
  * Bounds on the PSEmine realtime listeners.
@@ -823,15 +824,14 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return res;
   }, [currentUser, bumpStateEpoch]);
 
-  // Calculate days remaining with full resilience against undefined or invalid date strings
+  // Derive the campaign window from the backend's published dates and its
+  // server-anchored clock. Missing/invalid dates are unknown, not a fabricated
+  // 90-day countdown.
   const campaignDaysRemaining = React.useMemo(() => {
-    if (!campaign || !campaign.endAt) return 90;
+    if (!campaign?.endAt) return 0;
     const endMs = new Date(campaign.endAt).getTime();
-    if (isNaN(endMs)) return 90;
-    const nowMs = Date.now();
-    const diffMs = endMs - nowMs;
-    const calculated = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    return isNaN(calculated) ? 90 : Math.max(0, calculated);
+    if (!Number.isFinite(endMs)) return 0;
+    return Math.max(0, Math.ceil((endMs - nowMs()) / 86_400_000));
   }, [campaign]);
 
   const isCampaignArchived = Boolean(

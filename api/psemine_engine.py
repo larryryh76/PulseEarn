@@ -424,7 +424,9 @@ def campaign_operating_windows_for(db, camp, now=None):
     status = (camp.get("_effectiveStatus") or camp.get("status") or "active").lower()
     start_at = _parse(camp["startAt"]) if camp.get("startAt") else (now - timedelta(days=1))
     end_at = _parse(camp["endAt"]) if camp.get("endAt") else (now + timedelta(days=90))
-    if status == "scheduled" and now < start_at:
+    # A scheduled campaign without a valid startAt must never fall through
+    # to the legacy "active" default window.
+    if status == "scheduled" and (not camp.get("startAt") or now < start_at):
         return []
     pause_windows = []
     for p in (camp.get("pauseWindows") or []):

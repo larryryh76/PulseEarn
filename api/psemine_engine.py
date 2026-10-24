@@ -371,6 +371,8 @@ def campaign_lifecycle_state(db, force_write=True):
                 ref.update({
                     "status": "active",
                     "miningEnabled": True,
+                    "purchaseEnabled": True,
+                    "referralEnabled": True,
                     "startedAt": firestore_server_ts(),
                     "updatedAt": firestore_server_ts(),
                 })

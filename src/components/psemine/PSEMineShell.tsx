@@ -207,6 +207,12 @@ const ProductBar: React.FC<{
   const { unreadNotifications } = usePseState();
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
+  React.useEffect(() => {
+    const openNotifications = () => setSheetOpen(true);
+    window.addEventListener('psemine:open-notifications', openNotifications);
+    return () => window.removeEventListener('psemine:open-notifications', openNotifications);
+  }, []);
+
   if (!inConsole) {
     return (
       <header className="pse-bar">

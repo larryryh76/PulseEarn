@@ -417,6 +417,16 @@ def campaign_lifecycle_state(db, force_write=True):
 
     camp["status"] = effective
     camp["_effectiveStatus"] = effective
+    # Keep this request's response consistent with the lifecycle write above;
+    # the Firestore listener may not have delivered the new snapshot yet.
+    if effective == "scheduled":
+        camp["miningEnabled"] = False
+        camp["purchaseEnabled"] = False
+        camp["referralEnabled"] = False
+    elif started_now:
+        camp["miningEnabled"] = True
+        camp["purchaseEnabled"] = True
+        camp["referralEnabled"] = True
     return camp, effective, ended_now
 
 

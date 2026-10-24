@@ -8571,6 +8571,24 @@ def admin_campaign_action():
                 "message": "The scheduled start must be within the next 365 days."
             }), 400
 
+        # Bank every account's old-window accrual before replacing the canonical
+        # dates. If any checkpoint fails, leave the current campaign untouched;
+        # retrying is safe because each checkpoint is idempotent.
+        if current_status in ('active', 'paused'):
+            try:
+                import psemine_engine as _pse_schedule_engine
+                for user_doc in db.collection('psemine_users').get():
+                    _pse_schedule_engine.accrual_checkpoint(
+                        db, user_doc.id, source='campaign_schedule'
+                    )
+            except Exception:
+                logging.exception("[PSEmine Campaign] Could not checkpoint all accounts before scheduling")
+                return jsonify({
+                    "success": False,
+                    "error": "CAMPAIGN_CHECKPOINT_FAILED",
+                    "message": "The current campaign was not rescheduled because account accrual could not be safely checkpointed. No campaign dates were changed; retry after resolving the backend error."
+                }), 503
+
         duration_days = 90
         end_dt = start_dt + timedelta(days=duration_days)
         end_iso = end_dt.isoformat()

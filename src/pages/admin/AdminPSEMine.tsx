@@ -47,6 +47,20 @@ import toast from 'react-hot-toast';
 /** One locked campaign tier, flattened for the register. */
 const TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
+function localDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function nextTuesdayDateValue(): string {
+  const date = new Date();
+  const daysUntilTuesday = (2 - date.getDay() + 7) % 7 || 7;
+  date.setDate(date.getDate() + daysUntilTuesday);
+  return localDateInputValue(date);
+}
+
 type ScreenSection = 'campaign' | 'payments' | 'tools' | 'purchases' | 'payouts' | 'audit';
 
 const SECTIONS: ReadonlyArray<{ id: ScreenSection; label: string }> = [
@@ -75,7 +89,8 @@ export const AdminPSEMine: React.FC = () => {
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
-  const [scheduleStartAt, setScheduleStartAt] = useState('');
+  const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
+  const [scheduleTime, setScheduleTime] = useState('');
   const [resolving, setResolving] = useState<string | null>(null);
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
 
@@ -141,11 +156,11 @@ export const AdminPSEMine: React.FC = () => {
     if (!currentUser) return;
     let startAtIso: string | undefined;
     if (action === 'schedule') {
-      if (!scheduleStartAt) {
-        toast.error('Choose the scheduled start date and time first.');
+      if (!scheduleDate || !scheduleTime) {
+        toast.error('Choose the scheduled start time for Tuesday first.');
         return;
       }
-      const parsed = new Date(scheduleStartAt);
+      const parsed = new Date(`${scheduleDate}T${scheduleTime}`);
       if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
         toast.error('The scheduled start must be a valid future date and time.');
         return;
@@ -373,16 +388,28 @@ export const AdminPSEMine: React.FC = () => {
             </PseFacts>
 
             <div className="pse-block">
-              <PseField label="Schedule next campaign window" htmlFor="pse-campaign-start">
-                <PseInput
-                  id="pse-campaign-start"
-                  type="datetime-local"
-                  value={scheduleStartAt}
-                  onChange={e => setScheduleStartAt(e.target.value)}
-                  min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
-                  autoComplete="off"
-                />
-              </PseField>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PseField label="Start date (Tuesday preselected)" htmlFor="pse-campaign-start-date">
+                  <PseInput
+                    id="pse-campaign-start-date"
+                    type="date"
+                    value={scheduleDate}
+                    onChange={e => setScheduleDate(e.target.value)}
+                    min={localDateInputValue(new Date())}
+                    autoComplete="off"
+                  />
+                </PseField>
+                <PseField label="Start time (required)" htmlFor="pse-campaign-start-time">
+                  <PseInput
+                    id="pse-campaign-start-time"
+                    type="time"
+                    value={scheduleTime}
+                    onChange={e => setScheduleTime(e.target.value)}
+                    autoComplete="off"
+                    required
+                  />
+                </PseField>
+              </div>
               <p className="pse-prose--sm">
                 Set the exact start time. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
               </p>
@@ -391,7 +418,7 @@ export const AdminPSEMine: React.FC = () => {
                   variant="secondary"
                   tone="danger"
                   onClick={() => void campaignAction('schedule')}
-                  disabled={actionBusy !== null || !scheduleStartAt}
+                  disabled={actionBusy !== null || !scheduleDate || !scheduleTime}
                   busy={actionBusy === 'schedule'}
                 >
                   {actionBusy === 'schedule' ? 'Scheduling…' : 'Schedule 90-day campaign'}

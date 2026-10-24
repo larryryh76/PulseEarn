@@ -61,7 +61,7 @@ import { usePseState } from './PseStateProvider';
 import {
   campaignStatusView, gbpHour, timeAgo, useEscapeKey, usePseDocumentTitle, useScrollLock,
 } from './pseCore';
-import { PseButton, PseIconButton, PseStatus } from './PseBasics';
+import { PseButton, PseIconButton, PseStatus, PseFeedNotice } from './PseBasics';
 import { PseGuide } from './PseGuide';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 import { PSE_DOC_PATH } from './pseDocs';
@@ -378,7 +378,7 @@ const CampaignBand: React.FC = () => {
  * than showing a placeholder.
  */
 const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { notifications, unreadNotifications, markNotificationRead, refreshFeed } = usePseState();
+  const { notifications, unreadNotifications, markNotificationRead, refreshFeed, feedErrors, refreshing } = usePseState();
   const [busy, setBusy] = React.useState(false);
   const shown = notifications.slice(0, 12);
   const headRef = React.useRef<HTMLHeadingElement | null>(null);
@@ -394,7 +394,10 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const markAll = async () => {
     setBusy(true);
     try {
-      for (const n of notifications) { if (!n.read) await markNotificationRead(n.id); }
+      for (const n of notifications) {
+        if (!n.read) await markNotificationRead(n.id);
+      }
+      await refreshFeed('notifications');
     } finally { setBusy(false); }
   };
 
@@ -423,6 +426,16 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </div>
 
         <div className="pse-sheet-body">
+          {feedErrors.notifications && (
+            <PseFeedNotice
+              message="Notifications could not be synchronized. Unread status may be out of date."
+              onRetry={() => void refreshFeed('notifications')}
+              retrying={refreshing}
+            />
+          )}
+          {notifications.length > 12 && (
+            <p className="pse-prose--sm">Showing the 12 newest of {notifications.length} loaded notifications.</p>
+          )}
           {shown.length === 0 ? (
             <p className="pse-empty-note--bare">
               No notifications yet. Account events — purchases, restarts, referral qualifications, campaign milestones —

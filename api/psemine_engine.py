@@ -358,9 +358,39 @@ def campaign_lifecycle_state(db, force_write=True):
 
     effective = status
     ended_now = False
+    started_now = False
+
+    # Scheduled campaigns are inert until their server-owned startAt. A delayed
+    # request/cron may observe the opening later, but accrual is still bounded by
+    # startAt in campaign_operating_windows_for, so no time is invented.
+    if status == "scheduled":
+        if start_at and now >= start_at:
+            effective = "active"
+            started_now = True
+            if force_write:
+                ref.update({
+                    "status": "active",
+                    "miningEnabled": True,
+                    "startedAt": firestore_server_ts(),
+                    "updatedAt": firestore_server_ts(),
+                })
+                db.collection("admin_audit_logs").add({
+                    "timestamp": firestore_server_ts(),
+                    "adminId": "system:lifecycle",
+                    "action": "PSEMINE_CAMPAIGN_AUTO_START",
+                    "targetEntity": f"psemine_campaigns/{PSEMINE_CAMPAIGN_DOC_ID}",
+                    "metadata": {"startAt": _iso(start_at), "observedAt": _iso(now)},
+                })
+        else:
+            effective = "scheduled"
+    elif start_at and now < start_at and status == "active":
+        # Fail closed if a record says active but its start time is still future.
+        effective = "scheduled"
+        if force_write:
+            ref.update({"status": "scheduled", "miningEnabled": False, "updatedAt": firestore_server_ts()})
 
     # endAt is absolute authority: no status override can extend earning past it.
-    if end_at and now >= end_at and status not in ("ended", "settling", "payout", "closed", "archived"):
+    if end_at and now >= end_at and effective not in ("ended", "settling", "payout", "closed", "archived"):
         effective = "ended"
         if force_write:
             ref.update({
@@ -380,10 +410,10 @@ def campaign_lifecycle_state(db, force_write=True):
                 "metadata": {"endAt": _iso(end_at), "observedAt": _iso(now)},
             })
         ended_now = True
-    elif status == "paused":
+    elif effective == "paused":
         effective = "paused"
 
-    camp["status"] = effective if effective == "ended" else status
+    camp["status"] = effective
     camp["_effectiveStatus"] = effective
     return camp, effective, ended_now
 
@@ -394,6 +424,8 @@ def campaign_operating_windows_for(db, camp, now=None):
     status = (camp.get("_effectiveStatus") or camp.get("status") or "active").lower()
     start_at = _parse(camp["startAt"]) if camp.get("startAt") else (now - timedelta(days=1))
     end_at = _parse(camp["endAt"]) if camp.get("endAt") else (now + timedelta(days=90))
+    if status == "scheduled" and now < start_at:
+        return []
     pause_windows = []
     for p in (camp.get("pauseWindows") or []):
         try:

@@ -8502,6 +8502,121 @@ def get_admin_mine_overview():
         }
     })
 
+@app.route('/api/admin/mine/campaign/schedule', methods=['POST'])
+@verify_token
+def admin_schedule_psemine_campaign():
+    """Schedule the next 90-day PSEmine window; preserve all user balances."""
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid):
+        return jsonify({"success": False, "error": "SUPER_ADMIN_REQUIRED"}), 403
+
+    data = request.get_json() or {}
+    raw_start = data.get('startAt')
+    if not isinstance(raw_start, str) or not raw_start.strip():
+        return jsonify({"success": False, "error": "START_AT_REQUIRED"}), 400
+    try:
+        start_at = datetime.fromisoformat(raw_start.strip().replace('Z', '+00:00'))
+        if start_at.tzinfo is None:
+            return jsonify({"success": False, "error": "START_AT_MUST_INCLUDE_TIMEZONE"}), 400
+        start_at = start_at.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "INVALID_START_AT"}), 400
+
+    now = datetime.now(timezone.utc)
+    if start_at <= now + timedelta(minutes=2):
+        return jsonify({
+            "success": False,
+            "error": "START_AT_MUST_BE_IN_FUTURE",
+            "message": "Choose a start time at least two minutes from now."
+        }), 400
+
+    camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
+    camp_snap = camp_ref.get()
+    if not camp_snap.exists:
+        return jsonify({"success": False, "error": "CAMPAIGN_NOT_INITIALIZED"}), 404
+    current = camp_snap.to_dict() or {}
+    current_status = str(current.get('status', 'active')).lower()
+    if current_status in ('archived', 'settling', 'payout', 'closed'):
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_NOT_RESCHEDULABLE",
+            "message": f"A campaign in '{current_status}' status cannot be rescheduled from this screen."
+        }), 409
+
+    # Flush the current earning window before changing startAt. This avoids
+    # losing uncheckpointed earnings when an active campaign is rescheduled.
+    # Fail closed above 200 accounts rather than risking a partial financial
+    # transition inside a serverless request; scheduling can be retried safely.
+    import psemine_engine as _pse_engine
+    user_snaps = list(db.collection('psemine_users').limit(201).stream())
+    if len(user_snaps) > 200:
+        return jsonify({
+            "success": False,
+            "error": "SCHEDULE_REQUIRES_BATCH_CHECKPOINT",
+            "message": "This campaign has more than 200 miner records. Run the campaign checkpoint job before scheduling; no campaign fields were changed."
+        }), 409
+    try:
+        for user_snap in user_snaps:
+            _pse_engine.accrual_checkpoint(db, user_snap.id, source='campaign_schedule')
+    except Exception:
+        logging.exception("PSEmine schedule pre-checkpoint failed; campaign was not rescheduled")
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_CHECKPOINT_FAILED",
+            "message": "The existing earning window could not be safely checkpointed. No schedule was applied; retry after resolving the checkpoint error."
+        }), 500
+
+    end_at = start_at + timedelta(days=90)
+    start_iso = start_at.isoformat()
+    end_iso = end_at.isoformat()
+    now_iso = now.isoformat()
+    camp_ref.update({
+        "status": "scheduled",
+        "durationDays": 90,
+        "startAt": start_iso,
+        "endAt": end_iso,
+        "scheduledAt": now_iso,
+        "scheduledBy": uid,
+        "previousCampaignWindow": {
+            "startAt": current.get('startAt'),
+            "endAt": current.get('endAt'),
+            "status": current_status,
+            "replacedAt": now_iso,
+        },
+        "miningEnabled": False,
+        "purchaseEnabled": False,
+        "referralEnabled": False,
+        "updatedAt": now_iso,
+    })
+    db.collection('admin_audit_logs').add({
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "adminId": uid,
+        "action": "PSEMINE_CAMPAIGN_SCHEDULED",
+        "targetEntity": "psemine_campaigns/active_campaign",
+        "metadata": {
+            "previousStatus": current_status,
+            "startAt": start_iso,
+            "endAt": end_iso,
+            "durationDays": 90,
+            "reason": str(data.get('reason') or 'Scheduled 90-day campaign restart'),
+            "balancesReset": False,
+            "usersCheckpointed": len(user_snaps),
+        },
+    })
+    return jsonify({
+        "success": True,
+        "status": "scheduled",
+        "startAt": start_iso,
+        "endAt": end_iso,
+        "durationDays": 90,
+        "usersCheckpointed": len(user_snaps),
+        "balancesReset": False,
+    }), 200
+
+
 @app.route('/api/admin/mine/campaign/action', methods=['POST'])
 @verify_token
 def admin_campaign_action():

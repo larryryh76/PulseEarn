@@ -1,0 +1,59 @@
+/* PSEmine Account — a dedicated mobile-first identity surface. */
+.pse-route-account .pse-page-head { margin-bottom: 1.15rem; }
+.pse-route-account .pse-page-objective { max-width: 42rem; }
+.pse-account-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 1.8rem;
+  padding: clamp(1rem, 3vw, 1.55rem);
+  border: 1px solid rgba(126, 139, 255, .22);
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(94, 106, 210, .18), transparent 46%),
+    linear-gradient(135deg, #11131d 0%, #0c0e16 68%, #11111c 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.pse-account-identity { display:flex; align-items:center; gap:1rem; min-width:0; }
+.pse-account-avatar {
+  display:grid; place-items:center; flex:0 0 auto;
+  width:clamp(3.5rem, 12vw, 4.35rem); aspect-ratio:1;
+  border:1px solid rgba(145,154,255,.42); border-radius:1.15rem;
+  background:linear-gradient(145deg,rgba(94,106,210,.24),rgba(94,106,210,.05));
+  color:#e4e7ff; font-size:1.65rem; font-weight:750; letter-spacing:-.06em;
+}
+.pse-account-person { min-width:0; }
+.pse-account-eyebrow { display:block; margin-bottom:.32rem; color:#8d95bd; font:600 .62rem/1.3 ui-monospace,SFMono-Regular,monospace; letter-spacing:.16em; }
+.pse-account-person h2 { margin:0; overflow-wrap:anywhere; color:#f3f4fa; font-size:clamp(1.15rem,4vw,1.6rem); font-weight:650; letter-spacing:-.045em; line-height:1.2; }
+.pse-account-person p { margin:.35rem 0 0; overflow-wrap:anywhere; color:#9a9daf; font-size:.82rem; }
+.pse-account-verification { display:inline-flex; align-items:center; gap:.42rem; margin-top:.62rem; padding:.27rem .48rem; border:1px solid rgba(255,255,255,.1); border-radius:999px; color:#aeb3c5; font-size:.68rem; }
+.pse-account-verification > span { width:.38rem; height:.38rem; border-radius:50%; background:#8b91a6; }
+.pse-account-verification.is-verified { border-color:rgba(100,180,255,.22); color:#b9dcff; }
+.pse-account-verification.is-verified > span { background:#69b8ff; }
+.pse-account-verification.is-pending { border-color:rgba(245,183,95,.2); color:#eac58e; }
+.pse-account-verification.is-pending > span { background:#e9b86b; }
+.pse-account-hero-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; margin-top:1.15rem; }
+.pse-account-shortcut { display:flex; align-items:center; justify-content:center; gap:.45rem; min-height:2.55rem; padding:.5rem .4rem; border:1px solid rgba(255,255,255,.09); border-radius:.65rem; background:rgba(255,255,255,.025); color:#d4d7e7; font-size:.76rem; text-decoration:none; transition:border-color .15s ease,background .15s ease; }
+.pse-account-shortcut > span:first-child { color:#9ba4ff; font-size:.95rem; }
+.pse-account-shortcut:hover { border-color:rgba(126,139,255,.4); background:rgba(94,106,210,.09); }
+.pse-account-shortcut:focus-visible { outline:2px solid #8992ff; outline-offset:2px; }
+.pse-account-id-strip { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .75rem; margin-top:1rem; padding-top:.85rem; border-top:1px solid rgba(255,255,255,.075); }
+.pse-account-id-strip > span:first-child { color:#7e849b; font:600 .59rem/1.3 ui-monospace,SFMono-Regular,monospace; letter-spacing:.12em; }
+.pse-account-id-strip strong { overflow-wrap:anywhere; color:#e2e4f1; font:600 .75rem/1.4 ui-monospace,SFMono-Regular,monospace; }
+.pse-account-access { margin-left:auto; color:#9ca5ff; font:600 .58rem/1.3 ui-monospace,SFMono-Regular,monospace; letter-spacing:.07em; }
+.pse-route-account .pse-split-console { gap:clamp(1.35rem,3vw,2.25rem); }
+.pse-route-account .pse-block { padding:0 0 1.25rem; border-bottom:1px solid rgba(255,255,255,.075); }
+.pse-route-account .pse-block + .pse-block { margin-top:.35rem; }
+.pse-route-account .pse-block-head { margin-bottom:.8rem; }
+.pse-route-account .pse-block-title { letter-spacing:-.025em; }
+.pse-route-account .pse-actions { flex-wrap:wrap; }
+@media (max-width:420px) {
+  .pse-account-identity { align-items:flex-start; gap:.8rem; }
+  .pse-account-avatar { border-radius:.9rem; }
+  .pse-account-hero-actions { gap:.4rem; }
+  .pse-account-shortcut { gap:.25rem; font-size:.7rem; }
+  .pse-account-id-strip { align-items:flex-start; }
+  .pse-account-access { width:100%; margin-left:0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .pse-account-shortcut { transition:none; }
+}

@@ -235,10 +235,18 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [state, campaign]);
 
   const markRead = useCallback(async (id: string) => {
-    // Optimistic clear; server is re-validated on next refresh.
+    // Optimistic update, but never leave a false "read" state if the API rejects.
+    const previous = notifications.find(n => n.id === id);
+    if (!previous || previous.read) return;
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
-    await markNotificationReadApi(id);
-  }, []);
+    const saved = await markNotificationReadApi(id);
+    if (!saved) {
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: false } : n)));
+      const info = toPseErrorInfo(new Error('The server did not save this notification as read.'), 'notifications');
+      setFeedErrors(prev => ({ ...prev, notifications: info }));
+      logPseDiagnostic('mark notification read', info);
+    }
+  }, [notifications]);
 
   const refreshFeed = useCallback(async (feed: PseFeed) => {
     try {

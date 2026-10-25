@@ -7907,12 +7907,13 @@ def get_current_bnb_gbp_price():
 
 @app.route('/api/mine/campaign/status', methods=['GET'])
 def get_psemine_campaign_status():
-    """Return the active PSEmine campaign, or its default public configuration."""
+    """Return the public campaign projection after enforcing scheduled start/end."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    if camp_doc.exists:
-        return jsonify({"success": True, "campaign": camp_doc.to_dict()})
+    import psemine_engine as _pse_engine
+    camp, _effective, _ = _pse_engine.campaign_lifecycle_state(db)
+    if camp:
+        return jsonify({"success": True, "campaign": camp})
     return jsonify({"success": True, "campaign": {
         "id": "active_campaign",
         "name": "PSEmine Genesis 90-Day Campaign",
@@ -7948,12 +7949,13 @@ def generate_psemine_tool_quote():
             "message": "Active mining campaign is not currently configured."
         }), 404
 
-    camp_data = camp_doc.to_dict() or {}
-    if camp_data.get('status') != 'active' or not camp_data.get('purchaseEnabled', True):
+    import psemine_engine as _pse_engine
+    camp_data, effective_status, _ = _pse_engine.campaign_lifecycle_state(db)
+    if effective_status != 'active' or not camp_data.get('purchaseEnabled', True):
         return jsonify({
             "success": False,
             "error": "PURCHASES_DISABLED",
-            "message": "Tool purchases are currently closed for this campaign."
+            "message": "Tool purchases are closed until the campaign is active."
         }), 403
 
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
@@ -8510,7 +8512,7 @@ def admin_campaign_action():
     if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
 
     data = request.get_json() or {}
-    action = data.get('action') # 'pause', 'resume', 'settle', 'shutdown'
+    action = data.get('action') # 'pause', 'resume', 'schedule', 'settle', 'shutdown'
     reason = data.get('reason', 'Administrative decision')
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
@@ -8522,13 +8524,123 @@ def admin_campaign_action():
             "message": "Active campaign has not been initialized."
         }), 404
 
-    current_status = camp_snap.to_dict().get('status', 'active')
+    camp_before = camp_snap.to_dict() or {}
+    current_status = camp_before.get('status', 'active')
     if current_status == 'archived':
         return jsonify({
             "success": False,
             "error": "CAMPAIGN_ARCHIVED",
             "message": "Archived campaign cannot be transitioned."
         }), 400
+
+    if action == 'schedule':
+        # Scheduling is an explicit restart of the live window, not a balance
+        # reset. Existing user balances, ownerships, purchases and audit records
+        # remain intact. Settlement must be completed before a new window can be
+        # scheduled so outstanding liabilities cannot be silently discarded.
+        if current_status in ('settling', 'payout'):
+            return jsonify({
+                "success": False,
+                "error": "SETTLEMENT_IN_PROGRESS",
+                "message": "Complete settlement before scheduling another campaign window."
+            }), 409
+        start_raw = data.get('startAt')
+        try:
+            if not isinstance(start_raw, str) or not start_raw.strip():
+                raise ValueError("startAt is required")
+            start_dt = datetime.fromisoformat(start_raw.strip().replace('Z', '+00:00'))
+            if start_dt.tzinfo is None:
+                raise ValueError("startAt must include a timezone")
+            start_dt = start_dt.astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            return jsonify({
+                "success": False,
+                "error": "INVALID_START_AT",
+                "message": "Provide a valid ISO start date/time with a timezone."
+            }), 400
+
+        now_dt = datetime.now(timezone.utc)
+        if start_dt <= now_dt:
+            return jsonify({
+                "success": False,
+                "error": "START_AT_NOT_FUTURE",
+                "message": "The scheduled start must be in the future."
+            }), 400
+        if start_dt > now_dt + timedelta(days=365):
+            return jsonify({
+                "success": False,
+                "error": "START_AT_TOO_FAR",
+                "message": "The scheduled start must be within the next 365 days."
+            }), 400
+
+        # Bank every account's old-window accrual before replacing the canonical
+        # dates. If any checkpoint fails, leave the current campaign untouched;
+        # retrying is safe because each checkpoint is idempotent.
+        if current_status in ('active', 'paused'):
+            try:
+                import psemine_engine as _pse_schedule_engine
+                for user_doc in db.collection('psemine_users').get():
+                    _pse_schedule_engine.accrual_checkpoint(
+                        db, user_doc.id, source='campaign_schedule'
+                    )
+            except Exception:
+                logging.exception("[PSEmine Campaign] Could not checkpoint all accounts before scheduling")
+                return jsonify({
+                    "success": False,
+                    "error": "CAMPAIGN_CHECKPOINT_FAILED",
+                    "message": "The current campaign was not rescheduled because account accrual could not be safely checkpointed. No campaign dates were changed; retry after resolving the backend error."
+                }), 503
+
+        duration_days = 90
+        end_dt = start_dt + timedelta(days=duration_days)
+        end_iso = end_dt.isoformat()
+        start_iso = start_dt.isoformat()
+        deadline_iso = (end_dt - timedelta(days=3)).isoformat()
+        previous_window = {
+            "status": current_status,
+            "startAt": camp_before.get('startAt'),
+            "endAt": camp_before.get('endAt'),
+            "scheduledAt": now_dt.isoformat(),
+            "scheduledBy": uid,
+        }
+        camp_ref.update({
+            "status": "scheduled",
+            "startAt": start_iso,
+            "endAt": end_iso,
+            "durationDays": duration_days,
+            "walletChangeDeadline": deadline_iso,
+            "miningEnabled": False,
+            "purchaseEnabled": False,
+            "referralEnabled": False,
+            "scheduledAt": now_dt.isoformat(),
+            "scheduledBy": uid,
+            "restartHistory": firestore.ArrayUnion([previous_window]),
+            "updatedAt": now_dt.isoformat(),
+        })
+        db.collection('admin_audit_logs').add({
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "adminId": uid,
+            "action": "PSEMINE_CAMPAIGN_SCHEDULE",
+            "targetEntity": "psemine_campaigns/active_campaign",
+            "metadata": {
+                "reason": reason,
+                "previousStatus": current_status,
+                "startAt": start_iso,
+                "endAt": end_iso,
+                "durationDays": duration_days,
+                "balancesPreserved": True,
+            }
+        })
+        return jsonify({
+            "success": True,
+            "action": action,
+            "status": "scheduled",
+            "startAt": start_iso,
+            "endAt": end_iso,
+            "durationDays": duration_days,
+            "balancesPreserved": True,
+            "timestamp": now_dt.isoformat(),
+        })
 
     if action == 'resume' and current_status != 'paused':
         return jsonify({

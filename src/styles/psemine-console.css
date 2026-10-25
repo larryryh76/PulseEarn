@@ -684,3 +684,103 @@
 @media(prefers-reduced-motion:reduce) {
   .pse-route-mining-tools .pse-tool-art svg { transition:none; }
 }
+
+
+/* ── Compact account, activity and notification refinement ────────────────
+   Keep the existing PSEmine palette and real records; improve density,
+   hierarchy and touch targets without introducing new data or fake metrics. */
+.pse-console-shell .pse-toolbar {
+  display:grid;
+  grid-template-columns:minmax(150px,.8fr) minmax(220px,1.4fr) auto auto;
+  align-items:end;
+  gap:10px;
+  padding:12px 0 16px;
+  border-bottom:1px solid var(--pse-rule);
+  margin-bottom:12px;
+}
+.pse-console-shell .pse-toolbar > * { min-width:0; }
+.pse-console-shell .pse-toolbar .pse-field { margin:0; }
+.pse-console-shell .pse-toolbar .pse-input { min-height:42px; }
+.pse-console-shell .pse-log-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:14px 4px;
+  border-bottom:1px solid var(--pse-rule);
+  transition:background .16s ease,padding .16s ease;
+}
+.pse-console-shell .pse-log-row:hover {
+  padding-left:9px;
+  padding-right:9px;
+  background:rgba(255,255,255,.018);
+}
+.pse-console-shell .pse-log-when {
+  font-size:10px;
+  color:var(--pse-ink-3);
+  font-variant-numeric:tabular-nums;
+}
+.pse-console-shell .pse-log-title { font-size:12px; letter-spacing:-.01em; }
+.pse-console-shell .pse-log-note { max-width:68ch; font-size:11px; line-height:1.5; }
+.pse-console-shell .pse-log-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:5px; }
+.pse-console-shell .pse-security-form {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.pse-console-shell .pse-security-form > :first-child { grid-column:1 / -1; }
+.pse-console-shell .pse-security-form > button,
+.pse-console-shell .pse-security-form > [type="submit"] { justify-self:start; }
+.pse-console-shell .pse-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.pse-console-shell .pse-notes { border-top:1px solid var(--pse-rule); }
+.pse-console-shell .pse-notes > * { padding-top:11px; padding-bottom:11px; }
+.pse-console-shell .pse-sheet {
+  width:min(440px,calc(100vw - 18px));
+  border:1px solid var(--pse-rule-2);
+  border-radius:16px 0 0 16px;
+  background:linear-gradient(145deg,#111927,#0b1019 65%);
+  box-shadow:0 24px 80px rgba(0,0,0,.55);
+}
+.pse-console-shell .pse-sheet-head {
+  position:sticky;
+  top:0;
+  z-index:1;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  padding:17px;
+  background:rgba(13,19,30,.96);
+  border-bottom:1px solid var(--pse-rule);
+  backdrop-filter:blur(14px);
+}
+.pse-console-shell .pse-sheet-head .pse-block-title { margin-right:auto; }
+.pse-console-shell .pse-sheet-head .pse-strip-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.pse-console-shell .pse-sheet-body { padding:4px 17px 20px; }
+.pse-console-shell .pse-sheet-row {
+  display:grid;
+  gap:5px;
+  padding:15px 0;
+  border-bottom:1px solid var(--pse-rule);
+}
+.pse-console-shell .pse-sheet-row:last-child { border-bottom:0; }
+.pse-console-shell .pse-sheet-row-title { font-size:12px; font-weight:650; letter-spacing:-.01em; }
+.pse-console-shell .pse-sheet-row-note { font-size:11px; line-height:1.55; color:var(--pse-ink-2); }
+.pse-console-shell .pse-sheet-row-meta { display:flex; align-items:center; flex-wrap:wrap; gap:7px 10px; font-size:10px; color:var(--pse-ink-3); }
+@media(max-width:680px) {
+  .pse-console-shell .pse-toolbar { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:9px; }
+  .pse-console-shell .pse-toolbar > :nth-child(2) { grid-column:1 / -1; grid-row:1; }
+  .pse-console-shell .pse-toolbar > :nth-child(1) { grid-column:1 / -1; grid-row:2; }
+  .pse-console-shell .pse-toolbar > :nth-child(3),
+  .pse-console-shell .pse-toolbar > :nth-child(4) { width:100%; }
+  .pse-console-shell .pse-toolbar button { min-height:40px; }
+  .pse-console-shell .pse-security-form { grid-template-columns:minmax(0,1fr); }
+  .pse-console-shell .pse-security-form > :first-child { grid-column:auto; }
+  .pse-console-shell .pse-log-row { grid-template-columns:minmax(0,1fr); gap:5px; }
+  .pse-console-shell .pse-sheet { width:min(440px,calc(100vw - 10px)); border-radius:15px 0 0 15px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-console-shell .pse-log-row { transition:none; }
+}
+
+

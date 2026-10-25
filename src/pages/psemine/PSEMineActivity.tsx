@@ -119,7 +119,7 @@ export const PSEMineActivity: React.FC = () => {
     return (
       <PsePage
         title="Activity"
-        objective="Every recorded PSEmine event on this account, newest first, grouped by day with its recorded amount."
+        objective="Recent backend-recorded PSEmine events, newest first, grouped by day with the recorded amount."
       >
         <PseStatBar cols={4}>
           {['Recorded events', 'Credited', 'Debited', 'Net recorded'].map(label => (
@@ -151,9 +151,9 @@ export const PSEMineActivity: React.FC = () => {
     >
       <PseStatBar cols={4}>
         <PseStat label="Recorded events" value={`${activities.length}`} note={totals.newest ? `Newest ${timeAgo(totals.newest)}` : 'No records'} />
-        <PseStat label="Credited" value={gbp(totals.credited)} note="Sum of positive recorded amounts" />
-        <PseStat label="Debited" value={gbp(totals.debited)} note="Sum of negative recorded amounts" />
-        <PseStat label="Net recorded" value={`${net < 0 ? '−' : ''}${gbp(Math.abs(net))}`} note="Credits minus debits" />
+        <PseStat label="Credited" value={gbp(totals.credited)} note="Positive amounts in the loaded feed" />
+        <PseStat label="Debited" value={gbp(totals.debited)} note="Negative amounts in the loaded feed" />
+        <PseStat label="Net recorded" value={`${net < 0 ? '−' : ''}${gbp(Math.abs(net))}`} note="Net of amounts currently loaded" />
       </PseStatBar>
 
       {feedErrors.activities && (
@@ -257,8 +257,10 @@ export const PSEMineActivity: React.FC = () => {
 
       <p className="pse-prose--sm">
         Rows are backend records with their recorded sign: a credit is money accrued or returned to
-        the account, a debit is money spent (a tool purchase) or paid out. Undated records are shown
-        honestly as undated rather than being given an invented time.
+        the account, a debit is money spent (a tool purchase) or paid out. The totals summarize only
+        the records currently returned by the activity feed; they are not a lifetime balance or a
+        substitute for the canonical wallet figures. Undated records remain undated rather than
+        being given an invented time.
       </p>
     </PsePage>
   );

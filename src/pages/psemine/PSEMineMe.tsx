@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './PSEMineMe.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -73,6 +74,30 @@ export const PSEMineMe: React.FC = () => {
       title="Account"
       objective="Your identity, the wallets this product uses, security and support. Mining figures live on the dashboard and wallet."
     >
+      <section className="pse-account-hero" aria-label="Account overview">
+        <div className="pse-account-identity">
+          <div className="pse-account-avatar" aria-hidden="true">
+            {(userData?.username || currentUser?.email || 'P').trim().charAt(0).toUpperCase()}
+          </div>
+          <div className="pse-account-person">
+            <span className="pse-account-eyebrow">PSEMINE MEMBER</span>
+            <h2>{userData?.username || 'Your account'}</h2>
+            <p>{currentUser?.email || 'Email unavailable'}</p>
+            <span className={`pse-account-verification ${currentUser?.emailVerified ? 'is-verified' : 'is-pending'}`}>
+              <span aria-hidden="true" />{currentUser?.emailVerified ? 'Email verified' : 'Verification pending'}
+            </span>
+          </div>
+        </div>
+        <div className="pse-account-hero-actions">
+          <Link to="/mine/wallet" className="pse-account-shortcut"><span aria-hidden="true">↗</span><span>Wallets</span></Link>
+          <Link to="/mine/activity" className="pse-account-shortcut"><span aria-hidden="true">↗</span><span>Activity</span></Link>
+          <Link to="/mine/support" className="pse-account-shortcut"><span aria-hidden="true">↗</span><span>Support</span></Link>
+        </div>
+        <div className="pse-account-id-strip">
+          <span>REFERRAL CODE</span><strong>{userData?.referralCode || 'Not assigned'}</strong>
+          <span className="pse-account-access">{userData?.productAccess?.psemine ? 'ACCESS ACTIVE' : 'ACCESS NOT ENABLED'}</span>
+        </div>
+      </section>
       <PseSplit>
         <PseStack>
           <PseSection title="Identity">

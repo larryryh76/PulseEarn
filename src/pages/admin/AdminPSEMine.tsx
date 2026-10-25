@@ -48,17 +48,32 @@ import toast from 'react-hot-toast';
 const TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
 function localDateInputValue(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = (type: string) => parts.find(item => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 function nextTuesdayDateValue(): string {
-  const date = new Date();
-  const daysUntilTuesday = (2 - date.getDay() + 7) % 7 || 7;
-  date.setDate(date.getDate() + daysUntilTuesday);
-  return localDateInputValue(date);
+  const [year, month, day] = localDateInputValue(new Date()).split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const daysUntilTuesday = (2 - date.getUTCDay() + 7) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + daysUntilTuesday);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function fmtWATDateTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return '—';
+  return `${new Intl.DateTimeFormat('en-NG', {
+    timeZone: 'Africa/Lagos',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)} WAT`;
 }
 
 type ScreenSection = 'campaign' | 'payments' | 'tools' | 'purchases' | 'payouts' | 'audit';
@@ -157,10 +172,12 @@ export const AdminPSEMine: React.FC = () => {
     let startAtIso: string | undefined;
     if (action === 'schedule') {
       if (!scheduleDate || !scheduleTime) {
-        toast.error('Choose the scheduled start time for Tuesday first.');
+        toast.error('Choose a campaign start date and time first.');
         return;
       }
-      const parsed = new Date(`${scheduleDate}T${scheduleTime}`);
+      // The campaign schedule is defined in Nigeria time, independent of the
+      // admin device/browser timezone. Nigeria uses WAT (UTC+01:00) year-round.
+      const parsed = new Date(`${scheduleDate}T${scheduleTime}:00+01:00`);
       if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
         toast.error('The scheduled start must be a valid future date and time.');
         return;
@@ -170,7 +187,7 @@ export const AdminPSEMine: React.FC = () => {
     const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
       pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
       resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
-      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${new Date(startAtIso!).toLocaleString()}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals stay closed while scheduled and reopen when the backend starts the campaign.` },
+      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${fmtWATDateTime(startAtIso!)}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals stay closed while scheduled and reopen when the backend starts the campaign.` },
       settle: { title: 'Begin settlement?', detail: 'Mining ends, purchases close, ownership states settle, and payout review opens. A settlement job is created and this is recorded in the audit log. Not casually reversible.' },
       shutdown: { title: 'SHUTDOWN — archive the campaign?', detail: 'Permanently archives the campaign: mining, purchases, and referrals close, and public mining interfaces close. This is recorded in the audit log.', requireText: 'shutdown' },
     };
@@ -194,7 +211,7 @@ export const AdminPSEMine: React.FC = () => {
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
             toast.success(action === 'schedule'
-              ? `Campaign scheduled for ${new Date(data.startAt || startAtIso!).toLocaleString()}.`
+              ? `Campaign scheduled for ${fmtWATDateTime(data.startAt || startAtIso!)}.`
               : `Campaign action "${action}" executed.`);
             await refreshCampaign();
             await load(true);
@@ -383,8 +400,8 @@ export const AdminPSEMine: React.FC = () => {
                 hint="Accrued · paid out"
               />
               <PseFact label="Campaign duration" value={campaign?.durationDays ? `${campaign.durationDays} days` : '—'} />
-              <PseFact label="Scheduled start" value={campaign?.startAt ? fmtDateTime(campaign.startAt) : '—'} />
-              <PseFact label="Scheduled end" value={campaign?.endAt ? fmtDateTime(campaign.endAt) : '—'} />
+              <PseFact label="Campaign start (WAT)" value={campaign?.startAt ? fmtWATDateTime(campaign.startAt) : '—'} />
+              <PseFact label="Campaign end (WAT)" value={campaign?.endAt ? fmtWATDateTime(campaign.endAt) : '—'} />
             </PseFacts>
 
             <div className="pse-block">
@@ -399,7 +416,7 @@ export const AdminPSEMine: React.FC = () => {
                     autoComplete="off"
                   />
                 </PseField>
-                <PseField label="Start time · local time (WAT in Nigeria)" htmlFor="pse-campaign-start-time">
+                <PseField label="Start time (WAT · Africa/Lagos)" htmlFor="pse-campaign-start-time">
                   <PseInput
                     id="pse-campaign-start-time"
                     type="time"
@@ -411,7 +428,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseField>
               </div>
               <p className="pse-prose--sm">
-                Default start time is 9:00 AM in this browser’s local time (9:00 AM WAT in Nigeria). Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+                Default start time is 9:00 AM WAT (Africa/Lagos), regardless of the device timezone. Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
               </p>
               <div className="flex flex-wrap gap-2">
                 <PseButton

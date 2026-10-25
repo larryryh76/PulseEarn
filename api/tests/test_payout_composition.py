@@ -214,6 +214,12 @@ class _Collection:
                 doc_id += "x"
         return _DocRef(self._store, self.name, doc_id)
 
+    def add(self, payload):
+        """Mirror Firestore CollectionReference.add for audit-log writes."""
+        ref = self.document()
+        ref.set(payload)
+        return ref, None
+
     def where(self, field, op, value):
         """Return a query with the requested filter appended."""
         return _Query(self._store, self.name, [(field, op, value)])

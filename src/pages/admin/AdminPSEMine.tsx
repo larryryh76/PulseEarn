@@ -219,7 +219,6 @@ export const AdminPSEMine: React.FC = () => {
       return;
     }
     const startAt = start.toISOString();
-    const endAt = new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
     setConfirm({
       title: 'Schedule the new 90-day campaign?',
       consequence: 'The current earning window will be checkpointed first. Mining, purchases and referrals will remain closed until the scheduled start. The new window will run for 90 days. Existing balances and tool ownership will not be reset.',

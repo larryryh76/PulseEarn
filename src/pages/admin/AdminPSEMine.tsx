@@ -90,7 +90,7 @@ export const AdminPSEMine: React.FC = () => {
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
-  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
   const [resolving, setResolving] = useState<string | null>(null);
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
 
@@ -399,7 +399,7 @@ export const AdminPSEMine: React.FC = () => {
                     autoComplete="off"
                   />
                 </PseField>
-                <PseField label="Start time (required)" htmlFor="pse-campaign-start-time">
+                <PseField label="Start time · local time (WAT in Nigeria)" htmlFor="pse-campaign-start-time">
                   <PseInput
                     id="pse-campaign-start-time"
                     type="time"
@@ -411,7 +411,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseField>
               </div>
               <p className="pse-prose--sm">
-                Set the exact start time. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+                Default start time is 9:00 AM in this browser’s local time (9:00 AM WAT in Nigeria). Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
               </p>
               <div className="flex flex-wrap gap-2">
                 <PseButton

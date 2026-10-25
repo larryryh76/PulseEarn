@@ -93,6 +93,8 @@ export const AdminPSEMine: React.FC = () => {
   const [scheduleTime, setScheduleTime] = useState('');
   const [resolving, setResolving] = useState<string | null>(null);
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
+  const [scheduleStart, setScheduleStart] = useState('2026-10-27T00:00');
+  const [scheduleBusy, setScheduleBusy] = useState(false);
 
   const [confirm, setConfirm] = useState<{
     title: string; consequence: string; affected: string;
@@ -204,6 +206,47 @@ export const AdminPSEMine: React.FC = () => {
         } catch (e) {
           toast.error(e instanceof Error ? e.message : 'Execution error.');
         } finally { setActionBusy(null); }
+      },
+    });
+  };
+
+  /** Schedule the next 90-day campaign window without resetting user balances. */
+  const scheduleCampaign = () => {
+    if (!currentUser) return;
+    const start = new Date(scheduleStart);
+    if (!scheduleStart || Number.isNaN(start.getTime()) || start.getTime() <= Date.now() + 120000) {
+      toast.error('Choose a future start time at least two minutes from now.');
+      return;
+    }
+    const startAt = start.toISOString();
+    const endAt = new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+    setConfirm({
+      title: 'Schedule the new 90-day campaign?',
+      consequence: 'The current earning window will be checkpointed first. Mining, purchases and referrals will remain closed until the scheduled start. The new window will run for 90 days. Existing balances and tool ownership will not be reset.',
+      affected: 'psemine_campaigns/active_campaign',
+      confirmLabel: 'Schedule campaign',
+      run: async () => {
+        setScheduleBusy(true);
+        try {
+          const token = await currentUser.getIdToken();
+          const res = await fetch('/api/admin/mine/campaign/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ startAt, reason: 'Admin console: scheduled 90-day campaign restart' }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            toast.success(`Campaign scheduled for ${fmtDateTime(data.startAt)}.`);
+            await refreshCampaign();
+            await load(true);
+          } else {
+            toast.error(data.message || data.error || 'Campaign scheduling failed.');
+          }
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Campaign scheduling failed.');
+        } finally {
+          setScheduleBusy(false);
+        }
       },
     });
   };
@@ -425,6 +468,35 @@ export const AdminPSEMine: React.FC = () => {
                 </PseButton>
               </div>
             </div>
+
+            <form
+              className="pse-ops-schedule"
+              onSubmit={e => { e.preventDefault(); scheduleCampaign(); }}
+            >
+              <div className="pse-ops-schedule-copy">
+                <span className="pse-ops-schedule-kicker">Next campaign window</span>
+                <strong>Schedule a fresh 90-day run</strong>
+                <span>Uses server-controlled start and end times. Existing balances and ownership are preserved.</span>
+              </div>
+              <PseField label="Start date and time (your device timezone)" htmlFor="pse-campaign-start">
+                <PseInput
+                  id="pse-campaign-start"
+                  type="datetime-local"
+                  value={scheduleStart}
+                  onChange={e => setScheduleStart(e.target.value)}
+                  required
+                />
+              </PseField>
+              <div className="pse-ops-schedule-preview">
+                <span>Expected end</span>
+                <strong>{scheduleStart && !Number.isNaN(new Date(scheduleStart).getTime())
+                  ? fmtDateTime(new Date(new Date(scheduleStart).getTime() + 90 * 24 * 60 * 60 * 1000))
+                  : 'Choose a start time'}</strong>
+              </div>
+              <PseButton type="submit" variant="primary" disabled={scheduleBusy || actionBusy !== null} busy={scheduleBusy}>
+                {scheduleBusy ? 'Scheduling…' : 'Schedule campaign'}
+              </PseButton>
+            </form>
 
             <div className="flex flex-wrap gap-2">
               {(['pause', 'resume', 'settle', 'shutdown'] as const).map(action => (

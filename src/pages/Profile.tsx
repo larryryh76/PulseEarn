@@ -185,11 +185,11 @@ const Profile: React.FC = () => {
       <div className="bg-background transition-colors duration-300">
       <div className="pt-20 md:pt-24 pb-28 px-4 md:px-6 max-w-5xl mx-auto">
         {/* PROFILE HEADER */}
-        <header className="mb-7 md:mb-9">
+        <header className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_at_top_right,_rgba(52,120,246,0.18),_transparent_52%),linear-gradient(135deg,_#0a1020,_#080b13)] p-4 md:p-6">
           <div className="flex flex-row items-center gap-4 md:gap-7 text-left">
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-               <div className={cn("w-[76px] h-[76px] md:w-24 md:h-24 rounded-2xl bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
+               <div className={cn("w-[68px] h-[68px] md:w-20 md:h-20 rounded-2xl bg-[#101a30] p-1 border border-[#3478f6]/40 relative z-10 shadow-[0_0_24px_rgba(52,120,246,0.12)]")}>
                  <div className="w-full h-full rounded-[0.9rem] overflow-hidden border border-border group/avatar relative">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
@@ -197,7 +197,7 @@ const Profile: React.FC = () => {
                      className="w-full h-full object-cover grayscale-[0.2] group-hover/avatar:grayscale-0 transition-all duration-700"
                    />
                  </div>
-                 <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-surface border border-border-bright flex items-center justify-center shadow-xl", getLevelTier(userData?.level || 1).color)}>
+                 <div className={cn("absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-[#101a30] border border-[#3478f6]/40 flex items-center justify-center shadow-xl text-[#8ab4ff]")}>
                    <Award size={24} />
                  </div>
                </div>
@@ -207,11 +207,11 @@ const Profile: React.FC = () => {
               <div className="space-y-2">
                  <div className="flex flex-wrap items-center gap-2">
                    <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-text-primary truncate">{userData?.username}</h1>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
+                   <div className={cn("badge-system h-7 px-3 flex items-center gap-2 border border-[#3478f6]/20 bg-[#3478f6]/10 text-[#8ab4ff]")}>
                       <TrendingUp size={12} />
                       LVL {userData?.level || 1}
                    </div>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
+                   <div className={cn("badge-system h-7 px-3 flex items-center gap-2 border border-white/10 bg-white/5 text-slate-300 font-black uppercase tracking-widest")}>
                       {getLevelTier(userData?.level || 1).title}
                    </div>
                  </div>
@@ -228,19 +228,18 @@ const Profile: React.FC = () => {
               </div>
 
               {/* XP PROGRESSION */}
-              <div className="max-w-md p-4 bg-surface-bright border border-border rounded-xl">
+              <div className="max-w-md p-3 bg-black/20 border border-white/10 rounded-xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
                   <span>Progress to Level {xpStats.level + 1}</span>
-                  <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}%</span>
+                  <span className="font-black text-[#8ab4ff]">{Math.floor(xpStats.progress)}%</span>
                 </div>
                 <div className="h-3 bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border-bright">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${xpStats.progress}%` }}
                     className={cn(
-                      "h-full transition-all duration-1000 rounded-full relative",
-                      getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
-                      "shadow-[0_0_20px_rgba(94,106,210,0.8)]"
+                      "h-full transition-all duration-1000 rounded-full relative bg-gradient-to-r from-[#3478f6] to-[#65d6ff]",
+                      "shadow-[0_0_14px_rgba(52,120,246,0.45)]"
                     )}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
@@ -251,10 +250,26 @@ const Profile: React.FC = () => {
           </div>
         </header>
 
+        {/* COMPACT ACCOUNT SIGNALS */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="rounded-xl border border-white/10 bg-[#0b1020] px-3 py-3 min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">XP</p>
+            <p className="mt-1 text-lg font-semibold tracking-tight text-white tabular-nums">{(userData?.xp || 0).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-[#0b1020] px-3 py-3 min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Streak</p>
+            <p className="mt-1 text-lg font-semibold tracking-tight text-white tabular-nums">{userData?.streak || 0}<span className="ml-1 text-[10px] font-medium text-slate-500">days</span></p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-[#0b1020] px-3 py-3 min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Referrals</p>
+            <p className="mt-1 text-lg font-semibold tracking-tight text-white tabular-nums">{liveReferralCount ?? userData?.stats?.referralsCount ?? 0}</p>
+          </div>
+        </div>
+
         {/* NAVIGATION SYSTEM */}
-        <div className="flex gap-1 mb-5 p-1 bg-[#0b1020] border border-white/10 rounded-xl overflow-x-auto no-scrollbar sticky top-16 z-20 backdrop-blur-xl">
+        <div className="flex gap-1 mb-4 p-1 bg-[#080d18]/95 border border-white/10 rounded-xl overflow-x-auto no-scrollbar sticky top-16 z-20 backdrop-blur-xl shadow-lg">
           {[
-            { id: 'IDENTITY', label: 'Identity', icon: UserIcon },
+            { id: 'IDENTITY', label: 'Overview', icon: UserIcon },
             { id: 'REWARDS', label: 'Rewards', icon: Zap },
             { id: 'ACTIVITY', label: 'Activity', icon: History },
             { id: 'SETTINGS', label: 'Settings', icon: SettingsIcon },
@@ -264,8 +279,8 @@ const Profile: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "flex items-center gap-2 px-3 md:px-5 py-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
-                activeTab === tab.id ? "bg-[#3478f6] text-white shadow-[0_4px_18px_rgba(52,120,246,0.25)]" : "text-text-tertiary hover:text-text-primary hover:bg-white/5"
+                "flex items-center gap-2 px-3 md:px-5 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
+                activeTab === tab.id ? "bg-[#3478f6] text-white shadow-[0_4px_18px_rgba(52,120,246,0.25)]" : "text-slate-400 hover:text-white hover:bg-white/5"
               )}
             >
               <tab.icon size={14} />
@@ -294,7 +309,7 @@ const Profile: React.FC = () => {
                         <span className="text-[11px] font-bold text-text-tertiary uppercase tracking-widest">Security Clearance</span>
                         <div className={cn(
                           "badge-system",
-                          currentUser?.emailVerified ? "bg-success/10 text-success border-success/20" : "bg-warning/10 text-warning border-warning/20"
+                          currentUser?.emailVerified ? "bg-[#3478f6]/10 text-[#8ab4ff] border-[#3478f6]/20" : "bg-amber-500/10 text-amber-300 border-amber-400/20"
                         )}>
                           {currentUser?.emailVerified ? 'VERIFIED' : 'PENDING'}
                         </div>
@@ -337,7 +352,7 @@ const Profile: React.FC = () => {
 
             {activeTab === 'REWARDS' && (
               <motion.div key="rewards" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-3">
-                <Card className="bg-[#0b1020] border-white/10 p-5 md:p-8 relative overflow-hidden rounded-2xl">
+                <Card className="bg-[linear-gradient(135deg,_#0b1222,_#080b13)] border-white/10 p-5 md:p-7 relative overflow-hidden rounded-2xl">
                   <div className="absolute top-0 right-0 p-12 opacity-[0.03]">
                     <Share2 size={160} />
                   </div>
@@ -354,7 +369,7 @@ const Profile: React.FC = () => {
                         {userData?.referralCode}
                         <div className="w-px h-6 bg-surface-accent mx-2" />
                         <button onClick={copyReferral} className="text-text-tertiary hover:text-text-primary transition-colors">
-                           {hasCopied ? <Check size={20} className="text-success" /> : <Copy size={20} />}
+                           {hasCopied ? <Check size={20} className="text-[#65d6ff]" /> : <Copy size={20} />}
                         </button>
                       </div>
                     </div>
@@ -395,7 +410,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                         <span className="text-[13px] font-mono font-bold text-success">+{(tx.amount || 0)?.toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
+                         <span className="text-[13px] font-mono font-bold text-[#65d6ff]">+{(tx.amount || 0)?.toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
                       </div>
                     </div>
                   ))}

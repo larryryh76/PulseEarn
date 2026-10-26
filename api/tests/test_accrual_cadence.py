@@ -135,13 +135,18 @@ class checkpointing:
         self.step = step_seconds
         self.clock = now
         self._real_utcnow = eng.utcnow
+        self._real_firestore = eng._firestore
 
     def __enter__(self):
+        # Use the in-memory transaction path: Firestore's SDK decorator expects
+        # a real Transaction object, while this suite deliberately uses FakeDB.
         eng.utcnow = lambda: self.clock
+        eng._firestore = None
         return self
 
     def __exit__(self, *exc):
         eng.utcnow = self._real_utcnow
+        eng._firestore = self._real_firestore
         return False
 
     def tick(self):

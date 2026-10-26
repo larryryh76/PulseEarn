@@ -314,6 +314,31 @@ export const PSEMineTools: React.FC = () => {
       objective="Fixed-price equipment. Pay in BNB; capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
+      <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
+        <div className="pse-marketplace-hero-copy">
+          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE EQUIPMENT MARKETPLACE</span>
+          <h2 id="pse-marketplace-hero-title">Build your <em>mining setup.</em></h2>
+          <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
+          <div className="pse-marketplace-hero-actions">
+            <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
+            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
+          </div>
+        </div>
+        <div className="pse-marketplace-hero-object" aria-hidden="true">
+          <div className="pse-marketplace-orbit pse-marketplace-orbit--one" />
+          <div className="pse-marketplace-orbit pse-marketplace-orbit--two" />
+          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--top"><span>AVAILABLE TIERS</span><strong>{TOOLS.length.toString().padStart(2, '0')}</strong></div>
+          <div className="pse-marketplace-hero-machine"><ToolArt tier={4} name="Elite mining unit" /></div>
+          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--bottom"><span>PAYMENT NETWORK</span><strong>BNB SMART CHAIN</strong></div>
+        </div>
+        <div className="pse-marketplace-hero-foot">
+          <div><span>YOUR EQUIPMENT</span><strong>{ownedTools.length.toString().padStart(2, '0')} <small>owned</small></strong></div>
+          <div><span>HOURLY TOOL CAPACITY</span><strong>{toolCapacityLabel}</strong></div>
+          <div><span>ACCOUNT SLOT HEADROOM</span><strong>{tierSlotsLeft} <small>slots</small></strong></div>
+          <a href="#pse-catalogue">Compare equipment <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
       <PseStatBar cols={4}>
         <PseStat
           label="Equipment owned"
@@ -368,9 +393,9 @@ export const PSEMineTools: React.FC = () => {
         <section className="pse-marketplace-catalogue" id="pse-catalogue" aria-labelledby="pse-catalogue-title">
           <div className="pse-marketplace-heading">
             <div>
-              <p className="pse-marketplace-kicker">Equipment exchange</p>
-              <h2 id="pse-catalogue-title">Choose your capacity</h2>
-              <p>Fixed campaign pricing. Every purchase is verified on BNB Smart Chain before activation.</p>
+              <p className="pse-marketplace-kicker">01 / SELECT YOUR EQUIPMENT</p>
+              <h2 id="pse-catalogue-title">Choose your tool</h2>
+              <p>Compare the actual purchase price, hourly capacity and ownership limit. Select a tool to start checkout.</p>
             </div>
             <span className="pse-marketplace-count">{TOOLS.length} tool types</span>
           </div>
@@ -430,7 +455,7 @@ export const PSEMineTools: React.FC = () => {
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
                       <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'Select tool' : 'Unavailable'}
+                        {purchaseOpen ? 'Buy this tool' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>

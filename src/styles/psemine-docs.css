@@ -1,5 +1,5 @@
 /* PSEmine documents — complete document surface replacement. */
-.pse-doc-page { min-height:100vh; background:#080b12; color:#f1f4fc; }
+.pse-doc-page { min-height:100vh; background:radial-gradient(ellipse at 50% -15%,rgba(119,117,255,.075),transparent 42%),#080b12; color:#f1f4fc; }
 .pse-doc-bar { position:sticky; top:0; z-index:20; border-bottom:1px solid rgba(190,205,235,.12); background:rgba(8,11,18,.94); backdrop-filter:blur(18px); }
 .pse-doc-bar-inner { width:min(1120px,100%); min-height:64px; margin:auto; padding:0 22px; display:flex; align-items:center; gap:24px; }
 .pse-doc-bar a,.pse-doc-foot a { color:#a0abc0; text-decoration:none; }
@@ -14,13 +14,13 @@
 .pse-doc-title { margin:17px 0 0; max-width:780px; font-size:clamp(30px,5vw,48px); line-height:1.06; letter-spacing:-.06em; font-weight:650; }
 .pse-doc-summary { max-width:680px; margin:15px 0 0; color:#a0abc0; font-size:14px; line-height:1.8; }
 .pse-doc-meta { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:19px; color:#6e7b92; font-size:10px; }
-.pse-doc-toc { position:sticky; top:88px; padding:16px 0; border-top:1px solid rgba(190,205,235,.16); border-bottom:1px solid rgba(190,205,235,.16); }
+.pse-doc-toc { position:sticky; top:88px; padding:16px; border:1px solid rgba(190,205,235,.12); border-radius:14px; background:rgba(14,19,30,.7); }
 .pse-doc-toc-title { margin:0 0 10px; color:#6e7b92; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
 .pse-doc-toc a { display:block; padding:7px 0; color:#a0abc0; text-decoration:none; font-size:11px; line-height:1.45; }
 .pse-doc-toc a:hover { color:#aaa8ff; }
 .pse-doc-body { min-width:0; }
 .pse-doc-clauses { display:grid; }
-.pse-doc-clause { display:grid; grid-template-columns:32px minmax(0,1fr); gap:13px; padding:26px 0; border-bottom:1px solid rgba(190,205,235,.12); scroll-margin-top:90px; }
+.pse-doc-clause { display:grid; grid-template-columns:32px minmax(0,1fr); gap:13px; padding:clamp(22px,3vw,30px) 0; border-bottom:1px solid rgba(190,205,235,.12); scroll-margin-top:90px; }
 .pse-doc-clause-num { padding-top:3px; color:#7775ff; font-size:10px; font-variant-numeric:tabular-nums; }
 .pse-doc-clause-h { margin:0 0 12px; color:#f1f4fc; font-size:17px; font-weight:630; letter-spacing:-.03em; }
 .pse-doc-para { margin:0 0 12px; color:#a0abc0; font-size:13px; line-height:1.9; overflow-wrap:anywhere; }

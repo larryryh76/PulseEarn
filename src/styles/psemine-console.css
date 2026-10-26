@@ -3,11 +3,11 @@
    additive override. One dark financial surface, one violet action colour,
    cyan only for confirmed positive states, and rules instead of card piles. */
 .pse-console-shell {
-  --pse-bg:#080b12; --pse-surface:#0e131e; --pse-surface-2:#141b29;
-  --pse-rule:rgba(190,205,235,.12); --pse-rule-2:rgba(190,205,235,.2);
+  --pse-bg:#070a11; --pse-surface:#0d1320; --pse-surface-2:#141d2c;
+  --pse-rule:rgba(190,205,235,.11); --pse-rule-2:rgba(190,205,235,.22);
   --pse-ink:#f1f4fc; --pse-ink-2:#a0abc0; --pse-ink-3:#6e7b92;
-  --pse-accent:#7775ff; --pse-accent-strong:#625cf5; --pse-cyan:#2fc9e6;
-  --pse-danger:#ff647c; --pse-amber:#f0b75d; --pse-radius:14px;
+  --pse-accent:#8582ff; --pse-accent-strong:#6d68ff; --pse-cyan:#38d4f2;
+  --pse-danger:#ff647c; --pse-amber:#f0b75d; --pse-radius:16px;
   min-height:100vh; color:var(--pse-ink); background:var(--pse-bg);
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;
   font-size:14px; line-height:1.5; letter-spacing:-.01em;
@@ -18,6 +18,8 @@
 .pse-console-shell button { cursor:pointer; }
 .pse-console-shell button:disabled { cursor:not-allowed; opacity:.48; }
 .pse-console-shell :focus-visible { outline:2px solid var(--pse-accent); outline-offset:3px; }
+.pse-console-shell ::selection { color:#fff; background:rgba(119,117,255,.38); }
+.pse-console-shell :where(a,button,input,select,textarea) { -webkit-tap-highlight-color:transparent; }
 .pse-console-shell .pse-bar { position:sticky; top:0; z-index:30; border-bottom:1px solid var(--pse-rule); background:rgba(8,11,18,.92); backdrop-filter:blur(18px); }
 .pse-bar-inner { min-height:66px; width:min(1440px,100%); margin:auto; padding:0 clamp(16px,3vw,40px); display:flex; align-items:center; gap:24px; }
 .pse-bar-brand { display:flex; align-items:center; gap:10px; flex:none; }
@@ -41,7 +43,7 @@
 .pse-strip-key,.pse-strip-note { color:var(--pse-ink-3); font-size:11px; }
 .pse-strip-val { font-variant-numeric:tabular-nums; font-weight:650; font-size:12px; }
 .pse-strip-note { margin-left:auto; max-width:48%; text-align:right; }
-.pse-page { display:grid; gap:26px; min-width:0; }
+.pse-page { display:grid; gap:clamp(20px,2.8vw,30px); min-width:0; }
 .pse-page-head { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding-bottom:22px; border-bottom:1px solid var(--pse-rule); }
 .pse-page-head-main { min-width:0; }
 .pse-page-title,.pse-page h1 { margin:0; font-size:clamp(26px,4vw,38px); line-height:1.08; letter-spacing:-.055em; font-weight:650; }
@@ -52,14 +54,14 @@
 .pse-section-title,.pse-block-title { margin:0; font-size:15px; font-weight:640; letter-spacing:-.025em; }
 .pse-section-meta,.pse-block-meta { color:var(--pse-ink-3); font-size:11px; }
 .pse-section-body { min-width:0; }
-.pse-statbar { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--pse-rule); border-radius:var(--pse-radius); overflow:hidden; background:var(--pse-surface); }
+.pse-statbar { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--pse-rule); border-radius:var(--pse-radius); overflow:hidden; background:linear-gradient(135deg,rgba(119,117,255,.035),transparent 55%),var(--pse-surface); }
 .pse-stat { min-width:0; padding:16px 18px; }
 .pse-stat + .pse-stat { border-left:1px solid var(--pse-rule); }
 .pse-stat-label,.pse-fact-label,.pse-money-label { display:block; color:var(--pse-ink-3); font-size:10px; letter-spacing:.04em; text-transform:uppercase; font-weight:650; }
 .pse-stat-value { margin-top:7px; font-size:clamp(16px,2vw,23px); line-height:1.2; letter-spacing:-.04em; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 .pse-stat-note { margin-top:6px; color:var(--pse-ink-3); font-size:11px; line-height:1.45; }
-.pse-console-shell .pse-btn { min-height:38px; padding:0 13px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent; border-radius:9px; background:var(--pse-accent-strong); color:white!important; font-size:12px; font-weight:650; transition:background .15s,border-color .15s; }
-.pse-btn:hover { background:#7772ff; }
+.pse-console-shell .pse-btn { min-height:40px; padding:0 14px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent; border-radius:10px; background:linear-gradient(135deg,#7772ff,#5c58eb); color:white!important; font-size:12px; font-weight:650; box-shadow:0 5px 16px rgba(98,92,245,.13); transition:transform .16s ease,background .16s,border-color .16s,box-shadow .16s; }
+.pse-console-shell .pse-btn:hover:not(:disabled) { background:linear-gradient(135deg,#8985ff,#6a65fa); box-shadow:0 7px 20px rgba(98,92,245,.2); transform:translateY(-1px); }
 .pse-btn--secondary { border-color:var(--pse-rule-2); background:transparent; color:var(--pse-ink)!important; }
 .pse-btn--secondary:hover { background:var(--pse-surface-2); border-color:rgba(190,205,235,.3); }
 .pse-btn--danger { color:var(--pse-danger)!important; }
@@ -970,4 +972,4 @@
 .pse-marketplace-products .pse-product-index { display:none; }
 @media(min-width:1000px) { .pse-marketplace-products { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; } .pse-marketplace-products .pse-product { align-content:start; } .pse-marketplace-products .pse-product-specs { align-self:stretch; } }
 @media(max-width:480px) { .pse-marketplace-products .pse-product { padding:14px; gap:11px; } .pse-marketplace-products .pse-product-specs { gap:5px; } .pse-marketplace-products .pse-product-spec dt { font-size:7px; letter-spacing:.03em; } .pse-marketplace-products .pse-product-spec dd { font-size:11px; } .pse-marketplace-products .pse-product-spec:first-child dd { font-size:16px; } .pse-marketplace-products .pse-product-actions .pse-btn { padding-inline:12px; } }
-@media(prefers-reduced-motion:reduce) { .pse-marketplace-products .pse-product { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .pse-marketplace-products .pse-product { transition:none; } .pse-console-shell *, .pse-console-shell *::before, .pse-console-shell *::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }

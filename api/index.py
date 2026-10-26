@@ -5,6 +5,7 @@ import html
 import math
 import time
 import urllib.parse
+import urllib.request
 import logging
 import traceback
 import uuid
@@ -7734,21 +7735,32 @@ def admin_psemine_review_withdrawal(withdrawal_id):
         if not payout_destination:
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
         try:
-            from web3 import Web3
+            import json as _json
             rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
-            w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 8}))
-            if not w3.is_connected() or int(w3.eth.chain_id) != 56:
+            def _rpc(method, params):
+                body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
+                request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
+                with urllib.request.urlopen(request, timeout=8) as response:
+                    payload = _json.loads(response.read().decode('utf-8'))
+                if payload.get('error') or 'result' not in payload:
+                    raise RuntimeError('BNB RPC request failed')
+                return payload['result']
+            if int(_rpc('eth_chainId', []), 16) != 56:
                 return jsonify({'success': False, 'error': 'PAYOUT_VERIFIER_UNAVAILABLE', 'message': 'BNB Smart Chain verification is unavailable. No payout status was changed.'}), 503
-            tx = w3.eth.get_transaction(_norm)
-            receipt = w3.eth.get_transaction_receipt(_norm)
-            if int(receipt.status) != 1:
+            tx = _rpc('eth_getTransactionByHash', [_norm])
+            receipt = _rpc('eth_getTransactionReceipt', [_norm])
+            if not tx or not receipt:
+                return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_NOT_FOUND', 'message': 'The transaction is not yet available on BNB Smart Chain. No payout status was changed.'}), 409
+            if int(receipt.get('status', '0x0'), 16) != 1:
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
-            if not tx.get('to') or Web3.to_checksum_address(tx['to']) != Web3.to_checksum_address(payout_destination):
+            tx_to = str(tx.get('to') or '').lower()
+            expected_to = payout_destination.lower()
+            if not tx_to or tx_to != expected_to:
                 return jsonify({'success': False, 'error': 'PAYOUT_RECIPIENT_MISMATCH', 'message': 'The transaction recipient does not match the saved payout destination.'}), 409
-            value_wei = int(tx.get('value') or 0)
+            value_wei = int(tx.get('value') or '0x0', 16)
             if value_wei <= 0:
                 return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_INVALID', 'message': 'The transaction contains no positive native-BNB transfer.'}), 409
-            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.blockNumber), 'amountWei': str(value_wei), 'recipient': Web3.to_checksum_address(tx['to'])}
+            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.get('blockNumber', '0x0'), 16), 'amountWei': str(value_wei), 'recipient': tx_to}
         except Exception:
             logging.exception('[PSEmine Admin] payout transaction verification failed')
             return jsonify({'success': False, 'error': 'PAYOUT_VERIFICATION_UNAVAILABLE', 'message': 'The transaction could not be verified on BNB Smart Chain. No payout status was changed.'}), 503

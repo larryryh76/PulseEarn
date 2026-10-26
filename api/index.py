@@ -8484,6 +8484,25 @@ def get_admin_mine_overview():
     import psemine_engine as _pse_engine
     ov = _pse_engine.admin_overview(db)
     camp_data = ov.get("campaign") or {}
+    # Report actual BNB receipts only from payment records created after the
+    # backend's on-chain verification succeeds. The campaign aggregate can
+    # contain legacy quote values, so it is not a source of collected funds.
+    verified_bnb_total = Decimal('0')
+    verified_payment_count = 0
+    try:
+        for _payment_snap in db.collection('psemine_payments').where('status', '==', 'confirmed').get():
+            _payment = _payment_snap.to_dict() or {}
+            _amount = _payment.get('paidBnbAmount') or _payment.get('amountBnb')
+            if _amount is None:
+                continue
+            _amount_decimal = Decimal(str(_amount))
+            if _amount_decimal < 0:
+                continue
+            verified_bnb_total += _amount_decimal
+            verified_payment_count += 1
+    except Exception:
+        logging.exception('[PSEmine Admin] verified payment aggregate failed')
+        return jsonify({'success': False, 'error': 'PAYMENT_AGGREGATE_UNAVAILABLE', 'message': 'Verified payment totals could not be reconciled.'}), 503
     return jsonify({
         "success": True,
         "stats": {
@@ -8492,7 +8511,8 @@ def get_admin_mine_overview():
             "toolsSold": ov.get("toolsSold", 0),
             "totalCapacityGBPPerHour": ov.get("totalCapacityGBPPerHour", 0),
             "totalAccruedLiabilityGBP": ov.get("totalAccruedLiabilityGBP", 0),
-            "totalBNBCollected": camp_data.get('totalBNBCollected', 0),
+            "totalBNBCollected": float(verified_bnb_total),
+            "verifiedPaymentCount": verified_payment_count,
             "qualifiedReferrals": ov.get("qualifiedReferrals", 0),
             "campaignStatus": ov.get("campaignStatus", "active"),
             # canonical extras (integer minor units)

@@ -135,7 +135,7 @@
   .pse-nav { display:none; }
   .pse-bar-context { display:none; }
   .pse-bar-inner { min-height:60px; gap:12px; }
-  .pse-console-shell--docked .pse-stage { padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
+  .pse-console-shell--docked .pse-stage { padding-bottom:calc(48px + env(safe-area-inset-bottom)); }
   /* Keep the final footer and its links above the fixed dock when the reader
      reaches the end of a short page (especially Wallet & payouts). */
   .pse-console-shell--docked .pse-console-foot { margin-bottom:calc(120px + env(safe-area-inset-bottom)); }

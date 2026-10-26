@@ -360,6 +360,29 @@ export const AdminPSEMine: React.FC = () => {
           </PseButton>
         }
       >
+        <section className="pse-ops-hero" aria-label="PSEmine operational summary">
+          <div className="pse-ops-hero-copy">
+            <span className="pse-ops-eyebrow"><span className="pse-ops-live-dot" /> CAMPAIGN CONTROL CENTRE</span>
+            <h2>Know what is happening.<br /><em>Act on verified evidence.</em></h2>
+            <p>Live operational data from PSEmine's backend. No sample payments, simulated activity, or inferred balances.</p>
+            <div className="pse-ops-hero-meta">
+              <span className={campaignPhase?.label?.toLowerCase().includes('active') ? 'is-positive' : 'is-neutral'}>{campaignPhase?.label || 'Campaign state unavailable'}</span>
+              <span>{loadedAt ? `Last synced ${fmtDateTime(new Date(loadedAt))}` : 'Waiting for first sync'}</span>
+            </div>
+          </div>
+          <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>90</strong><small>DAY OPERATIONS</small></div>
+        </section>
+        <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
+          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Active miners</span><strong>{numOrDash(stat('activeMiners'))}</strong><small>{numOrDash(stat('totalMiners'))} total registered accounts</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
+        </section>
+        <section className="pse-ops-trust-note" role="note">
+          <span className="pse-ops-trust-icon" aria-hidden="true">✓</span>
+          <div><strong>Evidence-first mode</strong><p>Only backend-returned records are shown. A transaction is not considered paid merely because a hash was entered; payout status and chain evidence must agree.</p></div>
+          <span className="pse-ops-sync-state">{error ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
+        </section>
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
         <nav className="pse-block" aria-label="Operations sections">

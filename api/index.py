@@ -7640,12 +7640,13 @@ def admin_psemine_overview():
 
     try:
         orders_count = db.collection('psemine_orders').count().get()[0][0].value
-        payments_count = db.collection('psemine_payments').count().get()[0][0].value
+        # Count only verified payments; payment documents can include failed attempts.
+        payments_count = db.collection('psemine_payments').where('status', '==', 'confirmed').count().get()[0][0].value
         ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
         sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
     except Exception:
         orders_count = len(db.collection('psemine_orders').get())
-        payments_count = len(db.collection('psemine_payments').get())
+        payments_count = len(db.collection('psemine_payments').where('status', '==', 'confirmed').get())
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 

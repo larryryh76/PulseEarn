@@ -17,7 +17,9 @@
 .pse-console-shell button,.pse-console-shell input,.pse-console-shell select,.pse-console-shell textarea { font:inherit; }
 .pse-console-shell button { cursor:pointer; }
 .pse-console-shell button:disabled { cursor:not-allowed; opacity:.48; }
-.pse-console-shell :focus-visible { outline:2px solid var(--pse-accent); outline-offset:3px; }\n.pse-console-shell ::selection { color:#fff; background:rgba(119,117,255,.38); }\n.pse-console-shell :where(a,button,input,select,textarea) { -webkit-tap-highlight-color:transparent; }
+.pse-console-shell :focus-visible { outline:2px solid var(--pse-accent); outline-offset:3px; }
+.pse-console-shell ::selection { color:#fff; background:rgba(119,117,255,.38); }
+.pse-console-shell :where(a,button,input,select,textarea) { -webkit-tap-highlight-color:transparent; }
 .pse-console-shell .pse-bar { position:sticky; top:0; z-index:30; border-bottom:1px solid var(--pse-rule); background:rgba(8,11,18,.92); backdrop-filter:blur(18px); }
 .pse-bar-inner { min-height:66px; width:min(1440px,100%); margin:auto; padding:0 clamp(16px,3vw,40px); display:flex; align-items:center; gap:24px; }
 .pse-bar-brand { display:flex; align-items:center; gap:10px; flex:none; }

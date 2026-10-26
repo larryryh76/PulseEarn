@@ -1849,6 +1849,8 @@
 
 .pse-hero-copy { display: flex; flex-direction: column; align-items: flex-start; }
 .pse-hero-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; }
+.pse-btn { min-height:44px; }
+.pse-mast-nav a { min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
 
 .pse-hero-meta {
   display: flex;

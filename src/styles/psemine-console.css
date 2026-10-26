@@ -203,12 +203,12 @@
 .pse-empty-mark { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--pse-rule); border-radius:9px; color:var(--pse-accent); }
 .pse-empty-note { margin:0; max-width:520px; color:var(--pse-ink-2); font-size:12px; line-height:1.7; }
 .pse-empty-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
-.pse-skel { display:block; width:var(--pse-skel-w,100%); height:var(--pse-skel-h,.8rem); background:linear-gradient(90deg,#141b29,#20283a,#141b29); background-size:200% 100%; border-radius:4px; animation:pse-skeleton 1.5s linear infinite; }
+.pse-skel { display:block; width:var(--pse-skel-w,100%); max-width:100%; min-width:0; box-sizing:border-box; height:var(--pse-skel-h,.8rem); background:linear-gradient(90deg,#141b29,#20283a,#141b29); background-size:200% 100%; border-radius:4px; animation:pse-skeleton 1.5s linear infinite; }
 .pse-skel-stack { display:grid; gap:0; min-width:0; }
 .pse-skel-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:15px 0; border-bottom:1px solid var(--pse-rule); }
 .pse-split-console { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr); gap:32px; min-width:0; }
 .pse-btn--block { width:100%; }
-.pse-icon-btn-badge { position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; display:grid; place-items:center; padding:0 3px; border:2px solid #080b12; border-radius:99px; color:#fff; background:var(--pse-accent-strong); font-size:8px; font-weight:700; }
+.pse-icon-btn-badge { position:absolute; top:1px; right:1px; min-width:16px; height:16px; display:grid; place-items:center; padding:0 3px; border:2px solid #080b12; border-radius:99px; color:#fff; background:var(--pse-accent-strong); font-size:8px; font-weight:700; }
 .pse-scrim { position:fixed; inset:0; z-index:70; display:grid; place-items:center; padding:18px; background:rgba(0,0,0,.7); backdrop-filter:blur(4px); }
 .pse-dialog { width:min(480px,100%); padding:24px; border:1px solid var(--pse-rule-2); border-radius:15px; background:#0e131e; box-shadow:0 25px 90px #0009; }
 .pse-dialog-title { margin:0; font-size:20px; font-weight:650; letter-spacing:-.04em; }

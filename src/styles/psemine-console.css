@@ -870,3 +870,47 @@
 @media(prefers-reduced-motion:reduce) {
   .pse-route-mining-tools .pse-marketplace-buy-cta { transition:none; }
 }
+
+
+/* Marketplace visual pass: products read as equipment cards, not a spreadsheet */
+.pse-marketplace-products { display:grid; gap:12px; border:0; }
+.pse-marketplace-products .pse-product {
+  position:relative; grid-template-columns:54px minmax(0,1fr); align-items:start;
+  gap:12px 15px; padding:18px; border:1px solid rgba(130,145,181,.17);
+  border-radius:15px; overflow:hidden;
+  background:radial-gradient(ellipse at 0 0,rgba(99,91,255,.10),transparent 48%),linear-gradient(145deg,#111725 0%,#0b1019 78%);
+  transition:border-color .18s ease,transform .18s ease,background .18s ease;
+}
+.pse-marketplace-products .pse-product:hover { border-color:rgba(126,137,255,.45); background:radial-gradient(ellipse at 0 0,rgba(99,91,255,.15),transparent 48%),#0d1320; transform:translateY(-1px); }
+.pse-marketplace-products .pse-product > svg,
+.pse-marketplace-products .pse-product > .pse-tool-art { width:54px; height:54px; grid-row:1; grid-column:1; }
+.pse-marketplace-products .pse-product-id { grid-row:1; grid-column:2; }
+.pse-marketplace-products .pse-product-name { font-size:15px; }
+.pse-marketplace-products .pse-product-tier { display:inline-flex; margin-top:9px; padding:5px 7px; border:1px solid rgba(137,132,255,.25); border-radius:6px; background:rgba(107,99,255,.08); color:#b6b5ff; font-size:8px; letter-spacing:.1em; }
+.pse-marketplace-products .pse-product-specs { grid-column:1 / -1; grid-row:2; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:14px 0; border-top:1px solid rgba(139,151,180,.12); border-bottom:1px solid rgba(139,151,180,.12); }
+.pse-marketplace-products .pse-product-spec { padding:0 4px; }
+.pse-marketplace-products .pse-product-spec dd { font-size:13px; }
+.pse-marketplace-products .pse-product-spec:first-child dd { color:#d2d0ff; font-size:18px; letter-spacing:-.04em; }
+.pse-marketplace-products .pse-product-actions { grid-column:1 / -1; grid-row:3; display:flex; justify-content:space-between; align-items:center; width:100%; min-width:0; gap:12px; }
+.pse-marketplace-products .pse-product-avail { text-align:left; }
+.pse-marketplace-products .pse-product-actions .pse-btn { min-height:40px; padding-inline:17px; border-radius:9px; }
+.pse-marketplace-products .pse-product:nth-child(1) { --tier-accent:#62b9ff; }
+.pse-marketplace-products .pse-product:nth-child(2) { --tier-accent:#a19aff; }
+.pse-marketplace-products .pse-product:nth-child(3) { --tier-accent:#c3a0ff; }
+.pse-marketplace-products .pse-product:nth-child(4) { --tier-accent:#67e0ff; }
+.pse-marketplace-products .pse-product::before { content:""; position:absolute; inset:0 auto 0 0; width:2px; background:var(--tier-accent,#8b86ff); opacity:.8; }
+.pse-marketplace-products .pse-product-index { display:none; }
+@media(min-width:1000px) {
+  .pse-marketplace-products { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+  .pse-marketplace-products .pse-product { align-content:start; }
+  .pse-marketplace-products .pse-product-specs { align-self:stretch; }
+}
+@media(max-width:480px) {
+  .pse-marketplace-products .pse-product { padding:14px; gap:11px; }
+  .pse-marketplace-products .pse-product-specs { gap:5px; }
+  .pse-marketplace-products .pse-product-spec dt { font-size:7px; letter-spacing:.03em; }
+  .pse-marketplace-products .pse-product-spec dd { font-size:11px; }
+  .pse-marketplace-products .pse-product-spec:first-child dd { font-size:16px; }
+  .pse-marketplace-products .pse-product-actions .pse-btn { padding-inline:12px; }
+}
+@media(prefers-reduced-motion:reduce) { .pse-marketplace-products .pse-product { transition:none; } }

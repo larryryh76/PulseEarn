@@ -114,7 +114,7 @@ export const PSEMineMe: React.FC = () => {
               <PseFact label="Display name" value={userData?.username || '—'} text />
               <PseFact label="Referral code" value={userData?.referralCode || '—'} />
               <PseFact label="PSEmine access" value={hasPSEmineAccess ? 'Enabled' : 'Not enabled'} text />
-              <PseFact label="Onboarding" value={userData?.onboardingCompleted === false ? 'Not completed' : 'Completed'} text />
+              <PseFact label="Onboarding" value={userData?.onboardingCompleted === true ? 'Completed' : userData?.onboardingCompleted === false ? 'Not completed' : 'Not reported'} text />
             </PseFacts>
             {!currentUser?.emailVerified && (
               <PseNotice tone="attention">

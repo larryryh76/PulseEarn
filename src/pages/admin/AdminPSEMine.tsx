@@ -128,6 +128,7 @@ export const AdminPSEMine: React.FC = () => {
   const [orderFilter, setOrderFilter] = useState('all');
   const [orderSearch, setOrderSearch] = useState('');
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
+  const [auditRows, setAuditRows] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
   const [scheduleTime, setScheduleTime] = useState('09:00');
@@ -148,12 +149,13 @@ export const AdminPSEMine: React.FC = () => {
     try {
       const token = await currentUser.getIdToken();
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [ovRes, recRes, wdRes, ordersRes, pseRes] = await Promise.all([
+      const [ovRes, recRes, wdRes, ordersRes, pseRes, auditRes] = await Promise.all([
         fetch('/api/admin/mine/overview', { headers }),
         fetch('/api/admin/mine/payment-recovery?status=open', { headers }),
         fetch('/api/admin/psemine/withdrawals', { headers }),
         fetch('/api/admin/psemine/orders', { headers }),
         fetch('/api/admin/psemine/overview', { headers }),
+        fetch('/api/admin/mine/audit', { headers }),
       ]);
       if (!ovRes.ok) throw new Error(`Campaign overview unavailable (${ovRes.status})`);
       const ov = await ovRes.json().catch(() => ({}));
@@ -180,6 +182,12 @@ export const AdminPSEMine: React.FC = () => {
         setWithdrawalQueue(all.filter(w => ['pending', 'under_review', 'approved', 'processing'].includes(String(w.status))));
       } else setWithdrawalQueue([]);
 
+      if (auditRes.ok) {
+        const d = await auditRes.json().catch(() => ({}));
+        setAuditRows(Array.isArray(d?.records) ? d.records : []);
+      } else {
+        setAuditRows([]);
+      }
       setLoadedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load PSEmine operations data.');
@@ -740,13 +748,22 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
         <div id="ops-audit" className="scroll-mt-24">
-          <PseSection title="Audit" meta="admin_audit_logs — written by the backend, one entry per action">
-            <PseEmptyNote title="Action history is recorded server-side">
-              Every control on this page asks a backend route to perform the work, and each of those routes writes its own
-              record (actor, action, target and outcome) to the audit log before it answers. There is no audit feed
-              endpoint exposed to this console, so this section states the guarantee rather than showing a partial list
-              that could be mistaken for the whole history.
-            </PseEmptyNote>
+          <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
+            {auditRows.length === 0 ? (
+              <PseEmptyNote title="No audit records returned">The audit feed returned no records. This is not proof that no actions occurred; check backend audit-write health and access permissions.</PseEmptyNote>
+            ) : (
+              <PseTable head={["Time", "Action", "Target", "Actor", "Outcome"]}>
+                {auditRows.map(row => (
+                  <PseRow key={String(row.id || "")}>
+                    <PseCell>{row.timestamp ? fmtDateTime(String(row.timestamp)) : "Time unavailable"}</PseCell>
+                    <PseCell><span className="pse-ops-audit-action">{String(row.action || "ADMIN_ACTION").replace(/_/g, " ")}</span></PseCell>
+                    <PseCell>{String(row.targetEntity || "Target not recorded")}</PseCell>
+                    <PseCell mono>{row.adminId ? shortAddr(String(row.adminId)) : "Actor not recorded"}</PseCell>
+                    <PseCell>{String(row.outcome || "recorded")}</PseCell>
+                  </PseRow>
+                ))}
+              </PseTable>
+            )}
           </PseSection>
         </div>
 

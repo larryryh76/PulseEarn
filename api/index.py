@@ -7731,6 +7731,8 @@ def admin_psemine_review_withdrawal(withdrawal_id):
     # require its recipient to match the user's saved payout destination.
     verified_payout = None
     if action == 'APPROVE':
+        if len(_norm) != 66 or not _norm.startswith('0x') or any(ch not in '0123456789abcdef' for ch in _norm[2:]):
+            return jsonify({'success': False, 'error': 'INVALID_TX_HASH', 'message': 'Enter a valid 32-byte transaction hash.'}), 400
         payout_destination = (wd.get('destinationWallet') or wd.get('payoutWallet') or wd.get('payoutAddress') or '').strip()
         if not payout_destination:
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
@@ -7753,6 +7755,8 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_NOT_FOUND', 'message': 'The transaction is not yet available on BNB Smart Chain. No payout status was changed.'}), 409
             if int(receipt.get('status', '0x0'), 16) != 1:
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
+            if str(tx.get('hash') or '').lower() != _norm:
+                return jsonify({'success': False, 'error': 'PAYOUT_HASH_MISMATCH', 'message': 'The chain returned a different transaction hash.'}), 409
             tx_to = str(tx.get('to') or '').lower()
             expected_to = payout_destination.lower()
             if not tx_to or tx_to != expected_to:
@@ -8581,9 +8585,9 @@ def admin_mine_audit_feed():
             rows.append({
                 'id': snap.id,
                 'timestamp': stamp,
-                'adminId': str(row.get('adminId') or row.get('adminUid') or row.get('actorId') or ''),
+                'adminId': str(row.get('adminId') or row.get('adminUid') or row.get('actorId') or row.get('uid') or ''),
                 'action': str(row.get('action') or row.get('event') or 'ADMIN_ACTION'),
-                'targetEntity': str(row.get('targetEntity') or row.get('target') or ''),
+                'targetEntity': str(row.get('targetEntity') or row.get('target') or row.get('targetUserId') or row.get('withdrawalId') or row.get('orderId') or ''),
                 'outcome': str(row.get('outcome') or row.get('status') or 'recorded'),
             })
         return jsonify({'success': True, 'records': rows, 'count': len(rows)})

@@ -1,6 +1,7 @@
 import { 
   doc, 
   getDoc, 
+  getDocFromServer, 
   setDoc, 
   collection, 
   query, 
@@ -125,7 +126,7 @@ export class PSEMineEngine {
     // the backend's public projection instead of to no campaign at all.
     try {
       const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
-      const snap = await getDoc(campaignRef);
+      const snap = await getDocFromServer(campaignRef);
 
       if (snap.exists()) {
         return snap.data() as PSEMineCampaign;
@@ -141,7 +142,7 @@ export class PSEMineEngine {
     // signed-out visitor can reach, so it must not be gated behind the
     // restricted document read.
     try {
-      const res = await fetch('/api/mine/campaign/status');
+      const res = await fetch('/api/mine/campaign/status', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json().catch(() => ({}));
         if (json.success && json.campaign) {

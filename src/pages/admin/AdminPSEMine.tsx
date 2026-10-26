@@ -89,8 +89,13 @@ function nextTuesdayDateValue(): string {
 function fmtUKDateTime(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return '—';
+  // Do not combine dateStyle/timeStyle with timeZoneName: browsers reject that
+  // Intl.DateTimeFormat option combination and crash the entire admin module.
+  // Explicit fields are broadly supported on mobile Chrome and preserve UK time.
   return new Intl.DateTimeFormat('en-GB', {
-    timeZone: CAMPAIGN_TIME_ZONE, dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short',
+    timeZone: CAMPAIGN_TIME_ZONE,
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short',
   }).format(date) + ' UK time';
 }
 

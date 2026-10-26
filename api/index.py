@@ -8522,6 +8522,33 @@ def get_admin_mine_overview():
         }
     })
 
+@app.route('/api/admin/mine/audit', methods=['GET'])
+@verify_token
+def admin_mine_audit_feed():
+    """Read-only, authenticated feed of actual server-written admin audit records."""
+    db = get_db()
+    if not db: return jsonify({'success': False, 'error': 'SERVICE_UNAVAILABLE'}), 503
+    if not is_moderator(request.user['uid']): return jsonify({'success': False, 'error': 'UNAUTHORIZED'}), 403
+    try:
+        snaps = db.collection('admin_audit_logs').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).get()
+        rows = []
+        for snap in snaps:
+            row = snap.to_dict() or {}
+            stamp = row.get('timestamp')
+            if hasattr(stamp, 'isoformat'): stamp = stamp.isoformat()
+            elif stamp is not None: stamp = str(stamp)
+            rows.append({
+                'id': snap.id,
+                'timestamp': stamp,
+                'adminId': str(row.get('adminId') or row.get('adminUid') or row.get('actorId') or ''),
+                'action': str(row.get('action') or row.get('event') or 'ADMIN_ACTION'),
+                'targetEntity': str(row.get('targetEntity') or row.get('target') or ''),
+                'outcome': str(row.get('outcome') or row.get('status') or 'recorded'),
+            })
+        return jsonify({'success': True, 'records': rows, 'count': len(rows)})
+    except Exception:
+        logging.exception('[PSEmine Admin] audit feed read failed')
+        return jsonify({'success': False, 'error': 'AUDIT_FEED_UNAVAILABLE', 'message': 'Audit history is temporarily unavailable.'}), 503
 @app.route('/api/admin/mine/campaign/action', methods=['POST'])
 @verify_token
 def admin_campaign_action():

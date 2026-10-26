@@ -338,7 +338,7 @@ export const AdminPSEMine: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="pse pse-surface">
+      <div className="pse-console-shell pse-admin-operations">
         <div className="pse-console-main">
           <PseLoading label="Loading PSEmine operations" />
         </div>

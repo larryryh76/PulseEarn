@@ -23,7 +23,7 @@ import { mapAuthError } from '../../utils/errors';
  * Firebase first, and sign-out uses the PSEmine auth context.
  */
 export const PSEMineMe: React.FC = () => {
-  const { currentUser, userData, logout } = usePSEMineAuth();
+  const { currentUser, userData, logout, hasPSEmineAccess } = usePSEMineAuth();
   const { state, campaignStatus, loading, activities, notifications, feedErrors, refreshFeed } = usePseState();
   const navigate = useNavigate();
 
@@ -86,8 +86,8 @@ export const PSEMineMe: React.FC = () => {
               <span className={currentUser?.emailVerified ? 'is-verified' : 'is-pending'}>
                 <span aria-hidden="true" />{currentUser?.emailVerified ? 'Email verified' : 'Email unverified'}
               </span>
-              <span className={userData?.productAccess?.psemine ? 'is-verified' : 'is-pending'}>
-                <span aria-hidden="true" />{userData?.productAccess?.psemine ? 'PSEmine enabled' : 'Access not enabled'}
+              <span className={hasPSEmineAccess ? 'is-verified' : 'is-pending'}>
+                <span aria-hidden="true" />{hasPSEmineAccess ? 'PSEmine enabled' : 'Access not enabled'}
               </span>
             </div>
           </div>
@@ -113,7 +113,7 @@ export const PSEMineMe: React.FC = () => {
               />
               <PseFact label="Display name" value={userData?.username || '—'} text />
               <PseFact label="Referral code" value={userData?.referralCode || '—'} />
-              <PseFact label="PSEmine access" value={userData?.productAccess?.psemine ? 'Enabled' : 'Not enabled'} text />
+              <PseFact label="PSEmine access" value={hasPSEmineAccess ? 'Enabled' : 'Not enabled'} text />
               <PseFact label="Onboarding" value={userData?.onboardingCompleted === false ? 'Not completed' : 'Completed'} text />
             </PseFacts>
             {!currentUser?.emailVerified && (

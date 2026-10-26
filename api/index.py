@@ -7764,6 +7764,20 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             value_wei = int(tx.get('value') or '0x0', 16)
             if value_wei <= 0:
                 return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_INVALID', 'message': 'The transaction contains no positive native-BNB transfer.'}), 409
+            expected_wei_raw = wd.get('expectedAmountWei') or wd.get('amountWei')
+            if expected_wei_raw is None and wd.get('amountBnb') is not None:
+                try:
+                    expected_wei_raw = str(int(Decimal(str(wd.get('amountBnb'))) * Decimal(10**18)))
+                except Exception:
+                    expected_wei_raw = None
+            if expected_wei_raw is None:
+                return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_MISSING', 'message': 'This withdrawal has no locked BNB amount to reconcile. It cannot be marked completed until the payout amount is recorded and verified.'}), 409
+            try:
+                expected_wei = int(str(expected_wei_raw), 0) if str(expected_wei_raw).startswith('0x') else int(str(expected_wei_raw))
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_INVALID', 'message': 'The stored expected payout amount is invalid.'}), 409
+            if expected_wei <= 0 or value_wei != expected_wei:
+                return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_MISMATCH', 'message': 'The on-chain BNB amount does not match the locked payout amount.'}), 409
             verified_payout = {'chainId': 56, 'blockNumber': int(receipt.get('blockNumber', '0x0'), 16), 'amountWei': str(value_wei), 'recipient': tx_to}
         except Exception:
             logging.exception('[PSEmine Admin] payout transaction verification failed')

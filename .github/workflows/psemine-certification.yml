@@ -58,4 +58,4 @@ jobs:
         run: bun scripts/pse-wallet-gate.mjs
 
       - name: Mobile/desktop console rendering smoke tests
-        run: bun scripts/pse-console-check.mjs --quick
+        run: bun scripts/pse-console-check.mjs

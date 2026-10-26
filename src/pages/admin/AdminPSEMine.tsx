@@ -680,12 +680,11 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
-            meta="psemine_withdrawals — approving validates the transaction hash atomically; a hash already attached to a completed payout is rejected"
+            meta="A payout is completed only when BSC confirms success, recipient and exact locked BNB amount; records missing that amount remain blocked"
           >
             {withdrawalQueue.length === 0 ? (
               <PseEmptyNote title="No payouts awaiting review">
-                A settled balance is paid in BNB to the payout wallet on the account. Requests enter this queue after
-                settlement, and each one is reviewed here before anything is sent.
+                Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.
               </PseEmptyNote>
             ) : (
               <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>

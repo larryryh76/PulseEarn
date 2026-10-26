@@ -229,7 +229,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const initCampaign = async () => {
       try {
         const campRef = doc(db, 'psemine_campaigns', 'active_campaign');
-        unsub = onSnapshot(campRef, (snap) => {
+        // Ignore cache-only snapshots. A previous campaign window can remain in
+        // Firestore's local persistence after an admin schedules a new one; showing
+        // that snapshot across the console makes every page repeat the old dates
+        // until a later refresh. Wait for the server-owned campaign document.
+        unsub = onSnapshot(campRef, { includeMetadataChanges: true }, (snap) => {
+          if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
           if (snap.exists()) {
             setCampaign(snap.data() as PSEMineCampaign);
           } else {

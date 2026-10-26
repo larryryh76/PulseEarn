@@ -5,6 +5,7 @@ import html
 import math
 import time
 import urllib.parse
+import urllib.request
 import logging
 import traceback
 import uuid
@@ -7639,12 +7640,13 @@ def admin_psemine_overview():
 
     try:
         orders_count = db.collection('psemine_orders').count().get()[0][0].value
-        payments_count = db.collection('psemine_payments').count().get()[0][0].value
+        # Count only verified payments; payment documents can include failed attempts.
+        payments_count = db.collection('psemine_payments').where('status', '==', 'confirmed').count().get()[0][0].value
         ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
         sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
     except Exception:
         orders_count = len(db.collection('psemine_orders').get())
-        payments_count = len(db.collection('psemine_payments').get())
+        payments_count = len(db.collection('psemine_payments').where('status', '==', 'confirmed').get())
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
@@ -7725,6 +7727,63 @@ def admin_psemine_review_withdrawal(withdrawal_id):
     user_id = wd.get('userId')
     amount_gbp = safe_float(wd.get('amountGbp'), 0.0)
 
+    # A payout hash is not proof of payment by itself. Before marking a request
+    # completed, verify a successful native-BNB transfer on BNB Smart Chain and
+    # require its recipient to match the user's saved payout destination.
+    verified_payout = None
+    if action == 'APPROVE':
+        if len(_norm) != 66 or not _norm.startswith('0x') or any(ch not in '0123456789abcdef' for ch in _norm[2:]):
+            return jsonify({'success': False, 'error': 'INVALID_TX_HASH', 'message': 'Enter a valid 32-byte transaction hash.'}), 400
+        payout_destination = (wd.get('destinationWallet') or wd.get('payoutWallet') or wd.get('payoutAddress') or '').strip()
+        if not payout_destination:
+            return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
+        try:
+            import json as _json
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
+            def _rpc(method, params):
+                body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
+                request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
+                with urllib.request.urlopen(request, timeout=8) as response:
+                    payload = _json.loads(response.read().decode('utf-8'))
+                if payload.get('error') or 'result' not in payload:
+                    raise RuntimeError('BNB RPC request failed')
+                return payload['result']
+            if int(_rpc('eth_chainId', []), 16) != 56:
+                return jsonify({'success': False, 'error': 'PAYOUT_VERIFIER_UNAVAILABLE', 'message': 'BNB Smart Chain verification is unavailable. No payout status was changed.'}), 503
+            tx = _rpc('eth_getTransactionByHash', [_norm])
+            receipt = _rpc('eth_getTransactionReceipt', [_norm])
+            if not tx or not receipt:
+                return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_NOT_FOUND', 'message': 'The transaction is not yet available on BNB Smart Chain. No payout status was changed.'}), 409
+            if int(receipt.get('status', '0x0'), 16) != 1:
+                return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
+            if str(tx.get('hash') or '').lower() != _norm:
+                return jsonify({'success': False, 'error': 'PAYOUT_HASH_MISMATCH', 'message': 'The chain returned a different transaction hash.'}), 409
+            tx_to = str(tx.get('to') or '').lower()
+            expected_to = payout_destination.lower()
+            if not tx_to or tx_to != expected_to:
+                return jsonify({'success': False, 'error': 'PAYOUT_RECIPIENT_MISMATCH', 'message': 'The transaction recipient does not match the saved payout destination.'}), 409
+            value_wei = int(tx.get('value') or '0x0', 16)
+            if value_wei <= 0:
+                return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_INVALID', 'message': 'The transaction contains no positive native-BNB transfer.'}), 409
+            expected_wei_raw = wd.get('expectedAmountWei') or wd.get('amountWei')
+            if expected_wei_raw is None and wd.get('amountBnb') is not None:
+                try:
+                    expected_wei_raw = str(int(Decimal(str(wd.get('amountBnb'))) * Decimal(10**18)))
+                except Exception:
+                    expected_wei_raw = None
+            if expected_wei_raw is None:
+                return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_MISSING', 'message': 'This withdrawal has no locked BNB amount to reconcile. It cannot be marked completed until the payout amount is recorded and verified.'}), 409
+            try:
+                expected_wei = int(str(expected_wei_raw), 0) if str(expected_wei_raw).startswith('0x') else int(str(expected_wei_raw))
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_INVALID', 'message': 'The stored expected payout amount is invalid.'}), 409
+            if expected_wei <= 0 or value_wei != expected_wei:
+                return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_MISMATCH', 'message': 'The on-chain BNB amount does not match the locked payout amount.'}), 409
+            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.get('blockNumber', '0x0'), 16), 'amountWei': str(value_wei), 'recipient': tx_to}
+        except Exception:
+            logging.exception('[PSEmine Admin] payout transaction verification failed')
+            return jsonify({'success': False, 'error': 'PAYOUT_VERIFICATION_UNAVAILABLE', 'message': 'The transaction could not be verified on BNB Smart Chain. No payout status was changed.'}), 503
+
     if action == 'APPROVE':
         # (B6) The duplicate-txHash check + completion now run inside ONE
         # transaction, and the hash is atomically reserved via a deterministic
@@ -7753,6 +7812,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 'status': 'completed',
                 'adminNotes': admin_notes,
                 'payoutTxHash': _norm or None,
+                'payoutVerification': verified_payout,
                 'reviewedBy': admin_id,
                 'processedAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
@@ -8484,6 +8544,25 @@ def get_admin_mine_overview():
     import psemine_engine as _pse_engine
     ov = _pse_engine.admin_overview(db)
     camp_data = ov.get("campaign") or {}
+    # Report actual BNB receipts only from payment records created after the
+    # backend's on-chain verification succeeds. The campaign aggregate can
+    # contain legacy quote values, so it is not a source of collected funds.
+    verified_bnb_total = Decimal('0')
+    verified_payment_count = 0
+    try:
+        for _payment_snap in db.collection('psemine_payments').where('status', '==', 'confirmed').get():
+            _payment = _payment_snap.to_dict() or {}
+            _amount = _payment.get('paidBnbAmount') or _payment.get('amountBnb')
+            if _amount is None:
+                continue
+            _amount_decimal = Decimal(str(_amount))
+            if _amount_decimal < 0:
+                continue
+            verified_bnb_total += _amount_decimal
+            verified_payment_count += 1
+    except Exception:
+        logging.exception('[PSEmine Admin] verified payment aggregate failed')
+        return jsonify({'success': False, 'error': 'PAYMENT_AGGREGATE_UNAVAILABLE', 'message': 'Verified payment totals could not be reconciled.'}), 503
     return jsonify({
         "success": True,
         "stats": {
@@ -8492,7 +8571,8 @@ def get_admin_mine_overview():
             "toolsSold": ov.get("toolsSold", 0),
             "totalCapacityGBPPerHour": ov.get("totalCapacityGBPPerHour", 0),
             "totalAccruedLiabilityGBP": ov.get("totalAccruedLiabilityGBP", 0),
-            "totalBNBCollected": camp_data.get('totalBNBCollected', 0),
+            "totalBNBCollected": float(verified_bnb_total),
+            "verifiedPaymentCount": verified_payment_count,
             "qualifiedReferrals": ov.get("qualifiedReferrals", 0),
             "campaignStatus": ov.get("campaignStatus", "active"),
             # canonical extras (integer minor units)
@@ -8502,6 +8582,33 @@ def get_admin_mine_overview():
         }
     })
 
+@app.route('/api/admin/mine/audit', methods=['GET'])
+@verify_token
+def admin_mine_audit_feed():
+    """Read-only, authenticated feed of actual server-written admin audit records."""
+    db = get_db()
+    if not db: return jsonify({'success': False, 'error': 'SERVICE_UNAVAILABLE'}), 503
+    if not is_moderator(request.user['uid']): return jsonify({'success': False, 'error': 'UNAUTHORIZED'}), 403
+    try:
+        snaps = db.collection('admin_audit_logs').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).get()
+        rows = []
+        for snap in snaps:
+            row = snap.to_dict() or {}
+            stamp = row.get('timestamp')
+            if hasattr(stamp, 'isoformat'): stamp = stamp.isoformat()
+            elif stamp is not None: stamp = str(stamp)
+            rows.append({
+                'id': snap.id,
+                'timestamp': stamp,
+                'adminId': str(row.get('adminId') or row.get('adminUid') or row.get('actorId') or row.get('uid') or ''),
+                'action': str(row.get('action') or row.get('event') or 'ADMIN_ACTION'),
+                'targetEntity': str(row.get('targetEntity') or row.get('target') or row.get('targetUserId') or row.get('withdrawalId') or row.get('orderId') or ''),
+                'outcome': str(row.get('outcome') or row.get('status') or 'recorded'),
+            })
+        return jsonify({'success': True, 'records': rows, 'count': len(rows)})
+    except Exception:
+        logging.exception('[PSEmine Admin] audit feed read failed')
+        return jsonify({'success': False, 'error': 'AUDIT_FEED_UNAVAILABLE', 'message': 'Audit history is temporarily unavailable.'}), 503
 @app.route('/api/admin/mine/campaign/action', methods=['POST'])
 @verify_token
 def admin_campaign_action():

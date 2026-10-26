@@ -136,9 +136,9 @@
   .pse-bar-context { display:none; }
   .pse-bar-inner { min-height:60px; gap:12px; }
   .pse-console-shell--docked .pse-stage { padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
-  /* Keep the final footer and its links above the fixed dock when the reader
-     reaches the end of a short page (especially Wallet & payouts). */
-  .pse-console-shell--docked .pse-console-foot { margin-bottom:calc(120px + env(safe-area-inset-bottom)); }
+  /* A real shell padding area survives margin collapsing and leaves the
+     entire footer clear of the fixed mobile dock at short-page scroll limits. */
+  .pse-console-shell--docked { padding-bottom:calc(120px + env(safe-area-inset-bottom)); }
   .pse-dock { position:fixed; z-index:35; left:0; right:0; bottom:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); padding:8px 6px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--pse-rule-2); background:rgba(9,13,21,.96); backdrop-filter:blur(18px); }
   .pse-dock-link { display:grid; justify-items:center; align-content:center; gap:4px; min-width:0; min-height:48px; border-radius:8px; color:var(--pse-ink-3)!important; }
   .pse-dock-link.active { color:#aaa8ff!important; background:rgba(119,117,255,.08); }

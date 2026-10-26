@@ -69,7 +69,7 @@ export interface PseDoc {
  *  deliberately not part of the published text. */
 const DOC_STATUS = 'Current version';
 const REVISION = '1.0';
-const UPDATED = '28 September 2026';
+const UPDATED = '26 October 2026';
 
 const TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 const TOOL_LIST = TIERS.map(t => `${t.name} (${gbp(t.purchasePriceGBP)}, ${gbpHour(t.hourlyRateGBP)})`).join('; ');

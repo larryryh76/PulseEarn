@@ -1,5 +1,5 @@
 /* Wallet surface — complete replacement, not an override layer. */
-.pse-wallet { display:grid; gap:28px; min-width:0; }
+.pse-wallet { display:grid; gap:clamp(22px,3vw,32px); min-width:0; }
 .pse-w-head { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; padding-bottom:22px; border-bottom:1px solid var(--pse-rule); }
 .pse-w-head-id { min-width:0; display:grid; gap:8px; }
 .pse-w-title { margin:0; font-size:clamp(24px,4vw,34px); letter-spacing:-.055em; line-height:1.1; font-weight:650; }
@@ -11,7 +11,7 @@
 .pse-w-addr { display:flex; align-items:center; gap:7px; max-width:100%; }
 .pse-w-addr-text { max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px ui-monospace,monospace; color:var(--pse-ink-2); }
 .pse-w-addr-copy { border:1px solid var(--pse-rule); background:transparent; color:var(--pse-ink-2); border-radius:7px; padding:5px 8px; font-size:10px; }
-.pse-w-figures { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr); border:1px solid var(--pse-rule-2); border-radius:16px; overflow:hidden; background:radial-gradient(ellipse at 0 0,rgba(98,92,245,.17),transparent 68%),#0e131e; }
+.pse-w-figures { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr); border:1px solid var(--pse-rule-2); border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 0 0,rgba(98,92,245,.2),transparent 68%),linear-gradient(135deg,rgba(255,255,255,.018),transparent 55%),#0e131e; }
 .pse-w-figure { min-width:0; padding:clamp(20px,3vw,32px); }
 .pse-w-figure + .pse-w-figure { border-left:1px solid var(--pse-rule); background:rgba(255,255,255,.012); }
 .pse-w-balance { display:grid; gap:8px; }
@@ -21,8 +21,8 @@
 .pse-w-hero-unit { color:var(--pse-ink-3); font-size:13px; font-weight:550; letter-spacing:0; }
 .pse-w-hero-note,.pse-w-figure-note { margin-top:7px; color:var(--pse-ink-3); font-size:11px; line-height:1.6; }
 .pse-w-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:20px; }
-.pse-w-action { min-width:0; min-height:66px; padding:10px 7px; display:grid; align-content:center; justify-items:center; gap:7px; border:1px solid var(--pse-rule); border-radius:10px; color:var(--pse-ink-2); background:rgba(255,255,255,.018); font-size:10px; font-weight:600; text-align:center; }
-.pse-w-action:hover { color:var(--pse-ink); border-color:var(--pse-rule-2); background:var(--pse-surface-2); }
+.pse-w-action { min-width:0; min-height:66px; padding:10px 7px; display:grid; align-content:center; justify-items:center; gap:7px; border:1px solid var(--pse-rule); border-radius:12px; color:var(--pse-ink-2); background:rgba(255,255,255,.018); transition:border-color .16s,background .16s,transform .16s; font-size:10px; font-weight:600; text-align:center; }
+.pse-w-action:hover { color:var(--pse-ink); border-color:rgba(133,130,255,.38); background:var(--pse-surface-2); transform:translateY(-1px); }
 .pse-w-action--primary { border-color:rgba(119,117,255,.4); background:rgba(119,117,255,.11); color:#c1bfff; }
 .pse-w-action-glyph { font-size:17px; line-height:1; }
 .pse-w-action-label { line-height:1.25; }

@@ -49,7 +49,7 @@ jobs:
         run: npm run build
 
       - name: Backend unit and regression tests
-        run: python3 -m pytest api/tests -q
+        run: PYTHONPATH=api/tests python3 -m pytest api/tests -q
 
       - name: Wallet rendering and injected-wallet discovery
         run: bun scripts/pse-wallet-check.mjs

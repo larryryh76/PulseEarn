@@ -285,7 +285,7 @@ export const AdminPSEMine: React.FC = () => {
     if (action === 'REJECT') {
       setConfirm({
         title: 'Reject this payout?',
-        consequence: 'The debit is reversed exactly once and the request returns to the miner\u2019s available balance. The decision is recorded in the audit log.',
+        consequence: 'The request is rejected and its reserved debit is reversed exactly once. The decision is recorded by the backend.',
         affected: `psemine_withdrawals/${withdrawalId}`,
         confirmLabel: 'Reject payout',
         danger: true,
@@ -372,7 +372,7 @@ export const AdminPSEMine: React.FC = () => {
     <div className="pse pse-surface pse-admin-operations">
       <PsePage
         title="PSEmine operations"
-        objective="Campaign lifecycle, the locked tool register, purchases, payment verification and payout review. Every control here is authorised, verified and audited by the backend."
+        objective="Campaign lifecycle, tool register, purchase evidence, payment verification and payout review. A payout is marked paid only after an already-sent BNB transfer is verified on-chain; this screen does not send funds."
         actions={
           <PseButton onClick={() => void load(true)} busy={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh'}
@@ -694,7 +694,7 @@ export const AdminPSEMine: React.FC = () => {
                   const view = payoutStatusView(status);
                   const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
                     : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
-                  const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
+                  const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
                   const requester = String(w.userId || w.uid || '');
                   return (
                     <PseRow key={id}>
@@ -704,12 +704,12 @@ export const AdminPSEMine: React.FC = () => {
                       <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
                       <PseCell mono>{requester ? shortAddr(requester) : '—'}</PseCell>
                       <PseCell>
-                        <PseField label="Tx hash" htmlFor={`pse-tx-${id}`}>
+                        <PseField label="On-chain payout transaction hash" htmlFor={`pse-tx-${id}`}>
                           <PseInput
                             id={`pse-tx-${id}`}
                             value={txInputs[id] || ''}
                             onChange={e => setTxInputs(prev => ({ ...prev, [id]: e.target.value }))}
-                            placeholder="0x…"
+                            placeholder="0x… (successful BNB Chain transfer)"
                             autoComplete="off"
                             spellCheck={false}
                           />

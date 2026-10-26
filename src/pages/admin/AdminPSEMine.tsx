@@ -369,7 +369,7 @@ export const AdminPSEMine: React.FC = () => {
     /* ROOTED IN THE PRODUCT'S OWN PLANE. `.pse` declares the tokens every
        primitive below reads; without it the console renders unstyled (the defect
        this rebuild exists to fix). */
-    <div className="pse pse-surface pse-admin-operations">
+    <div className="pse pse-surface pse-console-shell pse-admin-operations">
       <PsePage
         title="PSEmine operations"
         objective="Campaign lifecycle, tool register, purchase evidence, payment verification and payout review. A payout is marked paid only after an already-sent BNB transfer is verified on-chain; this screen does not send funds."

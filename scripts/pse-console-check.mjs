@@ -122,10 +122,16 @@ const AUDIT = () => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   };
+  // Ignore descendants that are intentionally clipped by a parent. Their
+  // bounding boxes may extend past the viewport (decorative orbit art in the
+  // tools marketplace does this), but overflow:hidden/clip prevents them from
+  // creating visible page overflow. documentElement.scrollWidth below remains
+  // the authoritative guard for actual horizontal scrolling.
   const inScroller = el => {
     for (let p = el.parentElement; p; p = p.parentElement) {
-      const ox = getComputedStyle(p).overflowX;
-      if (ox === 'auto' || ox === 'scroll') return true;
+      const s = getComputedStyle(p);
+      if (['auto', 'scroll', 'hidden', 'clip'].includes(s.overflowX)
+        || ['hidden', 'clip'].includes(s.overflowY)) return true;
     }
     return false;
   };

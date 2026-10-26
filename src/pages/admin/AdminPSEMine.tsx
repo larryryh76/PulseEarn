@@ -345,7 +345,7 @@ export const AdminPSEMine: React.FC = () => {
     const query = orderSearch.trim().toLowerCase();
     return orders.filter(order => {
       const status = String(order.status || '').toLowerCase();
-      const matchesFilter = orderFilter === 'all' || (orderFilter === 'verified' ? ['verified', 'activated', 'completed', 'paid'].includes(status) : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
+      const matchesFilter = orderFilter === 'all' || (orderFilter === 'verified' ? ['verified', 'activated', 'completed', 'paid', 'confirmed'].includes(status) : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing', 'awaiting payment'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
       const haystack = [order.id, order.orderId, order.toolName, order.toolId, order.status, order.txHash, order.transactionHash, order.userId].map(value => String(value || '')).join(' ').toLowerCase();
       return matchesFilter && (!query || haystack.includes(query));
     });
@@ -369,7 +369,7 @@ export const AdminPSEMine: React.FC = () => {
     /* ROOTED IN THE PRODUCT'S OWN PLANE. `.pse` declares the tokens every
        primitive below reads; without it the console renders unstyled (the defect
        this rebuild exists to fix). */
-    <div className="pse pse-surface">
+    <div className="pse pse-surface pse-admin-operations">
       <PsePage
         title="PSEmine operations"
         objective="Campaign lifecycle, the locked tool register, purchases, payment verification and payout review. Every control here is authorised, verified and audited by the backend."

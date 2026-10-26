@@ -125,7 +125,10 @@ export const AdminPSEMine: React.FC = () => {
   const [mineOverview, setMineOverview] = useState<Record<string, number | string>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
+  const [auditRows, setAuditRows] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
   const [scheduleTime, setScheduleTime] = useState('09:00');
@@ -146,12 +149,13 @@ export const AdminPSEMine: React.FC = () => {
     try {
       const token = await currentUser.getIdToken();
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [ovRes, recRes, wdRes, ordersRes, pseRes] = await Promise.all([
+      const [ovRes, recRes, wdRes, ordersRes, pseRes, auditRes] = await Promise.all([
         fetch('/api/admin/mine/overview', { headers }),
         fetch('/api/admin/mine/payment-recovery?status=open', { headers }),
         fetch('/api/admin/psemine/withdrawals', { headers }),
         fetch('/api/admin/psemine/orders', { headers }),
         fetch('/api/admin/psemine/overview', { headers }),
+        fetch('/api/admin/mine/audit', { headers }),
       ]);
       if (!ovRes.ok) throw new Error(`Campaign overview unavailable (${ovRes.status})`);
       const ov = await ovRes.json().catch(() => ({}));
@@ -178,6 +182,12 @@ export const AdminPSEMine: React.FC = () => {
         setWithdrawalQueue(all.filter(w => ['pending', 'under_review', 'approved', 'processing'].includes(String(w.status))));
       } else setWithdrawalQueue([]);
 
+      if (auditRes.ok) {
+        const d = await auditRes.json().catch(() => ({}));
+        setAuditRows(Array.isArray(d?.records) ? d.records : []);
+      } else {
+        setAuditRows([]);
+      }
       setLoadedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load PSEmine operations data.');
@@ -275,7 +285,7 @@ export const AdminPSEMine: React.FC = () => {
     if (action === 'REJECT') {
       setConfirm({
         title: 'Reject this payout?',
-        consequence: 'The debit is reversed exactly once and the request returns to the miner\u2019s available balance. The decision is recorded in the audit log.',
+        consequence: 'The request is rejected and its reserved debit is reversed exactly once. The decision is recorded by the backend.',
         affected: `psemine_withdrawals/${withdrawalId}`,
         confirmLabel: 'Reject payout',
         danger: true,
@@ -331,6 +341,15 @@ export const AdminPSEMine: React.FC = () => {
   const numOrDash = (v: number | null, format?: (n: number) => string): string =>
     v === null ? '—' : format ? format(v) : String(v);
 
+  const visibleOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+    return orders.filter(order => {
+      const status = String(order.status || '').toLowerCase();
+      const matchesFilter = orderFilter === 'all' || (orderFilter === 'verified' ? ['verified', 'activated', 'completed', 'paid', 'confirmed'].includes(status) : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing', 'awaiting payment'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
+      const haystack = [order.id, order.orderId, order.toolName, order.toolId, order.status, order.txHash, order.transactionHash, order.userId].map(value => String(value || '')).join(' ').toLowerCase();
+      return matchesFilter && (!query || haystack.includes(query));
+    });
+  }, [orders, orderFilter, orderSearch]);
   const campaignPhase = useMemo(() => {
     const raw = (campaign?.status || (typeof stats.campaignStatus === 'string' ? stats.campaignStatus : '')) || '';
     return raw ? campaignStatusView(raw) : null;
@@ -338,7 +357,7 @@ export const AdminPSEMine: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="pse pse-surface">
+      <div className="pse pse-surface pse-console-shell pse-admin-operations">
         <div className="pse-console-main">
           <PseLoading label="Loading PSEmine operations" />
         </div>
@@ -350,16 +369,39 @@ export const AdminPSEMine: React.FC = () => {
     /* ROOTED IN THE PRODUCT'S OWN PLANE. `.pse` declares the tokens every
        primitive below reads; without it the console renders unstyled (the defect
        this rebuild exists to fix). */
-    <div className="pse pse-surface">
+    <div className="pse pse-surface pse-admin-operations">
       <PsePage
         title="PSEmine operations"
-        objective="Campaign lifecycle, the locked tool register, purchases, payment verification and payout review. Every control here is authorised, verified and audited by the backend."
+        objective="Campaign lifecycle, tool register, purchase evidence, payment verification and payout review. A payout is marked paid only after an already-sent BNB transfer is verified on-chain; this screen does not send funds."
         actions={
           <PseButton onClick={() => void load(true)} busy={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </PseButton>
         }
       >
+        <section className="pse-ops-hero" aria-label="PSEmine operational summary">
+          <div className="pse-ops-hero-copy">
+            <span className="pse-ops-eyebrow"><span className="pse-ops-live-dot" /> CAMPAIGN CONTROL CENTRE</span>
+            <h2>Know what is happening.<br /><em>Act on verified evidence.</em></h2>
+            <p>Live operational data from PSEmine's backend. No sample payments, simulated activity, or inferred balances.</p>
+            <div className="pse-ops-hero-meta">
+              <span className={campaignPhase?.label?.toLowerCase().includes('active') ? 'is-positive' : 'is-neutral'}>{campaignPhase?.label || 'Campaign state unavailable'}</span>
+              <span>{loadedAt ? `Last synced ${fmtDateTime(new Date(loadedAt))}` : 'Waiting for first sync'}</span>
+            </div>
+          </div>
+          <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>90</strong><small>DAY OPERATIONS</small></div>
+        </section>
+        <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
+          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Active miners</span><strong>{numOrDash(stat('activeMiners'))}</strong><small>{numOrDash(stat('totalMiners'))} total registered accounts</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
+          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
+        </section>
+        <section className="pse-ops-trust-note" role="note">
+          <span className="pse-ops-trust-icon" aria-hidden="true">✓</span>
+          <div><strong>Evidence-first mode</strong><p>Only backend-returned records are shown. A transaction is not considered paid merely because a hash was entered; payout status and chain evidence must agree.</p></div>
+          <span className="pse-ops-sync-state">{error ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
+        </section>
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
         <nav className="pse-block" aria-label="Operations sections">
@@ -591,15 +633,22 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
         <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Purchases" meta="psemine_orders — the last 100 orders recorded by the backend">
+          <PseSection title="Purchase ledger" meta="Backend order records · payment state must be supported by verification evidence">
+            <div className="pse-ops-ledger-tools">
+              <label className="pse-ops-search"><span>Search orders</span><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Order, wallet, tool or transaction hash" /></label>
+              <label className="pse-ops-filter"><span>Payment state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All records</option><option value="verified">Verified / completed</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
+              <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} records</span>
+            </div>
             {orders.length === 0 ? (
               <PseEmptyNote title="No purchase orders recorded">
                 A purchase appears here once a quote has been issued and an intent bound to a payer wallet. Activation
                 still requires backend verification against BNB Smart Chain.
               </PseEmptyNote>
+            ) : visibleOrders.length === 0 ? (
+              <PseEmptyNote title="No matching purchase records">Change the payment-state filter or search term. No records have been added to fill this view.</PseEmptyNote>
             ) : (
-              <PseTable head={['Order', 'Tool', 'Status', 'Amount', 'Recorded', 'Transaction']}>
-                {orders.map((o, i) => {
+              <PseTable head={['Order', 'Tool', 'Payment state', 'Amount', 'Recorded', 'On-chain evidence']}>
+                {visibleOrders.map((o, i) => {
                   const id = String(o.id || o.orderId || '');
                   const hash = (o.txHash || o.transactionHash) as string | undefined;
                   const amountGbp = typeof o.priceGbp === 'number' ? o.priceGbp
@@ -631,12 +680,11 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
-            meta="psemine_withdrawals — approving validates the transaction hash atomically; a hash already attached to a completed payout is rejected"
+            meta="A payout is completed only when BSC confirms success, recipient and exact locked BNB amount; records missing that amount remain blocked"
           >
             {withdrawalQueue.length === 0 ? (
               <PseEmptyNote title="No payouts awaiting review">
-                A settled balance is paid in BNB to the payout wallet on the account. Requests enter this queue after
-                settlement, and each one is reviewed here before anything is sent.
+                Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.
               </PseEmptyNote>
             ) : (
               <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>
@@ -646,7 +694,7 @@ export const AdminPSEMine: React.FC = () => {
                   const view = payoutStatusView(status);
                   const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
                     : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
-                  const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
+                  const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
                   const requester = String(w.userId || w.uid || '');
                   return (
                     <PseRow key={id}>
@@ -656,12 +704,12 @@ export const AdminPSEMine: React.FC = () => {
                       <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
                       <PseCell mono>{requester ? shortAddr(requester) : '—'}</PseCell>
                       <PseCell>
-                        <PseField label="Tx hash" htmlFor={`pse-tx-${id}`}>
+                        <PseField label="On-chain payout transaction hash" htmlFor={`pse-tx-${id}`}>
                           <PseInput
                             id={`pse-tx-${id}`}
                             value={txInputs[id] || ''}
                             onChange={e => setTxInputs(prev => ({ ...prev, [id]: e.target.value }))}
-                            placeholder="0x…"
+                            placeholder="0x… (successful BNB Chain transfer)"
                             autoComplete="off"
                             spellCheck={false}
                           />
@@ -699,13 +747,22 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
         <div id="ops-audit" className="scroll-mt-24">
-          <PseSection title="Audit" meta="admin_audit_logs — written by the backend, one entry per action">
-            <PseEmptyNote title="Action history is recorded server-side">
-              Every control on this page asks a backend route to perform the work, and each of those routes writes its own
-              record (actor, action, target and outcome) to the audit log before it answers. There is no audit feed
-              endpoint exposed to this console, so this section states the guarantee rather than showing a partial list
-              that could be mistaken for the whole history.
-            </PseEmptyNote>
+          <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
+            {auditRows.length === 0 ? (
+              <PseEmptyNote title="No audit records returned">The audit feed returned no records. This is not proof that no actions occurred; check backend audit-write health and access permissions.</PseEmptyNote>
+            ) : (
+              <PseTable head={["Time", "Action", "Target", "Actor", "Outcome"]}>
+                {auditRows.map(row => (
+                  <PseRow key={String(row.id || "")}>
+                    <PseCell>{row.timestamp ? fmtDateTime(String(row.timestamp)) : "Time unavailable"}</PseCell>
+                    <PseCell><span className="pse-ops-audit-action">{String(row.action || "ADMIN_ACTION").replace(/_/g, " ")}</span></PseCell>
+                    <PseCell>{String(row.targetEntity || "Target not recorded")}</PseCell>
+                    <PseCell mono>{row.adminId ? shortAddr(String(row.adminId)) : "Actor not recorded"}</PseCell>
+                    <PseCell>{String(row.outcome || "recorded")}</PseCell>
+                  </PseRow>
+                ))}
+              </PseTable>
+            )}
           </PseSection>
         </div>
 

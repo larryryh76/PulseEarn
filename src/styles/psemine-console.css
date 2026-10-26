@@ -58,12 +58,12 @@
 .pse-stat-label,.pse-fact-label,.pse-money-label { display:block; color:var(--pse-ink-3); font-size:10px; letter-spacing:.04em; text-transform:uppercase; font-weight:650; }
 .pse-stat-value { margin-top:7px; font-size:clamp(16px,2vw,23px); line-height:1.2; letter-spacing:-.04em; font-weight:650; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 .pse-stat-note { margin-top:6px; color:var(--pse-ink-3); font-size:11px; line-height:1.45; }
-.pse-console-shell .pse-btn { min-height:38px; padding:0 13px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent; border-radius:9px; background:var(--pse-accent-strong); color:white!important; font-size:12px; font-weight:650; transition:background .15s,border-color .15s; }
+.pse-console-shell .pse-console-shell .pse-btn { min-height:38px; padding:0 13px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent; border-radius:9px; background:var(--pse-accent-strong); color:white!important; font-size:12px; font-weight:650; transition:background .15s,border-color .15s; }
 .pse-btn:hover { background:#7772ff; }
 .pse-btn--secondary { border-color:var(--pse-rule-2); background:transparent; color:var(--pse-ink)!important; }
 .pse-btn--secondary:hover { background:var(--pse-surface-2); border-color:rgba(190,205,235,.3); }
 .pse-btn--danger { color:var(--pse-danger)!important; }
-.pse-console-shell .pse-btn--sm { min-height:33px; padding:0 10px; font-size:11px; }
+.pse-console-shell .pse-console-shell .pse-btn--sm { min-height:33px; padding:0 10px; font-size:11px; }
 .pse-btn--lg { min-height:44px; padding:0 17px; }
 .pse-field { display:grid; gap:6px; min-width:0; }
 .pse-field-label,.pse-field label { color:var(--pse-ink-2); font-size:11px; font-weight:600; }

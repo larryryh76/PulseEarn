@@ -109,4 +109,24 @@ for (const route of ['/mine', '/mine/guide', '/mine/tools?wallet-probe=1', '/min
 
 await browser.close();
 server.close();
-console.log(JSON.stringify(results, null, 1));
+
+/* Make the rendered probe a real gate: a script that merely prints a broken
+ * page and exits 0 is not a certification test. The Firebase warning emitted
+ * by a local build without VITE_FIREBASE_API_KEY is deliberately handled by the
+ * CI build environment; this gate focuses on browser/runtime defects. */
+const failures = [];
+if (!results.walletProbe?.stubAnnounced) failures.push('injected wallet probe was not installed');
+if ((results.walletProbe?.pageErrors || []).length) failures.push('wallet probe raised page errors');
+if (results.walletProbe?.wcRequestsBeforeAnyAction !== 0) failures.push('WalletConnect SDK loaded before a user action');
+for (const route of results.plainLoads) {
+  if (route.painted < 100) failures.push(route.route + ': page did not render meaningful content');
+  if (route.overflow) failures.push(route.route + ': horizontal overflow at 390px');
+  if (route.pageErrors.length) failures.push(route.route + ': ' + route.pageErrors.length + ' page error(s)');
+}
+console.log(JSON.stringify({ ...results, failures }, null, 1));
+if (failures.length) {
+  console.error('WALLET RENDER CHECK FAILED');
+  process.exitCode = 1;
+} else {
+  console.log('WALLET RENDER CHECK PASSED');
+}

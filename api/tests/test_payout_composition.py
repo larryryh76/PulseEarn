@@ -295,6 +295,9 @@ class _MultiTxn:
     def __init__(self, namespaces):
         """Initialize the multitxn test double."""
         self._namespaces = namespaces
+        # google-cloud-firestore's transactional wrapper checks this flag before retrying.
+        # This in-memory transaction is writable, matching a normal Firestore transaction.
+        self._read_only = False
         self._ops = []
 
     def table(self, name):

@@ -47,15 +47,35 @@ import toast from 'react-hot-toast';
 /** One locked campaign tier, flattened for the register. */
 const TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
+const CAMPAIGN_TIME_ZONE = 'Europe/London';
+
 function localDateInputValue(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Lagos',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+    timeZone: CAMPAIGN_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(date);
   const part = (type: string) => parts.find(item => item.type === type)?.value || '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return [part('year'), part('month'), part('day')].join('-');
+}
+
+/** Convert a Europe/London wall-clock time to UTC, applying GMT/BST for that date. */
+function londonDateTimeToIso(dateValue: string, timeValue: string): string {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const [hour, minute] = timeValue.split(':').map(Number);
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let candidate = targetAsUtc;
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CAMPAIGN_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  });
+  for (let i = 0; i < 3; i += 1) {
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate)).map(p => [p.type, p.value]));
+    const representedAsUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second));
+    const correction = targetAsUtc - representedAsUtc;
+    candidate += correction;
+    if (correction === 0) break;
+  }
+  return new Date(candidate).toISOString();
 }
 
 function nextTuesdayDateValue(): string {
@@ -66,14 +86,12 @@ function nextTuesdayDateValue(): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
-function fmtWATDateTime(value: string | Date): string {
+function fmtUKDateTime(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return '—';
-  return `${new Intl.DateTimeFormat('en-NG', {
-    timeZone: 'Africa/Lagos',
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)} WAT`;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: CAMPAIGN_TIME_ZONE, dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short',
+  }).format(date) + ' UK time';
 }
 
 type ScreenSection = 'campaign' | 'payments' | 'tools' | 'purchases' | 'payouts' | 'audit';
@@ -175,19 +193,19 @@ export const AdminPSEMine: React.FC = () => {
         toast.error('Choose a campaign start date and time first.');
         return;
       }
-      // The campaign schedule is defined in Nigeria time, independent of the
-      // admin device/browser timezone. Nigeria uses WAT (UTC+01:00) year-round.
-      const parsed = new Date(`${scheduleDate}T${scheduleTime}:00+01:00`);
-      if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+      // Schedule in Europe/London time, independent of the admin device timezone.
+      try { startAtIso = londonDateTimeToIso(scheduleDate, scheduleTime); }
+      catch { startAtIso = undefined; }
+      const parsed = new Date(startAtIso || '');
+      if (!startAtIso || !Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
         toast.error('The scheduled start must be a valid future date and time.');
         return;
       }
-      startAtIso = parsed.toISOString();
     }
     const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
       pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
       resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
-      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${fmtWATDateTime(startAtIso!)}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals stay closed while scheduled and reopen when the backend starts the campaign.` },
+      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${fmtUKDateTime(startAtIso!)}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals stay closed while scheduled and reopen when the backend starts the campaign.` },
       settle: { title: 'Begin settlement?', detail: 'Mining ends, purchases close, ownership states settle, and payout review opens. A settlement job is created and this is recorded in the audit log. Not casually reversible.' },
       shutdown: { title: 'SHUTDOWN — archive the campaign?', detail: 'Permanently archives the campaign: mining, purchases, and referrals close, and public mining interfaces close. This is recorded in the audit log.', requireText: 'shutdown' },
     };
@@ -211,7 +229,7 @@ export const AdminPSEMine: React.FC = () => {
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
             toast.success(action === 'schedule'
-              ? `Campaign scheduled for ${fmtWATDateTime(data.startAt || startAtIso!)}.`
+              ? `Campaign scheduled for ${fmtUKDateTime(data.startAt || startAtIso!)}.`
               : `Campaign action "${action}" executed.`);
             await refreshCampaign();
             await load(true);
@@ -400,8 +418,8 @@ export const AdminPSEMine: React.FC = () => {
                 hint="Accrued · paid out"
               />
               <PseFact label="Campaign duration" value={campaign?.durationDays ? `${campaign.durationDays} days` : '—'} />
-              <PseFact label="Campaign start (WAT)" value={campaign?.startAt ? fmtWATDateTime(campaign.startAt) : '—'} />
-              <PseFact label="Campaign end (WAT)" value={campaign?.endAt ? fmtWATDateTime(campaign.endAt) : '—'} />
+              <PseFact label="Campaign start (UK time)" value={campaign?.startAt ? fmtUKDateTime(campaign.startAt) : '—'} />
+              <PseFact label="Campaign end (UK time)" value={campaign?.endAt ? fmtUKDateTime(campaign.endAt) : '—'} />
             </PseFacts>
 
             <div className="pse-block">
@@ -416,7 +434,7 @@ export const AdminPSEMine: React.FC = () => {
                     autoComplete="off"
                   />
                 </PseField>
-                <PseField label="Start time (WAT · Africa/Lagos)" htmlFor="pse-campaign-start-time">
+                <PseField label="Start time (UK time · Europe/London)" htmlFor="pse-campaign-start-time">
                   <PseInput
                     id="pse-campaign-start-time"
                     type="time"
@@ -428,7 +446,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseField>
               </div>
               <p className="pse-prose--sm">
-                Default start time is 9:00 AM WAT (Africa/Lagos), regardless of the device timezone. Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+                Default start time is 9:00 AM UK time (Europe/London), regardless of the device timezone. Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
               </p>
               <div className="flex flex-wrap gap-2">
                 <PseButton

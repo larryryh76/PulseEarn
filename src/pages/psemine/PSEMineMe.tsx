@@ -73,6 +73,31 @@ export const PSEMineMe: React.FC = () => {
       title="Account"
       objective="Your identity, the wallets this product uses, security and support. Mining figures live on the dashboard and wallet."
     >
+      <section className="pse-account-overview" aria-labelledby="pse-account-overview-title">
+        <div className="pse-account-overview-main">
+          <div className="pse-account-avatar" aria-hidden="true">
+            {(userData?.username || currentUser?.email || 'P').trim().slice(0, 1).toUpperCase()}
+          </div>
+          <div className="pse-account-identity">
+            <span className="pse-account-overline">YOUR PSEMINE PROFILE</span>
+            <h2 id="pse-account-overview-title">{userData?.username || 'Account owner'}</h2>
+            <p>{currentUser?.email || 'Email not available'}</p>
+            <div className="pse-account-badges">
+              <span className={currentUser?.emailVerified ? 'is-verified' : 'is-pending'}>
+                <span aria-hidden="true" />{currentUser?.emailVerified ? 'Email verified' : 'Email unverified'}
+              </span>
+              <span className={userData?.productAccess?.psemine ? 'is-verified' : 'is-pending'}>
+                <span aria-hidden="true" />{userData?.productAccess?.psemine ? 'PSEmine enabled' : 'Access not enabled'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="pse-account-overview-actions">
+          <Link to="/mine/wallet" className="pse-account-shortcut"><span className="pse-account-shortcut-icon" aria-hidden="true">↗</span><span><strong>Wallet settings</strong><small>Connected & payout wallets</small></span><span className="pse-account-shortcut-arrow" aria-hidden="true">→</span></Link>
+          <button type="button" className="pse-account-shortcut" onClick={() => window.dispatchEvent(new Event('psemine:open-notifications'))}><span className="pse-account-shortcut-icon" aria-hidden="true">◉</span><span><strong>Notifications</strong><small>{notifications.filter(n => !n.read).length} unread updates</small></span><span className="pse-account-shortcut-arrow" aria-hidden="true">→</span></button>
+          <Link to="/mine/guide" className="pse-account-shortcut"><span className="pse-account-shortcut-icon" aria-hidden="true">?</span><span><strong>Help centre</strong><small>Guides, payments & campaign</small></span><span className="pse-account-shortcut-arrow" aria-hidden="true">→</span></Link>
+        </div>
+      </section>
       <PseSplit>
         <PseStack>
           <PseSection title="Identity">

@@ -1,6 +1,6 @@
 /* PSEmine dashboard — rebuilt account instrument, not a generic card grid. */
 .pse-dash {
-  --dash-line:rgba(175,190,222,.13);
+  --dash-line:rgba(175,190,222,.14);
   display:grid;
   align-content:start;
   gap:18px;

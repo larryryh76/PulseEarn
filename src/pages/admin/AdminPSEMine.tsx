@@ -125,6 +125,8 @@ export const AdminPSEMine: React.FC = () => {
   const [mineOverview, setMineOverview] = useState<Record<string, number | string>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
@@ -331,6 +333,15 @@ export const AdminPSEMine: React.FC = () => {
   const numOrDash = (v: number | null, format?: (n: number) => string): string =>
     v === null ? '—' : format ? format(v) : String(v);
 
+  const visibleOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+    return orders.filter(order => {
+      const status = String(order.status || '').toLowerCase();
+      const matchesFilter = orderFilter === 'all' || (orderFilter === 'verified' ? ['verified', 'activated', 'completed', 'paid'].includes(status) : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
+      const haystack = [order.id, order.orderId, order.toolName, order.toolId, order.status, order.txHash, order.transactionHash, order.userId].map(value => String(value || '')).join(' ').toLowerCase();
+      return matchesFilter && (!query || haystack.includes(query));
+    });
+  }, [orders, orderFilter, orderSearch]);
   const campaignPhase = useMemo(() => {
     const raw = (campaign?.status || (typeof stats.campaignStatus === 'string' ? stats.campaignStatus : '')) || '';
     return raw ? campaignStatusView(raw) : null;

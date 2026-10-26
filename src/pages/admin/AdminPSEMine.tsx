@@ -625,15 +625,22 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
         <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Purchases" meta="psemine_orders — the last 100 orders recorded by the backend">
+          <PseSection title="Purchase ledger" meta="Backend order records · payment state must be supported by verification evidence">
+            <div className="pse-ops-ledger-tools">
+              <label className="pse-ops-search"><span>Search orders</span><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Order, wallet, tool or transaction hash" /></label>
+              <label className="pse-ops-filter"><span>Payment state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All records</option><option value="verified">Verified / completed</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
+              <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} records</span>
+            </div>
             {orders.length === 0 ? (
               <PseEmptyNote title="No purchase orders recorded">
                 A purchase appears here once a quote has been issued and an intent bound to a payer wallet. Activation
                 still requires backend verification against BNB Smart Chain.
               </PseEmptyNote>
+            ) : visibleOrders.length === 0 ? (
+              <PseEmptyNote title="No matching purchase records">Change the payment-state filter or search term. No records have been added to fill this view.</PseEmptyNote>
             ) : (
-              <PseTable head={['Order', 'Tool', 'Status', 'Amount', 'Recorded', 'Transaction']}>
-                {orders.map((o, i) => {
+              <PseTable head={['Order', 'Tool', 'Payment state', 'Amount', 'Recorded', 'On-chain evidence']}>
+                {visibleOrders.map((o, i) => {
                   const id = String(o.id || o.orderId || '');
                   const hash = (o.txHash || o.transactionHash) as string | undefined;
                   const amountGbp = typeof o.priceGbp === 'number' ? o.priceGbp

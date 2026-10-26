@@ -7725,6 +7725,34 @@ def admin_psemine_review_withdrawal(withdrawal_id):
     user_id = wd.get('userId')
     amount_gbp = safe_float(wd.get('amountGbp'), 0.0)
 
+    # A payout hash is not proof of payment by itself. Before marking a request
+    # completed, verify a successful native-BNB transfer on BNB Smart Chain and
+    # require its recipient to match the user's saved payout destination.
+    verified_payout = None
+    if action == 'APPROVE':
+        payout_destination = (wd.get('destinationWallet') or wd.get('payoutWallet') or wd.get('payoutAddress') or '').strip()
+        if not payout_destination:
+            return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
+        try:
+            from web3 import Web3
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
+            w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 8}))
+            if not w3.is_connected() or int(w3.eth.chain_id) != 56:
+                return jsonify({'success': False, 'error': 'PAYOUT_VERIFIER_UNAVAILABLE', 'message': 'BNB Smart Chain verification is unavailable. No payout status was changed.'}), 503
+            tx = w3.eth.get_transaction(_norm)
+            receipt = w3.eth.get_transaction_receipt(_norm)
+            if int(receipt.status) != 1:
+                return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
+            if not tx.get('to') or Web3.to_checksum_address(tx['to']) != Web3.to_checksum_address(payout_destination):
+                return jsonify({'success': False, 'error': 'PAYOUT_RECIPIENT_MISMATCH', 'message': 'The transaction recipient does not match the saved payout destination.'}), 409
+            value_wei = int(tx.get('value') or 0)
+            if value_wei <= 0:
+                return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_INVALID', 'message': 'The transaction contains no positive native-BNB transfer.'}), 409
+            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.blockNumber), 'amountWei': str(value_wei), 'recipient': Web3.to_checksum_address(tx['to'])}
+        except Exception:
+            logging.exception('[PSEmine Admin] payout transaction verification failed')
+            return jsonify({'success': False, 'error': 'PAYOUT_VERIFICATION_UNAVAILABLE', 'message': 'The transaction could not be verified on BNB Smart Chain. No payout status was changed.'}), 503
+
     if action == 'APPROVE':
         # (B6) The duplicate-txHash check + completion now run inside ONE
         # transaction, and the hash is atomically reserved via a deterministic
@@ -7753,6 +7781,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 'status': 'completed',
                 'adminNotes': admin_notes,
                 'payoutTxHash': _norm or None,
+                'payoutVerification': verified_payout,
                 'reviewedBy': admin_id,
                 'processedAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,

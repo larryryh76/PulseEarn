@@ -207,13 +207,13 @@ export function timeAgo(iso?: unknown, now: number = nowMs()): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 30) return `${d}d ago`;
-  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(t).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function fmtDateTime(iso?: unknown): string {
   const t = toDateSafe(iso)?.getTime();
   if (t === undefined) return '—';
-  return new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(t).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export function remainingFrom(iso?: unknown, now: number = nowMs()): { text: string; ms: number } {

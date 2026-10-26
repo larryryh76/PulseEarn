@@ -16,7 +16,7 @@ import {
 /** Campaign date, printed short so the register head stays on one line. */
 function dateLabel(ms: number | null): string {
   if (ms === null) return '—';
-  return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(ms).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /** The tone is a statement about the campaign, not decoration. */

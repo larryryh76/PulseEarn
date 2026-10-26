@@ -918,3 +918,29 @@
 @media(prefers-reduced-motion:reduce) {
   .pse-account-shortcut { transition:none; }
 }
+
+
+/* PSEmine account centre — compact, action-led layout */
+.pse-account-overview { position:relative; overflow:hidden; }
+.pse-account-overview::after { content:""; position:absolute; width:220px; height:220px; right:-100px; top:-135px; border:1px solid rgba(111,143,255,.13); border-radius:50%; pointer-events:none; }
+.pse-account-overview-main, .pse-account-overview-actions { position:relative; z-index:1; }
+.pse-account-overview-actions { grid-template-columns:1fr; }
+.pse-account-shortcut { min-height:0; }
+.pse-account-shortcut:focus-visible { outline:2px solid #9d9aff; outline-offset:3px; }
+.pse-security-form { display:grid; gap:12px; }
+.pse-security-form .pse-field { margin:0; }
+.pse-security-form input { min-height:44px; }
+.pse-account-overview + .pse-split { align-items:start; }
+.pse-account-overview + .pse-split > * { min-width:0; }
+.pse-account-overview + .pse-split .pse-section { border-radius:13px; }
+.pse-account-overview + .pse-split .pse-section + .pse-section { margin-top:12px; }
+@media(max-width:760px) {
+  .pse-account-overview-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .pse-account-shortcut { flex-direction:column; align-items:flex-start; min-height:100px; }
+  .pse-account-shortcut-arrow { display:none; }
+}
+@media(max-width:420px) {
+  .pse-account-overview-actions { grid-template-columns:1fr; }
+  .pse-account-shortcut { flex-direction:row; align-items:center; min-height:0; }
+  .pse-account-shortcut-arrow { display:block; }
+}

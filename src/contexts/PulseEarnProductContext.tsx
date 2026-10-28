@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
-import { claimDailyReward } from '../engines/product/pulseEarnProduct';
+import { claimDailyReward, runPulseEarnOnboarding } from '../engines/product/pulseEarnProduct';
 import { UserEngine } from '../engines/system/UserEngine';
 
 /**
@@ -26,6 +28,7 @@ import { UserEngine } from '../engines/system/UserEngine';
 export const PulseEarnProductProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData } = useAuth();
   const handledUidRef = useRef<string | null>(null);
+  const onboardingHandledUidRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -47,6 +50,39 @@ export const PulseEarnProductProvider: React.FC<{ children: React.ReactNode }> =
 
     void claimDailyReward(currentUser.uid);
   }, [currentUser, userData?.role]);
+
+  // Signup rewards and referral attribution are financial mutations. They are
+  // deliberately deferred until Firebase confirms the email identity is verified.
+  // The deterministic claim IDs in the economy engine make the bonus idempotent;
+  // this session latch prevents concurrent snapshot/effect calls.
+  useEffect(() => {
+    if (!currentUser || !userData || !currentUser.emailVerified) return;
+
+    const role = userData.role;
+    if (role === 'admin' || role === 'moderator') return;
+    const access = userData.productAccess;
+    const hasPulseEarnAccess = access == null || access.pulseearn === true;
+    const pending = (userData as typeof userData & { signupRewardsGranted?: boolean }).signupRewardsGranted === false;
+    if (!hasPulseEarnAccess || !pending || onboardingHandledUidRef.current === currentUser.uid) return;
+
+    onboardingHandledUidRef.current = currentUser.uid;
+    void (async () => {
+      const extendedData = userData as typeof userData & { pendingReferralCode?: string | null };
+      await runPulseEarnOnboarding(
+        currentUser,
+        userData.username || `User_${currentUser.uid.slice(0, 5)}`,
+        extendedData.pendingReferralCode || undefined
+      );
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        signupRewardsGranted: true,
+        pendingReferralCode: null,
+        signupRewardsGrantedAt: serverTimestamp(),
+      });
+    })().catch(error => {
+      onboardingHandledUidRef.current = null;
+      console.error('[PulseEarn] Verified signup onboarding failed; it will retry on the next session:', error);
+    });
+  }, [currentUser, currentUser?.emailVerified, userData]);
 
   return <>{children}</>;
 };

@@ -31,7 +31,7 @@
 .pse-nav-link:hover { background:var(--pse-surface); color:var(--pse-ink)!important; }
 .pse-nav-link.active { background:rgba(119,117,255,.12); color:#b9b8ff!important; }
 .pse-bar-tools { display:flex; align-items:center; justify-content:flex-end; gap:7px; margin-left:auto; }
-.pse-icon-btn { box-sizing:border-box; width:36px; min-width:36px; height:36px; min-height:36px; padding:0; flex:0 0 36px; border:1px solid var(--pse-rule); border-radius:10px; display:inline-flex; align-items:center; justify-content:center; color:var(--pse-ink-2); background:transparent; position:relative; }
+.pse-icon-btn { box-sizing:border-box; width:44px; min-width:44px; height:44px; min-height:44px; padding:0; flex:0 0 44px; border:1px solid var(--pse-rule); border-radius:10px; display:inline-flex; align-items:center; justify-content:center; color:var(--pse-ink-2); background:transparent; position:relative; }
 .pse-icon-btn:hover { color:var(--pse-ink); background:var(--pse-surface); }
 .pse-bar-account { flex:none; }
 .pse-bar-signout { margin-left:3px; }

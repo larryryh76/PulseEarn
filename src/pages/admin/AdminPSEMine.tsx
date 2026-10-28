@@ -394,7 +394,7 @@ export const AdminPSEMine: React.FC = () => {
       >
         <section className="pse-ops-hero" aria-label="PSEmine operational summary">
           <div className="pse-ops-hero-copy">
-            <span className="pse-ops-eyebrow"><span className={`pse-ops-live-dot ${error ? 'is-error' : loadedAt ? 'is-connected' : ''}`} /> CAMPAIGN CONTROL CENTRE</span>
+            <span className="pse-ops-eyebrow"><span className={`pse-ops-live-dot ${error || partialErrors.length > 0 ? 'is-error' : loadedAt ? 'is-connected' : ''}`} /> CAMPAIGN CONTROL CENTRE</span>
             <h2>Know what is happening.<br /><em>Act on verified evidence.</em></h2>
             <p>Live operational data from PSEmine's backend. No sample payments, simulated activity, or inferred balances.</p>
             <div className="pse-ops-hero-meta">
@@ -413,7 +413,7 @@ export const AdminPSEMine: React.FC = () => {
         <section className="pse-ops-trust-note" role="note">
           <span className="pse-ops-trust-icon" aria-hidden="true">✓</span>
           <div><strong>Evidence-first mode</strong><p>Only backend-returned records are shown. A transaction is not considered paid merely because a hash was entered; payout status and chain evidence must agree.</p></div>
-          <span className="pse-ops-sync-state">{error ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
+          <span className="pse-ops-sync-state">{error || partialErrors.length > 0 ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
         </section>
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}

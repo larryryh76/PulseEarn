@@ -1072,3 +1072,73 @@
   .pse-admin-operations .pse-ops-register-nav { align-items:stretch; flex-direction:column; }
   .pse-admin-operations .pse-ops-asof { padding:3px 7px 5px; }
 }
+
+
+/* PulseEarn visual-language alignment — final console cascade. */
+.pse-console-shell {
+  background:
+    radial-gradient(ellipse 80% 34% at 50% 0%, rgba(75,79,255,.12), transparent 74%),
+    linear-gradient(rgba(142,149,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142,149,255,.022) 1px, transparent 1px),
+    #070a11;
+  background-size:auto,56px 56px,56px 56px,auto;
+}
+.pse-console-shell .pse-bar {
+  background:rgba(7,10,17,.84);
+  border-bottom-color:rgba(160,166,255,.16);
+  backdrop-filter:blur(20px) saturate(150%);
+}
+.pse-console-shell .pse-page-title,
+.pse-console-shell .pse-page h1,
+.pse-dash-title,
+.pse-w-title {
+  font-weight:760;
+  letter-spacing:-.06em;
+  background:linear-gradient(180deg,#fff 0%,#e1e5ff 58%,#a7a4ff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.pse-console-shell .pse-btn:not(.pse-btn--secondary) {
+  border-color:rgba(176,174,255,.24);
+  background:linear-gradient(115deg,#7772ff,#5b59f0 55%,#3989ff);
+  box-shadow:0 10px 26px rgba(91,89,240,.19);
+}
+.pse-console-shell .pse-btn:not(.pse-btn--secondary):hover:not(:disabled) {
+  filter:brightness(1.08);
+  box-shadow:0 13px 32px rgba(91,89,240,.26);
+}
+.pse-console-shell .pse-nav-link.active {
+  background:linear-gradient(110deg,rgba(99,91,255,.2),rgba(56,212,242,.07));
+  box-shadow:inset 0 0 0 1px rgba(133,130,255,.16);
+}
+.pse-console-shell .pse-page-head { border-bottom-color:rgba(160,166,255,.16); }
+.pse-console-shell .pse-statbar,
+.pse-console-shell .pse-card {
+  border-color:rgba(151,159,218,.17);
+  box-shadow:0 18px 48px rgba(0,0,0,.16);
+}
+.pse-dash .pse-account-band,
+.pse-wallet .pse-w-balance,
+.pse-wallet .pse-w-figures {
+  border-color:rgba(151,159,218,.17);
+  box-shadow:0 18px 48px rgba(0,0,0,.18);
+}
+.pse-dash .pse-account-band {
+  background:
+    radial-gradient(ellipse at 0 0,rgba(99,91,255,.17),transparent 60%),
+    linear-gradient(135deg,#101727,#0a0e17);
+}
+.pse-wallet .pse-w-balance {
+  background:radial-gradient(ellipse at 0 0,rgba(99,91,255,.18),transparent 65%),#0b101a;
+}
+@media(max-width:767px) {
+  .pse-console-shell .pse-stage { padding-inline:14px; }
+  .pse-console-shell .pse-page-head { align-items:flex-start; flex-direction:column; }
+  .pse-console-shell .pse-statbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-console-shell .pse-stat:nth-child(odd) { border-left:0; }
+  .pse-console-shell .pse-stat:nth-child(n+3) { border-top:1px solid rgba(160,166,255,.13); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-console-shell .pse-btn { transition:none!important; }
+}

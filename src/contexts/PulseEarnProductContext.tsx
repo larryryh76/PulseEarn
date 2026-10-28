@@ -35,10 +35,17 @@ export const PulseEarnProductProvider: React.FC<{ children: React.ReactNode }> =
       handledUidRef.current = null;
       return;
     }
+    if (!userData) return;
 
-    const role = userData?.role;
+    const role = userData.role;
     const isOpsUser = role === 'admin' || role === 'moderator';
     if (isOpsUser) return;
+
+    // This provider is mounted around public auth routes too. A shared Firebase
+    // session is not proof of PulseEarn access: PSEmine-only identities must
+    // never trigger PulseEarn rewards merely by visiting /login or /signup.
+    const access = userData.productAccess;
+    if (access != null && access.pulseearn !== true) return;
 
     // Fingerprinting is a security signal, not economy — but it belongs to the
     // same "PulseEarn session started" moment, so it stays scoped here.

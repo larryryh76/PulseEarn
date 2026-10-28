@@ -302,7 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Signup rewards/referrals are pending until the email identity is verified.
       // The PulseEarn-scoped provider claims them only after verification.
       ...(product === PULSE_EARN_PRODUCT ? {
-        signupRewardsGranted: false,
+        signupOnboardingPending: true,
         pendingReferralCode: referralCodeInput?.trim() || null
       } : {}),
       createdAt: serverTimestamp()

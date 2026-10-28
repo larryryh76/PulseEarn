@@ -437,7 +437,7 @@ export const AdminPSEMine: React.FC = () => {
         {error && <PseNotice tone="danger">{error}</PseNotice>}
         {partialErrors.length > 0 && (
           <PseNotice tone="attention">
-            Some registers could not be loaded: {partialErrors.join(', ')}. Empty results in those registers are not evidence that no records exist; refresh after the service recovers.
+            Unavailable registers: {partialErrors.join(', ')}. Their empty results are not evidence that no records exist; refresh after the service recovers.
           </PseNotice>
         )}
         {!campaignPhase && (
@@ -540,13 +540,13 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payments" className="scroll-mt-24">
           <PseSection
             title="Payment verification"
-            meta="psemine_payment_recovery — evidence for payments that failed on-chain verification"
+            meta="Failed on-chain payments · review evidence"
           >
             {recoveryCases.length === 0 ? (
               <PseEmptyNote title={partialErrors.includes('payment recovery') ? "Payment recovery unavailable" : "No payments awaiting verification review"}>
                 {partialErrors.includes('payment recovery')
                   ? 'The recovery endpoint could not be read. This is not an empty queue; refresh after the service recovers.'
-                  : 'A payment that is underpaid, sent on the wrong chain, sent from an unexpected wallet, or received after its quote lapsed is recorded here with its on-chain evidence. Nothing is assigned automatically.'}
+                  : 'Cases with amount, chain, sender or expiry mismatches appear here with recorded evidence.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Case', 'Reason', 'Recorded', 'On-chain transaction', 'Actions']}>
@@ -613,7 +613,7 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-tools" className="scroll-mt-24">
           <PseSection
             title="Tool register"
-            meta="The locked campaign economics — unit prices, hourly capacity and ownership caps"
+            meta="Locked campaign tiers and economics"
           >
             <PseFacts cols={2}>
               <PseFact label="Active tool ownerships" value={numOrDash(overviewStat('activeToolOwnerships'))} />
@@ -647,7 +647,7 @@ export const AdminPSEMine: React.FC = () => {
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
         {activeSection === 'purchases' && (
         <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Payments & order intents" meta="Confirmed chain payments are separated from quotes and order intents">
+          <PseSection title="Payments & order intents" meta="Confirmed payments are separate from order intents">
             <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
               <button type="button" role="tab" aria-selected={purchaseView === 'payments'} className={`pse-ops-subtab ${purchaseView === 'payments' ? 'is-active' : ''}`} onClick={() => setPurchaseView('payments')}>
                 Verified payments <span>{verifiedPayments.length}</span>
@@ -663,7 +663,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseEmptyNote>
               ) : verifiedPayments.length === 0 ? (
                 <PseEmptyNote title="No confirmed payments recorded">
-                  Only payment records written after successful on-chain verification appear here. Quotes, pending orders and transaction hashes without a confirmed receipt are excluded.
+                  Only backend-confirmed on-chain payments appear here. Quotes and unverified hashes are excluded.
                 </PseEmptyNote>
               ) : (
                 <PseTable head={['Confirmed', 'Tool', 'Amount', 'Block', 'Order', 'On-chain transaction']}>
@@ -743,13 +743,13 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
-            meta="A payout is completed only when BSC confirms success, recipient and exact locked BNB amount; records missing that amount remain blocked"
+            meta="Verify recipient, locked amount and on-chain receipt before marking paid"
           >
             {withdrawalQueue.length === 0 ? (
               <PseEmptyNote title={partialErrors.includes('payout queue') ? "Payout queue unavailable" : "No payouts awaiting review"}>
                 {partialErrors.includes('payout queue')
                   ? 'The payout endpoint failed. This is not evidence that the queue is empty.'
-                  : 'Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.'}
+                  : 'A hash alone is not proof of payment. Requests without a locked BNB amount remain blocked until reconciled.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>

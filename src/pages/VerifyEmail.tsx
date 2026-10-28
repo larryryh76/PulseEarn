@@ -68,6 +68,9 @@ const VerifyEmail: React.FC = () => {
     setIsChecking(true);
     try {
       await auth.currentUser?.reload();
+      // Refresh the ID token too; backend financial routes validate the
+      // email_verified claim, not only the mutable client-side User property.
+      await auth.currentUser?.getIdToken(true);
       if (auth.currentUser?.emailVerified) {
         toast.success('Email verified successfully!');
         // Product-aware: a PSEmine account continues into PSEmine. The PulseEarn

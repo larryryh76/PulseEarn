@@ -9,6 +9,8 @@ const pseAuth = read('src/pages/psemine/PSEmineAuth.tsx');
 const pseContext = read('src/contexts/PSEMineAuthContext.tsx');
 const app = read('src/App.tsx');
 const pulseProduct = read('src/contexts/PulseEarnProductContext.tsx');
+const pseEngine = read('src/engines/psemine/PSEMineEngine.ts');
+const api = read('api/index.py');
 
 const googleLogin = auth.slice(auth.indexOf('async function signInWithGoogle'), auth.indexOf('async function signUpWithGoogle'));
 assert.match(googleLogin, /getAdditionalUserInfo\(result\)\?\.isNewUser/);
@@ -40,4 +42,10 @@ assert.match(app, /if \(!currentUser\.emailVerified\) return <Navigate to="\/ver
 assert.match(pulseProduct, /if \(!currentUser\.emailVerified\) return/);
 assert.match(pulseProduct, /signupOnboardingPending/);
 assert.match(pulseProduct, /system_claims/);
+assert.match(auth, /pendingPsemineEnrollment: true/);
+assert.match(pseContext, /pendingEnrollmentHandledUidRef/);
+assert.match(pseEngine, /queuePendingReferral\(codeInput: string\)/);
+assert.match(api, /if not allow_unverified and not decoded_token\.get\('email_verified', False\)/);
+assert.equal((api.match(/@verify_token\(allow_unverified=True\)/g) || []).length, 2, 'only verification-email dispatch routes may accept unverified tokens');
+assert.match(api, /if not request\.user\.get\('email_verified', False\)/, 'legacy PSEmine financial writes must require verified email');
 console.log('Auth contract checks passed: sign-in cannot silently register; signup, verification and product boundaries are explicit.');

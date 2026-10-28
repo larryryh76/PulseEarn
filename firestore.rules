@@ -65,13 +65,26 @@ service cloud.firestore {
                         )
                       );
 
-      // CRITICAL: Field-restricted updates (Phase A)
+      // CRITICAL: Field-restricted updates (Phase A).
+      // Signup reward completion is a one-way client transition after the
+      // verified-session reward pipeline finishes. A client cannot set it back
+      // to false, rewrite the pending referral code, or change balances.
       allow update: if isAdmin() || (
-        isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'username', 'avatarUrl', 'bio', 'preferences', 'onboardingCompleted', 'avatar',
-          'fingerprint', 'lastSeen', 'lastActionTimestamp'
-        ])
+        isOwner(userId) && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'username', 'avatarUrl', 'bio', 'preferences', 'onboardingCompleted', 'avatar',
+            'fingerprint', 'lastSeen', 'lastActionTimestamp'
+          ]) ||
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'signupRewardsGranted', 'pendingReferralCode', 'signupRewardsGrantedAt'
+            ]) &&
+            resource.data.signupRewardsGranted == false &&
+            request.resource.data.signupRewardsGranted == true &&
+            request.resource.data.pendingReferralCode == null &&
+            request.resource.data.signupRewardsGrantedAt == request.time
+          )
+        )
       );
 
       allow delete: if isAdmin();

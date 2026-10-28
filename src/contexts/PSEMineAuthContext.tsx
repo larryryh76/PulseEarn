@@ -31,11 +31,12 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     email: string,
     password: string,
     username: string,
-    referralCode?: string
+    referralCode?: string,
+    termsAccepted = false
   ): Promise<void> => {
     // Profile creation records pending PSEmine enrollment. The backend will
     // grant the entitlement only after the verified-email token is presented.
-    const profile = await identitySignup(email, password, username, referralCode, 'psemine', true);
+    const profile = await identitySignup(email, password, username, referralCode, 'psemine', termsAccepted);
     // Do not call referral APIs with an unverified token: queue the code and let
     // the enrolled, verified session submit it once the backend gate permits it.
     if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
@@ -55,9 +56,9 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identityGoogleSignIn]);
 
-  const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
-    // Compatibility alias; this is the same OAuth flow as Google login.
-    await googleSignIn(referralCode, true);
+  const googleSignUp = useCallback(async (referralCode?: string, termsAccepted = false): Promise<void> => {
+    // Compatibility alias; this is the same OAuth flow and never invents consent.
+    await googleSignIn(referralCode, termsAccepted);
   }, [googleSignIn]);
 
   /**

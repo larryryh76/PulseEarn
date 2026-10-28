@@ -248,6 +248,10 @@ def _pse_before_request():
             return jsonify({"success": False, "error": "AUTHENTICATION_REQUIRED",
                             "message": "Your session has expired. Please sign in again.",
                             "requestId": _request_id()}), 401
+        if not request.user.get('email_verified', False):
+            return jsonify({"success": False, "error": "EMAIL_NOT_VERIFIED",
+                            "message": "Verify your email address before using PSEmine financial services.",
+                            "requestId": _request_id()}), 403
         if not has_psemine_access(request.user.get('uid')):
             return jsonify({"success": False, "error": "PSEMINE_ACCESS_DENIED",
                             "message": "PSEmine is not enabled for this account.",

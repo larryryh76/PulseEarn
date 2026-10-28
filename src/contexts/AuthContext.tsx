@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { safeFetch } from '../utils/api';
 import {
   onAuthStateChanged,
@@ -119,6 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isRestoring, setIsRestoring] = useState(true);
   const [systemError, setSystemError] = useState<MaintenanceType | null>(null);
+  const googleLoginInProgress = useRef(false);
+  const rejectedGoogleLoginUids = useRef(new Set<string>());
 
   // Safety: Initialization Timeout
   useEffect(() => {
@@ -363,22 +365,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * never bypass the explicit signup, terms and onboarding flow.
    */
   async function signInWithGoogle(): Promise<IdentityProfileResult> {
+    googleLoginInProgress.current = true;
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    if (getAdditionalUserInfo(result)?.isNewUser) {
-      try {
-        await deleteUser(result.user);
-      } catch (deleteError) {
-        // The identity was created moments ago, so deletion should normally be
-        // allowed. Never continue into the app if cleanup fails.
-        await signOut(auth).catch(() => undefined);
-        console.error('[AuthContext] Could not remove Google identity created from login:', deleteError);
+    try {
+      const result = await signInWithPopup(auth, provider);
+      if (getAdditionalUserInfo(result)?.isNewUser) {
+        rejectedGoogleLoginUids.current.add(result.user.uid);
+        try {
+          await deleteUser(result.user);
+        } catch (deleteError) {
+          // The identity was created moments ago, so deletion should normally be
+          // allowed. Never continue into the app if cleanup fails.
+          await signOut(auth).catch(() => undefined);
+          console.error('[AuthContext] Could not remove Google identity created from login:', deleteError);
+        }
+        const error = new Error('No account exists for this Google sign-in yet. Choose Create account first.');
+        Object.assign(error, { code: 'auth/account-not-found' });
+        throw error;
       }
-      const error = new Error('No account exists for this Google sign-in yet. Choose Create account first.');
-      Object.assign(error, { code: 'auth/account-not-found' });
-      throw error;
+      return { created: false };
+    } finally {
+      googleLoginInProgress.current = false;
     }
-    return { created: false };
   }
 
   /** Google account creation is only reachable from an explicit signup action. */
@@ -471,13 +479,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // IDENTITY ONLY. No product economy runs here — see the header
             // comment: a global listener must never mutate a product's economy
             // or raise a product toast on another product's routes.
+          } else if (googleLoginInProgress.current || rejectedGoogleLoginUids.current.has(user.uid)) {
+             // A first-time Google popup on the LOGIN screen temporarily creates
+             // an Auth identity. Never let the general legacy-repair path turn it
+             // into a registered app account before the login handler deletes it.
+             setSystemError(null);
           } else {
-             // Never create a Firestore identity merely because a provider login
-             // succeeded. That made a first-time Google login look like signup.
-             // Missing profiles must use an explicit recovery flow, not implicit
-             // account creation on a sign-in route.
-             console.error('[AuthContext] Auth identity has no provisioned user profile:', user.uid);
-             setSystemError('IDENTITY_NOT_FOUND');
+             // Preserve recovery for a pre-existing identity whose profile was
+             // lost during a partial signup/deployment. Repair never grants a
+             // product entitlement; explicit signup remains the only product grant.
+             console.warn('[AuthContext] Existing identity has no profile; repairing identity-only record.');
+             try {
+               await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);
+             } catch (healError) {
+               console.error('[AuthContext] Identity repair failed:', healError);
+               setSystemError('IDENTITY_NOT_FOUND');
+             }
           }
           setLoading(false);
           setIsRestoring(false);

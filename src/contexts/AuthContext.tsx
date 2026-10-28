@@ -386,9 +386,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<IdentityProfileResult> {
     googleLoginInProgress.current = true;
     const provider = new GoogleAuthProvider();
+    let googleUid: string | null = null;
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+      googleUid = user.uid;
       googleLoginUids.current.add(user.uid);
       const existingProfile = await getDoc(doc(db, 'users', user.uid));
 
@@ -402,7 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // accepts the documents; retrying this same Google flow can finish setup.
         await signOut(auth);
         googleLoginUids.current.delete(user.uid);
-        const error = new Error('Accept the Terms of Service and Privacy Policy to finish creating your account.');
+        const error = new Error('Accept the Terms of Service and Privacy Policy to finish creating an account.');
         Object.assign(error, { code: 'auth/terms-not-accepted' });
         throw error;
       }
@@ -414,6 +416,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         referralCodeInput,
         termsAccepted
       );
+    } catch (error) {
+      // If profile lookup/provisioning fails, do not leave an authenticated
+      // identity with no product profile. Release the listener guard as well so
+      // the next explicit login can recover cleanly. Never delete the identity.
+      if (googleUid && googleLoginUids.current.has(googleUid)) {
+        googleLoginUids.current.delete(googleUid);
+        if (auth.currentUser?.uid === googleUid) {
+          try { await signOut(auth); } catch { /* preserve the original failure */ }
+        }
+      }
+      throw error;
     } finally {
       googleLoginInProgress.current = false;
     }

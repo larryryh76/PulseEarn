@@ -46,7 +46,7 @@ assert.match(auth, /pendingPsemineEnrollment: true/);
 assert.match(pseContext, /pendingEnrollmentHandledUidRef/);
 assert.match(pseContext, /if \(!currentUser \|\| !isVerified \|\| !hasPSEmineAccess\) return/);
 assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const signupWithReferral'), pseContext.indexOf('const googleSignIn')), /PSEMineEngine\.enroll\(\)/, 'email signup must defer enrollment');
-assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignUp'), pseContext.indexOf('const enrolling')), /PSEMineEngine\.enroll\(\)/, 'Google signup must defer enrollment');
+assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignUp'), pseContext.indexOf('const [enrolling')), /PSEMineEngine\.enroll\(\)/, 'Google signup must defer enrollment');
 assert.match(pseEngine, /queuePendingReferral\(codeInput: string\)/);
 assert.match(api, /if not allow_unverified and not decoded_token\.get\('email_verified', False\)/);
 assert.equal((api.match(/@verify_token\(allow_unverified=True\)/g) || []).length, 2, 'only verification-email dispatch routes may accept unverified tokens');

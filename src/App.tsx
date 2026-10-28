@@ -94,9 +94,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to={resolveNonPulseEarnRoute(userData)} replace />;
   }
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
-  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
+  if (!currentUser.emailVerified && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 
@@ -113,6 +113,10 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 
   if (!currentUser) return <Navigate to="/login" replace />;
+
+  // Operations accounts are identities too: an unverified email must not
+  // reach privileged financial controls.
+  if (!currentUser.emailVerified) return <Navigate to="/verify-email" replace />;
 
   const isOps = isOpsAccount(userData);
 

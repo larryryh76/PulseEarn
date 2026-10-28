@@ -35,7 +35,7 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     username: string,
     referralCode?: string
   ): Promise<void> => {
-    const profile = await identitySignup(email, password, username, referralCode, 'psemine');
+    const profile = await identitySignup(email, password, username, referralCode, 'psemine', true);
     // Entitlement is SERVER-GRANTED. The shared identity layer never claims
     // productAccess.psemine (the Firestore create rule forbids it), so a newly
     // created identity asks the backend for the grant + audit entry exactly
@@ -83,7 +83,7 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [identityGoogleSignIn]);
 
   const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
-    const profile = await identityGoogleSignUp(referralCode, 'psemine');
+    const profile = await identityGoogleSignUp(referralCode, 'psemine', true);
     // Same server-granted entitlement rule as the email path: only a BRAND-NEW
     // identity is enrolled. Signing in with Google on an existing account never
     // silently upgrades it to dual access.

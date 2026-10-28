@@ -509,10 +509,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsRestoring(false);
         });
       } else {
-        if (unsubscribeData) {
-          unsubscribeData();
-          unsubscribeData = undefined;
-        }
+        // The previous data subscription was already disposed at the top of
+        // this auth-state callback.
         setUserData(null);
         setSystemError(null);
         setLoading(false);

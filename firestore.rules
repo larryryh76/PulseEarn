@@ -54,6 +54,9 @@ service cloud.firestore {
       // PulseEarn signup is unaffected by this rule.
       allow create: if isOwner(userId) &&
                       request.resource.data.role == 'user' &&
+                      // isAdmin() also trusts isRoot; never let a client seed
+                      // that privilege bit on its own initial profile.
+                      !request.resource.data.keys().hasAny(['isRoot']) &&
                       request.resource.data.points == 0 &&
                       request.resource.data.xp == 0 &&
                       request.resource.data.isBanned == false &&

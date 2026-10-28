@@ -108,12 +108,11 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [currentUser?.uid, isVerified, (userData as any)?.pendingPsemineEnrollment, hasPSEmineAccess, enablePSEmine]);
 
   // Retry any referral code retained after a transient registration failure.
-  // Runs once per signed-in ENROLLED session; idempotent server-side. The latch
-  // resets on sign-out so a later sign-in (same mounted provider) retries again.
-  // Gated on entitlement so a PulseEarn-only session never touches PSEmine.
+  // Only a verified, enrolled session may submit referral attribution; the
+  // backend rejects unverified tokens before any referral/economic mutation.
   const retriedThisSession = useRef(false);
   useEffect(() => {
-    if (!currentUser || !hasPSEmineAccess) return;
+    if (!currentUser || !isVerified || !hasPSEmineAccess) return;
     if (retriedThisSession.current) return;
     retriedThisSession.current = true;
     PSEMineEngine.retryPendingReferral().catch(() => undefined);

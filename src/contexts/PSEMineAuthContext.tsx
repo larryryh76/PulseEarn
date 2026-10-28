@@ -8,7 +8,6 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     currentUser, userData, loading,
     login, signup: identitySignup,
     signInWithGoogle: identityGoogleSignIn,
-    signUpWithGoogle: identityGoogleSignUp,
     logout, sendVerification, resetPassword,
   } = useAuth();
 
@@ -49,19 +48,17 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * entitlement it already has — Google sign-in never silently upgrades an
    * account (the console offers explicit enrollment instead).
    */
-  const googleSignIn = useCallback(async (): Promise<void> => {
-    // Login is identity-only. It must not create a profile, enroll the product,
-    // or attribute a referral for a first-time Google identity.
-    await identityGoogleSignIn();
+  const googleSignIn = useCallback(async (referralCode?: string, termsAccepted = false): Promise<void> => {
+    // One shared Google OAuth flow supports existing-account login and first-time
+    // signup. Only a missing profile requires explicit consent.
+    const profile = await identityGoogleSignIn(referralCode, 'psemine', termsAccepted);
+    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identityGoogleSignIn]);
 
   const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
-    // Google identity is verified by the provider. The shared provider sees
-    // the new profile's pending enrollment marker and grants access through the
-    // same verified-token backend path. Existing identities are not upgraded.
-    const profile = await identityGoogleSignUp(referralCode, 'psemine', true);
-    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
-  }, [identityGoogleSignUp]);
+    // Compatibility alias; this is the same OAuth flow as Google login.
+    await googleSignIn(referralCode, true);
+  }, [googleSignIn]);
 
   /**
    * Explicit enrollment for an existing signed-in account. Backend-authoritative

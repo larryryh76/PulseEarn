@@ -334,3 +334,56 @@
   .pse-account-metric dd.pse-account-metric-note { font-size:10px; }
 }
 @media(prefers-reduced-motion:reduce) { .pse-campaign-fill { transition:none; } }
+
+
+/* Dashboard dense-data and responsive control pass. */
+.pse-dash :is(button, a, [role="button"]):focus-visible {
+  outline: 2px solid #9996ff;
+  outline-offset: 3px;
+}
+.pse-dash :is(button, a[role="button"]) {
+  min-height: 44px;
+}
+.pse-account-figure,
+.pse-account-metric dd,
+.pse-log-amount,
+.pse-settle-val {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.pse-dash-grid > *,
+.pse-dash-col > *,
+.pse-account-main,
+.pse-account-aside {
+  min-width: 0;
+}
+@media(max-width:430px) {
+  .pse-dash-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pse-dash-head-side {
+    max-width: 100%;
+    text-align: left;
+  }
+  .pse-account-bottom {
+    flex-wrap: wrap;
+  }
+  .pse-account-actions {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 8px;
+  }
+  .pse-account-actions .pse-btn {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+    overflow-wrap: anywhere;
+  }
+  .pse-campaign-dates,
+  .pse-campaign-foot,
+  .pse-phase-caption {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}

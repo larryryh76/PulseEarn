@@ -1460,3 +1460,152 @@
 @media (prefers-reduced-motion: reduce) {
   .pse-pricelist-row { transition: none; }
 }
+
+
+/* ── Responsive landing-page finishing pass ───────────────────────────────
+ * Keep the instrument-led composition, but make its controls and data rows
+ * resilient at narrow widths. Scoped to the public landing art layer.
+ */
+.pse-mast-link,
+.pse-drawer-link,
+.pse-foot-link,
+.pse-docline-link {
+  min-height: 44px;
+}
+.pse-mast-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pse-mast-actions .pse-btn,
+.pse-drawer-actions .pse-btn,
+.pse-hero-cta .pse-btn,
+.pse-close-actions .pse-btn {
+  min-height: 46px;
+}
+.pse :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 3px;
+}
+.pse-pricelist-row {
+  min-width: 0;
+}
+.pse-pricelist-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pse-pricelist-rate,
+.pse-pricelist-price {
+  font-variant-numeric: tabular-nums;
+}
+.pse-faq-q {
+  min-height: 48px;
+}
+.pse-faq-a {
+  overflow-wrap: anywhere;
+}
+.pse-foot-grid > *,
+.pse-foot-grid--navs > *,
+.pse-section-object,
+.pse-split-text,
+.pse-split-aside {
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .pse-mast-inner {
+    gap: 0.6rem;
+    padding-inline: max(1rem, env(safe-area-inset-left));
+  }
+  .pse-mast-actions {
+    gap: 0.45rem;
+  }
+  .pse-mast-actions .pse-btn {
+    min-height: 44px;
+    padding-inline: 0.8rem;
+    white-space: nowrap;
+  }
+  .pse-hero {
+    padding-top: clamp(2rem, 8vw, 3.25rem);
+  }
+  .pse-display {
+    font-size: clamp(2.4rem, 11vw, 4.1rem);
+    line-height: 0.98;
+    overflow-wrap: anywhere;
+  }
+  .pse-hero-cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+  .pse-hero-cta .pse-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .pse-hero-meta {
+    width: 100%;
+    gap: 0;
+  }
+  .pse-hero-meta > div {
+    min-width: 0;
+    padding: 0.8rem 0.65rem 0.8rem 0;
+  }
+  .pse-hero-meta > div:nth-child(2n) {
+    padding-left: 0.8rem;
+  }
+  .pse-pricelist-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 0.25rem;
+  }
+  .pse-pricelist-rate {
+    grid-column: 2;
+    font-size: 0.75rem;
+  }
+  .pse-pricelist-price {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    font-size: 0.875rem;
+  }
+  .pse-pricelist-name {
+    align-self: end;
+    font-size: 0.875rem;
+  }
+  .pse-foot {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+  .pse-foot-grid,
+  .pse-foot-grid--navs {
+    gap: 1.4rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .pse-mast-inner {
+    padding-inline: 0.7rem;
+  }
+  .pse-mast-actions .pse-btn {
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+  }
+  .pse-display {
+    font-size: clamp(2.2rem, 10.5vw, 2.8rem);
+  }
+  .pse-pricelist-row {
+    column-gap: 0.35rem;
+  }
+  .pse-pricelist-rate {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pse-mast-link,
+  .pse-drawer-link,
+  .pse-pricelist-row {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -732,7 +732,14 @@ export const PSEmineVerifyEmail: React.FC = () => {
           <button
             type="button"
             className="pse-btn pse-btn--lg pse-btn--block"
-            onClick={() => window.location.reload()}
+            onClick={async () => {
+              try {
+                await currentUser.reload();
+                await currentUser.getIdToken(true);
+              } finally {
+                window.location.reload();
+              }
+            }}
           >
             I&apos;ve verified my email
           </button>

@@ -23,11 +23,10 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const hasPSEmineAccess = userData?.productAccess?.psemine === true;
 
   /**
-   * PSEmine signup: reuses the shared Firebase identity, then attributes the
-   * referral via the canonical backend endpoint (deterministic
-   * psemine_referrals record). No duplicate account is created, and the
-   * identity is created with `productAccess { pulseearn: false, psemine: true }`
-   * — a PSEmine signup never grants, or triggers, the PulseEarn economy.
+   * PSEmine signup reuses the shared Firebase identity. The profile records
+   * a pending enrollment and the backend grants access only after the email
+   * verification claim is present. Referral attribution is queued until that
+   * verified, enrolled session can submit it; PulseEarn rewards stay isolated.
    */
   const signupWithReferral = useCallback(async (
     email: string,

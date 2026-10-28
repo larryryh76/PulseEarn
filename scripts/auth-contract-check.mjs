@@ -23,6 +23,11 @@ assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
 assert.match(auth, /rejectedGoogleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
 assert.match(pulseLogin, /await signInWithGoogle\(\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn'\)/);
+assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');
+assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
+assert.match(auth, /if \(!termsAccepted\)/, 'shared identity layer must enforce consent');
+assert.match(pseContext, /identitySignup\(email, password, username, referralCode, 'psemine', true\)/);
+assert.match(pseContext, /identityGoogleSignUp\(referralCode, 'psemine', true\)/);
 
 assert.match(pseAuth, /if \(isSignup && !agreed\)/, 'PSEmine Google signup must require legal agreement');
 assert.match(pseAuth, /if \(isSignup\) await signUpWithGoogle\(refFromQuery\);\s*else await signInWithGoogle\(\)/);

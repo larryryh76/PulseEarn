@@ -474,19 +474,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    let unsubscribeData: (() => void) | undefined;
+    const unsubscribeDataRef: { current: (() => void) | undefined } = { current: undefined };
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       // Provider sign-in can switch identities without a sign-out event. Always
       // tear down the previous user's Firestore listener before binding another.
-      if (unsubscribeData) {
-        unsubscribeData();
-        unsubscribeData = undefined;
+      if (unsubscribeDataRef.current) {
+        unsubscribeDataRef.current();
+        unsubscribeDataRef.current = undefined;
       }
       setCurrentUser(user);
 
       if (user) {
-        unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
+        unsubscribeDataRef.current = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             googleLoginUids.current.delete(user.uid);
             const data = docSnap.data() as UserData;
@@ -547,7 +547,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeData) unsubscribeData();
+      if (unsubscribeDataRef.current) unsubscribeDataRef.current();
     };
   }, []);
 

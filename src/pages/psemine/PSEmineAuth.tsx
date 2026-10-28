@@ -288,7 +288,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   }, [submitCount]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, signInWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
+  const { login, signup, signInWithGoogle, signUpWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
 
   // PSEmine owns the document title on its own auth routes too (they render
   // outside PSEMineShell, which sets it for the rest of the product).
@@ -356,9 +356,16 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
   const google = async () => {
     setFormError(null);
+    if (isSignup && !agreed) {
+      setFieldErrors(prev => ({ ...prev, terms: 'Accept the Terms of Service and the Privacy Policy to create an account.' }));
+      setSubmitCount(count => count + 1);
+      termsRef.current?.focus();
+      return;
+    }
     setGooglePending(true);
     try {
-      await signInWithGoogle(refFromQuery);
+      if (isSignup) await signUpWithGoogle(refFromQuery);
+      else await signInWithGoogle();
     } catch (error: unknown) {
       // A closed popup is a normal dismissal — not an error state.
       const code = (error as { code?: string } | null)?.code || '';

@@ -6,7 +6,9 @@ import { PSEMineEngine } from '../engines/psemine/PSEMineEngine';
 export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
     currentUser, userData, loading,
-    login, signup: identitySignup, signInWithGoogle: identityGoogleSignIn,
+    login, signup: identitySignup,
+    signInWithGoogle: identityGoogleSignIn,
+    signUpWithGoogle: identityGoogleSignUp,
     logout, sendVerification, resetPassword,
   } = useAuth();
 
@@ -74,8 +76,14 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * entitlement it already has — Google sign-in never silently upgrades an
    * account (the console offers explicit enrollment instead).
    */
-  const googleSignIn = useCallback(async (referralCode?: string): Promise<void> => {
-    const profile = await identityGoogleSignIn(referralCode, 'psemine');
+  const googleSignIn = useCallback(async (): Promise<void> => {
+    // Login is identity-only. It must not create a profile, enroll the product,
+    // or attribute a referral for a first-time Google identity.
+    await identityGoogleSignIn();
+  }, [identityGoogleSignIn]);
+
+  const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
+    const profile = await identityGoogleSignUp(referralCode, 'psemine');
     // Same server-granted entitlement rule as the email path: only a BRAND-NEW
     // identity is enrolled. Signing in with Google on an existing account never
     // silently upgrades it to dual access.
@@ -103,7 +111,7 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         console.warn('[PSEMineAuth] Google referral attribution notice:', e);
       }
     }
-  }, [identityGoogleSignIn]);
+  }, [identityGoogleSignUp]);
 
   /**
    * Explicit enrollment for an existing signed-in account. Backend-authoritative
@@ -150,12 +158,13 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     login,
     signup: signupWithReferral,
     signInWithGoogle: googleSignIn,
+    signUpWithGoogle: googleSignUp,
     logout,
     sendVerification,
     resetPassword,
   }), [
     currentUser, userData, loading, isVerified, hasPSEmineAccess, enablePSEmine,
-    login, signupWithReferral, googleSignIn, logout, sendVerification, resetPassword,
+    login, signupWithReferral, googleSignIn, googleSignUp, logout, sendVerification, resetPassword,
   ]);
 
   // `enrolling` is intentionally not surfaced: enrollment state is local to the

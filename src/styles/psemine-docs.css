@@ -43,3 +43,55 @@
 .pse-doc-page .pse-wordmark-name { color:#f1f4fc; }
 @media(max-width:760px) { .pse-doc { grid-template-columns:minmax(0,1fr); gap:25px; } .pse-doc-toc { position:static; order:-1; } .pse-doc-bar-nav { gap:10px; } .pse-doc-bar-inner { padding:0 16px; gap:12px; } .pse-doc-main { padding-left:17px; padding-right:17px; } .pse-doc-title { font-size:34px; } .pse-foot-grid,.pse-foot-grid--navs { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:440px) { .pse-doc-bar-nav a:nth-child(n+3) { display:none; } .pse-doc-clause { grid-template-columns:24px minmax(0,1fr); gap:8px; } .pse-foot-grid,.pse-foot-grid--navs { grid-template-columns:minmax(0,1fr); } }
+
+
+/* Document reading and keyboard usability refinements. */
+.pse-doc-bar a,
+.pse-doc-toc a,
+.pse-doc-foot a,
+.pse-docline-link,
+.pse-foot-links a {
+  min-height: 44px;
+}
+.pse-doc-toc a,
+.pse-doc-bar-inner a,
+.pse-doc-foot a,
+.pse-foot-links a {
+  display: inline-flex;
+  align-items: center;
+}
+.pse-doc-page :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #9996ff;
+  outline-offset: 3px;
+}
+.pse-doc-toc a {
+  display: flex;
+  padding-block: 9px;
+}
+.pse-doc-clause,
+.pse-doc-body,
+.pse-doc-main {
+  min-width: 0;
+}
+.pse-doc-para,
+.pse-doc-list {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 440px) {
+  .pse-doc-bar-inner {
+    min-height: 60px;
+    padding-inline: 12px;
+  }
+  .pse-doc-main {
+    padding-inline: 14px;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+  .pse-doc-title {
+    font-size: clamp(28px, 8vw, 34px);
+    overflow-wrap: anywhere;
+  }
+  .pse-doc-clause {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 8px;
+  }
+}

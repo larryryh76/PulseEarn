@@ -229,6 +229,18 @@ def _pse_before_request():
             request.method, request.path
         )
     except Exception:
+        # Fail closed if the entitlement policy cannot be loaded. The legacy
+        # surface contains money-moving writes; an import/runtime regression must
+        # never turn off its authorization gate. Returning 503 for this legacy
+        # namespace is safer than guessing which routes are read-only.
+        if request.path == '/api/psemine' or request.path.startswith('/api/psemine/'):
+            logging.exception('[PSEmine security] legacy entitlement policy unavailable; denying request')
+            return jsonify({
+                "success": False,
+                "error": "SECURITY_POLICY_UNAVAILABLE",
+                "message": "PSEmine is temporarily unavailable. Please retry shortly.",
+                "requestId": _request_id(),
+            }), 503
         _legacy_needs_entitlement = False
     if _legacy_needs_entitlement:
         if not init_firebase():

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { claimDailyReward, runPulseEarnOnboarding } from '../engines/product/pulseEarnProduct';
@@ -69,22 +69,23 @@ export const PulseEarnProductProvider: React.FC<{ children: React.ReactNode }> =
     if (role === 'admin' || role === 'moderator') return;
     const access = userData.productAccess;
     const hasPulseEarnAccess = access == null || access.pulseearn === true;
-    const pending = (userData as typeof userData & { signupRewardsGranted?: boolean }).signupRewardsGranted === false;
+    const pending = (userData as typeof userData & { signupOnboardingPending?: boolean }).signupOnboardingPending === true;
     if (!hasPulseEarnAccess || !pending || onboardingHandledUidRef.current === currentUser.uid) return;
 
     onboardingHandledUidRef.current = currentUser.uid;
     void (async () => {
+      // The deterministic welcome claim is the persisted idempotency boundary.
+      // It avoids needing a client-writable "rewards complete" flag on the user
+      // profile, which is deliberately field-restricted by Firestore rules.
+      const claim = await getDoc(doc(db, 'system_claims', `welcome_${currentUser.uid}`));
+      if (claim.exists()) return;
+
       const extendedData = userData as typeof userData & { pendingReferralCode?: string | null };
       await runPulseEarnOnboarding(
         currentUser,
         userData.username || `User_${currentUser.uid.slice(0, 5)}`,
         extendedData.pendingReferralCode || undefined
       );
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        signupRewardsGranted: true,
-        pendingReferralCode: null,
-        signupRewardsGrantedAt: serverTimestamp(),
-      });
     })().catch(error => {
       onboardingHandledUidRef.current = null;
       console.error('[PulseEarn] Verified signup onboarding failed; it will retry on the next session:', error);

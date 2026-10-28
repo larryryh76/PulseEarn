@@ -126,6 +126,8 @@ export const AdminPSEMine: React.FC = () => {
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [orderFilter, setOrderFilter] = useState('all');
+  const [activeSection, setActiveSection] = useState<ScreenSection>('campaign');
+  const [partialErrors, setPartialErrors] = useState<string[]>([]);
   const [orderSearch, setOrderSearch] = useState('');
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
   const [auditRows, setAuditRows] = useState<Array<Record<string, unknown>>>([]);
@@ -160,34 +162,37 @@ export const AdminPSEMine: React.FC = () => {
       if (!ovRes.ok) throw new Error(`Campaign overview unavailable (${ovRes.status})`);
       const ov = await ovRes.json().catch(() => ({}));
       setStats(ov?.stats || {});
+      const unavailable: string[] = [];
 
       if (pseRes.ok) {
         const d = await pseRes.json().catch(() => ({}));
         setMineOverview(d?.stats || {});
-      } else setMineOverview({});
+      } else { setMineOverview({}); unavailable.push('tool/session metrics'); }
 
       if (recRes.ok) {
         const d = await recRes.json().catch(() => ({}));
         setRecoveryCases(Array.isArray(d?.cases) ? d.cases : []);
-      } else setRecoveryCases([]);
+      } else { setRecoveryCases([]); unavailable.push('payment recovery'); }
 
       if (ordersRes.ok) {
         const d = await ordersRes.json().catch(() => ({}));
         setOrders(Array.isArray(d?.orders) ? d.orders : []);
-      } else setOrders([]);
+      } else { setOrders([]); unavailable.push('purchase ledger'); }
 
       if (wdRes.ok) {
         const d = await wdRes.json().catch(() => ({}));
         const all: Array<Record<string, unknown>> = Array.isArray(d?.withdrawals) ? d.withdrawals : [];
         setWithdrawalQueue(all.filter(w => ['pending', 'under_review', 'approved', 'processing'].includes(String(w.status))));
-      } else setWithdrawalQueue([]);
+      } else { setWithdrawalQueue([]); unavailable.push('payout queue'); }
 
       if (auditRes.ok) {
         const d = await auditRes.json().catch(() => ({}));
         setAuditRows(Array.isArray(d?.records) ? d.records : []);
       } else {
         setAuditRows([]);
+        unavailable.push('audit feed');
       }
+      setPartialErrors(unavailable);
       setLoadedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load PSEmine operations data.');
@@ -381,7 +386,7 @@ export const AdminPSEMine: React.FC = () => {
       >
         <section className="pse-ops-hero" aria-label="PSEmine operational summary">
           <div className="pse-ops-hero-copy">
-            <span className="pse-ops-eyebrow"><span className="pse-ops-live-dot" /> CAMPAIGN CONTROL CENTRE</span>
+            <span className="pse-ops-eyebrow"><span className={`pse-ops-live-dot ${error ? 'is-error' : loadedAt ? 'is-connected' : ''}`} /> CAMPAIGN CONTROL CENTRE</span>
             <h2>Know what is happening.<br /><em>Act on verified evidence.</em></h2>
             <p>Live operational data from PSEmine's backend. No sample payments, simulated activity, or inferred balances.</p>
             <div className="pse-ops-hero-meta">
@@ -389,7 +394,7 @@ export const AdminPSEMine: React.FC = () => {
               <span>{loadedAt ? `Last synced ${fmtDateTime(new Date(loadedAt))}` : 'Waiting for first sync'}</span>
             </div>
           </div>
-          <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>90</strong><small>DAY OPERATIONS</small></div>
+          <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>{campaign?.durationDays ?? '—'}</strong><small>DAY WINDOW</small></div>
         </section>
         <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
           <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
@@ -404,26 +409,33 @@ export const AdminPSEMine: React.FC = () => {
         </section>
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
-        <nav className="pse-block" aria-label="Operations sections">
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+        <nav className="pse-ops-register-nav" aria-label="Operations registers">
+          <div className="pse-ops-tabs" role="tablist" aria-label="PSEmine operations">
             {SECTIONS.map(s => (
-              <a
+              <button
                 key={s.id}
-                href={`#ops-${s.id}`}
-                className="inline-flex min-h-[44px] items-center px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary transition-colors hover:text-text-primary"
+                type="button"
+                role="tab"
+                aria-selected={activeSection === s.id}
+                aria-controls={`ops-${s.id}`}
+                onClick={() => setActiveSection(s.id)}
+                className={`pse-ops-tab ${activeSection === s.id ? 'is-active' : ''}`}
               >
                 {s.label}
-              </a>
+              </button>
             ))}
-            {loadedAt && (
-              <span className="ml-auto px-3 text-[11px] text-text-tertiary">
-                As of <span className="tabular-nums">{fmtDateTime(new Date(loadedAt))}</span>
-              </span>
-            )}
           </div>
+          <span className="pse-ops-asof">
+            {loadedAt ? `Synced ${fmtDateTime(new Date(loadedAt))}` : 'Awaiting first sync'}
+          </span>
         </nav>
 
         {error && <PseNotice tone="danger">{error}</PseNotice>}
+        {partialErrors.length > 0 && (
+          <PseNotice tone="attention">
+            Some registers could not be loaded: {partialErrors.join(', ')}. Empty results in those registers are not evidence that no records exist; refresh after the service recovers.
+          </PseNotice>
+        )}
         {!campaignPhase && (
           <PseNotice tone="attention">
             The backend did not report a campaign state. Every figure below is read from the API; nothing is inferred.
@@ -431,6 +443,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 01 · CAMPAIGN ───────────────────────────────────────────────── */}
+        {activeSection === 'campaign' && (
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
             <PseFacts cols={3}>
@@ -526,8 +539,10 @@ export const AdminPSEMine: React.FC = () => {
             </div>
           </PseSection>
         </div>
+        )}
 
         {/* ── 02 · PAYMENT VERIFICATION ───────────────────────────────────── */}
+        {activeSection === 'payments' && (
         <div id="ops-payments" className="scroll-mt-24">
           <PseSection
             title="Payment verification"
@@ -596,8 +611,10 @@ export const AdminPSEMine: React.FC = () => {
             )}
           </PseSection>
         </div>
+        )}
 
         {/* ── 03 · TOOL REGISTER ──────────────────────────────────────────── */}
+        {activeSection === 'tools' && (
         <div id="ops-tools" className="scroll-mt-24">
           <PseSection
             title="Tool register"
@@ -630,8 +647,10 @@ export const AdminPSEMine: React.FC = () => {
             </PseTable>
           </PseSection>
         </div>
+        )}
 
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
+        {activeSection === 'purchases' && (
         <div id="ops-purchases" className="scroll-mt-24">
           <PseSection title="Purchase ledger" meta="Backend order records · payment state must be supported by verification evidence">
             <div className="pse-ops-ledger-tools">
@@ -675,8 +694,10 @@ export const AdminPSEMine: React.FC = () => {
             )}
           </PseSection>
         </div>
+        )}
 
         {/* ── 05 · PAYOUTS ────────────────────────────────────────────────── */}
+        {activeSection === 'payouts' && (
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
@@ -744,8 +765,10 @@ export const AdminPSEMine: React.FC = () => {
             )}
           </PseSection>
         </div>
+        )}
 
         {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
+        {activeSection === 'audit' && (
         <div id="ops-audit" className="scroll-mt-24">
           <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
             {auditRows.length === 0 ? (
@@ -765,6 +788,7 @@ export const AdminPSEMine: React.FC = () => {
             )}
           </PseSection>
         </div>
+        )}
 
         <PseConfirm
           open={confirm !== null}

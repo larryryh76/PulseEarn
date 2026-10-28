@@ -35,22 +35,9 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     username: string,
     referralCode?: string
   ): Promise<void> => {
-    const profile = await identitySignup(email, password, username, referralCode, 'psemine', true);
-    // Entitlement is SERVER-GRANTED. The shared identity layer never claims
-    // productAccess.psemine (the Firestore create rule forbids it), so a newly
-    // created identity asks the backend for the grant + audit entry exactly
-    // once, here. An existing identity is left untouched — it keeps whatever
-    // access it already has and sees the explicit enable path instead.
-    if (profile.created) {
-      try {
-        await PSEMineEngine.enroll();
-      } catch (e) {
-        // Enrollment failure must not block account creation: the signed-in
-        // user lands on the entitlement gate, which offers the same enable
-        // action explicitly and shows the backend's own message.
-        console.warn('[PSEMineAuth] enrollment notice:', e);
-      }
-    }
+    // Profile creation records a pending PSEmine enrollment. The backend will
+    // grant the entitlement only after the verified-email token is presented.
+    await identitySignup(email, password, username, referralCode, 'psemine', true);
     if (referralCode) {
       try {
         const { getAuth } = await import('firebase/auth');
@@ -83,17 +70,11 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [identityGoogleSignIn]);
 
   const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
-    const profile = await identityGoogleSignUp(referralCode, 'psemine', true);
-    // Same server-granted entitlement rule as the email path: only a BRAND-NEW
-    // identity is enrolled. Signing in with Google on an existing account never
-    // silently upgrades it to dual access.
-    if (profile.created) {
-      try {
-        await PSEMineEngine.enroll();
-      } catch (e) {
-        console.warn('[PSEMineAuth] Google enrollment notice:', e);
-      }
-    }
+    // Google identity is verified by the provider. The shared provider sees
+    // the new profile's pending enrollment marker and asks the backend to grant
+    // access after the verified identity is ready; existing identities are not
+    // silently upgraded by this path.
+    await identityGoogleSignUp(referralCode, 'psemine', true);
     if (referralCode) {
       try {
         const { getAuth } = await import('firebase/auth');
@@ -131,6 +112,31 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setEnrolling(false);
     }
   }, [currentUser]);
+
+  // Auto-complete an explicit PSEmine signup only after Firebase supplies a
+  // verified-email token. The backend clears this pending marker on successful
+  // enrollment, so a later admin revocation cannot be undone by this effect.
+  const pendingEnrollmentHandledUidRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentUser) {
+      pendingEnrollmentHandledUidRef.current = null;
+      return;
+    }
+    const pendingEnrollment = (userData as (typeof userData & { pendingPsemineEnrollment?: boolean }))?.pendingPsemineEnrollment === true;
+    if (!isVerified || !pendingEnrollment || hasPSEmineAccess
+      || pendingEnrollmentHandledUidRef.current === currentUser.uid) return;
+
+    pendingEnrollmentHandledUidRef.current = currentUser.uid;
+    void enablePSEmine().then((result: any) => {
+      if (!result?.success) {
+        pendingEnrollmentHandledUidRef.current = null;
+        console.warn('[PSEmineAuth] verified signup enrollment did not complete:', result?.error || result?.message || 'unknown error');
+      }
+    }).catch(error => {
+      pendingEnrollmentHandledUidRef.current = null;
+      console.error('[PSEmineAuth] verified signup enrollment failed:', error);
+    });
+  }, [currentUser?.uid, isVerified, (userData as any)?.pendingPsemineEnrollment, hasPSEmineAccess, enablePSEmine]);
 
   // Retry any referral code retained after a transient registration failure.
   // Runs once per signed-in ENROLLED session; idempotent server-side. The latch

@@ -20,7 +20,7 @@ const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { signup, signInWithGoogle } = useAuth();
+  const { signup, signUpWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -78,7 +78,7 @@ const Signup: React.FC = () => {
     try {
       setIsSubmitting(true);
       const ref = searchParams.get('ref') || undefined;
-      await signInWithGoogle(ref, 'pulseearn');
+      await signUpWithGoogle(ref, 'pulseearn');
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {

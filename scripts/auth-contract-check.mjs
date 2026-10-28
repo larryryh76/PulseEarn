@@ -22,7 +22,7 @@ assert.match(googleSignup, /initializeUserProfile\(/, 'explicit Google signup pr
 const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('async function logout('));
 assert.match(emailLogin, /signInWithEmailAndPassword/);
 assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
-assert.match(auth, /rejectedGoogleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
+assert.match(auth, /googleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
 assert.match(pulseLogin, /await signInWithGoogle\(\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', true\)/);
 assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');

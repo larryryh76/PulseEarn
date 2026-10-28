@@ -14,9 +14,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   GoogleAuthProvider,
-  signInWithPopup,
-  getAdditionalUserInfo,
-  deleteUser
+  signInWithPopup
 } from 'firebase/auth';
 import {
   doc,
@@ -91,7 +89,8 @@ interface AuthContextType {
    */
   signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: () => Promise<IdentityProfileResult>;
+  /** One Google OAuth flow: existing users sign in; new identities are provisioned only with explicit consent. */
+  signInWithGoogle: (referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   signUpWithGoogle: (referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
@@ -373,54 +372,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   /**
-   * Sign-in is strictly sign-in. Firebase Google popup can silently create a
-   * brand-new identity; detect that case and reject it so the login screen can
-   * never bypass the explicit signup, terms and onboarding flow.
+   * Shared Google OAuth flow for BOTH login and signup.
+   *
+   * Firebase's popup authenticates existing Google users and can also create a
+   * first-time Firebase identity. Existing profiles sign in without re-enrollment;
+   * a missing profile is provisioned only after explicit terms/privacy consent.
+   * No legitimate Google identity is deleted by this flow.
    */
-  async function signInWithGoogle(): Promise<IdentityProfileResult> {
+  async function signInWithGoogle(
+    referralCodeInput?: string,
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
+  ): Promise<IdentityProfileResult> {
     googleLoginInProgress.current = true;
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      // Mark every identity entering through the login popup until its existing
-      // profile is confirmed. This also fails closed if provider metadata is absent.
-      googleLoginUids.current.add(result.user.uid);
-      if (getAdditionalUserInfo(result)?.isNewUser) {
-        try {
-          await deleteUser(result.user);
-        } catch (deleteError) {
-          // The identity was created moments ago, so deletion should normally be
-          // allowed. Never continue into the app if cleanup fails.
-          await signOut(auth).catch(() => undefined);
-          console.error('[AuthContext] Could not remove Google identity created from login:', deleteError);
-        }
-        const error = new Error('No account exists for this Google sign-in yet. Choose Create account first.');
-        Object.assign(error, { code: 'auth/account-not-found' });
+      const user = result.user;
+      googleLoginUids.current.add(user.uid);
+      const existingProfile = await getDoc(doc(db, 'users', user.uid));
+
+      if (existingProfile.exists()) {
+        googleLoginUids.current.delete(user.uid);
+        return { created: false };
+      }
+
+      if (!termsAccepted) {
+        // Keep the Firebase identity intact. Sign out until the person explicitly
+        // accepts the documents; retrying this same Google flow can finish setup.
+        await signOut(auth);
+        googleLoginUids.current.delete(user.uid);
+        const error = new Error('Accept the Terms of Service and Privacy Policy to finish creating your account.');
+        Object.assign(error, { code: 'auth/terms-not-accepted' });
         throw error;
       }
-      return { created: false };
+
+      return await initializeUserProfile(
+        user,
+        user.displayName || `User_${user.uid.slice(0, 5)}`,
+        product,
+        referralCodeInput,
+        termsAccepted
+      );
     } finally {
       googleLoginInProgress.current = false;
     }
   }
 
-  /** Google account creation is only reachable from an explicit signup action. */
+  /** Backwards-compatible alias; it deliberately uses the same Google flow. */
   async function signUpWithGoogle(
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT,
     termsAccepted = false
   ): Promise<IdentityProfileResult> {
-    if (!termsAccepted) {
-      const error = new Error('Accept the Terms of Service and Privacy Policy before creating an account.');
-      Object.assign(error, { code: 'auth/terms-not-accepted' });
-      throw error;
-    }
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    return await initializeUserProfile(
-      user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput, termsAccepted
-    );
+    return signInWithGoogle(referralCodeInput, product, termsAccepted);
   }
 
   function login(email: string, password: string) {

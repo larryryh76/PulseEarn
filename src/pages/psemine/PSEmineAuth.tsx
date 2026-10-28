@@ -371,7 +371,11 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
       // A closed popup is a normal dismissal — not an error state.
       const code = (error as { code?: string } | null)?.code || '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
-      setFormError(mapAuthError(error));
+      if (code === 'auth/terms-not-accepted') {
+        setFormError('Accept the PSEmine Terms of Service, Privacy Policy and Risk Disclosure to finish creating your account.');
+      } else {
+        setFormError(mapAuthError(error));
+      }
     } finally { setGooglePending(false); }
   };
 

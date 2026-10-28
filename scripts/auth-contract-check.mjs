@@ -21,7 +21,7 @@ assert.match(auth, /return signInWithGoogle\(referralCodeInput, product, termsAc
 const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('async function logout('));
 assert.match(emailLogin, /signInWithEmailAndPassword/);
 assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
-assert.match(auth, /googleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
+assert.match(auth, /googleLoginUids\.current\.add\(user\.uid\)/, 'profile repair must be suppressed while a Google identity is being provisioned');
 assert.match(pulseLogin, /await signInWithGoogle\(undefined, 'pulseearn', acceptedGoogleTerms\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', true\)/);
 assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');

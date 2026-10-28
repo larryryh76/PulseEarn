@@ -16,11 +16,11 @@ export type PSEMineAuthContextType = {
   /** Explicit, user-initiated enrollment (POST /api/mine/enroll, audited). */
   enablePSEmine: () => Promise<{ success: boolean; error?: string; message?: string }>;
   login: (email: string, password: string) => Promise<unknown>;
-  /** Creates the shared Firebase identity with PSEmine entitlement only. */
+  /** Creates the shared identity and queues PSEmine enrollment until email verification. */
   signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
   /** Existing Google accounts only; login never creates or enrolls an identity. */
   signInWithGoogle: () => Promise<void>;
-  /** Explicit Google signup; creates the shared identity and starts PSEmine enrollment. */
+  /** Explicit Google signup; creates the identity and queues verified enrollment. */
   signUpWithGoogle: (referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   sendVerification: () => Promise<void>;

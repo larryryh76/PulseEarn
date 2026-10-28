@@ -7687,8 +7687,8 @@ def admin_psemine_payments():
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     try:
-        # Avoid requiring a composite index for this admin-only ledger. The
-        # endpoint is bounded after filtering to confirmed records.
+        # Use the single-field timestamp index, then explicitly filter status.
+        # The query is bounded so this admin view cannot read the entire ledger.
         snaps = db.collection('psemine_payments').order_by('confirmedAt', direction='DESCENDING').limit(200).get()
         payments = []
         for snap in snaps:

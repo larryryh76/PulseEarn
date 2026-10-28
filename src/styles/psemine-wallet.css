@@ -162,3 +162,54 @@
   .pse-wallet-settlement-note > a { margin-left:33px; }
 }
 @media(prefers-reduced-motion:reduce) { .pse-wallet-view { animation:none; } }
+
+
+/* Wallet actions and payout forms: preserve financial clarity on narrow screens. */
+.pse-wallet :is(button, a[role="button"]):focus-visible {
+  outline: 2px solid #9996ff;
+  outline-offset: 3px;
+}
+.pse-wallet .pse-w-action,
+.pse-wallet .pse-w-request-form button,
+.pse-wallet-manage button,
+.pse-wallet-manage a[role="button"] {
+  min-height: 44px;
+}
+.pse-wallet :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px;
+}
+.pse-wallet .pse-w-figure dd,
+.pse-wallet .pse-w-request-figure,
+.pse-wallet .pse-w-txamount {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media(max-width:430px) {
+  .pse-wallet .pse-w-figures {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .pse-wallet .pse-w-figure:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .pse-wallet .pse-w-actions {
+    display: grid;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 4px;
+  }
+  .pse-wallet .pse-w-action {
+    min-height: 54px;
+    padding-inline: 4px;
+  }
+  .pse-wallet .pse-w-request-form {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .pse-wallet .pse-w-request-form > * {
+    min-width: 0;
+    width: 100%;
+  }
+  .pse-wallet .pse-w-request-form .pse-field {
+    grid-column: auto;
+  }
+}

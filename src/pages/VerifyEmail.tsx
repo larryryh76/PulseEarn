@@ -84,10 +84,8 @@ const VerifyEmail: React.FC = () => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Bypass for ops users (admin + moderator)
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
-  if (currentUser.emailVerified || isOpsUser) {
-    const target = isOpsUser ? '/admin' : '/dashboard';
+  if (currentUser.emailVerified) {
+    const target = resolveHomeRoute(userData) ?? '/dashboard';
     return <Navigate to={target} replace />;
   }
 

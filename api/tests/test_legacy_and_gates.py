@@ -164,6 +164,42 @@ class TestFirestoreRulesContract(unittest.TestCase):
         self.assertNotIn("allow read: if true;", block)
         self.assertNotIn("allow list: if true;", block)
 
+    def test_legacy_policy_import_failure_fails_closed(self):
+        source = _read(INDEX_SRC)
+        hook = source[source.index("def _pse_before_request"):source.index("@app.after_request")]
+        self.assertIn("SECURITY_POLICY_UNAVAILABLE", hook)
+        self.assertIn("legacy entitlement policy unavailable; denying request", hook)
+        self.assertIn("request.path.startswith('/api/psemine/')", hook)
+
+    def test_task_claims_are_owner_private(self):
+        block = self.rules[self.rules.index("match /task_claims/"):]
+        block = block[:block.index("match /system_task_definitions/")]
+        self.assertIn("resource.data.userId == request.auth.uid || isModerator()", block)
+        self.assertNotIn("allow read: if isAuthenticated();", block)
+
+    def test_referral_creation_cannot_forge_rewards(self):
+        block = self.rules[self.rules.index("match /referrals/"):]
+        block = block[:block.index("match /support_tickets/")]
+        self.assertIn("request.resource.data.status == 'REGISTERED'", block)
+        self.assertIn("request.resource.data.product == 'pulseearn'", block)
+        self.assertIn("request.resource.data.referrerId != request.auth.uid", block)
+        self.assertIn("allow update: if isAdmin() ||", block)
+
+    def test_audit_and_anomaly_writes_are_scoped(self):
+        anomaly = self.rules[self.rules.index("match /system_anomalies/"):]
+        anomaly = anomaly[:anomaly.index("match /system_audit/")]
+        self.assertIn("request.resource.data.userId == request.auth.uid", anomaly)
+        self.assertIn("request.resource.data.context == 'SYSTEM_VALIDATION_FAILURE'", anomaly)
+        audit = self.rules[self.rules.index("match /system_audit/"):]
+        audit = audit[:audit.index("match /system_security/")]
+        self.assertIn("allow create: if isAdmin();", audit)
+        self.assertNotIn("allow create: if isAuthenticated();", audit)
+
+    def test_system_uploads_are_owner_attributed(self):
+        block = self.rules[self.rules.index("match /system_uploads/"):]
+        block = block[:block.index("match /system_fingerprints/")]
+        self.assertIn("allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;", block)
+
     def test_ledger_and_purchases_are_not_client_writable(self):
         for collection in ("psemine_mining_ledger", "psemine_purchases", "psemine_referrals"):
             block = self.rules[self.rules.index(f"match /{collection}/"):]

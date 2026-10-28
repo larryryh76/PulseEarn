@@ -1914,3 +1914,14 @@
   .pse-plane .pse-btn,
   .pse-console-shell .pse-btn { transition: none !important; }
 }
+
+
+/* The hero statement uses the brand's two-tone type treatment, not a flat text fill. */
+.pse-plane .pse-hero-highlight {
+  display:inline-block;
+  background:linear-gradient(95deg,#aaa7ff 0%,#8582ff 48%,#68cfff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 8px 30px rgba(99,91,255,.18));
+}

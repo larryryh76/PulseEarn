@@ -7678,6 +7678,56 @@ def admin_psemine_orders():
     orders = [{**s.to_dict(), 'id': s.id} for s in snaps]
     return jsonify({"success": True, "orders": orders})
 
+@app.route('/api/admin/psemine/payments', methods=['GET'])
+@verify_token
+@require_db
+def admin_psemine_payments():
+    """Return only payment records written after successful on-chain verification."""
+    db = get_db()
+    if not is_moderator(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    try:
+        snaps = (
+            db.collection('psemine_payments')
+            .where('status', '==', 'confirmed')
+            .order_by('confirmedAt', direction='DESCENDING')
+            .limit(100)
+            .get()
+        )
+        payments = []
+        for snap in snaps:
+            row = snap.to_dict() or {}
+            # Defend the response contract even if a legacy/malformed document
+            # slips through a test double or an inconsistent query result.
+            if row.get('status') != 'confirmed':
+                continue
+            created_at = row.get('createdAt')
+            confirmed_at = row.get('confirmedAt')
+            payments.append({
+                'id': snap.id,
+                'orderId': str(row.get('orderId') or ''),
+                'userId': str(row.get('userId') or ''),
+                'toolId': str(row.get('toolId') or ''),
+                'txHash': str(row.get('txHash') or ''),
+                'amountBnb': str(row.get('amountBnb') or ''),
+                'paidBnbAmount': str(row.get('paidBnbAmount') or ''),
+                'asset': str(row.get('asset') or ''),
+                'chainId': row.get('chainId'),
+                'destination': str(row.get('destination') or ''),
+                'blockNumber': row.get('blockNumber'),
+                'status': 'confirmed',
+                'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
+                'confirmedAt': confirmed_at.isoformat() if hasattr(confirmed_at, 'isoformat') else confirmed_at,
+            })
+        return jsonify({"success": True, "payments": payments, "count": len(payments)})
+    except Exception:
+        logging.exception('[PSEmine Admin] verified payment ledger read failed')
+        return jsonify({
+            "success": False,
+            "error": "VERIFIED_PAYMENTS_UNAVAILABLE",
+            "message": "Confirmed payment records could not be loaded. No payment totals were inferred.",
+        }), 503
+
 @app.route('/api/admin/psemine/withdrawals', methods=['GET'])
 @verify_token
 @require_db
@@ -8542,7 +8592,11 @@ def get_admin_mine_overview():
     # (Phase 2) Delegate to the ONE canonical aggregator (count() queries,
     # integer minor-unit math). UI-compatible keys are preserved by the engine.
     import psemine_engine as _pse_engine
-    ov = _pse_engine.admin_overview(db)
+    try:
+        ov = _pse_engine.admin_overview(db)
+    except Exception:
+        logging.exception('[PSEmine Admin] campaign metrics could not be reconciled')
+        return jsonify({"success": False, "error": "CAMPAIGN_METRICS_UNAVAILABLE", "message": "Campaign metrics could not be reconciled. No fallback figures were supplied."}), 503
     camp_data = ov.get("campaign") or {}
     # Report actual BNB receipts only from payment records created after the
     # backend's on-chain verification succeeds. The campaign aggregate can
@@ -8566,19 +8620,19 @@ def get_admin_mine_overview():
     return jsonify({
         "success": True,
         "stats": {
-            "activeMiners": ov.get("activeMiners", 0),
-            "totalMiners": ov.get("totalMiners", 0),
-            "toolsSold": ov.get("toolsSold", 0),
-            "totalCapacityGBPPerHour": ov.get("totalCapacityGBPPerHour", 0),
-            "totalAccruedLiabilityGBP": ov.get("totalAccruedLiabilityGBP", 0),
+            "activeMiners": ov.get("activeMiners"),
+            "totalMiners": ov.get("totalMiners"),
+            "toolsSold": ov.get("toolsSold"),
+            "totalCapacityGBPPerHour": ov.get("totalCapacityGBPPerHour"),
+            "totalAccruedLiabilityGBP": ov.get("totalAccruedLiabilityGBP"),
             "totalBNBCollected": float(verified_bnb_total),
             "verifiedPaymentCount": verified_payment_count,
-            "qualifiedReferrals": ov.get("qualifiedReferrals", 0),
-            "campaignStatus": ov.get("campaignStatus", "active"),
+            "qualifiedReferrals": ov.get("qualifiedReferrals"),
+            "campaignStatus": ov.get("campaignStatus"),
             # canonical extras (integer minor units)
-            "totalAccruedMinor": ov.get("totalAccruedMinor", 0),
-            "totalDebitedMinor": ov.get("totalDebitedMinor", 0),
-            "openRecoveryCases": ov.get("openRecoveryCases", 0),
+            "totalAccruedMinor": ov.get("totalAccruedMinor"),
+            "totalDebitedMinor": ov.get("totalDebitedMinor"),
+            "openRecoveryCases": ov.get("openRecoveryCases"),
         }
     })
 

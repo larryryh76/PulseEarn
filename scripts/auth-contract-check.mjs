@@ -17,6 +17,10 @@ assert.doesNotMatch(googleLogin, /initializeUserProfile\(/, 'Google sign-in must
 
 const googleSignup = auth.slice(auth.indexOf('async function signUpWithGoogle'), auth.indexOf('function login('));
 assert.match(googleSignup, /initializeUserProfile\(/, 'explicit Google signup provisions the profile');
+const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('async function logout('));
+assert.match(emailLogin, /signInWithEmailAndPassword/);
+assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
+assert.match(auth, /rejectedGoogleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
 assert.match(pulseLogin, /await signInWithGoogle\(\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn'\)/);
 

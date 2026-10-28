@@ -7689,7 +7689,7 @@ def admin_psemine_payments():
     try:
         # Avoid requiring a composite index for this admin-only ledger. The
         # endpoint is bounded after filtering to confirmed records.
-        snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').get()
+        snaps = db.collection('psemine_payments').order_by('confirmedAt', direction='DESCENDING').limit(200).get()
         payments = []
         for snap in snaps:
             row = snap.to_dict() or {}

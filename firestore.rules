@@ -154,7 +154,7 @@ service cloud.firestore {
       // Task evidence contains user submissions and moderation metadata. A signed-in
       // account may read only its own claims; moderators can inspect the queue.
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
-      allow list: if isModerator() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      allow list: if isModerator();
       // SEC: prevent forged/pre-approved claims. Users may only create their OWN claim in
       // a PENDING state; reward-granting claims are written server-side (Admin SDK).
       allow create: if isAuthenticated() &&

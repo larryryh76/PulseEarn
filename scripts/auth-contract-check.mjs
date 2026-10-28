@@ -22,12 +22,15 @@ const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('asy
 assert.match(emailLogin, /signInWithEmailAndPassword/);
 assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
 assert.match(auth, /googleLoginUids\.current\.add\(user\.uid\)/, 'profile repair must be suppressed while a Google identity is being provisioned');
+assert.match(auth, /If profile lookup\/provisioning fails[\s\S]*?await signOut\(auth\)/, 'failed Google profile provisioning must release the session safely');
 assert.match(pulseLogin, /await signInWithGoogle\(undefined, 'pulseearn', acceptedGoogleTerms\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', true\)/);
 assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');
 assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
 assert.match(auth, /if \(!termsAccepted\)/, 'shared identity layer must enforce consent');
-assert.match(pseContext, /identitySignup\(email, password, username, referralCode, 'psemine', true\)/);
+assert.match(pseContext, /identitySignup\(email, password, username, referralCode, 'psemine', termsAccepted\)/, 'PSEmine signup must pass actual consent to the identity layer');
+assert.match(pseContext, /await googleSignIn\(referralCode, termsAccepted\)/, 'Google signup alias must not manufacture consent');
+assert.match(pseAuth, /signup\(email\.trim\(\), password, username\.trim\(\), refFromQuery, agreed\)/, 'PSEmine email signup must forward its agreement');
 assert.match(pseContext, /identityGoogleSignIn\(referralCode, 'psemine', termsAccepted\)/);
 
 assert.match(pseAuth, /if \(isSignup && !agreed\)/, 'PSEmine Google signup must require legal agreement');
@@ -48,6 +51,7 @@ assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const signupWithReferra
 assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignUp'), pseContext.indexOf('const [enrolling')), /PSEMineEngine\.enroll\(\)/, 'Google signup must defer enrollment');
 assert.match(pseEngine, /queuePendingReferral\(codeInput: string\)/);
 assert.match(api, /if not allow_unverified and not decoded_token\.get\('email_verified', False\)/);
+assert.match(api, /legacy entitlement policy unavailable; denying request[\s\S]*?SECURITY_POLICY_UNAVAILABLE/, 'legacy PSEmine gate must fail closed if its policy import fails');
 assert.equal((api.match(/@verify_token\(allow_unverified=True\)/g) || []).length, 2, 'only verification-email dispatch routes may accept unverified tokens');
 assert.match(api, /if not request\.user\.get\('email_verified', False\)/, 'legacy PSEmine financial writes must require verified email');
 assert.match(api, /'pendingPsemineEnrollment': False/, 'server clears the pending marker only when enrollment succeeds');

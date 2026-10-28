@@ -44,6 +44,7 @@ assert.match(pulseProduct, /signupOnboardingPending/);
 assert.match(pulseProduct, /system_claims/);
 assert.match(auth, /pendingPsemineEnrollment: true/);
 assert.match(pseContext, /pendingEnrollmentHandledUidRef/);
+assert.match(pseContext, /if \(!currentUser \|\| !isVerified \|\| !hasPSEmineAccess\) return/);
 assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const signupWithReferral'), pseContext.indexOf('const googleSignIn')), /PSEMineEngine\.enroll\(\)/, 'email signup must defer enrollment');
 assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignUp'), pseContext.indexOf('const enrolling')), /PSEMineEngine\.enroll\(\)/, 'Google signup must defer enrollment');
 assert.match(pseEngine, /queuePendingReferral\(codeInput: string\)/);

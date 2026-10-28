@@ -18,9 +18,9 @@ export type PSEMineAuthContextType = {
   login: (email: string, password: string) => Promise<unknown>;
   /** Creates the shared identity and queues PSEmine enrollment until email verification. */
   signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
-  /** Existing Google accounts only; login never creates or enrolls an identity. */
-  signInWithGoogle: () => Promise<void>;
-  /** Explicit Google signup; creates the identity and queues verified enrollment. */
+  /** Shared Google OAuth flow: existing identities sign in or new profiles are created after consent. */
+  signInWithGoogle: (referralCode?: string, termsAccepted?: boolean) => Promise<void>;
+  /** Backwards-compatible alias to the same shared Google OAuth flow. */
   signUpWithGoogle: (referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   sendVerification: () => Promise<void>;

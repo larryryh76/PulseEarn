@@ -35,25 +35,12 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     username: string,
     referralCode?: string
   ): Promise<void> => {
-    // Profile creation records a pending PSEmine enrollment. The backend will
+    // Profile creation records pending PSEmine enrollment. The backend will
     // grant the entitlement only after the verified-email token is presented.
-    await identitySignup(email, password, username, referralCode, 'psemine', true);
-    if (referralCode) {
-      try {
-        const { getAuth } = await import('firebase/auth');
-        const auth = getAuth();
-        if (auth.currentUser) {
-          // Result is persisted by the engine: retryable failures are retained
-          // for re-submission on the next session; permanent validation
-          // failures (self-referral, unknown referrer) are not retried.
-          await PSEMineEngine.registerReferral(auth.currentUser.uid, username, referralCode);
-        }
-      } catch (e) {
-        // Attribution failure must not block signup; the code is retained for
-        // the next-session retry and the backend can reconcile later.
-        console.warn('[PSEMineAuth] referral attribution notice:', e);
-      }
-    }
+    const profile = await identitySignup(email, password, username, referralCode, 'psemine', true);
+    // Do not call referral APIs with an unverified token: queue the code and let
+    // the enrolled, verified session submit it once the backend gate permits it.
+    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identitySignup]);
 
   /**
@@ -71,27 +58,10 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const googleSignUp = useCallback(async (referralCode?: string): Promise<void> => {
     // Google identity is verified by the provider. The shared provider sees
-    // the new profile's pending enrollment marker and asks the backend to grant
-    // access after the verified identity is ready; existing identities are not
-    // silently upgraded by this path.
-    await identityGoogleSignUp(referralCode, 'psemine', true);
-    if (referralCode) {
-      try {
-        const { getAuth } = await import('firebase/auth');
-        const fbAuth = getAuth();
-        if (fbAuth.currentUser) {
-          await PSEMineEngine.registerReferral(
-            fbAuth.currentUser.uid,
-            fbAuth.currentUser.displayName || 'Miner',
-            referralCode
-          );
-        }
-      } catch (e) {
-        // Attribution failure must not block Google sign-in; retained for the
-        // next-session retry (same policy as the email signup path).
-        console.warn('[PSEMineAuth] Google referral attribution notice:', e);
-      }
-    }
+    // the new profile's pending enrollment marker and grants access through the
+    // same verified-token backend path. Existing identities are not upgraded.
+    const profile = await identityGoogleSignUp(referralCode, 'psemine', true);
+    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identityGoogleSignUp]);
 
   /**

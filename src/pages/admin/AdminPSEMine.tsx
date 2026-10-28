@@ -99,10 +99,11 @@ function fmtUKDateTime(value: string | Date): string {
   }).format(date) + ' UK time';
 }
 
-type ScreenSection = 'campaign' | 'payments' | 'tools' | 'purchases' | 'payouts' | 'audit';
+type ScreenSection = 'campaign' | 'lifecycle' | 'tools' | 'payments' | 'purchases' | 'payouts' | 'audit';
 
 const SECTIONS: ReadonlyArray<{ id: ScreenSection; label: string }> = [
-  { id: 'campaign', label: 'Campaign' },
+  { id: 'campaign', label: 'Overview' },
+  { id: 'lifecycle', label: 'Lifecycle' },
   { id: 'payments', label: 'Payment verification' },
   { id: 'tools', label: 'Tool register' },
   { id: 'purchases', label: 'Purchases' },
@@ -385,7 +386,7 @@ export const AdminPSEMine: React.FC = () => {
     <div className="pse pse-surface pse-console-shell pse-admin-operations">
       <PsePage
         title="PSEmine operations"
-        objective="Campaign lifecycle, tool register, purchase evidence, payment verification and payout review. A payout is marked paid only after an already-sent BNB transfer is verified on-chain; this screen does not send funds."
+        objective="Live campaign operations · verified records only."
         actions={
           <PseButton onClick={() => void load(true)} busy={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh'}
@@ -395,11 +396,10 @@ export const AdminPSEMine: React.FC = () => {
         <section className="pse-ops-hero" aria-label="PSEmine operational summary">
           <div className="pse-ops-hero-copy">
             <span className="pse-ops-eyebrow"><span className={`pse-ops-live-dot ${error || partialErrors.length > 0 ? 'is-error' : loadedAt ? 'is-connected' : ''}`} /> CAMPAIGN CONTROL CENTRE</span>
-            <h2>Know what is happening.<br /><em>Act on verified evidence.</em></h2>
-            <p>Live operational data from PSEmine's backend. No sample payments, simulated activity, or inferred balances.</p>
+            <h2>Campaign overview.<br /><em>Evidence, not estimates.</em></h2>
             <div className="pse-ops-hero-meta">
               <span className={campaignPhase?.label?.toLowerCase().includes('active') ? 'is-positive' : 'is-neutral'}>{campaignPhase?.label || 'Campaign state unavailable'}</span>
-              <span>{loadedAt ? `Last synced ${fmtDateTime(new Date(loadedAt))}` : 'Waiting for first sync'}</span>
+              
             </div>
           </div>
           <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>{campaign?.durationDays ?? '—'}</strong><small>DAY WINDOW</small></div>
@@ -410,11 +410,7 @@ export const AdminPSEMine: React.FC = () => {
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
         </section>
-        <section className="pse-ops-trust-note" role="note">
-          <span className="pse-ops-trust-icon" aria-hidden="true">✓</span>
-          <div><strong>Evidence-first mode</strong><p>Only backend-returned records are shown. A transaction is not considered paid merely because a hash was entered; payout status and chain evidence must agree.</p></div>
-          <span className="pse-ops-sync-state">{error || partialErrors.length > 0 ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
-        </section>
+
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
         <nav className="pse-ops-register-nav" aria-label="Operations registers">
@@ -441,7 +437,7 @@ export const AdminPSEMine: React.FC = () => {
         {error && <PseNotice tone="danger">{error}</PseNotice>}
         {partialErrors.length > 0 && (
           <PseNotice tone="attention">
-            Some registers could not be loaded: {partialErrors.join(', ')}. Empty results in those registers are not evidence that no records exist; refresh after the service recovers.
+            Unavailable registers: {partialErrors.join(', ')}. Their empty results are not evidence that no records exist; refresh after the service recovers.
           </PseNotice>
         )}
         {!campaignPhase && (
@@ -455,40 +451,29 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
             <PseFacts cols={3}>
-              <PseFact
-                label="Status"
-                text
-                value={campaignPhase ? campaignPhase.label : '—'}
-                hint={campaignPhase ? campaignPhase.detail : 'Not reported by the backend'}
-              />
-              <PseFact label="Tools sold" value={numOrDash(stat('toolsSold'))} />
-              <PseFact
-                label="Active miners"
-                value={
-                  stat('activeMiners') === null
-                    ? '—'
-                    : `${stat('activeMiners')}${stat('totalMiners') ? ` / ${stat('totalMiners')}` : ''}`
-                }
-                hint="Operating / total accounts"
-              />
-              <PseFact label="Total capacity" value={numOrDash(stat('totalCapacityGBPPerHour'), gbpHour)} />
-              <PseFact label="Accrued liability" value={numOrDash(stat('totalAccruedLiabilityGBP'), gbp)} />
-              <PseFact label="BNB collected" value={numOrDash(stat('totalBNBCollected'))} />
-              <PseFact label="Qualified referrals" value={numOrDash(stat('qualifiedReferrals'))} />
-              <PseFact label="Open recovery cases" value={numOrDash(stat('openRecoveryCases'))} />
-              <PseFact
-                label="Settled · debited"
-                value={
-                  stat('totalAccruedMinor') === null && stat('totalDebitedMinor') === null
-                    ? '—'
-                    : `${numOrDash(stat('totalAccruedMinor'), n => gbp(n / 100))} · ${numOrDash(stat('totalDebitedMinor'), n => gbp(n / 100))}`
-                }
-                hint="Accrued · paid out"
-              />
+              <PseFact label="Status" text value={campaignPhase ? campaignPhase.label : '—'} hint={campaignPhase ? campaignPhase.detail : 'Not reported by the backend'} />
+              <PseFact label="Capacity" value={numOrDash(stat('totalCapacityGBPPerHour'), gbpHour)} />
               <PseFact label="Campaign duration" value={campaign?.durationDays ? `${campaign.durationDays} days` : '—'} />
-              <PseFact label="Campaign start (UK time)" value={campaign?.startAt ? fmtUKDateTime(campaign.startAt) : '—'} />
-              <PseFact label="Campaign end (UK time)" value={campaign?.endAt ? fmtUKDateTime(campaign.endAt) : '—'} />
+              <PseFact label="Starts (UK time)" value={campaign?.startAt ? fmtUKDateTime(campaign.startAt) : '—'} />
+              <PseFact label="Ends (UK time)" value={campaign?.endAt ? fmtUKDateTime(campaign.endAt) : '—'} />
             </PseFacts>
+            <details className="pse-ops-details">
+              <summary>Additional campaign metrics</summary>
+              <PseFacts cols={3}>
+                <PseFact label="Qualified referrals" value={numOrDash(stat('qualifiedReferrals'))} />
+                <PseFact label="BNB collected" value={numOrDash(stat('totalBNBCollected'))} />
+                <PseFact label="Accrued · debited" value={stat('totalAccruedMinor') === null && stat('totalDebitedMinor') === null ? '—' : `${numOrDash(stat('totalAccruedMinor'), n => gbp(n / 100))} · ${numOrDash(stat('totalDebitedMinor'), n => gbp(n / 100))}`} hint="Accrued · paid out" />
+              </PseFacts>
+            </details>
+          </PseSection>
+        </div>
+        )}
+
+
+        {activeSection === 'lifecycle' && (
+          <div id="ops-lifecycle" className="scroll-mt-24">
+            <PseSection title="Campaign lifecycle" meta="Schedule, pause, resume or settle the campaign">
+
 
             <div className="pse-block">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -514,7 +499,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseField>
               </div>
               <p className="pse-prose--sm">
-                Default start time is 9:00 AM UK time (Europe/London), regardless of the device timezone. Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+                Times use Europe/London. Scheduling changes the campaign window immediately, preserves existing balances and records, and sets a new 90-day end date.
               </p>
               <div className="flex flex-wrap gap-2">
                 <PseButton
@@ -545,8 +530,9 @@ export const AdminPSEMine: React.FC = () => {
                 </PseButton>
               ))}
             </div>
-          </PseSection>
-        </div>
+
+            </PseSection>
+          </div>
         )}
 
         {/* ── 02 · PAYMENT VERIFICATION ───────────────────────────────────── */}
@@ -554,13 +540,13 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payments" className="scroll-mt-24">
           <PseSection
             title="Payment verification"
-            meta="psemine_payment_recovery — evidence for payments that failed on-chain verification"
+            meta="Failed on-chain payments · review evidence"
           >
             {recoveryCases.length === 0 ? (
               <PseEmptyNote title={partialErrors.includes('payment recovery') ? "Payment recovery unavailable" : "No payments awaiting verification review"}>
                 {partialErrors.includes('payment recovery')
                   ? 'The recovery endpoint could not be read. This is not an empty queue; refresh after the service recovers.'
-                  : 'A payment that is underpaid, sent on the wrong chain, sent from an unexpected wallet, or received after its quote lapsed is recorded here with its on-chain evidence. Nothing is assigned automatically.'}
+                  : 'Cases with amount, chain, sender or expiry mismatches appear here with recorded evidence.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Case', 'Reason', 'Recorded', 'On-chain transaction', 'Actions']}>
@@ -627,7 +613,7 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-tools" className="scroll-mt-24">
           <PseSection
             title="Tool register"
-            meta="The locked campaign economics — unit prices, hourly capacity and ownership caps"
+            meta="Locked campaign tiers and economics"
           >
             <PseFacts cols={2}>
               <PseFact label="Active tool ownerships" value={numOrDash(overviewStat('activeToolOwnerships'))} />
@@ -661,7 +647,7 @@ export const AdminPSEMine: React.FC = () => {
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
         {activeSection === 'purchases' && (
         <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Payments & order intents" meta="Confirmed chain payments are separated from quotes and order intents">
+          <PseSection title="Payments & order intents" meta="Confirmed payments are separate from order intents">
             <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
               <button type="button" role="tab" aria-selected={purchaseView === 'payments'} className={`pse-ops-subtab ${purchaseView === 'payments' ? 'is-active' : ''}`} onClick={() => setPurchaseView('payments')}>
                 Verified payments <span>{verifiedPayments.length}</span>
@@ -677,7 +663,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseEmptyNote>
               ) : verifiedPayments.length === 0 ? (
                 <PseEmptyNote title="No confirmed payments recorded">
-                  Only payment records written after successful on-chain verification appear here. Quotes, pending orders and transaction hashes without a confirmed receipt are excluded.
+                  Only backend-confirmed on-chain payments appear here. Quotes and unverified hashes are excluded.
                 </PseEmptyNote>
               ) : (
                 <PseTable head={['Confirmed', 'Tool', 'Amount', 'Block', 'Order', 'On-chain transaction']}>
@@ -757,13 +743,13 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
-            meta="A payout is completed only when BSC confirms success, recipient and exact locked BNB amount; records missing that amount remain blocked"
+            meta="Verify recipient, locked amount and on-chain receipt before marking paid"
           >
             {withdrawalQueue.length === 0 ? (
               <PseEmptyNote title={partialErrors.includes('payout queue') ? "Payout queue unavailable" : "No payouts awaiting review"}>
                 {partialErrors.includes('payout queue')
                   ? 'The payout endpoint failed. This is not evidence that the queue is empty.'
-                  : 'Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.'}
+                  : 'A hash alone is not proof of payment. Requests without a locked BNB amount remain blocked until reconciled.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>

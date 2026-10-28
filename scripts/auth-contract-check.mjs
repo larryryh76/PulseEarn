@@ -24,7 +24,7 @@ assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
 assert.match(auth, /googleLoginUids\.current\.add\(user\.uid\)/, 'profile repair must be suppressed while a Google identity is being provisioned');
 assert.match(auth, /If profile lookup\/provisioning fails[\s\S]*?await signOut\(auth\)/, 'failed Google profile provisioning must release the session safely');
 assert.match(pulseLogin, /await signInWithGoogle\(undefined, 'pulseearn', acceptedGoogleTerms\)/);
-assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', true\)/);
+assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', acceptedTerms\)/, 'PulseEarn Google signup must forward explicit consent');
 assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');
 assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
 assert.match(auth, /if \(!termsAccepted\)/, 'shared identity layer must enforce consent');

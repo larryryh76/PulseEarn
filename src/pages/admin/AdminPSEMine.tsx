@@ -573,13 +573,11 @@ export const AdminPSEMine: React.FC = () => {
                       <PseCell>{String(c.reason || 'unknown').replace(/_/g, ' ')}</PseCell>
                       <PseCell>{c.createdAt ? fmtDateTime(c.createdAt as string) : '—'}</PseCell>
                       <PseCell mono>
-                        {hash ? orderStatus === 'confirmed' ? (
+                        {hash ? (
                           <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
-                            {shortHash(hash)} · confirmed
+                            {shortHash(hash)}
                           </a>
-                        ) : (
-                          <span title="Hash is recorded on the order but is not confirmed as a payment">{shortHash(hash)} · unverified</span>
-                        ) : 'No hash'}
+                        ) : '—'}
                       </PseCell>
                       <PseCell>
                         <div className="flex flex-wrap gap-1.5">
@@ -735,11 +733,13 @@ export const AdminPSEMine: React.FC = () => {
                       <PseCell numeric>{amountGbp === null ? '—' : gbp(amountGbp)}</PseCell>
                       <PseCell>{o.createdAt ? fmtDateTime(o.createdAt as string) : '—'}</PseCell>
                       <PseCell mono>
-                        {hash ? (
+                        {hash ? orderStatus === 'confirmed' ? (
                           <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
-                            {shortHash(hash)}
+                            {shortHash(hash)} · confirmed
                           </a>
-                        ) : '—'}
+                        ) : (
+                          <span title="Hash is recorded on the order but is not confirmed as a payment">{shortHash(hash)} · unverified</span>
+                        ) : 'No hash'}
                       </PseCell>
                     </PseRow>
                   );

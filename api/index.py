@@ -801,6 +801,7 @@ def mine_enroll():
             'productAccess': {**pa, 'psemine': True},
             'psemineAccessGrantedAt': firestore.SERVER_TIMESTAMP,
             'psemineAccessGrantReason': 'self_enrollment',
+            'pendingPsemineEnrollment': False,
         }, merge=True)
         pse_ref = db.collection('psemine_users').document(uid)
         if not pse_ref.get().exists:
@@ -830,6 +831,9 @@ def mine_enroll():
             'metadata': {'source': 'POST /api/mine/enroll'},
         })
         batch.commit()
+    elif data.get('pendingPsemineEnrollment') is True:
+        # Idempotent cleanup for a profile whose entitlement already exists.
+        user_ref.update({'pendingPsemineEnrollment': False})
     return jsonify({'success': True, 'productAccess': {**pa, 'psemine': True}})
 
 

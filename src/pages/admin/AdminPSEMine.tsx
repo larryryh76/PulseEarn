@@ -125,6 +125,8 @@ export const AdminPSEMine: React.FC = () => {
   const [mineOverview, setMineOverview] = useState<Record<string, number | string>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
+  const [verifiedPayments, setVerifiedPayments] = useState<Array<Record<string, unknown>>>([]);
+  const [purchaseView, setPurchaseView] = useState<'payments' | 'orders'>('payments');
   const [orderFilter, setOrderFilter] = useState('all');
   const [activeSection, setActiveSection] = useState<ScreenSection>('campaign');
   const [partialErrors, setPartialErrors] = useState<string[]>([]);
@@ -151,11 +153,12 @@ export const AdminPSEMine: React.FC = () => {
     try {
       const token = await currentUser.getIdToken();
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [ovRes, recRes, wdRes, ordersRes, pseRes, auditRes] = await Promise.all([
+      const [ovRes, recRes, wdRes, ordersRes, paymentsRes, pseRes, auditRes] = await Promise.all([
         fetch('/api/admin/mine/overview', { headers }),
         fetch('/api/admin/mine/payment-recovery?status=open', { headers }),
         fetch('/api/admin/psemine/withdrawals', { headers }),
         fetch('/api/admin/psemine/orders', { headers }),
+        fetch('/api/admin/psemine/payments', { headers }),
         fetch('/api/admin/psemine/overview', { headers }),
         fetch('/api/admin/mine/audit', { headers }),
       ]);
@@ -177,7 +180,12 @@ export const AdminPSEMine: React.FC = () => {
       if (ordersRes.ok) {
         const d = await ordersRes.json().catch(() => ({}));
         setOrders(Array.isArray(d?.orders) ? d.orders : []);
-      } else { setOrders([]); unavailable.push('purchase ledger'); }
+      } else { setOrders([]); unavailable.push('order intents'); }
+
+      if (paymentsRes.ok) {
+        const d = await paymentsRes.json().catch(() => ({}));
+        setVerifiedPayments(Array.isArray(d?.payments) ? d.payments : []);
+      } else { setVerifiedPayments([]); unavailable.push('verified payments'); }
 
       if (wdRes.ok) {
         const d = await wdRes.json().catch(() => ({}));
@@ -350,7 +358,7 @@ export const AdminPSEMine: React.FC = () => {
     const query = orderSearch.trim().toLowerCase();
     return orders.filter(order => {
       const status = String(order.status || '').toLowerCase();
-      const matchesFilter = orderFilter === 'all' || (orderFilter === 'verified' ? ['verified', 'activated', 'completed', 'paid', 'confirmed'].includes(status) : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing', 'awaiting payment'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
+      const matchesFilter = orderFilter === 'all' || (orderFilter === 'confirmed' ? status === 'confirmed' : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing', 'awaiting payment'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
       const haystack = [order.id, order.orderId, order.toolName, order.toolId, order.status, order.txHash, order.transactionHash, order.userId].map(value => String(value || '')).join(' ').toLowerCase();
       return matchesFilter && (!query || haystack.includes(query));
     });
@@ -652,11 +660,47 @@ export const AdminPSEMine: React.FC = () => {
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
         {activeSection === 'purchases' && (
         <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Purchase ledger" meta="Backend order records · payment state must be supported by verification evidence">
+          <PseSection title="Payments & order intents" meta="Confirmed chain payments are separated from quotes and order intents">
+            <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
+              <button type="button" role="tab" aria-selected={purchaseView === 'payments'} className={`pse-ops-subtab ${purchaseView === 'payments' ? 'is-active' : ''}`} onClick={() => setPurchaseView('payments')}>
+                Verified payments <span>{verifiedPayments.length}</span>
+              </button>
+              <button type="button" role="tab" aria-selected={purchaseView === 'orders'} className={`pse-ops-subtab ${purchaseView === 'orders' ? 'is-active' : ''}`} onClick={() => setPurchaseView('orders')}>
+                Order intents <span>{orders.length}</span>
+              </button>
+            </div>
+            {purchaseView === 'payments' ? (
+              verifiedPayments.length === 0 ? (
+                <PseEmptyNote title="No confirmed payments recorded">
+                  Only payment records written after successful on-chain verification appear here. Quotes, pending orders and transaction hashes without a confirmed receipt are excluded.
+                </PseEmptyNote>
+              ) : (
+                <PseTable head={['Confirmed', 'Tool', 'Amount', 'Block', 'Order', 'On-chain transaction']}>
+                  {verifiedPayments.map((p, i) => {
+                    const id = String(p.id || '');
+                    const hash = String(p.txHash || p.transactionHash || '');
+                    const amount = p.paidBnbAmount ?? p.amountBnb;
+                    const amountNumber = amount !== undefined && amount !== null && Number.isFinite(Number(amount)) ? Number(amount) : null;
+                    return (
+                      <PseRow key={id || hash || `payment_${i}`}>
+                        <PseCell>{p.confirmedAt || p.createdAt ? fmtDateTime(String(p.confirmedAt || p.createdAt)) : '—'}</PseCell>
+                        <PseCell>{String(p.toolId || '—')}</PseCell>
+                        <PseCell numeric>{amountNumber === null ? '—' : `${amountNumber.toLocaleString('en-GB', { maximumFractionDigits: 8 })} BNB`}</PseCell>
+                        <PseCell mono>{p.blockNumber === undefined || p.blockNumber === null ? '—' : String(p.blockNumber)}</PseCell>
+                        <PseCell mono>{p.orderId ? shortHash(String(p.orderId), 10) : '—'}</PseCell>
+                        <PseCell mono>{hash ? <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">{shortHash(hash)}</a> : '—'}</PseCell>
+                      </PseRow>
+                    );
+                  })}
+                </PseTable>
+              )
+            ) : (
+              <>
+            <p className="pse-ops-register-note">These are order/quote records, not a payment ledger. An order is counted as paid only when its separate confirmed-payment record exists.</p>
             <div className="pse-ops-ledger-tools">
-              <label className="pse-ops-search"><span>Search orders</span><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Order, wallet, tool or transaction hash" /></label>
-              <label className="pse-ops-filter"><span>Payment state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All records</option><option value="verified">Verified / completed</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
-              <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} records</span>
+              <label className="pse-ops-search"><span>Search order intents</span><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Order ID, user, tool or transaction hash" /></label>
+              <label className="pse-ops-filter"><span>Order state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All order intents</option><option value="confirmed">Confirmed on-chain</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
+              <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} intents</span>
             </div>
             {orders.length === 0 ? (
               <PseEmptyNote title="No purchase orders recorded">
@@ -670,9 +714,8 @@ export const AdminPSEMine: React.FC = () => {
                 {visibleOrders.map((o, i) => {
                   const id = String(o.id || o.orderId || '');
                   const hash = (o.txHash || o.transactionHash) as string | undefined;
-                  const amountGbp = typeof o.priceGbp === 'number' ? o.priceGbp
-                    : typeof o.amountGbp === 'number' ? o.amountGbp
-                    : typeof o.amount === 'number' ? o.amount : null;
+                  const amountValue = o.priceGbp ?? o.amountGbp ?? o.amount;
+                  const amountGbp = amountValue !== undefined && amountValue !== null && Number.isFinite(Number(amountValue)) ? Number(amountValue) : null;
                   return (
                     <PseRow key={id || `order_${i}`}>
                       <PseCell mono>{id ? shortHash(id, 10) : '—'}</PseCell>
@@ -691,6 +734,8 @@ export const AdminPSEMine: React.FC = () => {
                   );
                 })}
               </PseTable>
+            )}
+              </>
             )}
           </PseSection>
         </div>

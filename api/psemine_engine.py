@@ -1592,25 +1592,29 @@ def admin_overview(db):
     purchases = db.collection("psemine_purchases").where("status", "==", "activated").count().get()
     try:
         activated_purchases = purchases[0][0].value
-    except Exception:
-        activated_purchases = 0
+    except Exception as exc:
+        raise RuntimeError("Activated-purchase count could not be reconciled") from exc
     qualified_refs = db.collection("psemine_referrals").where("status", "==", "qualified").count().get()
     try:
         qualified_referrals = qualified_refs[0][0].value
-    except Exception:
-        qualified_referrals = 0
+    except Exception as exc:
+        raise RuntimeError("Qualified-referral count could not be reconciled") from exc
     recovery_open = db.collection("psemine_payment_recovery").where("status", "==", "open").count().get()
     try:
         recovery_open_count = recovery_open[0][0].value
-    except Exception:
-        recovery_open_count = 0
+    except Exception as exc:
+        raise RuntimeError("Open recovery-case count could not be reconciled") from exc
     total_capacity_minor = 0
     for u in users:
         d = u.to_dict() or {}
         counts = d.get("toolOwnershipCounts") or {}
         qual = int(d.get("qualifiedReferralsCount") or 0)
         total_capacity_minor += compute_total_capacity_minor(counts, qual)
-    raw_status = (camp.get("status") or "active").lower()
+    # Do not label a missing/unstated campaign document as active in the
+    # admin metrics. Runtime lifecycle defaults are retained for engine safety,
+    # but the operations console must report unknown until the backend records it.
+    raw_status = (camp.get("status") or "").lower()
+    reported_status = (raw_status if effective != "ended" else "ended") or None
     return {
         "campaign": {k: v for k, v in camp.items() if not k.startswith("_")},
         "effectiveStatus": effective,
@@ -1628,7 +1632,7 @@ def admin_overview(db):
         "toolsSold": activated_purchases,
         "totalCapacityGBPPerHour": float(Decimal(total_capacity_minor) / 100),
         "totalAccruedLiabilityGBP": float(Decimal(total_accrued_minor) / 100),
-        "campaignStatus": raw_status if effective != "ended" else "ended",
+        "campaignStatus": reported_status,
     }
 
 

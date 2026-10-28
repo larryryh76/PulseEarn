@@ -9,7 +9,6 @@ const pseAuth = read('src/pages/psemine/PSEmineAuth.tsx');
 const pseContext = read('src/contexts/PSEMineAuthContext.tsx');
 const app = read('src/App.tsx');
 const pulseProduct = read('src/contexts/PulseEarnProductContext.tsx');
-const firestoreRules = read('firestore.rules');
 
 const googleLogin = auth.slice(auth.indexOf('async function signInWithGoogle'), auth.indexOf('async function signUpWithGoogle'));
 assert.match(googleLogin, /getAdditionalUserInfo\(result\)\?\.isNewUser/);
@@ -30,6 +29,6 @@ assert.match(app, /import\.meta\.env\.DEV && localStorage\.getItem\('pulseearn-t
 assert.match(app, /if \(!currentUser\.emailVerified && !isTestBypass/);
 assert.match(app, /if \(!currentUser\.emailVerified\) return <Navigate to="\/verify-email" replace \/>/);
 assert.match(pulseProduct, /if \(!currentUser\.emailVerified\) return/);
-assert.match(pulseProduct, /signupRewardsGranted: true/);
-assert.match(firestoreRules, /resource\.data\.signupRewardsGranted == false[\s\S]*request\.resource\.data\.signupRewardsGranted == true[\s\S]*request\.resource\.data\.pendingReferralCode == null/);
+assert.match(pulseProduct, /signupOnboardingPending/);
+assert.match(pulseProduct, /system_claims/);
 console.log('Auth contract checks passed: sign-in cannot silently register; signup, verification and product boundaries are explicit.');

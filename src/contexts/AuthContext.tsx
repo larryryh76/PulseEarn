@@ -306,6 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signupOnboardingPending: true,
         pendingReferralCode: referralCodeInput?.trim() || null
       } : {}),
+      ...(product === 'psemine' ? { pendingPsemineEnrollment: true } : {}),
       ...(termsAccepted && product ? {
         termsAcceptedAt: serverTimestamp(),
         termsVersion: product === 'psemine' ? 'psemine-2026-10-28' : 'pulseearn-2026-10-28',

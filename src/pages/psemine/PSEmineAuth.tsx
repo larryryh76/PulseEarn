@@ -288,7 +288,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   }, [submitCount]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, signInWithGoogle, signUpWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
+  const { login, signup, signInWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
 
   // PSEmine owns the document title on its own auth routes too (they render
   // outside PSEMineShell, which sets it for the rest of the product).

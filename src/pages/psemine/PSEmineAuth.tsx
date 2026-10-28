@@ -364,8 +364,9 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
     }
     setGooglePending(true);
     try {
-      if (isSignup) await signUpWithGoogle(refFromQuery);
-      else await signInWithGoogle();
+      // Both buttons use the same Google flow. Existing accounts sign in; a
+      // first-time identity is provisioned only when the agreement is accepted.
+      await signInWithGoogle(refFromQuery, agreed);
     } catch (error: unknown) {
       // A closed popup is a normal dismissal — not an error state.
       const code = (error as { code?: string } | null)?.code || '';
@@ -495,7 +496,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
           {isSignup && password.length > 0 && <StrengthMeter label={strength} />}
 
-          {isSignup && (
+          {(
             <Agreement
               id="pse-signup-terms"
               controlRef={termsRef}
@@ -503,7 +504,9 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               onChange={v => { setAgreed(v); clearField('terms'); }}
               error={fieldErrors.terms}
             >
-              I agree to the PSEmine Terms of Service, and I acknowledge the Privacy Policy and the Risk Disclosure.
+              {isSignup
+                ? 'I agree to the PSEmine Terms of Service, and I acknowledge the Privacy Policy and the Risk Disclosure.'
+                : 'If I am creating a new account with Google, I agree to the PSEmine Terms of Service and acknowledge the Privacy Policy and Risk Disclosure.'}
             </Agreement>
           )}
 
@@ -515,7 +518,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             * documents ARE the list: three real controls under the agreement,
             * each one comfortably tappable, each one naming exactly what it opens.
             */}
-          {isSignup && (
+          {(
             <div className="pse-auth-doc-chips">
               {(['terms', 'privacy', 'risk'] as const).map(id => (
                 <Link key={id} to={PSE_DOC_PATH[id]} className="pse-auth-doc-chip">
@@ -559,7 +562,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           disabled={googlePending}
           className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
         >
-          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Continue with Google'}
+          {googlePending ? 'Waiting for Google…' : 'Continue with Google'}
         </button>
       </div>
     </PseAuthFrame>

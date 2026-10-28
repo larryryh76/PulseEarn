@@ -775,7 +775,7 @@ export const PSEMineLanding: React.FC = () => {
            * end. Three short sentences, each one true, and between them they
            * state the whole model before a paragraph is read.
            */}
-          <h1 className="pse-display mt-5">Build mining capacity. Accrue campaign earnings. Settle at campaign close.</h1>
+          <h1 className="pse-display mt-5">BUILD MINING CAPACITY.<br /><span className="pse-hero-highlight">ACCRUE CAMPAIGN EARNINGS.</span><br />SETTLE AT CAMPAIGN CLOSE.</h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
             PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day mining campaign on BNB Smart Chain. Units are
             bought at a fixed price list, each adds a locked capacity per hour denominated in GBP, and settled campaign

@@ -151,8 +151,10 @@ service cloud.firestore {
     }
 
     match /task_claims/{claimId} {
-      allow read: if isAuthenticated();
-      allow list: if isModerator();
+      // Task evidence contains user submissions and moderation metadata. A signed-in
+      // account may read only its own claims; moderators can inspect the queue.
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
+      allow list: if isModerator() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
       // SEC: prevent forged/pre-approved claims. Users may only create their OWN claim in
       // a PENDING state; reward-granting claims are written server-side (Admin SDK).
       allow create: if isAuthenticated() &&
@@ -187,7 +189,20 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
       allow list: if isAdmin() || (isAuthenticated() && (request.query.filters.referrerId == request.auth.uid || request.query.filters.refereeId == request.auth.uid));
-      allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
+      // Client-created records are only pending PulseEarn attribution. The
+      // backend alone may advance status or grant rewards; a client cannot
+      // forge REWARDED/QUALIFIED records or create self-referrals.
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasOnly([
+          'referrerId', 'refereeId', 'refereeUsername', 'status', 'product', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.refereeId == request.auth.uid
+        && request.resource.data.referrerId is string
+        && request.resource.data.referrerId != request.auth.uid
+        && request.resource.data.status == 'REGISTERED'
+        && request.resource.data.product == 'pulseearn'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
       allow update: if isAdmin() || (
         isAuthenticated() &&
         (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid) &&
@@ -230,13 +245,23 @@ service cloud.firestore {
     match /system_anomalies/{id} {
       allow read: if isAdmin();
       allow list: if isAdmin();
-      allow create: if isAuthenticated();
+      // Client telemetry must be self-attributed and schema-bounded so a user
+      // cannot poison another user's anomaly history or admin monitoring.
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'userId', 'claimId', 'error', 'requestType', 'timestamp', 'severity', 'context', 'metadata'
+        ])
+        && request.resource.data.timestamp == request.time
+        && request.resource.data.severity in ['LOW', 'MEDIUM', 'HIGH']
+        && request.resource.data.context == 'SYSTEM_VALIDATION_FAILURE';
     }
 
     match /system_audit/{id} {
       allow read: if isAdmin();
       allow list: if isAdmin();
-      allow create: if isAuthenticated();
+      // Audit records are security evidence, never user-submittable content.
+      allow create: if isAdmin();
     }
 
     match /system_security/{id} {
@@ -246,7 +271,7 @@ service cloud.firestore {
 
     match /system_uploads/{id} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
     match /system_fingerprints/{id} {

@@ -606,6 +606,20 @@ export class PSEMineEngine {
 
   private static readonly PENDING_REFERRAL_KEY = 'psemine_pending_referral_code';
 
+  /** Queue an explicit signup referral until the verified session has PSEmine access. */
+  public static queuePendingReferral(codeInput: string): void {
+    const code = codeInput.trim();
+    if (!code) return;
+    try {
+      localStorage.setItem(
+        PSEMineEngine.PENDING_REFERRAL_KEY,
+        JSON.stringify({ code, savedAt: Date.now() })
+      );
+    } catch {
+      // Referral attribution is best-effort and must never block account creation.
+    }
+  }
+
   /**
    * Re-submits a referral code retained after a transient registration
    * failure. Idempotent server-side (deterministic referral identity), so

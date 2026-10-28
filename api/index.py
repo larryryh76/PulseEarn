@@ -7687,13 +7687,9 @@ def admin_psemine_payments():
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     try:
-        snaps = (
-            db.collection('psemine_payments')
-            .where('status', '==', 'confirmed')
-            .order_by('confirmedAt', direction='DESCENDING')
-            .limit(100)
-            .get()
-        )
+        # Avoid requiring a composite index for this admin-only ledger. The
+        # endpoint is bounded after filtering to confirmed records.
+        snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').get()
         payments = []
         for snap in snaps:
             row = snap.to_dict() or {}
@@ -7719,6 +7715,8 @@ def admin_psemine_payments():
                 'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
                 'confirmedAt': confirmed_at.isoformat() if hasattr(confirmed_at, 'isoformat') else confirmed_at,
             })
+        payments.sort(key=lambda row: str(row.get('confirmedAt') or row.get('createdAt') or ''), reverse=True)
+        payments = payments[:100]
         return jsonify({"success": True, "payments": payments, "count": len(payments)})
     except Exception:
         logging.exception('[PSEmine Admin] verified payment ledger read failed')

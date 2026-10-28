@@ -557,9 +557,10 @@ export const AdminPSEMine: React.FC = () => {
             meta="psemine_payment_recovery — evidence for payments that failed on-chain verification"
           >
             {recoveryCases.length === 0 ? (
-              <PseEmptyNote title="No payments awaiting verification review">
-                A payment that is underpaid, sent on the wrong chain, sent from an unexpected wallet, or received after
-                its quote lapsed is recorded here with its on-chain evidence. Nothing is assigned automatically.
+              <PseEmptyNote title={partialErrors.includes('payment recovery') ? "Payment recovery unavailable" : "No payments awaiting verification review"}>
+                {partialErrors.includes('payment recovery')
+                  ? 'The recovery endpoint could not be read. This is not an empty queue; refresh after the service recovers.'
+                  : 'A payment that is underpaid, sent on the wrong chain, sent from an unexpected wallet, or received after its quote lapsed is recorded here with its on-chain evidence. Nothing is assigned automatically.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Case', 'Reason', 'Recorded', 'On-chain transaction', 'Actions']}>
@@ -670,7 +671,11 @@ export const AdminPSEMine: React.FC = () => {
               </button>
             </div>
             {purchaseView === 'payments' ? (
-              verifiedPayments.length === 0 ? (
+              partialErrors.includes('verified payments') ? (
+                <PseEmptyNote title="Verified payment ledger unavailable">
+                  The payment endpoint failed. No conclusion can be drawn about whether confirmed payments exist.
+                </PseEmptyNote>
+              ) : verifiedPayments.length === 0 ? (
                 <PseEmptyNote title="No confirmed payments recorded">
                   Only payment records written after successful on-chain verification appear here. Quotes, pending orders and transaction hashes without a confirmed receipt are excluded.
                 </PseEmptyNote>
@@ -702,10 +707,13 @@ export const AdminPSEMine: React.FC = () => {
               <label className="pse-ops-filter"><span>Order state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All order intents</option><option value="confirmed">Confirmed on-chain</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
               <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} intents</span>
             </div>
-            {orders.length === 0 ? (
-              <PseEmptyNote title="No purchase orders recorded">
-                A purchase appears here once a quote has been issued and an intent bound to a payer wallet. Activation
-                still requires backend verification against BNB Smart Chain.
+            {partialErrors.includes('order intents') ? (
+              <PseEmptyNote title="Order intents unavailable">
+                The order endpoint failed. This view cannot confirm whether orders exist.
+              </PseEmptyNote>
+            ) : orders.length === 0 ? (
+              <PseEmptyNote title="No order intents recorded">
+                An order intent appears after a quote is issued. It is not proof of payment; successful on-chain verification creates a separate confirmed-payment record.
               </PseEmptyNote>
             ) : visibleOrders.length === 0 ? (
               <PseEmptyNote title="No matching purchase records">Change the payment-state filter or search term. No records have been added to fill this view.</PseEmptyNote>
@@ -749,8 +757,10 @@ export const AdminPSEMine: React.FC = () => {
             meta="A payout is completed only when BSC confirms success, recipient and exact locked BNB amount; records missing that amount remain blocked"
           >
             {withdrawalQueue.length === 0 ? (
-              <PseEmptyNote title="No payouts awaiting review">
-                Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.
+              <PseEmptyNote title={partialErrors.includes('payout queue') ? "Payout queue unavailable" : "No payouts awaiting review"}>
+                {partialErrors.includes('payout queue')
+                  ? 'The payout endpoint failed. This is not evidence that the queue is empty.'
+                  : 'Requests are reviewed here against the recorded destination and exact BNB amount. A transaction hash alone is never accepted as proof of payment; requests without a locked BNB amount must be reconciled before approval.'}
               </PseEmptyNote>
             ) : (
               <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>
@@ -817,7 +827,11 @@ export const AdminPSEMine: React.FC = () => {
         <div id="ops-audit" className="scroll-mt-24">
           <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
             {auditRows.length === 0 ? (
-              <PseEmptyNote title="No audit records returned">The audit feed returned no records. This is not proof that no actions occurred; check backend audit-write health and access permissions.</PseEmptyNote>
+              <PseEmptyNote title={partialErrors.includes('audit feed') ? "Audit feed unavailable" : "No audit records returned"}>
+                {partialErrors.includes('audit feed')
+                  ? 'The audit endpoint failed. No conclusion can be drawn about prior administrative actions.'
+                  : 'The audit feed returned no records. This is not proof that no actions occurred; check backend audit-write health and access permissions.'}
+              </PseEmptyNote>
             ) : (
               <PseTable head={["Time", "Action", "Target", "Actor", "Outcome"]}>
                 {auditRows.map(row => (

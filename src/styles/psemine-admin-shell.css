@@ -38,3 +38,30 @@
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
 }
+
+
+/* PSEmine operations: align its final shell with the same graphite/violet system. */
+.pse-ops-frame {
+  background:
+    radial-gradient(ellipse 78% 32% at 50% 0%,rgba(75,79,255,.12),transparent 74%),
+    #070a11;
+}
+.pse-ops-topbar {
+  background:rgba(7,10,17,.88);
+  border-bottom-color:rgba(160,166,255,.16);
+  backdrop-filter:blur(20px) saturate(150%);
+}
+.pse-ops-rail,
+.pse-ops-mobile-dock {
+  background-color:rgba(9,12,21,.96);
+}
+.pse-ops-mobile-dock a[aria-current="page"],
+.pse-ops-local-nav a[aria-current="page"] {
+  background:linear-gradient(110deg,rgba(99,91,255,.2),rgba(56,212,242,.07));
+}
+.pse-ops-frame :is(.pse-btn,button[type="submit"]) {
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-ops-frame * { scroll-behavior:auto!important; transition:none!important; }
+}

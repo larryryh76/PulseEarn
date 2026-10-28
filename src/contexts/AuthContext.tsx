@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { safeFetch } from '../utils/api';
 import {
   onAuthStateChanged,
@@ -34,7 +34,6 @@ import { RestoreSplash } from '../components/RestoreSplash';
 import {
   PULSE_EARN_PRODUCT,
   repairWelcomeBonusIfMissing,
-  runPulseEarnOnboarding,
 } from '../engines/product/pulseEarnProduct';
 
 /**
@@ -88,9 +87,11 @@ interface AuthContextType {
    * `users/{uid}.productAccess` matches the chosen product and never grants
    * the other one implicitly.
    */
-  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
+  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
+  /** One Google OAuth flow: existing users sign in; new identities are provisioned only with explicit consent. */
+  signInWithGoogle: (referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
+  signUpWithGoogle: (referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -117,6 +118,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isRestoring, setIsRestoring] = useState(true);
   const [systemError, setSystemError] = useState<MaintenanceType | null>(null);
+  const googleLoginInProgress = useRef(false);
+  const googleLoginUids = useRef(new Set<string>());
 
   // Safety: Initialization Timeout
   useEffect(() => {
@@ -173,7 +176,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore and fall back to Firebase client SDK below
     }
-    await sendPasswordResetEmail(auth, email);
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+    } catch (error: any) {
+      // Firebase email-enumeration protection: don't reveal whether an address
+      // has an account if the provider is configured to return this code.
+      if (error?.code !== 'auth/user-not-found') throw error;
+    }
   }
 
   async function updateUserEmail(newEmail: string) {
@@ -225,7 +234,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user: User,
     username: string,
     product: ProductId | null,
-    referralCodeInput?: string
+    referralCodeInput?: string,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -289,16 +299,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await setDoc(userRef, {
       ...newUserData,
+      // Signup rewards/referrals are pending until the email identity is verified.
+      // The PulseEarn-scoped provider claims them only after verification.
+      ...(product === PULSE_EARN_PRODUCT ? {
+        signupOnboardingPending: true,
+        pendingReferralCode: referralCodeInput?.trim() || null
+      } : {}),
+      ...(product === 'psemine' ? { pendingPsemineEnrollment: true } : {}),
+      ...(termsAccepted && product ? {
+        termsAcceptedAt: serverTimestamp(),
+        termsVersion: product === 'psemine' ? 'psemine-2026-10-28' : 'pulseearn-2026-10-28',
+        termsAcceptanceMethod: user.providerData.some(provider => provider.providerId === 'google.com') ? 'google' : 'email'
+      } : {}),
       createdAt: serverTimestamp()
     });
-
-    // PulseEarn-only post-signup economy. PSEmine's onboarding is entirely
-    // backend-owned (/api/mine/enroll + /api/mine/referrals/register), so there
-    // is nothing to run here for a PSEmine signup — and definitely no
-    // PulseEarn points, XP or toasts.
-    if (product === PULSE_EARN_PRODUCT) {
-      await runPulseEarnOnboarding(user, username, referralCodeInput);
-    }
 
     return { created: true };
   }
@@ -308,12 +322,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string,
     username: string,
     referralCodeInput?: string,
-    product: ProductId = PULSE_EARN_PRODUCT
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    if (!termsAccepted) {
+      const error = new Error('Accept the Terms of Service and Privacy Policy before creating an account.');
+      Object.assign(error, { code: 'auth/terms-not-accepted' });
+      throw error;
+    }
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     const user = userCredential.user;
 
-    // Request branded verification email from backend
+    // Persist the identity/profile first. A mail-provider outage must never leave
+    // a newly created Firebase account half-provisioned or make signup appear to
+    // have failed after the identity already exists.
+    const profile = await initializeUserProfile(user, username.trim(), product, referralCodeInput, termsAccepted);
+
+    // Verification is mandatory before product access. Try branded delivery,
+    // then Firebase delivery; if both providers fail the account remains intact
+    // and the verification screen can offer a safe resend/retry.
     try {
       const idToken = await user.getIdToken();
       const res = await safeFetch('/api/auth/send-verification', {
@@ -323,34 +350,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json'
         }
       });
-      if (!res.success) throw new Error(res.message);
+      if (!res?.success || res?.dispatchMethod === 'client_fallback') {
+        await sendEmailVerification(user, {
+          url: 'https://pulseearn.online/auth/action',
+          handleCodeInApp: true
+        });
+      }
     } catch (err) {
-      console.error("[AuthContext] Backend Verification Request Failed:", err);
-      // Fallback to Firebase standard if backend fails
-      await sendEmailVerification(user, {
-        url: 'https://pulseearn.online/auth/action',
-        handleCodeInApp: true
-      });
+      console.error('[AuthContext] Verification delivery failed; account remains pending verification:', err);
+      try {
+        await sendEmailVerification(user, {
+          url: 'https://pulseearn.online/auth/action',
+          handleCodeInApp: true
+        });
+      } catch (fallbackError) {
+        console.error('[AuthContext] Firebase verification fallback failed:', fallbackError);
+      }
     }
 
-    return await initializeUserProfile(user, username, product, referralCodeInput);
+    return profile;
   }
 
+  /**
+   * Shared Google OAuth flow for BOTH login and signup.
+   *
+   * Firebase's popup authenticates existing Google users and can also create a
+   * first-time Firebase identity. Existing profiles sign in without re-enrollment;
+   * a missing profile is provisioned only after explicit terms/privacy consent.
+   * No legitimate Google identity is deleted by this flow.
+   */
   async function signInWithGoogle(
     referralCodeInput?: string,
-    product: ProductId = PULSE_EARN_PRODUCT
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
+    googleLoginInProgress.current = true;
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
+    let googleUid: string | null = null;
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      googleUid = user.uid;
+      googleLoginUids.current.add(user.uid);
+      const existingProfile = await getDoc(doc(db, 'users', user.uid));
 
-    return await initializeUserProfile(
-      user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput
-    );
+      if (existingProfile.exists()) {
+        googleLoginUids.current.delete(user.uid);
+        return { created: false };
+      }
+
+      if (!termsAccepted) {
+        // Keep the Firebase identity intact. Sign out until the person explicitly
+        // accepts the documents; retrying this same Google flow can finish setup.
+        await signOut(auth);
+        googleLoginUids.current.delete(user.uid);
+        const error = new Error('Accept the Terms of Service and Privacy Policy to finish creating an account.');
+        Object.assign(error, { code: 'auth/terms-not-accepted' });
+        throw error;
+      }
+
+      return await initializeUserProfile(
+        user,
+        user.displayName || `User_${user.uid.slice(0, 5)}`,
+        product,
+        referralCodeInput,
+        termsAccepted
+      );
+    } catch (error) {
+      // If profile lookup/provisioning fails, do not leave an authenticated
+      // identity with no product profile. Release the listener guard as well so
+      // the next explicit login can recover cleanly. Never delete the identity.
+      if (googleUid && googleLoginUids.current.has(googleUid)) {
+        googleLoginUids.current.delete(googleUid);
+        if (auth.currentUser?.uid === googleUid) {
+          try { await signOut(auth); } catch { /* preserve the original failure */ }
+        }
+      }
+      throw error;
+    } finally {
+      googleLoginInProgress.current = false;
+    }
+  }
+
+  /** Backwards-compatible alias; it deliberately uses the same Google flow. */
+  async function signUpWithGoogle(
+    referralCodeInput?: string,
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
+  ): Promise<IdentityProfileResult> {
+    return signInWithGoogle(referralCodeInput, product, termsAccepted);
   }
 
   function login(email: string, password: string) {
-    return signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
   }
 
   async function logout() {
@@ -359,7 +451,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    if (localStorage.getItem('pulseearn-test-bypass') === 'true') {
+    if (import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true') {
       setCurrentUser({
         uid: 'test-user-uid',
         email: 'test@pulseearn.online',
@@ -395,14 +487,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    let unsubscribeData: (() => void) | undefined;
+    const unsubscribeDataRef: { current: (() => void) | undefined } = { current: undefined };
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Provider sign-in can switch identities without a sign-out event. Always
+      // tear down the previous user's Firestore listener before binding another.
+      if (unsubscribeDataRef.current) {
+        unsubscribeDataRef.current();
+        unsubscribeDataRef.current = undefined;
+      }
       setCurrentUser(user);
 
       if (user) {
-        unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
+        unsubscribeDataRef.current = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
+            googleLoginUids.current.delete(user.uid);
             const data = docSnap.data() as UserData;
             // Preserve all valid roles — admin, moderator, user
             const resolvedRole: UserData['role'] =
@@ -420,19 +519,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // IDENTITY ONLY. No product economy runs here — see the header
             // comment: a global listener must never mutate a product's economy
             // or raise a product toast on another product's routes.
+          } else if (googleLoginInProgress.current || googleLoginUids.current.has(user.uid)) {
+             // A Google login popup must never turn a missing app profile into
+             // implicit signup. This guard also fails closed if provider metadata
+             // about a newly created identity is missing.
+             setSystemError(null);
           } else {
-             // Priority 5: Resilience - Auto-Healing Identity Sync
-             // Auth exists but profile doesn't? Attempt to re-initialize profile to prevent 'IDENTITY_NOT_FOUND' shell.
-             console.warn("[AuthContext] Identity Drift Detected: Attempting Self-Healing...");
+             // Preserve recovery for a pre-existing identity whose profile was
+             // lost during a partial signup/deployment. Repair never grants a
+             // product entitlement; explicit signup remains the only product grant.
+             console.warn('[AuthContext] Existing identity has no profile; repairing identity-only record.');
              try {
-                // Re-run initialization using current auth metadata. `null`
-                // product: self-healing repairs the identity record only and
-                // never grants a product entitlement.
-                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);  // identity repair only — never grants a product
-                if (import.meta.env.DEV) console.log("[AuthContext] Identity Refreshed Successfully.");
+               await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);
              } catch (healError) {
-                console.error("[AuthContext] Self-Healing Failed:", healError);
-                setSystemError('IDENTITY_NOT_FOUND');
+               console.error('[AuthContext] Identity repair failed:', healError);
+               setSystemError('IDENTITY_NOT_FOUND');
              }
           }
           setLoading(false);
@@ -448,11 +549,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsRestoring(false);
         });
       } else {
-        if (unsubscribeData) {
-          unsubscribeData();
-          unsubscribeData = undefined;
-        }
+        // The previous data subscription was already disposed at the top of
+        // this auth-state callback.
         setUserData(null);
+        setSystemError(null);
         setLoading(false);
         setIsRestoring(false);
       }
@@ -460,7 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeData) unsubscribeData();
+      if (unsubscribeDataRef.current) unsubscribeDataRef.current();
     };
   }, []);
 
@@ -471,6 +571,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     signInWithGoogle,
+    signUpWithGoogle,
     logout,
     logActivity,
     sendVerification,

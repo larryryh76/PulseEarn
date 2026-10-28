@@ -19,8 +19,9 @@ const Signup: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const { signup, signInWithGoogle } = useAuth();
+  const { signup, signUpWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -59,11 +60,14 @@ const Signup: React.FC = () => {
     if (passwordStrength < 50) {
       return toast.error('Please use a stronger password.');
     }
+    if (!acceptedTerms) {
+      return toast.error('Please accept the Terms of Service and Privacy Policy before creating an account.');
+    }
 
     try {
       setIsSubmitting(true);
       // Explicit PulseEarn signup: entitlement is granted for this product only.
-      await signup(formData.email, formData.password, formData.username, formData.referralCode, 'pulseearn');
+      await signup(formData.email, formData.password, formData.username, formData.referralCode, 'pulseearn', acceptedTerms);
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {
@@ -75,10 +79,14 @@ const Signup: React.FC = () => {
   };
 
   const handleGoogleSignup = async () => {
+    if (!acceptedTerms) {
+      toast.error('Please accept the Terms of Service and Privacy Policy before creating an account.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       const ref = searchParams.get('ref') || undefined;
-      await signInWithGoogle(ref, 'pulseearn');
+      await signUpWithGoogle(ref, 'pulseearn', acceptedTerms);
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {
@@ -265,6 +273,11 @@ const Signup: React.FC = () => {
                 </div>
               </div>
 
+              <label className="flex items-start gap-3 rounded-xl border border-border-bright bg-surface-bright/40 p-4 text-xs leading-relaxed text-text-secondary">
+                <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" required />
+                <span>I agree to the <Link to="/terms" className="text-primary underline">Terms of Service</Link> and acknowledge the <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>.</span>
+              </label>
+
               <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-4" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
@@ -283,7 +296,7 @@ const Signup: React.FC = () => {
             <div className="mt-8 pt-8 border-t border-border-bright space-y-6">
               <div className="flex flex-col gap-4 items-center">
                 <p className="text-text-secondary text-xs font-medium text-center">
-                  By signing up, you agree to our <Link to="/terms" className="text-text-secondary underline">Terms</Link> and <Link to="/privacy" className="text-text-secondary underline">Privacy Policy</Link>
+                  Your acceptance is recorded with this account. Review the <Link to="/terms" className="text-text-secondary underline">Terms</Link> and <Link to="/privacy" className="text-text-secondary underline">Privacy Policy</Link> anytime.
                 </p>
                 <p className="text-text-secondary text-xs font-medium">
                   Already have an account? <Link to="/login" className="text-primary hover:text-accent transition-colors font-bold ml-1">Log in</Link>

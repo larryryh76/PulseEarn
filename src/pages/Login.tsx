@@ -14,6 +14,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'forgot'>('login');
+  const [acceptedGoogleTerms, setAcceptedGoogleTerms] = useState(false);
 
   const { login, resetPassword, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -21,12 +22,14 @@ const Login: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       setIsSubmitting(true);
-      await signInWithGoogle();
+      await signInWithGoogle(undefined, 'pulseearn', acceptedGoogleTerms);
       navigate('/dashboard');
     } catch (error: any) {
       // Fix #3: Catch and display Google auth errors with friendly messages
       let message = 'An unexpected error occurred.';
-      if (error.code === 'auth/unauthorized-domain') {
+      if (error.code === 'auth/terms-not-accepted') {
+        message = 'Accept the Terms of Service and Privacy Policy to create your account with Google.';
+      } else if (error.code === 'auth/unauthorized-domain') {
         message = 'Google login is temporarily unavailable. Use email instead.';
       } else if (error.code === 'auth/popup-closed-by-user') {
         message = 'Sign-in window closed. Please try again.';
@@ -109,7 +112,16 @@ const Login: React.FC = () => {
                     <p className="text-text-secondary text-sm font-medium">Sign in to your PulseEarn account</p>
                   </div>
 
-                  <div className="space-y-4 mb-6">
+                  <div className="space-y-3 mb-6">
+                    <label className="flex items-start gap-2 text-xs text-text-secondary leading-relaxed">
+                      <input
+                        type="checkbox"
+                        checked={acceptedGoogleTerms}
+                        onChange={e => setAcceptedGoogleTerms(e.target.checked)}
+                        className="mt-0.5 accent-primary"
+                      />
+                      <span>By creating a new account with Google, I agree to the <Link to="/terms" className="text-primary underline">Terms of Service</Link> and <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>. Existing accounts can sign in without checking this.</span>
+                    </label>
                     <button
                       type="button"
                       onClick={handleGoogleSignIn}

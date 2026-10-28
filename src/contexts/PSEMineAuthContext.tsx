@@ -6,7 +6,8 @@ import { PSEMineEngine } from '../engines/psemine/PSEMineEngine';
 export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const {
     currentUser, userData, loading,
-    login, signup: identitySignup, signInWithGoogle: identityGoogleSignIn,
+    login, signup: identitySignup,
+    signInWithGoogle: identityGoogleSignIn,
     logout, sendVerification, resetPassword,
   } = useAuth();
 
@@ -21,50 +22,24 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const hasPSEmineAccess = userData?.productAccess?.psemine === true;
 
   /**
-   * PSEmine signup: reuses the shared Firebase identity, then attributes the
-   * referral via the canonical backend endpoint (deterministic
-   * psemine_referrals record). No duplicate account is created, and the
-   * identity is created with `productAccess { pulseearn: false, psemine: true }`
-   * — a PSEmine signup never grants, or triggers, the PulseEarn economy.
+   * PSEmine signup reuses the shared Firebase identity. The profile records
+   * a pending enrollment and the backend grants access only after the email
+   * verification claim is present. Referral attribution is queued until that
+   * verified, enrolled session can submit it; PulseEarn rewards stay isolated.
    */
   const signupWithReferral = useCallback(async (
     email: string,
     password: string,
     username: string,
-    referralCode?: string
+    referralCode?: string,
+    termsAccepted = false
   ): Promise<void> => {
-    const profile = await identitySignup(email, password, username, referralCode, 'psemine');
-    // Entitlement is SERVER-GRANTED. The shared identity layer never claims
-    // productAccess.psemine (the Firestore create rule forbids it), so a newly
-    // created identity asks the backend for the grant + audit entry exactly
-    // once, here. An existing identity is left untouched — it keeps whatever
-    // access it already has and sees the explicit enable path instead.
-    if (profile.created) {
-      try {
-        await PSEMineEngine.enroll();
-      } catch (e) {
-        // Enrollment failure must not block account creation: the signed-in
-        // user lands on the entitlement gate, which offers the same enable
-        // action explicitly and shows the backend's own message.
-        console.warn('[PSEMineAuth] enrollment notice:', e);
-      }
-    }
-    if (referralCode) {
-      try {
-        const { getAuth } = await import('firebase/auth');
-        const auth = getAuth();
-        if (auth.currentUser) {
-          // Result is persisted by the engine: retryable failures are retained
-          // for re-submission on the next session; permanent validation
-          // failures (self-referral, unknown referrer) are not retried.
-          await PSEMineEngine.registerReferral(auth.currentUser.uid, username, referralCode);
-        }
-      } catch (e) {
-        // Attribution failure must not block signup; the code is retained for
-        // the next-session retry and the backend can reconcile later.
-        console.warn('[PSEMineAuth] referral attribution notice:', e);
-      }
-    }
+    // Profile creation records pending PSEmine enrollment. The backend will
+    // grant the entitlement only after the verified-email token is presented.
+    const profile = await identitySignup(email, password, username, referralCode, 'psemine', termsAccepted);
+    // Do not call referral APIs with an unverified token: queue the code and let
+    // the enrolled, verified session submit it once the backend gate permits it.
+    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identitySignup]);
 
   /**
@@ -74,36 +49,17 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * entitlement it already has — Google sign-in never silently upgrades an
    * account (the console offers explicit enrollment instead).
    */
-  const googleSignIn = useCallback(async (referralCode?: string): Promise<void> => {
-    const profile = await identityGoogleSignIn(referralCode, 'psemine');
-    // Same server-granted entitlement rule as the email path: only a BRAND-NEW
-    // identity is enrolled. Signing in with Google on an existing account never
-    // silently upgrades it to dual access.
-    if (profile.created) {
-      try {
-        await PSEMineEngine.enroll();
-      } catch (e) {
-        console.warn('[PSEMineAuth] Google enrollment notice:', e);
-      }
-    }
-    if (referralCode) {
-      try {
-        const { getAuth } = await import('firebase/auth');
-        const fbAuth = getAuth();
-        if (fbAuth.currentUser) {
-          await PSEMineEngine.registerReferral(
-            fbAuth.currentUser.uid,
-            fbAuth.currentUser.displayName || 'Miner',
-            referralCode
-          );
-        }
-      } catch (e) {
-        // Attribution failure must not block Google sign-in; retained for the
-        // next-session retry (same policy as the email signup path).
-        console.warn('[PSEMineAuth] Google referral attribution notice:', e);
-      }
-    }
+  const googleSignIn = useCallback(async (referralCode?: string, termsAccepted = false): Promise<void> => {
+    // One shared Google OAuth flow supports existing-account login and first-time
+    // signup. Only a missing profile requires explicit consent.
+    const profile = await identityGoogleSignIn(referralCode, 'psemine', termsAccepted);
+    if (profile.created && referralCode) PSEMineEngine.queuePendingReferral(referralCode);
   }, [identityGoogleSignIn]);
+
+  const googleSignUp = useCallback(async (referralCode?: string, termsAccepted = false): Promise<void> => {
+    // Compatibility alias; this is the same OAuth flow and never invents consent.
+    await googleSignIn(referralCode, termsAccepted);
+  }, [googleSignIn]);
 
   /**
    * Explicit enrollment for an existing signed-in account. Backend-authoritative
@@ -124,13 +80,37 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [currentUser]);
 
+  // Auto-complete an explicit PSEmine signup only after Firebase supplies a
+  // verified-email token. The backend clears this pending marker on successful
+  // enrollment, so a later admin revocation cannot be undone by this effect.
+  const pendingEnrollmentHandledUidRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentUser) {
+      pendingEnrollmentHandledUidRef.current = null;
+      return;
+    }
+    const pendingEnrollment = (userData as (typeof userData & { pendingPsemineEnrollment?: boolean }))?.pendingPsemineEnrollment === true;
+    if (!isVerified || !pendingEnrollment || hasPSEmineAccess
+      || pendingEnrollmentHandledUidRef.current === currentUser.uid) return;
+
+    pendingEnrollmentHandledUidRef.current = currentUser.uid;
+    void enablePSEmine().then((result: any) => {
+      if (!result?.success) {
+        pendingEnrollmentHandledUidRef.current = null;
+        console.warn('[PSEmineAuth] verified signup enrollment did not complete:', result?.error || result?.message || 'unknown error');
+      }
+    }).catch(error => {
+      pendingEnrollmentHandledUidRef.current = null;
+      console.error('[PSEmineAuth] verified signup enrollment failed:', error);
+    });
+  }, [currentUser?.uid, isVerified, (userData as any)?.pendingPsemineEnrollment, hasPSEmineAccess, enablePSEmine]);
+
   // Retry any referral code retained after a transient registration failure.
-  // Runs once per signed-in ENROLLED session; idempotent server-side. The latch
-  // resets on sign-out so a later sign-in (same mounted provider) retries again.
-  // Gated on entitlement so a PulseEarn-only session never touches PSEmine.
+  // Only a verified, enrolled session may submit referral attribution; the
+  // backend rejects unverified tokens before any referral/economic mutation.
   const retriedThisSession = useRef(false);
   useEffect(() => {
-    if (!currentUser || !hasPSEmineAccess) return;
+    if (!currentUser || !isVerified || !hasPSEmineAccess) return;
     if (retriedThisSession.current) return;
     retriedThisSession.current = true;
     PSEMineEngine.retryPendingReferral().catch(() => undefined);
@@ -150,12 +130,13 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     login,
     signup: signupWithReferral,
     signInWithGoogle: googleSignIn,
+    signUpWithGoogle: googleSignUp,
     logout,
     sendVerification,
     resetPassword,
   }), [
     currentUser, userData, loading, isVerified, hasPSEmineAccess, enablePSEmine,
-    login, signupWithReferral, googleSignIn, logout, sendVerification, resetPassword,
+    login, signupWithReferral, googleSignIn, googleSignUp, logout, sendVerification, resetPassword,
   ]);
 
   // `enrolling` is intentionally not surfaced: enrollment state is local to the

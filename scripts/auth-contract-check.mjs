@@ -1,0 +1,58 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const auth = read('src/contexts/AuthContext.tsx');
+const pulseLogin = read('src/pages/Login.tsx');
+const pulseSignup = read('src/pages/Signup.tsx');
+const pseAuth = read('src/pages/psemine/PSEmineAuth.tsx');
+const pseContext = read('src/contexts/PSEMineAuthContext.tsx');
+const app = read('src/App.tsx');
+const pulseProduct = read('src/contexts/PulseEarnProductContext.tsx');
+const pseEngine = read('src/engines/psemine/PSEMineEngine.ts');
+const api = read('api/index.py');
+
+const googleLogin = auth.slice(auth.indexOf('async function signInWithGoogle'), auth.indexOf('function login('));
+assert.match(googleLogin, /existingProfile\.exists\(\)/, 'Google flow must reuse existing profiles');
+assert.match(googleLogin, /if \(!termsAccepted\)/, 'first-time Google profile creation requires consent');
+assert.match(googleLogin, /initializeUserProfile\(/, 'the shared Google flow supports first-time signup');
+assert.doesNotMatch(googleLogin, /deleteUser\(/, 'Google login must never delete a legitimate Google identity');
+assert.match(auth, /return signInWithGoogle\(referralCodeInput, product, termsAccepted\)/, 'Google signup alias must share the same OAuth flow');
+const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('async function logout('));
+assert.match(emailLogin, /signInWithEmailAndPassword/);
+assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
+assert.match(auth, /googleLoginUids\.current\.add\(user\.uid\)/, 'profile repair must be suppressed while a Google identity is being provisioned');
+assert.match(auth, /If profile lookup\/provisioning fails[\s\S]*?await signOut\(auth\)/, 'failed Google profile provisioning must release the session safely');
+assert.match(pulseLogin, /await signInWithGoogle\(undefined, 'pulseearn', acceptedGoogleTerms\)/);
+assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', acceptedTerms\)/, 'PulseEarn Google signup must forward explicit consent');
+assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');
+assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
+assert.match(auth, /if \(!termsAccepted\)/, 'shared identity layer must enforce consent');
+assert.match(pseContext, /identitySignup\(email, password, username, referralCode, 'psemine', termsAccepted\)/, 'PSEmine signup must pass actual consent to the identity layer');
+assert.match(pseContext, /await googleSignIn\(referralCode, termsAccepted\)/, 'Google signup alias must not manufacture consent');
+assert.match(pseAuth, /signup\(email\.trim\(\), password, username\.trim\(\), refFromQuery, agreed\)/, 'PSEmine email signup must forward its agreement');
+assert.match(pseContext, /identityGoogleSignIn\(referralCode, 'psemine', termsAccepted\)/);
+
+assert.match(pseAuth, /if \(isSignup && !agreed\)/, 'PSEmine Google signup must require legal agreement');
+assert.match(pseAuth, /await signInWithGoogle\(refFromQuery, agreed\)/, 'PSEmine login and signup share Google OAuth');
+assert.match(pseContext, /identityGoogleSignIn\(referralCode, 'psemine', termsAccepted\)/);
+assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignIn'), pseContext.indexOf('const googleSignUp')), /PSEMineEngine\.enroll|registerReferral/);
+
+assert.match(app, /import\.meta\.env\.DEV && localStorage\.getItem\('pulseearn-test-bypass'\)/);
+assert.match(app, /if \(!currentUser\.emailVerified && !isTestBypass/);
+assert.match(app, /if \(!currentUser\.emailVerified\) return <Navigate to="\/verify-email" replace \/>/);
+assert.match(pulseProduct, /if \(!currentUser\.emailVerified\) return/);
+assert.match(pulseProduct, /signupOnboardingPending/);
+assert.match(pulseProduct, /system_claims/);
+assert.match(auth, /pendingPsemineEnrollment: true/);
+assert.match(pseContext, /pendingEnrollmentHandledUidRef/);
+assert.match(pseContext, /if \(!currentUser \|\| !isVerified \|\| !hasPSEmineAccess\) return/);
+assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const signupWithReferral'), pseContext.indexOf('const googleSignIn')), /PSEMineEngine\.enroll\(\)/, 'email signup must defer enrollment');
+assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignUp'), pseContext.indexOf('const [enrolling')), /PSEMineEngine\.enroll\(\)/, 'Google signup must defer enrollment');
+assert.match(pseEngine, /queuePendingReferral\(codeInput: string\)/);
+assert.match(api, /if not allow_unverified and not decoded_token\.get\('email_verified', False\)/);
+assert.match(api, /legacy entitlement policy unavailable; denying request[\s\S]*?SECURITY_POLICY_UNAVAILABLE/, 'legacy PSEmine gate must fail closed if its policy import fails');
+assert.equal((api.match(/@verify_token\(allow_unverified=True\)/g) || []).length, 2, 'only verification-email dispatch routes may accept unverified tokens');
+assert.match(api, /if not request\.user\.get\('email_verified', False\)/, 'legacy PSEmine financial writes must require verified email');
+assert.match(api, /'pendingPsemineEnrollment': False/, 'server clears the pending marker only when enrollment succeeds');
+console.log('Auth contract checks passed: Google OAuth is shared across login/signup; first-time provisioning requires consent and product boundaries remain explicit.');

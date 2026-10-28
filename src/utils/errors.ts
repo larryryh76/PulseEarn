@@ -7,6 +7,10 @@ export const mapAuthError = (error: any): string => {
       return 'The email address is not valid. Please check and try again.';
     case 'auth/user-disabled':
       return 'This account has been disabled. Please contact support.';
+    case 'auth/terms-not-accepted':
+      return 'Accept the Terms of Service and Privacy Policy before creating an account.';
+    case 'auth/account-not-found':
+      return 'No account is linked to this Google sign-in yet. Choose Create account to register.';
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':

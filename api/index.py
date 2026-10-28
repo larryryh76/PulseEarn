@@ -229,6 +229,18 @@ def _pse_before_request():
             request.method, request.path
         )
     except Exception:
+        # Fail closed if the entitlement policy cannot be loaded. The legacy
+        # surface contains money-moving writes; an import/runtime regression must
+        # never turn off its authorization gate. Returning 503 for this legacy
+        # namespace is safer than guessing which routes are read-only.
+        if request.path == '/api/psemine' or request.path.startswith('/api/psemine/'):
+            logging.exception('[PSEmine security] legacy entitlement policy unavailable; denying request')
+            return jsonify({
+                "success": False,
+                "error": "SECURITY_POLICY_UNAVAILABLE",
+                "message": "PSEmine is temporarily unavailable. Please retry shortly.",
+                "requestId": _request_id(),
+            }), 503
         _legacy_needs_entitlement = False
     if _legacy_needs_entitlement:
         if not init_firebase():
@@ -248,6 +260,10 @@ def _pse_before_request():
             return jsonify({"success": False, "error": "AUTHENTICATION_REQUIRED",
                             "message": "Your session has expired. Please sign in again.",
                             "requestId": _request_id()}), 401
+        if not request.user.get('email_verified', False):
+            return jsonify({"success": False, "error": "EMAIL_NOT_VERIFIED",
+                            "message": "Verify your email address before using PSEmine financial services.",
+                            "requestId": _request_id()}), 403
         if not has_psemine_access(request.user.get('uid')):
             return jsonify({"success": False, "error": "PSEMINE_ACCESS_DENIED",
                             "message": "PSEmine is not enabled for this account.",
@@ -591,26 +607,47 @@ def require_db(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def verify_token(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not init_firebase():
-            return jsonify({
-                "success": False, "error": "AUTH_SERVICE_OFFLINE",
-                "reason": _INIT_STATE.get("error") or "ADMIN_SDK_NOT_INITIALIZED"
-            }), 503
-        id_token = None
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            if auth_header.startswith('Bearer '): id_token = auth_header.split(' ')[1]
-        if not id_token: return jsonify({"success": False, "error": "Missing authorization token"}), 401
-        try:
-            # Using current auth context
-            decoded_token = auth.verify_id_token(id_token)
-            request.user = decoded_token
-        except Exception as e: return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 401
-        return f(*args, **kwargs)
-    return decorated_function
+def verify_token(f=None, *, allow_unverified=False):
+    """Validate Firebase identity and, by default, require verified email.
+
+    Only verification-email dispatch endpoints may accept an unverified
+    identity. Product APIs, account changes, admin operations and money routes
+    fail closed here, so client-side route guards cannot be bypassed by direct
+    HTTP requests.
+    """
+    def decorate(func):
+        @wraps(func)
+        def decorated_function(*args, **kwargs):
+            if not init_firebase():
+                return jsonify({
+                    "success": False, "error": "AUTH_SERVICE_OFFLINE",
+                    "reason": _INIT_STATE.get("error") or "ADMIN_SDK_NOT_INITIALIZED"
+                }), 503
+            id_token = None
+            if 'Authorization' in request.headers:
+                auth_header = request.headers['Authorization']
+                if auth_header.startswith('Bearer '):
+                    id_token = auth_header.split(' ')[1]
+            if not id_token:
+                return jsonify({"success": False, "error": "Missing authorization token"}), 401
+            try:
+                decoded_token = auth.verify_id_token(id_token)
+                request.user = decoded_token
+            except Exception as e:
+                return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 401
+
+            if not allow_unverified and not decoded_token.get('email_verified', False):
+                return jsonify({
+                    "success": False,
+                    "error": "EMAIL_NOT_VERIFIED",
+                    "message": "Verify your email address before accessing this service."
+                }), 403
+            return func(*args, **kwargs)
+        return decorated_function
+
+    if f is None:
+        return decorate
+    return decorate(f)
 
 def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp: return 1
@@ -780,6 +817,7 @@ def mine_enroll():
             'productAccess': {**pa, 'psemine': True},
             'psemineAccessGrantedAt': firestore.SERVER_TIMESTAMP,
             'psemineAccessGrantReason': 'self_enrollment',
+            'pendingPsemineEnrollment': False,
         }, merge=True)
         pse_ref = db.collection('psemine_users').document(uid)
         if not pse_ref.get().exists:
@@ -809,6 +847,9 @@ def mine_enroll():
             'metadata': {'source': 'POST /api/mine/enroll'},
         })
         batch.commit()
+    elif data.get('pendingPsemineEnrollment') is True:
+        # Idempotent cleanup for a profile whose entitlement already exists.
+        user_ref.update({'pendingPsemineEnrollment': False})
     return jsonify({'success': True, 'productAccess': {**pa, 'psemine': True}})
 
 
@@ -1977,7 +2018,7 @@ def send_branded_email(to, template, context, subject):
         return False
 
 @app.route('/api/auth/send-verification', methods=['POST'])
-@verify_token
+@verify_token(allow_unverified=True)
 @require_db
 def send_v():
     u = request.user
@@ -1993,7 +2034,7 @@ def send_v():
 # --- Frontend-contract endpoints (previously missing -> 404) ---
 
 @app.route('/api/authorize-resend', methods=['POST'])
-@verify_token
+@verify_token(allow_unverified=True)
 @require_db
 def authorize_resend():
     """Server-authoritative resend of the email-verification link with a cooldown.

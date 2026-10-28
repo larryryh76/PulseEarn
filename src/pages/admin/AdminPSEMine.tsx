@@ -399,7 +399,7 @@ export const AdminPSEMine: React.FC = () => {
             <h2>Campaign overview.<br /><em>Evidence, not estimates.</em></h2>
             <div className="pse-ops-hero-meta">
               <span className={campaignPhase?.label?.toLowerCase().includes('active') ? 'is-positive' : 'is-neutral'}>{campaignPhase?.label || 'Campaign state unavailable'}</span>
-              <span>{loadedAt ? `Last synced ${fmtDateTime(new Date(loadedAt))}` : 'Waiting for first sync'}</span>
+              
             </div>
           </div>
           <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>{campaign?.durationDays ?? '—'}</strong><small>DAY WINDOW</small></div>
@@ -410,11 +410,7 @@ export const AdminPSEMine: React.FC = () => {
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
         </section>
-        <section className="pse-ops-trust-note" role="note">
-          <span className="pse-ops-trust-icon" aria-hidden="true">✓</span>
-          <div><strong>Verified operations</strong><p>Confirmed payments and pending intents remain separate.</p></div>
-          <span className="pse-ops-sync-state">{error || partialErrors.length > 0 ? 'SYNC ISSUE' : refreshing ? 'SYNCING' : loadedAt ? 'CONNECTED' : 'CONNECTING'}</span>
-        </section>
+
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
         <nav className="pse-ops-register-nav" aria-label="Operations registers">
@@ -503,7 +499,7 @@ export const AdminPSEMine: React.FC = () => {
                 </PseField>
               </div>
               <p className="pse-prose--sm">
-                Default start time is 9:00 AM UK time (Europe/London), regardless of the device timezone. Confirm or change it before scheduling. Scheduling stops the current mining window immediately, preserves existing account balances and records, and sets the next end date 90 days after the selected start.
+                Times use Europe/London. Scheduling changes the campaign window immediately, preserves existing balances and records, and sets a new 90-day end date.
               </p>
               <div className="flex flex-wrap gap-2">
                 <PseButton

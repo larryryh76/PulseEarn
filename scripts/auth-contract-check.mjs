@@ -28,11 +28,11 @@ assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google s
 assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
 assert.match(auth, /if \(!termsAccepted\)/, 'shared identity layer must enforce consent');
 assert.match(pseContext, /identitySignup\(email, password, username, referralCode, 'psemine', true\)/);
-assert.match(pseContext, /identityGoogleSignUp\(referralCode, 'psemine', true\)/);
+assert.match(pseContext, /identityGoogleSignIn\(referralCode, 'psemine', termsAccepted\)/);
 
 assert.match(pseAuth, /if \(isSignup && !agreed\)/, 'PSEmine Google signup must require legal agreement');
-assert.match(pseAuth, /if \(isSignup\) await signUpWithGoogle\(refFromQuery\);\s*else await signInWithGoogle\(\)/);
-assert.match(pseContext, /await identityGoogleSignIn\(\)/);
+assert.match(pseAuth, /await signInWithGoogle\(refFromQuery, agreed\)/, 'PSEmine login and signup share Google OAuth');
+assert.match(pseContext, /identityGoogleSignIn\(referralCode, 'psemine', termsAccepted\)/);
 assert.doesNotMatch(pseContext.slice(pseContext.indexOf('const googleSignIn'), pseContext.indexOf('const googleSignUp')), /PSEMineEngine\.enroll|registerReferral/);
 
 assert.match(app, /import\.meta\.env\.DEV && localStorage\.getItem\('pulseearn-test-bypass'\)/);

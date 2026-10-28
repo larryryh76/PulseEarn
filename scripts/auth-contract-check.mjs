@@ -12,18 +12,17 @@ const pulseProduct = read('src/contexts/PulseEarnProductContext.tsx');
 const pseEngine = read('src/engines/psemine/PSEMineEngine.ts');
 const api = read('api/index.py');
 
-const googleLogin = auth.slice(auth.indexOf('async function signInWithGoogle'), auth.indexOf('async function signUpWithGoogle'));
-assert.match(googleLogin, /getAdditionalUserInfo\(result\)\?\.isNewUser/);
-assert.match(googleLogin, /deleteUser\(result\.user\)/);
-assert.doesNotMatch(googleLogin, /initializeUserProfile\(/, 'Google sign-in must never provision a new product identity');
-
-const googleSignup = auth.slice(auth.indexOf('async function signUpWithGoogle'), auth.indexOf('function login('));
-assert.match(googleSignup, /initializeUserProfile\(/, 'explicit Google signup provisions the profile');
+const googleLogin = auth.slice(auth.indexOf('async function signInWithGoogle'), auth.indexOf('function login('));
+assert.match(googleLogin, /existingProfile\.exists\(\)/, 'Google flow must reuse existing profiles');
+assert.match(googleLogin, /if \(!termsAccepted\)/, 'first-time Google profile creation requires consent');
+assert.match(googleLogin, /initializeUserProfile\(/, 'the shared Google flow supports first-time signup');
+assert.doesNotMatch(googleLogin, /deleteUser\(/, 'Google login must never delete a legitimate Google identity');
+assert.match(auth, /return signInWithGoogle\(referralCodeInput, product, termsAccepted\)/, 'Google signup alias must share the same OAuth flow');
 const emailLogin = auth.slice(auth.indexOf('function login('), auth.indexOf('async function logout('));
 assert.match(emailLogin, /signInWithEmailAndPassword/);
 assert.doesNotMatch(emailLogin, /createUserWithEmailAndPassword/);
 assert.match(auth, /googleLoginUids\.current\.add\(result\.user\.uid\)/, 'profile repair must be suppressed for a new Google identity on login');
-assert.match(pulseLogin, /await signInWithGoogle\(\)/);
+assert.match(pulseLogin, /await signInWithGoogle\(undefined, 'pulseearn', acceptedGoogleTerms\)/);
 assert.match(pulseSignup, /await signUpWithGoogle\(ref, 'pulseearn', true\)/);
 assert.match(pulseSignup, /if \(!acceptedTerms\)/, 'PulseEarn email and Google signup must require consent');
 assert.match(auth, /termsAcceptedAt: serverTimestamp\(\)/);
@@ -52,4 +51,4 @@ assert.match(api, /if not allow_unverified and not decoded_token\.get\('email_ve
 assert.equal((api.match(/@verify_token\(allow_unverified=True\)/g) || []).length, 2, 'only verification-email dispatch routes may accept unverified tokens');
 assert.match(api, /if not request\.user\.get\('email_verified', False\)/, 'legacy PSEmine financial writes must require verified email');
 assert.match(api, /'pendingPsemineEnrollment': False/, 'server clears the pending marker only when enrollment succeeds');
-console.log('Auth contract checks passed: sign-in cannot silently register; signup, verification and product boundaries are explicit.');
+console.log('Auth contract checks passed: Google OAuth is shared across login/signup; first-time provisioning requires consent and product boundaries remain explicit.');

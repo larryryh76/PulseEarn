@@ -89,10 +89,10 @@ interface AuthContextType {
    * `users/{uid}.productAccess` matches the chosen product and never grants
    * the other one implicitly.
    */
-  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
+  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   login: (email: string, password: string) => Promise<UserCredential>;
   signInWithGoogle: () => Promise<IdentityProfileResult>;
-  signUpWithGoogle: (referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
+  signUpWithGoogle: (referralCode?: string, product?: ProductId, termsAccepted?: boolean) => Promise<IdentityProfileResult>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -235,7 +235,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user: User,
     username: string,
     product: ProductId | null,
-    referralCodeInput?: string
+    referralCodeInput?: string,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -305,6 +306,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signupOnboardingPending: true,
         pendingReferralCode: referralCodeInput?.trim() || null
       } : {}),
+      ...(termsAccepted && product ? {
+        termsAcceptedAt: serverTimestamp(),
+        termsVersion: product === 'psemine' ? 'psemine-2026-10-28' : 'pulseearn-2026-10-28',
+        termsAcceptanceMethod: user.providerData.some(provider => provider.providerId === 'google.com') ? 'google' : 'email'
+      } : {}),
       createdAt: serverTimestamp()
     });
 
@@ -316,15 +322,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string,
     username: string,
     referralCodeInput?: string,
-    product: ProductId = PULSE_EARN_PRODUCT
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
+    if (!termsAccepted) {
+      const error = new Error('Accept the Terms of Service and Privacy Policy before creating an account.');
+      Object.assign(error, { code: 'auth/terms-not-accepted' });
+      throw error;
+    }
     const userCredential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     const user = userCredential.user;
 
     // Persist the identity/profile first. A mail-provider outage must never leave
     // a newly created Firebase account half-provisioned or make signup appear to
     // have failed after the identity already exists.
-    const profile = await initializeUserProfile(user, username.trim(), product, referralCodeInput);
+    const profile = await initializeUserProfile(user, username.trim(), product, referralCodeInput, termsAccepted);
 
     // Verification is mandatory before product access. Try branded delivery,
     // then Firebase delivery; if both providers fail the account remains intact
@@ -392,13 +404,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /** Google account creation is only reachable from an explicit signup action. */
   async function signUpWithGoogle(
     referralCodeInput?: string,
-    product: ProductId = PULSE_EARN_PRODUCT
+    product: ProductId = PULSE_EARN_PRODUCT,
+    termsAccepted = false
   ): Promise<IdentityProfileResult> {
+    if (!termsAccepted) {
+      const error = new Error('Accept the Terms of Service and Privacy Policy before creating an account.');
+      Object.assign(error, { code: 'auth/terms-not-accepted' });
+      throw error;
+    }
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     return await initializeUserProfile(
-      user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput
+      user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput, termsAccepted
     );
   }
 

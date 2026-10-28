@@ -176,7 +176,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore and fall back to Firebase client SDK below
     }
-    await sendPasswordResetEmail(auth, email);
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+    } catch (error: any) {
+      // Firebase email-enumeration protection: don't reveal whether an address
+      // has an account if the provider is configured to return this code.
+      if (error?.code !== 'auth/user-not-found') throw error;
+    }
   }
 
   async function updateUserEmail(newEmail: string) {
@@ -313,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT
   ): Promise<IdentityProfileResult> {
-    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     const user = userCredential.user;
 
     // Persist the identity/profile first. A mail-provider outage must never leave
@@ -372,7 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('[AuthContext] Could not remove Google identity created from login:', deleteError);
       }
       const error = new Error('No account exists for this Google sign-in yet. Choose Create account first.');
-      Object.assign(error, { code: 'auth/user-not-found' });
+      Object.assign(error, { code: 'auth/account-not-found' });
       throw error;
     }
     return { created: false };
@@ -392,7 +398,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   function login(email: string, password: string) {
-    return signInWithEmailAndPassword(auth, email.trim(), password);
+    return signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
   }
 
   async function logout() {
@@ -440,6 +446,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubscribeData: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Provider sign-in can switch identities without a sign-out event. Always
+      // tear down the previous user's Firestore listener before binding another.
+      if (unsubscribeData) {
+        unsubscribeData();
+        unsubscribeData = undefined;
+      }
       setCurrentUser(user);
 
       if (user) {

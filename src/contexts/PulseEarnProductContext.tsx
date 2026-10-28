@@ -56,7 +56,7 @@ export const PulseEarnProductProvider: React.FC<{ children: React.ReactNode }> =
     handledUidRef.current = currentUser.uid;
 
     void claimDailyReward(currentUser.uid);
-  }, [currentUser, userData?.role]);
+  }, [currentUser, currentUser?.emailVerified, userData]);
 
   // Signup rewards and referral attribution are financial mutations. They are
   // deliberately deferred until Firebase confirms the email identity is verified.

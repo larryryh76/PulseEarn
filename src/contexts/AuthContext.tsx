@@ -36,7 +36,6 @@ import { RestoreSplash } from '../components/RestoreSplash';
 import {
   PULSE_EARN_PRODUCT,
   repairWelcomeBonusIfMissing,
-  runPulseEarnOnboarding,
 } from '../engines/product/pulseEarnProduct';
 
 /**
@@ -298,16 +297,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await setDoc(userRef, {
       ...newUserData,
+      // Signup rewards/referrals are pending until the email identity is verified.
+      // The PulseEarn-scoped provider claims them only after verification.
+      ...(product === PULSE_EARN_PRODUCT ? {
+        signupRewardsGranted: false,
+        pendingReferralCode: referralCodeInput?.trim() || null
+      } : {}),
       createdAt: serverTimestamp()
     });
-
-    // PulseEarn-only post-signup economy. PSEmine's onboarding is entirely
-    // backend-owned (/api/mine/enroll + /api/mine/referrals/register), so there
-    // is nothing to run here for a PSEmine signup — and definitely no
-    // PulseEarn points, XP or toasts.
-    if (product === PULSE_EARN_PRODUCT) {
-      await runPulseEarnOnboarding(user, username, referralCodeInput);
-    }
 
     return { created: true };
   }

@@ -573,11 +573,13 @@ export const AdminPSEMine: React.FC = () => {
                       <PseCell>{String(c.reason || 'unknown').replace(/_/g, ' ')}</PseCell>
                       <PseCell>{c.createdAt ? fmtDateTime(c.createdAt as string) : '—'}</PseCell>
                       <PseCell mono>
-                        {hash ? (
+                        {hash ? orderStatus === 'confirmed' ? (
                           <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
-                            {shortHash(hash)}
+                            {shortHash(hash)} · confirmed
                           </a>
-                        ) : '—'}
+                        ) : (
+                          <span title="Hash is recorded on the order but is not confirmed as a payment">{shortHash(hash)} · unverified</span>
+                        ) : 'No hash'}
                       </PseCell>
                       <PseCell>
                         <div className="flex flex-wrap gap-1.5">
@@ -718,10 +720,11 @@ export const AdminPSEMine: React.FC = () => {
             ) : visibleOrders.length === 0 ? (
               <PseEmptyNote title="No matching purchase records">Change the payment-state filter or search term. No records have been added to fill this view.</PseEmptyNote>
             ) : (
-              <PseTable head={['Order', 'Tool', 'Payment state', 'Amount', 'Recorded', 'On-chain evidence']}>
+              <PseTable head={['Order intent', 'Tool', 'Order state', 'Quoted amount', 'Created', 'Submitted hash / verification']}>
                 {visibleOrders.map((o, i) => {
                   const id = String(o.id || o.orderId || '');
                   const hash = (o.txHash || o.transactionHash) as string | undefined;
+                  const orderStatus = String(o.status || '').toLowerCase();
                   const amountValue = o.priceGbp ?? o.amountGbp ?? o.amount;
                   const amountGbp = amountValue !== undefined && amountValue !== null && Number.isFinite(Number(amountValue)) ? Number(amountValue) : null;
                   return (

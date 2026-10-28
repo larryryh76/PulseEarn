@@ -14,7 +14,9 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  getAdditionalUserInfo,
+  deleteUser
 } from 'firebase/auth';
 import {
   doc,
@@ -90,7 +92,8 @@ interface AuthContextType {
    */
   signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
+  signInWithGoogle: () => Promise<IdentityProfileResult>;
+  signUpWithGoogle: (referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -310,10 +313,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT
   ): Promise<IdentityProfileResult> {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
     const user = userCredential.user;
 
-    // Request branded verification email from backend
+    // Persist the identity/profile first. A mail-provider outage must never leave
+    // a newly created Firebase account half-provisioned or make signup appear to
+    // have failed after the identity already exists.
+    const profile = await initializeUserProfile(user, username.trim(), product, referralCodeInput);
+
+    // Verification is mandatory before product access. Try branded delivery,
+    // then Firebase delivery; if both providers fail the account remains intact
+    // and the verification screen can offer a safe resend/retry.
     try {
       const idToken = await user.getIdToken();
       const res = await safeFetch('/api/auth/send-verification', {
@@ -323,34 +333,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json'
         }
       });
-      if (!res.success) throw new Error(res.message);
+      if (!res?.success || res?.dispatchMethod === 'client_fallback') {
+        await sendEmailVerification(user, {
+          url: 'https://pulseearn.online/auth/action',
+          handleCodeInApp: true
+        });
+      }
     } catch (err) {
-      console.error("[AuthContext] Backend Verification Request Failed:", err);
-      // Fallback to Firebase standard if backend fails
-      await sendEmailVerification(user, {
-        url: 'https://pulseearn.online/auth/action',
-        handleCodeInApp: true
-      });
+      console.error('[AuthContext] Verification delivery failed; account remains pending verification:', err);
+      try {
+        await sendEmailVerification(user, {
+          url: 'https://pulseearn.online/auth/action',
+          handleCodeInApp: true
+        });
+      } catch (fallbackError) {
+        console.error('[AuthContext] Firebase verification fallback failed:', fallbackError);
+      }
     }
 
-    return await initializeUserProfile(user, username, product, referralCodeInput);
+    return profile;
   }
 
-  async function signInWithGoogle(
+  /**
+   * Sign-in is strictly sign-in. Firebase Google popup can silently create a
+   * brand-new identity; detect that case and reject it so the login screen can
+   * never bypass the explicit signup, terms and onboarding flow.
+   */
+  async function signInWithGoogle(): Promise<IdentityProfileResult> {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    if (getAdditionalUserInfo(result)?.isNewUser) {
+      try {
+        await deleteUser(result.user);
+      } catch (deleteError) {
+        // The identity was created moments ago, so deletion should normally be
+        // allowed. Never continue into the app if cleanup fails.
+        await signOut(auth).catch(() => undefined);
+        console.error('[AuthContext] Could not remove Google identity created from login:', deleteError);
+      }
+      const error = new Error('No account exists for this Google sign-in yet. Choose Create account first.');
+      Object.assign(error, { code: 'auth/user-not-found' });
+      throw error;
+    }
+    return { created: false };
+  }
+
+  /** Google account creation is only reachable from an explicit signup action. */
+  async function signUpWithGoogle(
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT
   ): Promise<IdentityProfileResult> {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
-
     return await initializeUserProfile(
       user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput
     );
   }
 
   function login(email: string, password: string) {
-    return signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email.trim(), password);
   }
 
   async function logout() {
@@ -359,7 +401,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    if (localStorage.getItem('pulseearn-test-bypass') === 'true') {
+    if (import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true') {
       setCurrentUser({
         uid: 'test-user-uid',
         email: 'test@pulseearn.online',
@@ -421,19 +463,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // comment: a global listener must never mutate a product's economy
             // or raise a product toast on another product's routes.
           } else {
-             // Priority 5: Resilience - Auto-Healing Identity Sync
-             // Auth exists but profile doesn't? Attempt to re-initialize profile to prevent 'IDENTITY_NOT_FOUND' shell.
-             console.warn("[AuthContext] Identity Drift Detected: Attempting Self-Healing...");
-             try {
-                // Re-run initialization using current auth metadata. `null`
-                // product: self-healing repairs the identity record only and
-                // never grants a product entitlement.
-                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);  // identity repair only — never grants a product
-                if (import.meta.env.DEV) console.log("[AuthContext] Identity Refreshed Successfully.");
-             } catch (healError) {
-                console.error("[AuthContext] Self-Healing Failed:", healError);
-                setSystemError('IDENTITY_NOT_FOUND');
-             }
+             // Never create a Firestore identity merely because a provider login
+             // succeeded. That made a first-time Google login look like signup.
+             // Missing profiles must use an explicit recovery flow, not implicit
+             // account creation on a sign-in route.
+             console.error('[AuthContext] Auth identity has no provisioned user profile:', user.uid);
+             setSystemError('IDENTITY_NOT_FOUND');
           }
           setLoading(false);
           setIsRestoring(false);
@@ -453,6 +488,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubscribeData = undefined;
         }
         setUserData(null);
+        setSystemError(null);
         setLoading(false);
         setIsRestoring(false);
       }
@@ -471,6 +507,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     signInWithGoogle,
+    signUpWithGoogle,
     logout,
     logActivity,
     sendVerification,

@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isRestoring, setIsRestoring] = useState(true);
   const [systemError, setSystemError] = useState<MaintenanceType | null>(null);
   const googleLoginInProgress = useRef(false);
-  const rejectedGoogleLoginUids = useRef(new Set<string>());
+  const googleLoginUids = useRef(new Set<string>());
 
   // Safety: Initialization Timeout
   useEffect(() => {
@@ -384,7 +384,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(auth, provider);
       // Mark every identity entering through the login popup until its existing
       // profile is confirmed. This also fails closed if provider metadata is absent.
-      rejectedGoogleLoginUids.current.add(result.user.uid);
+      googleLoginUids.current.add(result.user.uid);
       if (getAdditionalUserInfo(result)?.isNewUser) {
         try {
           await deleteUser(result.user);
@@ -483,7 +483,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
-            rejectedGoogleLoginUids.current.delete(user.uid);
+            googleLoginUids.current.delete(user.uid);
             const data = docSnap.data() as UserData;
             // Preserve all valid roles — admin, moderator, user
             const resolvedRole: UserData['role'] =
@@ -501,7 +501,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // IDENTITY ONLY. No product economy runs here — see the header
             // comment: a global listener must never mutate a product's economy
             // or raise a product toast on another product's routes.
-          } else if (googleLoginInProgress.current || rejectedGoogleLoginUids.current.has(user.uid)) {
+          } else if (googleLoginInProgress.current || googleLoginUids.current.has(user.uid)) {
              // A Google login popup must never turn a missing app profile into
              // implicit signup. This guard also fails closed if provider metadata
              // about a newly created identity is missing.

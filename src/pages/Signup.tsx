@@ -67,7 +67,7 @@ const Signup: React.FC = () => {
     try {
       setIsSubmitting(true);
       // Explicit PulseEarn signup: entitlement is granted for this product only.
-      await signup(formData.email, formData.password, formData.username, formData.referralCode, 'pulseearn', true);
+      await signup(formData.email, formData.password, formData.username, formData.referralCode, 'pulseearn', acceptedTerms);
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {
@@ -86,7 +86,7 @@ const Signup: React.FC = () => {
     try {
       setIsSubmitting(true);
       const ref = searchParams.get('ref') || undefined;
-      await signUpWithGoogle(ref, 'pulseearn', true);
+      await signUpWithGoogle(ref, 'pulseearn', acceptedTerms);
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {

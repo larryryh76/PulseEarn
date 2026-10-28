@@ -346,7 +346,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
     setFieldErrors({});
     setPending(true);
     try {
-      if (isSignup) await signup(email.trim(), password, username.trim(), refFromQuery);
+      if (isSignup) await signup(email.trim(), password, username.trim(), refFromQuery, agreed);
       else await login(email.trim(), password);
       // Navigation happens in the session-restore effect above.
     } catch (error) {

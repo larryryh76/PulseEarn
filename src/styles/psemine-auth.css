@@ -76,3 +76,41 @@
 .pse-mast-link { color:#a0abc0; text-decoration:none; }
 @media(max-width:780px) { .pse-auth-main { grid-template-columns:minmax(0,1fr); } .pse-auth-panel { display:none; } .pse-auth-bar-inner { padding:0 18px; } .pse-auth-formwrap { padding:38px 20px 42px; } .pse-auth-col { min-height:100vh; } }
 @media(prefers-reduced-motion:reduce) { .pse-auth-form * { transition:none!important; } }
+
+
+/* Authentication controls: clear focus, comfortable touch targets, no narrow-screen overflow. */
+.pse-auth-main :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #9996ff;
+  outline-offset: 3px;
+}
+.pse-auth-form .pse-btn,
+.pse-auth-form .pse-input-toggle,
+.pse-auth-doc-chip,
+.pse-auth-bar-inner > a:not(.pse-auth-brand) {
+  min-height: 44px;
+}
+.pse-auth-form .pse-input-toggle {
+  min-width: 44px;
+}
+.pse-auth-form,
+.pse-auth-formwrap,
+.pse-auth-context-row,
+.pse-auth-panel-legend-row {
+  min-width: 0;
+}
+.pse-auth-form :is(input, select, textarea) {
+  max-width: 100%;
+  font-size: 16px;
+}
+@media (max-width: 359px) {
+  .pse-auth-bar-inner {
+    padding-inline: 12px;
+    gap: 10px;
+  }
+  .pse-auth-formwrap {
+    padding-inline: 16px;
+  }
+  .pse-auth-title {
+    font-size: 27px;
+  }
+}

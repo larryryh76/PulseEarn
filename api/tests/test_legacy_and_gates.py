@@ -152,6 +152,13 @@ class TestFirestoreRulesContract(unittest.TestCase):
         self.assertIn("productAccess", create_rule)
         self.assertRegex(create_rule, r"get\('psemine', false\) != true")
 
+    def test_new_profile_cannot_self_grant_root_privilege(self):
+        block = self.rules[self.rules.index("match /users/{userId}"):]
+        block = block[:block.index("// CRITICAL: Field-restricted updates")]
+        self.assertIn("request.resource.data.role == 'user'", block)
+        self.assertIn("!request.resource.data.keys().hasAny(['isRoot'])", block)
+        self.assertIn("request.resource.data.points == 0", block)
+
     def test_backfill_anchor_is_admin_only(self):
         """has_psemine_access() trusts psemine_tool_ownership; clients must not write it."""
         block = self.rules[self.rules.index("match /psemine_tool_ownership/"):]

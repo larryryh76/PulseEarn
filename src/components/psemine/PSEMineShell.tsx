@@ -178,7 +178,7 @@ export const PSEMineShell: React.FC = () => {
       {inConsole && !isDashboard && <CampaignBand />}
       {inConsole && <PseProductDefinition />}
 
-      <main className="pse-stage" id="pse-stage">
+      <main className="pse-stage" id="pse-stage" data-page={location.pathname.split('/')[2] === 'me' ? 'account' : (location.pathname.split('/')[2] || 'other')}>
         <Outlet />
       </main>
 

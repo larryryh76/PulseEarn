@@ -27,6 +27,7 @@ import './styles/psemine-docs.css'
 // routes instead of being silently overridden by CSS imported by route components.
 import App from './App.tsx'
 import './styles/psemine-console.css'
+import './styles/psemine-six-page-redesign.css'
 import './styles/psemine-admin-shell.css'
 // The authenticated console's own layer: its fixed graphite palette, shell
 // chrome, campaign strip, registers, ledgers, empty states, dialogs, the

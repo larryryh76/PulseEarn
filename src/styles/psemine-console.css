@@ -1160,7 +1160,7 @@
   position: absolute;
   z-index: -1;
   top: -34px;
-  left: max(-28px, calc((100vw - 1320px) / -2));
+  left: min(-28px, calc((100vw - 1320px) / -2));
   width: min(620px, 88vw);
   height: 300px;
   pointer-events: none;

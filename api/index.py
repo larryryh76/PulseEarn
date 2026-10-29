@@ -7074,7 +7074,7 @@ def psemine_create_order():
             'quoteProvider': quote_provider,
             'quoteTimestamp': now_dt.isoformat(),
             'quoteExpiry': expiry_dt.isoformat(),
-            'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
+            'destinationAddress': ((db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get().to_dict() or {}).get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip(),
             'intendedPaymentWallet': payment_wallet,
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'status': 'quoted',
@@ -8691,6 +8691,37 @@ def admin_campaign_action():
             "error": "CAMPAIGN_ARCHIVED",
             "message": "Archived campaign cannot be transitioned."
         }), 400
+
+    if action == 'set_receiver_wallet':
+        # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
+        raw_address = data.get('receiverWalletAddress')
+        if not isinstance(raw_address, str):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "A valid BNB Smart Chain receiving address is required."}), 400
+        receiver_address = raw_address.strip()
+        if (len(receiver_address) != 42 or not receiver_address.startswith('0x') or
+                any(char not in '0123456789abcdefABCDEF' for char in receiver_address[2:]) or
+                receiver_address.lower() == '0x' + ('0' * 40)):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
+        previous_address = str(camp_before.get('receiverWalletAddress') or '')
+        if previous_address.lower() == receiver_address.lower():
+            return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
+        now_iso = datetime.now(timezone.utc).isoformat()
+        camp_ref.update({"receiverWalletAddress": receiver_address, "updatedAt": now_iso})
+        db.collection('admin_audit_logs').add({
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "adminId": uid,
+            "action": "PSEMINE_RECEIVER_WALLET_UPDATED",
+            "targetEntity": "psemine_campaigns/active_campaign",
+            "metadata": {
+                "reason": str(reason)[:240],
+                "previousReceiverWalletAddress": previous_address,
+                "newReceiverWalletAddress": receiver_address,
+                "appliesTo": "new_quotes_only",
+                "existingQuotesPreserved": True,
+            }
+        })
+        return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
+                        "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
 
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance

@@ -7650,6 +7650,20 @@ def admin_psemine_overview():
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
+    # Lifetime tool income is calculated only from successfully verified,
+    # confirmed payment records. Quotes, failed attempts, withdrawals and
+    # accrued mining rewards are not purchase income.
+    tool_income_gbp = None
+    try:
+        confirmed_payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').stream()
+        tool_income_gbp = round(sum(
+            safe_float((snap.to_dict() or {}).get('priceGbp'),
+                       safe_float((snap.to_dict() or {}).get('purchasePriceGbp'), 0.0))
+            for snap in confirmed_payment_snaps
+        ), 2)
+    except Exception:
+        logging.exception('[PSEmine Admin] confirmed tool income aggregation failed')
+
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
     pending_withdrawals = [s.to_dict() for s in pending_snaps]
 
@@ -7660,6 +7674,7 @@ def admin_psemine_overview():
             "totalConfirmedPayments": payments_count,
             "activeToolOwnerships": ownership_count,
             "activeMiningSessions": sessions_count,
+            "totalToolIncomeGbp": tool_income_gbp,
             "pendingWithdrawalsCount": len(pending_withdrawals),
             "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
         }

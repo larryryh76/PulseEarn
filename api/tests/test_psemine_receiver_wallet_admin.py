@@ -56,6 +56,19 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)
         self.assertIn("distinct from payout destinations", ADMIN_SOURCE)
 
+    def test_admin_overview_reports_verified_tool_income_and_running_tools(self):
+        overview_start = API_SOURCE.index("@app.route('/api/admin/psemine/overview'")
+        overview_end = API_SOURCE.index("@app.route('/api/admin/psemine/orders'", overview_start)
+        overview = API_SOURCE[overview_start:overview_end]
+        self.assertIn("'status', '==', 'confirmed'", overview)
+        self.assertIn("totalToolIncomeGbp", overview)
+        self.assertIn("priceGbp", overview)
+        self.assertIn("activeMiningSessions", overview)
+        self.assertIn("activeToolOwnerships", overview)
+        self.assertIn("label=\"Tools running now\"", ADMIN_SOURCE)
+        self.assertIn("label=\"Total tool income\"", ADMIN_SOURCE)
+        self.assertIn("overviewStat('totalToolIncomeGbp')", ADMIN_SOURCE)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2125,3 +2125,54 @@
   /* A static, centred segment — still an honest "in progress", never a filled bar. */
   .pse-loader-track > i { animation: none; transform: none; left: 31%; width: 38%; }
 }
+
+
+/* ── Cross-route semantic finishing tokens ────────────────────────────────
+ * Add semantic aliases so individual PSEmine surfaces do not need to invent
+ * their own focus, spacing and state values. Existing brand tokens stay intact.
+ */
+.pse {
+  --pse-focus-ring: 0 0 0 3px rgba(138, 145, 255, 0.28);
+  --pse-state-info: var(--pse-cyan);
+  --pse-state-success: var(--pse-cyan);
+  --pse-state-warning: var(--pse-warn);
+  --pse-state-danger: var(--pse-danger);
+  --pse-control-min: 44px;
+  --pse-page-max: 1180px;
+}
+.pse-plane {
+  --pse-focus-ring: 0 0 0 3px rgba(153, 150, 255, 0.28);
+}
+.pse :is(button, [role="button"], a.pse-btn, input, select, textarea, summary) {
+  scroll-margin-block: 5rem;
+}
+.pse :is(button, [role="button"], a.pse-btn):focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 3px;
+}
+.pse :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 2px;
+}
+.pse :is(input, select, textarea):disabled,
+.pse :is(button, [role="button"]):disabled {
+  cursor: not-allowed;
+}
+.pse :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+.pse :is(img, svg, canvas, video) {
+  max-width: 100%;
+}
+@media (max-width: 359px) {
+  .pse {
+    --pse-gutter: 14px;
+    --pse-section-y: 48px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pse :is(*, *::before, *::after) {
+    scroll-behavior: auto;
+  }
+}

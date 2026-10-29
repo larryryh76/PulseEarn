@@ -1460,3 +1460,468 @@
 @media (prefers-reduced-motion: reduce) {
   .pse-pricelist-row { transition: none; }
 }
+
+
+/* ── Responsive landing-page finishing pass ───────────────────────────────
+ * Keep the instrument-led composition, but make its controls and data rows
+ * resilient at narrow widths. Scoped to the public landing art layer.
+ */
+.pse-mast-link,
+.pse-drawer-link,
+.pse-foot-link,
+.pse-docline-link {
+  min-height: 44px;
+}
+.pse-mast-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pse-mast-actions .pse-btn,
+.pse-drawer-actions .pse-btn,
+.pse-hero-cta .pse-btn,
+.pse-close-actions .pse-btn {
+  min-height: 46px;
+}
+.pse :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 3px;
+}
+.pse-pricelist-row {
+  min-width: 0;
+}
+.pse-pricelist-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pse-pricelist-rate,
+.pse-pricelist-price {
+  font-variant-numeric: tabular-nums;
+}
+.pse-faq-q {
+  min-height: 48px;
+}
+.pse-faq-a {
+  overflow-wrap: anywhere;
+}
+.pse-foot-grid > *,
+.pse-foot-grid--navs > *,
+.pse-section-object,
+.pse-split-text,
+.pse-split-aside {
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .pse-mast-inner {
+    gap: 0.6rem;
+    padding-inline: max(1rem, env(safe-area-inset-left));
+  }
+  .pse-mast-actions {
+    gap: 0.45rem;
+  }
+  .pse-mast-actions .pse-btn {
+    min-height: 44px;
+    padding-inline: 0.8rem;
+    white-space: nowrap;
+  }
+  .pse-hero {
+    padding-top: clamp(2rem, 8vw, 3.25rem);
+  }
+  .pse-display {
+    font-size: clamp(2.4rem, 11vw, 4.1rem);
+    line-height: 0.98;
+    overflow-wrap: anywhere;
+  }
+  .pse-hero-cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+  .pse-hero-cta .pse-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .pse-hero-meta {
+    width: 100%;
+    gap: 0;
+  }
+  .pse-hero-meta > div {
+    min-width: 0;
+    padding: 0.8rem 0.65rem 0.8rem 0;
+  }
+  .pse-hero-meta > div:nth-child(2n) {
+    padding-left: 0.8rem;
+  }
+  .pse-pricelist-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 0.25rem;
+  }
+  .pse-pricelist-rate {
+    grid-column: 2;
+    font-size: 0.75rem;
+  }
+  .pse-pricelist-price {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    font-size: 0.875rem;
+  }
+  .pse-pricelist-name {
+    align-self: end;
+    font-size: 0.875rem;
+  }
+  .pse-foot {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+  .pse-foot-grid,
+  .pse-foot-grid--navs {
+    gap: 1.4rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .pse-mast-inner {
+    padding-inline: 0.7rem;
+  }
+  .pse-mast-actions .pse-btn {
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+  }
+  .pse-display {
+    font-size: clamp(2.2rem, 10.5vw, 2.8rem);
+  }
+  .pse-pricelist-row {
+    column-gap: 0.35rem;
+  }
+  .pse-pricelist-rate {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pse-mast-link,
+  .pse-drawer-link,
+  .pse-pricelist-row {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PULSEEARN DESIGN LANGUAGE — PSEmine visual rebuild pass
+ *
+ * This layer deliberately changes composition and hierarchy, not only control
+ * sizing. It translates PulseEarn's bold gradient typography, atmospheric
+ * electric colour, grid texture and product-led hero into PSEmine's own pages.
+ * It is scoped to PSEmine selectors; no account, campaign, wallet or API logic
+ * is changed here.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* A richer canvas, with the blue/violet atmosphere concentrated behind content. */
+.pse-plane {
+  background-color: #07080d;
+  background-image:
+    radial-gradient(ellipse 70% 38% at 50% 0%, rgba(75, 79, 255, .18), transparent 72%),
+    radial-gradient(ellipse 38% 28% at 92% 28%, rgba(30, 180, 255, .075), transparent 78%),
+    linear-gradient(rgba(142, 149, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142, 149, 255, .035) 1px, transparent 1px);
+  background-size: auto, auto, 56px 56px, 56px 56px;
+  background-position: center top, right top, center top, center top;
+}
+.pse-plane .pse-mast {
+  background: rgba(7, 8, 13, .76);
+  border-bottom-color: rgba(160, 166, 255, .16);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+.pse-plane .pse-mast-inner { min-height: 68px; }
+.pse-plane .pse-mast-chip {
+  border-color: rgba(133, 130, 255, .3);
+  background: rgba(99, 91, 255, .09);
+  box-shadow: 0 0 24px rgba(99, 91, 255, .08) inset;
+}
+.pse-plane .pse-mast-link { transition: color .18s ease, background .18s ease; }
+.pse-plane .pse-mast-link:hover { background: rgba(255,255,255,.055); }
+.pse-plane .pse-btn:not(.pse-btn--secondary) {
+  color: #fff;
+  border-color: rgba(176, 174, 255, .28);
+  background: linear-gradient(115deg, #7772ff 0%, #5b59f0 48%, #3989ff 100%);
+  box-shadow: 0 10px 30px rgba(91, 89, 240, .23), 0 0 0 1px rgba(255,255,255,.04) inset;
+}
+.pse-plane .pse-btn:not(.pse-btn--secondary):hover {
+  filter: brightness(1.1);
+  box-shadow: 0 14px 36px rgba(91, 89, 240, .31), 0 0 26px rgba(57,137,255,.12);
+  transform: translateY(-2px);
+}
+.pse-plane .pse-btn--secondary {
+  border-color: rgba(190, 195, 255, .22);
+  background: rgba(255,255,255,.035);
+  backdrop-filter: blur(12px);
+}
+.pse-plane .pse-chip {
+  border-color: rgba(137, 135, 255, .28);
+  background: rgba(98, 92, 245, .085);
+}
+
+/* Re-compose the hero as one confident, centred statement like PulseEarn's. */
+.pse-plane .pse-hero {
+  width: min(100%, 1240px);
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: clamp(2rem, 5vw, 4.25rem);
+  padding-top: clamp(4rem, 8vw, 7.5rem);
+  padding-bottom: clamp(4.5rem, 8vw, 7rem);
+}
+.pse-plane .pse-hero-copy {
+  width: min(100%, 940px);
+  align-items: center;
+  text-align: center;
+}
+.pse-plane .pse-hero-copy > .pse-chip:first-child {
+  min-height: 32px;
+  padding: 7px 14px;
+  border-color: rgba(126, 125, 255, .38);
+  background: rgba(91, 89, 240, .1);
+  box-shadow: 0 0 30px rgba(91, 89, 240, .08) inset;
+  letter-spacing: .13em;
+}
+.pse-plane .pse-hero .pse-display {
+  max-width: 1000px;
+  margin-top: 1.5rem;
+  font-size: clamp(2.75rem, 6.5vw, 6.4rem);
+  font-weight: 800;
+  line-height: .99;
+  letter-spacing: -.067em;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #fff 5%, #e6e9ff 49%, #9e9cff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 8px 34px rgba(103, 100, 255, .11));
+}
+.pse-plane .pse-hero .pse-lead {
+  max-width: 690px;
+  margin-top: 1.5rem;
+  color: #b4bdd1;
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+.pse-plane .pse-hero-cta {
+  justify-content: center;
+  gap: .8rem;
+  margin-top: 2rem;
+}
+.pse-plane .pse-hero-cta .pse-btn {
+  min-height: 54px;
+  padding-inline: 1.5rem;
+  border-radius: 13px;
+  font-size: .9rem;
+}
+.pse-plane .pse-hero-link { color: #c1c3ff; }
+.pse-plane .pse-hero-meta {
+  max-width: 720px;
+  margin: 2.4rem auto 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  border: 1px solid rgba(178, 185, 230, .14);
+  border-radius: 15px;
+  background: rgba(10, 13, 23, .68);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+.pse-plane .pse-hero-meta > div {
+  min-width: 0;
+  padding: 1rem .85rem;
+  align-items: center;
+}
+.pse-plane .pse-hero-meta > div + div {
+  padding-left: .85rem;
+  border-left: 1px solid rgba(178, 185, 230, .13);
+}
+.pse-plane .pse-hero-meta dt {
+  font-family: var(--pse-font);
+  letter-spacing: .1em;
+}
+.pse-plane .pse-hero-meta dd {
+  margin-top: .15rem;
+  font-family: var(--pse-font);
+  font-size: clamp(.75rem, 1vw, .95rem);
+  font-weight: 650;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+.pse-plane .pse-console-stage,
+.pse-plane .pse-app {
+  width: 100%;
+  min-width: 0;
+}
+.pse-plane .pse-console-stage {
+  position: relative;
+  max-width: 1000px;
+  margin-inline: auto;
+  filter: drop-shadow(0 28px 65px rgba(0,0,0,.38));
+}
+.pse-plane .pse-app {
+  border: 1px solid rgba(151, 149, 255, .26);
+  border-radius: 22px;
+  background: linear-gradient(155deg, rgba(20, 25, 43, .98), rgba(8, 11, 19, .98) 68%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.025) inset, 0 35px 90px rgba(0,0,0,.48), 0 0 70px rgba(91,89,240,.1);
+}
+.pse-plane .pse-app-bar { background: rgba(8, 11, 20, .86); }
+.pse-plane .pse-app-kpi { border-radius: 12px; }
+.pse-plane .pse-app-kpi-cell[data-lead='true'] {
+  background: linear-gradient(135deg, rgba(99,91,255,.19), rgba(56,212,242,.055));
+}
+.pse-plane .pse-floatcard {
+  border: 1px solid rgba(139, 135, 255, .24);
+  background: linear-gradient(140deg, rgba(29, 31, 57, .98), rgba(12, 17, 29, .98));
+  box-shadow: 0 20px 55px rgba(0,0,0,.4), 0 0 36px rgba(99,91,255,.11);
+}
+
+/* Page chapters now feel like one continuous product, with accent light used sparingly. */
+.pse-plane .pse-section { padding-block: clamp(4rem, 8vw, 7rem); }
+.pse-plane .pse-section:nth-of-type(even) { background-color: rgba(12, 15, 25, .52); }
+.pse-plane .pse-plate-title,
+.pse-plane .pse-h2 {
+  font-size: clamp(2rem, 3.8vw, 3.4rem);
+  font-weight: 720;
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+.pse-plane .pse-plate-kicker,
+.pse-plane .pse-plate-num { color: #a8a6ff; }
+.pse-plane .pse-plate-num {
+  border-color: rgba(132, 128, 255, .38);
+  background: rgba(99,91,255,.12);
+}
+.pse-plane .pse-plate-rule { border-bottom-color: rgba(153, 160, 215, .2); }
+.pse-plane .pse-panel,
+.pse-plane .pse-panel--raised,
+.pse-plane .pse-panel--instrument {
+  border-radius: 16px;
+  border: 1px solid rgba(160, 166, 220, .13);
+}
+.pse-plane .pse-faq { background: rgba(12, 16, 27, .8); }
+.pse-plane .pse-close {
+  border: 1px solid rgba(143, 139, 255, .23);
+  border-radius: 22px;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  background: radial-gradient(ellipse at 5% 0%, rgba(99,91,255,.18), transparent 55%), linear-gradient(140deg, #11172a, #090c14 75%);
+  box-shadow: 0 25px 70px rgba(0,0,0,.25);
+}
+
+/* Carry the same PulseEarn-like atmosphere into account pages without changing their data. */
+.pse-auth {
+  background:
+    radial-gradient(ellipse 70% 48% at 50% 0%, rgba(86, 82, 255, .16), transparent 72%),
+    linear-gradient(rgba(142,149,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142,149,255,.025) 1px, transparent 1px),
+    #07080d;
+  background-size: auto, 56px 56px, 56px 56px, auto;
+}
+.pse-auth-bar { border-bottom-color: rgba(160,166,255,.16); background: rgba(7,8,13,.78); backdrop-filter: blur(18px); }
+.pse-auth-col {
+  border: 1px solid rgba(151,149,255,.18);
+  background: linear-gradient(155deg, rgba(17,21,37,.98), rgba(9,12,20,.98));
+  box-shadow: 0 25px 80px rgba(0,0,0,.32), 0 0 50px rgba(99,91,255,.08);
+}
+.pse-auth-title { font-size: clamp(2rem, 4vw, 2.6rem); font-weight: 760; letter-spacing: -.06em; }
+.pse-auth-panel {
+  background: radial-gradient(ellipse at 55% 15%, rgba(99,91,255,.24), transparent 48%), #090b14;
+}
+.pse-auth-form .pse-btn {
+  border-radius: 11px;
+  background: linear-gradient(115deg, #7772ff, #5b59f0 55%, #3989ff);
+  box-shadow: 0 10px 26px rgba(91,89,240,.19);
+}
+
+/* Dashboard, wallet, tools and referrals share a richer background and clearer hierarchy. */
+.pse-console-shell {
+  background:
+    radial-gradient(ellipse 80% 34% at 50% 0%, rgba(75,79,255,.12), transparent 74%),
+    linear-gradient(rgba(142,149,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142,149,255,.022) 1px, transparent 1px),
+    #070a11;
+  background-size: auto, 56px 56px, 56px 56px, auto;
+}
+.pse-console-shell .pse-bar {
+  background: rgba(7,10,17,.84);
+  border-bottom-color: rgba(160,166,255,.16);
+  backdrop-filter: blur(20px) saturate(150%);
+}
+.pse-console-shell .pse-page-title,
+.pse-console-shell .pse-page h1,
+.pse-dash-title,
+.pse-w-title {
+  font-weight: 760;
+  letter-spacing: -.06em;
+  background: linear-gradient(180deg, #fff 0%, #e1e5ff 58%, #a7a4ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pse-console-shell .pse-statbar,
+.pse-console-shell .pse-card,
+.pse-account-band,
+.pse-w-balance,
+.pse-w-figures {
+  border-color: rgba(151, 159, 218, .17);
+  box-shadow: 0 18px 48px rgba(0,0,0,.16);
+}
+.pse-console-shell .pse-btn:not(.pse-btn--secondary),
+.pse-console-shell .pse-console-shell .pse-btn:not(.pse-btn--secondary) {
+  background: linear-gradient(115deg, #7772ff, #5b59f0 55%, #3989ff);
+}
+.pse-console-shell .pse-nav-link.active {
+  background: linear-gradient(110deg, rgba(99,91,255,.2), rgba(56,212,242,.07));
+  box-shadow: inset 0 0 0 1px rgba(133,130,255,.16);
+}
+.pse-console-shell .pse-stage { padding-top: clamp(28px, 4vw, 54px); }
+.pse-console-shell .pse-page-head { border-bottom-color: rgba(160,166,255,.16); }
+.pse-console-shell .pse-statbar { border-radius: 16px; overflow: hidden; }
+.pse-console-shell .pse-stat + .pse-stat { border-left-color: rgba(160,166,255,.13); }
+
+/* Responsive composition: preserve the visual hierarchy instead of shrinking it. */
+@media (max-width: 767px) {
+  .pse-plane .pse-hero { padding-top: 3.5rem; gap: 2rem; }
+  .pse-plane .pse-hero .pse-display { font-size: clamp(2.55rem, 11vw, 4rem); }
+  .pse-plane .pse-hero .pse-lead { font-size: 1rem; }
+  .pse-plane .pse-hero-cta { width: 100%; flex-direction: column; align-items: stretch; }
+  .pse-plane .pse-hero-cta > * { width: 100%; justify-content: center; }
+  .pse-plane .pse-hero-meta { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .pse-plane .pse-hero-meta > div:nth-child(3) { border-left: 0; }
+  .pse-plane .pse-hero-meta > div:nth-child(n+3) { border-top: 1px solid rgba(178,185,230,.13); }
+  .pse-plane .pse-hero-meta > div + div { padding-left: .7rem; }
+  .pse-plane .pse-hero-meta > div:nth-child(odd) { border-left: 0; }
+  .pse-plane .pse-app { border-radius: 16px; }
+  .pse-plane .pse-close { border-radius: 16px; }
+  .pse-console-shell .pse-stage { padding-inline: 14px; }
+  .pse-console-shell .pse-page-head { align-items: flex-start; flex-direction: column; }
+  .pse-console-shell .pse-statbar { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .pse-console-shell .pse-stat:nth-child(odd) { border-left: 0; }
+  .pse-console-shell .pse-stat:nth-child(n+3) { border-top: 1px solid rgba(160,166,255,.13); }
+}
+@media (max-width: 359px) {
+  .pse-plane .pse-hero .pse-display { font-size: 2.35rem; }
+  .pse-plane .pse-hero-meta > div { padding-inline: .5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pse-plane .pse-app,
+  .pse-plane .pse-btn,
+  .pse-console-shell .pse-btn { transition: none !important; }
+}
+
+
+/* The hero statement uses the brand's two-tone type treatment, not a flat text fill. */
+.pse-plane .pse-hero-highlight {
+  display:inline-block;
+  background:linear-gradient(95deg,#aaa7ff 0%,#8582ff 48%,#68cfff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 8px 30px rgba(99,91,255,.18));
+}

@@ -9,7 +9,7 @@
 .pse-w-chip { display:grid; gap:4px; justify-items:end; }
 .pse-w-chip-value { font-size:11px; color:var(--pse-ink-2); font-variant-numeric:tabular-nums; }
 .pse-w-addr { display:flex; align-items:center; gap:7px; max-width:100%; }
-.pse-w-addr-text { max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px ui-monospace,monospace; color:var(--pse-ink-2); }
+.pse-w-addr-text { max-width:min(420px,100%); min-width:0; overflow-wrap:anywhere; white-space:normal; font:11px/1.6 ui-monospace,monospace; color:var(--pse-ink-2); }
 .pse-w-addr-copy { border:1px solid var(--pse-rule); background:transparent; color:var(--pse-ink-2); border-radius:7px; padding:5px 8px; font-size:10px; }
 .pse-w-figures { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr); border:1px solid var(--pse-rule-2); border-radius:18px; overflow:hidden; background:radial-gradient(ellipse at 0 0,rgba(98,92,245,.2),transparent 68%),linear-gradient(135deg,rgba(255,255,255,.018),transparent 55%),#0e131e; }
 .pse-w-figure { min-width:0; padding:clamp(20px,3vw,32px); }
@@ -41,8 +41,8 @@
 .pse-w-txmeta { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; color:var(--pse-ink-3); font-size:10px; }
 .pse-w-txhash { font-family:ui-monospace,monospace; overflow-wrap:anywhere; }
 .pse-w-txfig { text-align:right; min-width:0; }
-.pse-w-txamount { font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.pse-w-txwhen { margin-top:4px; color:var(--pse-ink-3); font-size:10px; white-space:nowrap; }
+.pse-w-txamount { font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; white-space:normal; overflow-wrap:anywhere; }
+.pse-w-txwhen { margin-top:4px; color:var(--pse-ink-3); font-size:10px; white-space:normal; overflow-wrap:anywhere; }
 .pse-w-txdetail { padding:0 0 15px 46px; }
 .pse-w-kv { display:grid; grid-template-columns:minmax(90px,.5fr) minmax(0,1fr); gap:12px; padding:7px 0; border-top:1px solid var(--pse-rule); font-size:11px; }
 .pse-w-kv-key { color:var(--pse-ink-3); }

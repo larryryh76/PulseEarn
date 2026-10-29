@@ -237,7 +237,7 @@ export const PSEMineDashboard: React.FC = () => {
   );
 
   return (
-    <div className="pse-console-main pse-dash">
+    <div className="pse-console-main pse-route-dashboard pse-dash">
       {/* A. ACCOUNT HEAD + CAMPAIGN STATUS — the context for every figure. */}
       <header className="pse-dash-head">
         <div className="pse-dash-head-id">

@@ -7074,7 +7074,7 @@ def psemine_create_order():
             'quoteProvider': quote_provider,
             'quoteTimestamp': now_dt.isoformat(),
             'quoteExpiry': expiry_dt.isoformat(),
-            'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
+            'destinationAddress': ((db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get().to_dict() or {}).get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip(),
             'intendedPaymentWallet': payment_wallet,
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'status': 'quoted',
@@ -7650,6 +7650,49 @@ def admin_psemine_overview():
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
+    # Lifetime tool income is calculated only from successfully verified,
+    # confirmed payment records. Quotes, failed attempts, withdrawals and
+    # accrued mining rewards are not purchase income.
+    tool_income_gbp = None
+    try:
+        income_total = 0.0
+        income_complete = True
+        confirmed_payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').stream()
+        for payment_snap in confirmed_payment_snaps:
+            payment_row = payment_snap.to_dict() or {}
+            gbp_amount = payment_row.get('priceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('purchasePriceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('amountGbp')
+
+            # Legacy confirmed payment records may store only BNB/wei. Recover
+            # their GBP purchase price from the linked server-owned order; never
+            # estimate GBP from a current exchange rate or quote.
+            if gbp_amount is None:
+                order_id = str(payment_row.get('orderId') or '').strip()
+                if order_id:
+                    order_snap = db.collection('psemine_orders').document(order_id).get()
+                    if order_snap.exists:
+                        order_row = order_snap.to_dict() or {}
+                        gbp_amount = order_row.get('priceGbp')
+                        if gbp_amount is None:
+                            gbp_amount = order_row.get('gbpPrice')
+            if gbp_amount is None:
+                income_complete = False
+                logging.warning(
+                    '[PSEmine Admin] confirmed payment %s has no recoverable GBP purchase price',
+                    payment_snap.id,
+                )
+                continue
+            income_total += safe_float(gbp_amount, 0.0)
+
+        # Never present a partial sum as lifetime income.
+        if income_complete:
+            tool_income_gbp = round(income_total, 2)
+    except Exception:
+        logging.exception('[PSEmine Admin] confirmed tool income aggregation failed')
+
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
     pending_withdrawals = [s.to_dict() for s in pending_snaps]
 
@@ -7660,6 +7703,7 @@ def admin_psemine_overview():
             "totalConfirmedPayments": payments_count,
             "activeToolOwnerships": ownership_count,
             "activeMiningSessions": sessions_count,
+            "totalToolIncomeGbp": tool_income_gbp,
             "pendingWithdrawalsCount": len(pending_withdrawals),
             "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
         }
@@ -8691,6 +8735,37 @@ def admin_campaign_action():
             "error": "CAMPAIGN_ARCHIVED",
             "message": "Archived campaign cannot be transitioned."
         }), 400
+
+    if action == 'set_receiver_wallet':
+        # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
+        raw_address = data.get('receiverWalletAddress')
+        if not isinstance(raw_address, str):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "A valid BNB Smart Chain receiving address is required."}), 400
+        receiver_address = raw_address.strip()
+        if (len(receiver_address) != 42 or not receiver_address.startswith('0x') or
+                any(char not in '0123456789abcdefABCDEF' for char in receiver_address[2:]) or
+                receiver_address.lower() == '0x' + ('0' * 40)):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
+        previous_address = str(camp_before.get('receiverWalletAddress') or '')
+        if previous_address.lower() == receiver_address.lower():
+            return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
+        now_iso = datetime.now(timezone.utc).isoformat()
+        camp_ref.update({"receiverWalletAddress": receiver_address, "updatedAt": now_iso})
+        db.collection('admin_audit_logs').add({
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "adminId": uid,
+            "action": "PSEMINE_RECEIVER_WALLET_UPDATED",
+            "targetEntity": "psemine_campaigns/active_campaign",
+            "metadata": {
+                "reason": str(reason)[:240],
+                "previousReceiverWalletAddress": previous_address,
+                "newReceiverWalletAddress": receiver_address,
+                "appliesTo": "new_quotes_only",
+                "existingQuotesPreserved": True,
+            }
+        })
+        return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
+                        "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
 
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance

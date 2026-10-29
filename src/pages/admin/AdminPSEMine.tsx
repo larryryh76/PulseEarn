@@ -283,6 +283,7 @@ export const AdminPSEMine: React.FC = () => {
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
       setWalletAcknowledged(false);
+      await refreshCampaign();
       await load(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Receiving wallet update failed.');
@@ -537,9 +538,9 @@ export const AdminPSEMine: React.FC = () => {
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
             <PseFacts cols={4}>
               <PseFact
-                label="Tools running now"
+                label="Active mining sessions"
                 value={numOrDash(overviewStat('activeMiningSessions'))}
-                hint="Active mining sessions reported by the backend"
+                hint="Sessions whose backend state is active"
               />
               <PseFact
                 label="Active tools owned"

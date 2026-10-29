@@ -1415,3 +1415,6 @@
   .pse-definition-strip { gap:4px 7px; padding-block:9px; font-size:10px; }
   .pse-definition-link { margin-left:0; width:100%; min-height:28px; }
 }
+
+.pse-public-definition { flex-basis:100%; max-width:90ch; color:var(--pse-ink-2); font-size:11px; line-height:1.65; }
+.pse-console-foot-inner--public { flex-wrap:wrap; }

@@ -67,7 +67,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("priceGbp", overview)
         self.assertIn("activeMiningSessions", overview)
         self.assertIn("activeToolOwnerships", overview)
-        self.assertIn("label=\"Tools running now\"", ADMIN_SOURCE)
+        self.assertIn("label=\"Active mining sessions\"", ADMIN_SOURCE)
         self.assertIn("label=\"Total tool income\"", ADMIN_SOURCE)
         self.assertIn("overviewStat('totalToolIncomeGbp')", ADMIN_SOURCE)
 

@@ -176,6 +176,7 @@ export const PSEMineShell: React.FC = () => {
       />
 
       {inConsole && !isDashboard && <CampaignBand />}
+      {inConsole && <PseProductDefinition />}
 
       <main className="pse-stage" id="pse-stage">
         <Outlet />
@@ -316,6 +317,21 @@ const ConsoleDock: React.FC = () => (
       </NavLink>
     ))}
   </nav>
+);
+
+/* ── Shared product definition ────────────────────────────────────────────── */
+/** A compact, shared definition so every authenticated PSEmine route explains
+ * the same product without changing any account data or service behaviour. */
+const PseProductDefinition: React.FC = () => (
+  <aside className="pse-definition-strip" aria-label="What PSEmine is">
+    <span className="pse-definition-label">PSEmine</span>
+    <span>Managed SHA-mining access during a defined campaign.</span>
+    <span className="pse-definition-divider" aria-hidden="true">·</span>
+    <span>Capacity and accrual in GBP</span>
+    <span className="pse-definition-divider" aria-hidden="true">·</span>
+    <span>Purchases and approved payouts in BNB</span>
+    <Link to="/mine#campaign" className="pse-definition-link">How it works <span aria-hidden="true">↗</span></Link>
+  </aside>
 );
 
 /* ── Campaign strip ──────────────────────────────────────────────────────── */

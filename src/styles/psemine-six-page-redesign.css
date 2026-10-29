@@ -87,8 +87,8 @@
   min-width:0; border:1px solid rgba(156,181,226,.12); border-radius:14px;
   background:rgba(13,20,34,.76); padding:16px 17px;
 }
-.pse-console-shell--docked .pse-stat-label { color:#8291ad; font-size:10px; letter-spacing:.09em; text-transform:uppercase; }
-.pse-console-shell--docked .pse-stat-value { color:#f2f6ff; font-size:clamp(19px,2.4vw,27px); font-weight:730; letter-spacing:-.05em; }
+.pse-console-shell--docked .pse-stat-key { color:#8291ad; font-size:10px; letter-spacing:.09em; text-transform:uppercase; }
+.pse-console-shell--docked .pse-stat-val { color:#f2f6ff; font-size:clamp(19px,2.4vw,27px); font-weight:730; letter-spacing:-.05em; }
 .pse-console-shell--docked .pse-stat-note { color:#7e8ba5; font-size:11px; }
 .pse-console-shell--docked .pse-log { border-top:1px solid rgba(156,181,226,.11); }
 .pse-console-shell--docked .pse-log-row {
@@ -326,3 +326,24 @@
     animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important;
   }
 }
+
+/* Page labels are deliberately short and different: each surface has one job. */
+.pse-stage[data-page="referrals"] .pse-page-title::before,
+.pse-stage[data-page="activity"] .pse-page-title::before,
+.pse-stage[data-page="account"] .pse-page-title::before {
+  display:block; margin-bottom:9px; color:#8ea8e9; font-size:10px; font-weight:750;
+  letter-spacing:.16em; line-height:1.3; text-transform:uppercase;
+}
+.pse-stage[data-page="referrals"] .pse-page-title::before { content:"INVITE • QUALIFY • GROW"; }
+.pse-stage[data-page="activity"] .pse-page-title::before { content:"ACCOUNT JOURNAL"; }
+.pse-stage[data-page="account"] .pse-page-title::before { content:"PROFILE & SECURITY"; }
+.pse-stage[data-page="referrals"] .pse-page-objective { max-width:720px; }
+.pse-stage[data-page="activity"] .pse-page-objective { max-width:650px; }
+.pse-stage[data-page="account"] .pse-page-objective { max-width:620px; }
+.pse-stage[data-page="referrals"] .pse-block,
+.pse-stage[data-page="activity"] .pse-block,
+.pse-stage[data-page="account"] .pse-block { box-shadow:0 12px 30px rgba(0,0,0,.1); }
+.pse-stage[data-page="activity"] .pse-statbar { margin-bottom:0; }
+.pse-stage[data-page="account"] .pse-statbar { margin-bottom:0; }
+.pse-stage[data-page="account"] .pse-account-badges > span { border-radius:999px; padding:5px 9px; font-size:10px; }
+.pse-stage[data-page="account"] .pse-account-shortcut-arrow { color:#8da8f9; }

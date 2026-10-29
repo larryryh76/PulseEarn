@@ -130,7 +130,7 @@ export const PSEMineDashboard: React.FC = () => {
      replaces a centred loader that hid the page it was loading. */
   if (!state && (loading || error)) {
     return (
-      <div className="pse-console-main pse-dash">
+      <div className="pse-console-main pse-route-dashboard pse-dash">
         <header className="pse-dash-head">
           <div className="pse-dash-head-id">
             <p className="pse-eyebrow">Mining account</p>

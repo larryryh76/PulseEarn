@@ -9,44 +9,16 @@ import { PSE_MINE_HOME } from '../../engines/product/productRouting';
 import { mapAuthError } from '../../utils/errors';
 
 /**
- * PSEmine authentication — the product's sign-in family.
+ * PSEmine authentication behaviour with a clean-slate presentation.
  *
- * PRESENTATION REBUILT; BEHAVIOUR UNCHANGED. Every call, guard, side effect and
- * navigation below is the implementation that already shipped:
+ * Keep the existing authentication service, Google provider, form validation,
+ * referral attribution, email verification, password reset, returnTo routing,
+ * access checks and onboarding gates intact. This file owns behaviour; the
+ * compact visual system lives in PseAuthFrame and psemine-auth.css.
  *
- *   • sign-up with an optional referral code (from ?ref=, surfaced before submit)
- *   • sign-in, Google sign-in (a dismissed popup is a dismissal, not an error),
- *     password reset, verification resend with a cooldown, the explicit access
- *     gate (`enablePSEmine`), and the protected route that preserves the intended
- *     destination in `returnTo`, requires a verified identity, explains missing
- *     access, and only then applies the onboarding gate.
- *
- * WHAT CHANGED, AND WHY
- *   • PLANE. These surfaces render on the product's own plane — always dark
- *     graphite, whatever the application theme is (see src/styles/psemine.css
- *     and src/styles/psemine-auth.css), so a sign-in page is unmistakably part
- *     of the same product as the landing page rather than a page of the console.
- *   • CONTENT. Nothing about the campaign, the tools, capacity, referrals or
- *     earnings appears on any authentication surface. A sign-in page explains
- *     itself and nothing else.
- *   • ORDER. The primary action, then whatever qualifies it (the password reset
- *     link, or the terms line), then the provider divider, then the alternate
- *     provider. The exception someone must read belongs above the divider, not
- *     after an unrelated button.
- *   • FORM QUALITY. Real financial-product controls: plain labels, 48px fields,
- *     a password visibility control, an invalid state per field, the error
- *     printed under the field it belongs to, a focusable error summary above the
- *     form for a rejected submit, and a busy state on the primary action.
- *   • CONTEXT. Sign in and create account each state what the account gives
- *     access to, as capabilities taken from the published price list and the
- *     campaign rules. Never a figure, never account state — the public page
- *     carries the product's argument and an authentication surface does not.
- *   • RETURN ROUTING. A verified session continues into the PSEmine console
- *     (PSE_MINE_HOME), never into another product's dashboard.
- *   • VALIDATION. The same two rules the previous implementation enforced
- *     (display name ≥ 2 characters, password ≥ 8 characters) render against
- *     their own fields instead of as one banner. The pre-flight checks and their
- *     order are unchanged — an invalid form still never reaches the provider.
+ * The public entry points lead with Google, then offer the existing email and
+ * password route. No account state, balances, capacity or earnings are shown
+ * on authentication screens.
  */
 
 /* ── Small inline glyphs. Meaningful only: password visibility. ───────────── */

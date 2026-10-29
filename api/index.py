@@ -7655,12 +7655,41 @@ def admin_psemine_overview():
     # accrued mining rewards are not purchase income.
     tool_income_gbp = None
     try:
+        income_total = 0.0
+        income_complete = True
         confirmed_payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').stream()
-        tool_income_gbp = round(sum(
-            safe_float((snap.to_dict() or {}).get('priceGbp'),
-                       safe_float((snap.to_dict() or {}).get('purchasePriceGbp'), 0.0))
-            for snap in confirmed_payment_snaps
-        ), 2)
+        for payment_snap in confirmed_payment_snaps:
+            payment_row = payment_snap.to_dict() or {}
+            gbp_amount = payment_row.get('priceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('purchasePriceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('amountGbp')
+
+            # Legacy confirmed payment records may store only BNB/wei. Recover
+            # their GBP purchase price from the linked server-owned order; never
+            # estimate GBP from a current exchange rate or quote.
+            if gbp_amount is None:
+                order_id = str(payment_row.get('orderId') or '').strip()
+                if order_id:
+                    order_snap = db.collection('psemine_orders').document(order_id).get()
+                    if order_snap.exists:
+                        order_row = order_snap.to_dict() or {}
+                        gbp_amount = order_row.get('priceGbp')
+                        if gbp_amount is None:
+                            gbp_amount = order_row.get('gbpPrice')
+            if gbp_amount is None:
+                income_complete = False
+                logging.warning(
+                    '[PSEmine Admin] confirmed payment %s has no recoverable GBP purchase price',
+                    payment_snap.id,
+                )
+                continue
+            income_total += safe_float(gbp_amount, 0.0)
+
+        # Never present a partial sum as lifetime income.
+        if income_complete:
+            tool_income_gbp = round(income_total, 2)
     except Exception:
         logging.exception('[PSEmine Admin] confirmed tool income aggregation failed')
 

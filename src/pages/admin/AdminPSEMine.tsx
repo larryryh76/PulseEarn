@@ -116,7 +116,7 @@ export const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
   const { currentUser } = useAuth();
-  const { campaign, refreshData: refreshCampaign } = usePSEMine();
+  const { campaign } = usePSEMine();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -283,7 +283,6 @@ export const AdminPSEMine: React.FC = () => {
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
       setWalletAcknowledged(false);
-      await refreshCampaign();
       await load(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Receiving wallet update failed.');

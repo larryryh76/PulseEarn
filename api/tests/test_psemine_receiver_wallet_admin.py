@@ -18,7 +18,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
     def setUp(self):
         start = API_SOURCE.index("@app.route('/api/admin/mine/campaign/action'")
         self.route = API_SOURCE[start:]
-        self.route = self.route[:self.route.index("\nif CORS:")]
+        next_route = self.route.find("\\n@app.route(", 1)
+        if next_route >= 0:
+            self.route = self.route[:next_route]
 
     def test_wallet_change_uses_super_admin_gated_campaign_action(self):
         self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)

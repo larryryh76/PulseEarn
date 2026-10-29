@@ -4,7 +4,7 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { PseAuthFrame } from '../../components/psemine/PseAuthFrame';
 import { PseLoader } from '../../components/psemine/PseLoader';
-import { PSE_DOC_LABEL, PSE_DOC_PATH } from '../../components/psemine/pseDocs';
+import { PSE_DOC_PATH } from '../../components/psemine/pseDocs';
 import { PSE_MINE_HOME } from '../../engines/product/productRouting';
 import { mapAuthError } from '../../utils/errors';
 

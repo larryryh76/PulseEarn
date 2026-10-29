@@ -1151,6 +1151,7 @@
    Keep backend values, states and interaction logic in the page components.
    ───────────────────────────────────────────────────────────────────────── */
 .pse-console-main {
+  position: relative;
   --pse-page-glow: rgba(105, 102, 255, .12);
   isolation: isolate;
 }
@@ -1347,7 +1348,7 @@
   padding: 15px 0;
   border-bottom: 1px solid rgba(158,174,217,.1);
 }
-.pse-route-me .pse-account-overview {
+.pse-route-account .pse-account-overview {
   overflow: hidden;
   border: 1px solid rgba(151,148,255,.2);
   border-radius: 22px;
@@ -1355,7 +1356,7 @@
     radial-gradient(ellipse at 100% 0%, rgba(99,91,255,.18), transparent 46%),
     linear-gradient(130deg, rgba(19,26,45,.96), rgba(8,12,21,.98));
 }
-.pse-route-me .pse-account-shortcut {
+.pse-route-account .pse-account-shortcut {
   min-height: 78px;
   padding: 15px;
   border: 1px solid rgba(158,174,217,.14);
@@ -1363,9 +1364,9 @@
   background: rgba(8,12,21,.55);
   transition: border-color .18s ease, transform .18s ease;
 }
-.pse-route-me .pse-account-shortcut:hover { border-color: rgba(145,140,255,.4); transform: translateY(-1px); }
-.pse-route-me .pse-security-form { padding: 17px; border: 1px solid rgba(158,174,217,.13); border-radius: 16px; background: rgba(7,11,19,.52); }
-.pse-route-me .pse-notes { line-height: 1.8; }
+.pse-route-account .pse-account-shortcut:hover { border-color: rgba(145,140,255,.4); transform: translateY(-1px); }
+.pse-route-account .pse-security-form { padding: 17px; border: 1px solid rgba(158,174,217,.13); border-radius: 16px; background: rgba(7,11,19,.52); }
+.pse-route-account .pse-notes { line-height: 1.8; }
 .pse-auth-context-block {
   padding: clamp(18px, 3vw, 28px);
   border: 1px solid rgba(153,148,255,.19);

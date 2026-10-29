@@ -536,7 +536,7 @@ export const AdminPSEMine: React.FC = () => {
         {activeSection === 'campaign' && (
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
-            <PseFacts cols={4}>
+            <PseFacts cols={3}>
               <PseFact
                 label="Active mining sessions"
                 value={numOrDash(overviewStat('activeMiningSessions'))}

@@ -18,7 +18,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
     def setUp(self):
         start = API_SOURCE.index("@app.route('/api/admin/mine/campaign/action'")
         self.route = API_SOURCE[start:]
-        next_route = self.route.find("\\n@app.route(", 1)
+        next_route = self.route.find("\n@app.route(", 1)
         if next_route >= 0:
             self.route = self.route[:next_route]
 

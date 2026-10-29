@@ -1403,3 +1403,18 @@
 @media (prefers-reduced-motion: reduce) {
   .pse-console-main *, .pse-console-shell * { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+
+/* One consistent definition across every authenticated PSEmine destination. */
+.pse-definition-strip { width:min(1440px,100%); margin:0 auto; padding:10px clamp(16px,3vw,40px); display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; border-bottom:1px solid var(--pse-rule); background:linear-gradient(90deg,rgba(119,117,255,.075),rgba(56,212,242,.025) 55%,transparent); color:var(--pse-ink-2); font-size:11px; line-height:1.5; }
+.pse-definition-label { color:#c1bfff; font-weight:750; letter-spacing:.02em; }
+.pse-definition-divider { color:var(--pse-ink-3); }
+.pse-definition-link { margin-left:auto; display:inline-flex; align-items:center; gap:6px; min-height:30px; color:#c1bfff!important; font-weight:600; white-space:nowrap; }
+.pse-definition-link:hover { color:#fff!important; }
+@media(max-width:560px) {
+  .pse-definition-strip { gap:4px 7px; padding-block:9px; font-size:10px; }
+  .pse-definition-link { margin-left:0; width:100%; min-height:28px; }
+}
+
+.pse-public-definition { flex-basis:100%; max-width:90ch; color:var(--pse-ink-2); font-size:11px; line-height:1.65; }
+.pse-console-foot-inner--public { flex-wrap:wrap; }

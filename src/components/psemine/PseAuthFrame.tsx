@@ -60,8 +60,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { PSEmineLogo, PSEmineMark } from './PSEBrand';
 import { PSE_DOC_LABEL, PSE_DOC_PATH, type PseDocId } from './pseDocs';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import { gbp, gbpHour } from './pseCore';
+import { PSEMINE_CONSTANTS } from '../../types/psemine';
 
 /**
  * The legend under the lockup.
@@ -74,13 +73,10 @@ import { gbp, gbpHour } from './pseCore';
  * drift from the product. It states nothing about an account, which is why the
  * panel can stay `aria-hidden`.
  */
-const TOOL_RATES = Object.values(LOCKED_PSEMINE_TOOLS).map(t => t.hourlyRateGBP);
 const PANEL_LEGEND = [
-  { key: 'Campaign length', value: `${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days` },
-  { key: 'Capacity per tool', value: `${gbpHour(Math.min(...TOOL_RATES))}–${gbpHour(Math.max(...TOOL_RATES))}` },
-  { key: 'Accrued and settled in', value: 'GBP' },
-  { key: 'Paid in', value: PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME },
-  { key: 'Minimum tool price', value: gbp(Math.min(...Object.values(LOCKED_PSEMINE_TOOLS).map(t => t.purchasePriceGBP))) },
+  { key: 'Product', value: 'Managed SHA mining access' },
+  { key: 'Campaign', value: `${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} days` },
+  { key: 'Accounting / payout', value: `GBP / BNB on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}` },
 ];
 
 /**
@@ -210,6 +206,7 @@ export const PseAuthFrame: React.FC<{
             <header>
               <h1 className="pse-auth-title">{title}</h1>
               <p className="pse-auth-sub">{lede}</p>
+              {isPage && <p className="pse-auth-definition">PSEmine provides managed SHA-mining access through a defined campaign. Capacity is recorded in GBP; purchases and approved payouts use BNB.</p>}
             </header>
 
             {/* What the account gives access to, before the form asks anything

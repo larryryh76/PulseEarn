@@ -858,7 +858,7 @@ export const PSEMineLanding: React.FC = () => {
           </div>
           <div className="pse-access-disclosure">
             <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
-            <p><strong>What SHA means here.</strong> SHA mining is the mining functionality behind PSEmine. It is separate from the account's display and payment units: campaign capacity and accrual are recorded in GBP, purchases are made in BNB on BNB Smart Chain, and eligible settled payouts are handled in BNB under the campaign terms. SHA is not the GBP accounting unit or the payout currency. Results are not guaranteed; review the risk disclosure and live terms before participating.</p>
+            <p><strong>SHA is the mining functionality behind PSEmine.</strong> It is not a payment token: campaign capacity and accrual are recorded in GBP, while purchases and approved payouts use BNB on BNB Smart Chain. Returns are not guaranteed; review the campaign terms and risk disclosure before participating.</p>
             <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
@@ -895,7 +895,7 @@ export const PSEMineLanding: React.FC = () => {
         band="tint"
         title="One product line, four units."
         meta={`${TIERS.length} units · £${TIERS[0].rateValue.toFixed(2)}–£${TIERS[TIERS.length - 1].rateValue.toFixed(2)}/hour`}
-        lede="Each tier has a fixed price, a fixed capacity per hour and an ownership limit. The price is paid in BNB at the rate quoted when you request the quote, so a unit's price never drifts with the market."
+        lede="SHA mining is the engine behind PSEmine. Choose from four units with a published price, fixed GBP-per-hour capacity and an ownership limit; purchases are made in BNB at the rate on your quote."
         foot={
           <p className="pse-small">
             Session units mine in fixed operating cycles and are restarted from the console, with a short delay before
@@ -918,7 +918,7 @@ export const PSEMineLanding: React.FC = () => {
             kicker="Capacity model"
             title="Two sources of capacity. One ceiling."
             meta={`ceiling ${gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}`}
-            lede="Capacity is a rate in GBP per hour, and it has a hard ceiling. Two things add it — the units you own, and the referrals that actually qualify — and both are computed server-side."
+            lede="PSEmine records SHA-mining capacity in GBP per hour. Your units and referrals that meet every qualification rule can add capacity, up to the published ceiling."
           />
 
           <div className="pse-section-object">
@@ -983,7 +983,7 @@ export const PSEMineLanding: React.FC = () => {
         band="tint"
         title={`A ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day window with a defined end.`}
         meta={`${PHASES.length} phases`}
-        lede="Mining is only live while the campaign is. Each phase changes what happens to accrual, and the record of it is kept."
+        lede="PSEmine is a defined 90-day SHA-mining campaign, not an open-ended promise. Accrual is recorded only while the campaign and eligible mining activity are live."
       >
         <LifecycleRail
           days={PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}
@@ -1018,7 +1018,7 @@ export const PSEMineLanding: React.FC = () => {
             kicker="Payment"
             title="You pay in BNB, at a quoted rate."
             meta="GBP → BNB"
-            lede="A purchase is a BNB transaction you send from your own wallet on BNB Smart Chain, at a quote you requested yourself. The unit's price is fixed in GBP; the quote states the exact BNB amount and how long it holds."
+            lede="The SHA-mining unit has a fixed GBP price. You pay in BNB on BNB Smart Chain using your own wallet; the quote shows the exact amount and expiry before you send."
           />
           <Split object="start" className="pse-section-object">
             <PaymentConsole
@@ -1069,7 +1069,7 @@ export const PSEMineLanding: React.FC = () => {
         band="tint"
         title="Earnings are settled in GBP, then paid in BNB."
         meta="GBP → approved → BNB"
-        lede="Accrual becomes payable at settlement. The statement below shows where the denomination changes: GBP while the campaign runs, BNB when a settled balance is paid out."
+        lede="SHA-mining accrual is accounted for in GBP. After the campaign closes, eligible balances are reviewed and approved payouts are sent in BNB under the published rules."
       >
         <StatementPanel steps={SETTLEMENT} />
 
@@ -1098,7 +1098,7 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Security and transparency"
         title="What is fixed, and what you can check."
         meta={`${TRUST.length} properties`}
-        lede="Each of these is built into how PSEmine operates, and each one can be checked from your own account."
+        lede="PSEmine's SHA-mining campaign uses published unit terms, recorded GBP capacity and BNB payment flows. Check the records and rules before you participate."
       >
         <TrustMap items={TRUST} />
 
@@ -1211,8 +1211,8 @@ export const PSEMineLanding: React.FC = () => {
               </span>
             </span>
             <p className="pse-small max-w-[46ch]">
-              A {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day mining campaign on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}.
-              Units are bought with BNB, capacity is priced in GBP per hour, and settled earnings are paid out in BNB.
+              A {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining access campaign on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}.
+              Units add fixed GBP-per-hour capacity; purchases and approved payouts use BNB under the campaign rules.
             </p>
           </div>
           {/* Two labelled columns rather than one undifferentiated list: a
@@ -1234,9 +1234,8 @@ export const PSEMineLanding: React.FC = () => {
         </div>
         <div className="pse-wrap mt-8">
           <p className="pse-small max-w-[74ch]">
-            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign-based mining product on{' '}
-            {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}. Units are bought at the published price list, each one adds a fixed
-            capacity per hour in GBP, and settled campaign earnings are paid out in BNB under the campaign rules.
+            PSEmine provides managed SHA-mining access for a defined {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign on{' '}
+            {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}. Units add fixed GBP-per-hour capacity; purchases and approved payouts use BNB under the published campaign rules.
           </p>
           <p className="pse-small mt-3">
             <Link to={PSE_DOC_PATH.risk} className="pse-link inline-flex min-h-[44px] items-center">

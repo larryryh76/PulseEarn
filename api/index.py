@@ -7744,7 +7744,7 @@ def admin_psemine_payments():
             row = snap.to_dict() or {}
             # Defend the response contract even if a legacy/malformed document
             # slips through a test double or an inconsistent query result.
-            if row.get('status') != 'confirmed':
+            if row.get('status') != 'confirmed' or row.get('verificationSource') != 'bsc_rpc_receipt':
                 continue
             created_at = row.get('createdAt')
             confirmed_at = row.get('confirmedAt')

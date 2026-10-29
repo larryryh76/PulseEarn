@@ -777,7 +777,7 @@ export const PSEMineLanding: React.FC = () => {
            */}
           <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine is launching a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}{'}'}-day campaign to make managed mining access available to people who cannot afford the full equipment, setup and operating process on their own. The campaign publishes its unit prices and GBP-denominated capacity up front, with settlement governed by the live campaign terms.
+            PSEmine is launching a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign to make managed mining access available to people who cannot afford the full equipment, setup and operating process on their own. The campaign publishes its unit prices and GBP-denominated capacity up front, with settlement governed by the live campaign terms.
           </p>
 
           <div className="pse-hero-cta mt-8">

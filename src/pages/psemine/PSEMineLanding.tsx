@@ -775,11 +775,9 @@ export const PSEMineLanding: React.FC = () => {
            * end. Three short sentences, each one true, and between them they
            * state the whole model before a paragraph is read.
            */}
-          <h1 className="pse-display mt-5">BUILD MINING CAPACITY.<br /><span className="pse-hero-highlight">ACCRUE CAMPAIGN EARNINGS.</span><br />SETTLE AT CAMPAIGN CLOSE.</h1>
+          <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day mining campaign on BNB Smart Chain. Units are
-            bought at a fixed price list, each adds a locked capacity per hour denominated in GBP, and settled campaign
-            earnings are disbursed in BNB once the campaign ends.
+            PSEmine is launching a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}{'}'}-day campaign to make managed mining access available to people who cannot afford the full equipment, setup and operating process on their own. The campaign publishes its unit prices and GBP-denominated capacity up front, with settlement governed by the live campaign terms.
           </p>
 
           <div className="pse-hero-cta mt-8">
@@ -824,6 +822,49 @@ export const PSEMineLanding: React.FC = () => {
           build={EXAMPLE_BUILD}
           spine={SCENARIO_SPINE}
         />
+      </section>
+
+      {/* ── The access proposition: who the campaign is for ─────────────── */}
+      <section id="access-story" className="pse-access-story">
+        <div className="pse-wrap">
+          <div className="pse-access-intro">
+            <span className="pse-access-eyebrow"><span className="pse-access-pulse" /> WHY PSEMINE EXISTS</span>
+            <h2>Mining has a high entry cost.<br /><span>Access should have a clearer starting point.</span></h2>
+            <p>
+              Building a cryptocurrency mining setup can require specialist equipment, technical knowledge,
+              electricity planning and ongoing maintenance. PSEmine's 90-day access campaign is designed to lower
+              that entry barrier by offering a limited, managed campaign product instead of asking every participant
+              to build and operate a full setup alone.
+            </p>
+          </div>
+          <div className="pse-access-journey" aria-label="How the campaign access model works">
+            <div className="pse-access-step">
+              <span className="pse-access-index">01</span>
+              <span className="pse-access-symbol" aria-hidden="true">⌁</span>
+              <h3>Start smaller</h3>
+              <p>Review the published unit prices and ownership limits before deciding whether to participate.</p>
+            </div>
+            <div className="pse-access-connector" aria-hidden="true"><span>→</span></div>
+            <div className="pse-access-step pse-access-step--featured">
+              <span className="pse-access-index">02</span>
+              <span className="pse-access-symbol" aria-hidden="true">◈</span>
+              <h3>Follow the campaign</h3>
+              <p>Track campaign status and your account's recorded capacity and accrual while mining is enabled.</p>
+            </div>
+            <div className="pse-access-connector" aria-hidden="true"><span>→</span></div>
+            <div className="pse-access-step">
+              <span className="pse-access-index">03</span>
+              <span className="pse-access-symbol" aria-hidden="true">↗</span>
+              <h3>Review settlement</h3>
+              <p>See the final ledger and payout status under the published campaign rules when the campaign closes.</p>
+            </div>
+          </div>
+          <div className="pse-access-disclosure">
+            <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
+            <p><strong>Asset and value clarity.</strong> The current product configuration records capacity in GBP and uses BNB Smart Chain for purchases, with payouts configured in BNB. SHA mining or SHA-denominated payouts are not represented as live functionality by that configuration. The advertised mining asset and settlement asset must be made consistent with the actual backend and verified on-chain before the campaign is promoted as SHA mining.</p>
+            <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
+          </div>
+        </div>
       </section>
 
       {/* ── 01 · The purchase: reading column left, the rail right ───────── */}

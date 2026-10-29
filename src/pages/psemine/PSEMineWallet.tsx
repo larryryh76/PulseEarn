@@ -216,7 +216,7 @@ export const PSEMineWallet: React.FC = () => {
   const initialLoading = loading && !state;
 
   return (
-    <div className="pse-console-main pse-wallet">
+    <div className="pse-console-main pse-route-wallet pse-wallet">
       <WalletHead
         walletName={walletName}
         connectedWallet={connectedWallet}

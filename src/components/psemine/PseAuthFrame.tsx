@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PSEmineLogo, PSEmineMark } from './PSEBrand';
+import { PSEmineLogo } from './PSEBrand';
 import { PSE_DOC_LABEL, PSE_DOC_PATH, type PseDocId } from './pseDocs';
 
 const AUTH_DOCS: readonly PseDocId[] = ['terms', 'privacy', 'risk'];
@@ -50,10 +50,6 @@ export const PseAuthFrame: React.FC<{
 
       <main className="pse-auth-main">
         <section className="pse-auth-card" aria-labelledby="pse-auth-title">
-          <div className="pse-auth-card-brand">
-            <span className="pse-auth-card-mark"><PSEmineMark size={22} decorative /></span>
-            <span>PSEmine</span>
-          </div>
           <header className="pse-auth-heading">
             <h1 id="pse-auth-title" className="pse-auth-title">{title}</h1>
             <p className="pse-auth-sub">{lede}</p>

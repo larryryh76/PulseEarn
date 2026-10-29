@@ -488,6 +488,15 @@ export const AdminPSEMine: React.FC = () => {
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
         </section>
 
+        <section className="pse-ops-wallet-shortcut" aria-label="Tool purchase payment destination">
+          <div className="pse-ops-wallet-shortcut-copy">
+            <span className="pse-ops-kpi-label">Tool purchase receiving wallet</span>
+            <code>{receiverWalletCurrent || 'Receiving wallet not reported'}</code>
+            <small>BNB Smart Chain · new quotes use this destination</small>
+          </div>
+          <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
+        </section>
+
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
         <nav className="pse-ops-register-nav" aria-label="Operations registers">

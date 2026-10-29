@@ -52,25 +52,6 @@
   background:linear-gradient(155deg,rgba(18,23,38,.97),rgba(10,13,22,.99) 70%);
   box-shadow:0 28px 100px rgba(0,0,0,.36),0 0 0 1px rgba(120,113,255,.04);
 }
-.pse-auth-card-brand {
-  display:flex;
-  align-items:center;
-  gap:9px;
-  margin-bottom:28px;
-  color:#f6f7ff;
-  font-size:14px;
-  font-weight:700;
-  letter-spacing:-.025em;
-}
-.pse-auth-card-mark {
-  width:34px;
-  height:34px;
-  display:grid;
-  place-items:center;
-  border:1px solid rgba(143,139,255,.28);
-  border-radius:11px;
-  background:linear-gradient(145deg,rgba(117,109,255,.2),rgba(50,197,226,.08));
-}
 .pse-auth-heading { margin:0; }
 .pse-auth-title {
   margin:0;
@@ -213,7 +194,6 @@
   .pse-auth-bar-inner { min-height:58px; padding:0 16px; }
   .pse-auth-main { min-height:calc(100svh - 59px); padding:22px 14px 18px; justify-content:flex-start; }
   .pse-auth-card { padding:22px 19px; border-radius:18px; }
-  .pse-auth-card-brand { margin-bottom:24px; }
   .pse-auth-title { font-size:28px; }
   .pse-auth-sub { font-size:12px; }
   .pse-auth-form { margin-top:20px; }

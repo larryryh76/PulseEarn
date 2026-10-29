@@ -1977,3 +1977,52 @@
   .pse-access-disclosure { grid-template-columns: 30px minmax(0,1fr); }
   .pse-access-disclosure-link { grid-column: 2; white-space: normal; }
 }
+
+
+/* ── Product-led landing composition ───────────────────────────────────────
+   Inspired by modern fintech product sites: one clear proposition, real product
+   artwork, compact proof points, and visual section changes instead of a stack
+   of editorial headings and paragraphs. Content and economics remain unchanged. */
+.pse-plane .pse-mast { backdrop-filter:blur(18px); background:rgba(7,10,17,.86); }
+.pse-plane .pse-mast-inner { min-height:72px; }
+.pse-plane .pse-hero { align-items:center; gap:clamp(28px,5vw,76px); padding-top:clamp(42px,7vw,90px); padding-bottom:clamp(52px,8vw,100px); }
+.pse-plane .pse-hero-copy { max-width:620px; }
+.pse-plane .pse-hero .pse-display { max-width:10.5ch; font-size:clamp(42px,6vw,82px); line-height:.98; letter-spacing:-.075em; text-wrap:balance; }
+.pse-plane .pse-hero .pse-lead { max-width:43ch; font-size:clamp(15px,1.3vw,17px); line-height:1.72; color:var(--pse-ink-2); }
+.pse-plane .pse-hero-meta { border:1px solid rgba(190,205,235,.12); border-radius:14px; overflow:hidden; background:rgba(255,255,255,.025); }
+.pse-plane .pse-hero-meta > div { padding:13px 15px; }
+.pse-plane .pse-hero-meta dt { color:#8492aa; }
+.pse-plane .pse-hero-meta dd { font-size:12px; line-height:1.5; }
+.pse-plane .pse-app { border-radius:20px; border-color:rgba(164,163,255,.24); background:linear-gradient(145deg,rgba(25,31,49,.98),rgba(8,12,20,.98)); box-shadow:0 28px 90px rgba(0,0,0,.38),0 0 0 1px rgba(132,128,255,.07); }
+.pse-plane .pse-section { padding-block:clamp(48px,7vw,88px); }
+.pse-plane .pse-section:nth-of-type(even) { background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,.008)); }
+.pse-plane .pse-plate { gap:clamp(16px,2vw,24px); }
+.pse-plane .pse-plate-rule { padding-bottom:12px; border-color:rgba(190,205,235,.16); }
+.pse-plane .pse-plate-title { max-width:20ch; font-size:clamp(28px,3.6vw,48px); line-height:1.02; letter-spacing:-.055em; }
+.pse-plane .pse-plate-lede { max-width:47ch; font-size:14px; line-height:1.7; }
+.pse-plane .pse-access-steps { gap:12px; }
+.pse-plane .pse-access-step { min-width:0; padding:clamp(17px,2vw,24px); border:1px solid rgba(190,205,235,.12); border-radius:16px; background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)); }
+.pse-plane .pse-access-step h3 { max-width:18ch; font-size:clamp(16px,1.6vw,20px); letter-spacing:-.035em; }
+.pse-plane .pse-access-step p { font-size:12px; line-height:1.7; }
+.pse-plane .pse-access-disclosure { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:start; gap:12px; padding:16px 18px; border:1px solid rgba(132,128,255,.22); border-radius:14px; background:linear-gradient(100deg,rgba(119,117,255,.09),rgba(56,212,242,.035)); }
+.pse-plane .pse-access-disclosure p { margin:0; font-size:12px; line-height:1.65; }
+.pse-plane .pse-access-disclosure-link { align-self:center; white-space:nowrap; }
+.pse-plane .pse-quote,.pse-plane .pse-pricelist,.pse-plane .pse-terms,.pse-plane .pse-faq { border-radius:16px; }
+.pse-plane .pse-faq-q { min-height:62px; }
+.pse-plane .pse-close { gap:clamp(24px,5vw,72px); padding-block:clamp(44px,7vw,82px); }
+.pse-plane .pse-close-side { padding:clamp(18px,2.6vw,28px); border:1px solid rgba(190,205,235,.13); border-radius:20px; background:linear-gradient(145deg,rgba(24,31,48,.92),rgba(9,13,21,.96)); }
+.pse-plane .pse-foot { padding-top:clamp(36px,5vw,64px); }
+@media(max-width:760px) {
+  .pse-plane .pse-mast-inner { min-height:62px; }
+  .pse-plane .pse-hero { padding-top:32px; padding-bottom:44px; }
+  .pse-plane .pse-hero .pse-display { max-width:11ch; font-size:clamp(39px,11vw,58px); }
+  .pse-plane .pse-hero-meta > div { padding:10px 12px; }
+  .pse-plane .pse-section { padding-block:42px; }
+  .pse-plane .pse-plate-title { font-size:clamp(27px,7.6vw,38px); }
+  .pse-plane .pse-access-disclosure { grid-template-columns:auto minmax(0,1fr); }
+  .pse-plane .pse-access-disclosure-link { grid-column:2; justify-self:start; }
+  .pse-plane .pse-close-side { padding:16px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-plane .pse-app,.pse-plane .pse-access-step { transition:none!important; }
+}

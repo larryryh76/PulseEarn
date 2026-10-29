@@ -535,6 +535,28 @@ export const AdminPSEMine: React.FC = () => {
         {activeSection === 'campaign' && (
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
+            <PseFacts cols={4}>
+              <PseFact
+                label="Tools running now"
+                value={numOrDash(overviewStat('activeMiningSessions'))}
+                hint="Active mining sessions reported by the backend"
+              />
+              <PseFact
+                label="Active tools owned"
+                value={numOrDash(overviewStat('activeToolOwnerships'))}
+                hint="Active ownership records"
+              />
+              <PseFact
+                label="Confirmed tool payments"
+                value={numOrDash(overviewStat('totalConfirmedPayments'))}
+                hint="Verified on-chain purchases"
+              />
+              <PseFact
+                label="Total tool income"
+                value={numOrDash(overviewStat('totalToolIncomeGbp'), gbp)}
+                hint="Lifetime GBP value of confirmed tool purchases only"
+              />
+            </PseFacts>
             <PseFacts cols={3}>
               <PseFact label="Status" text value={campaignPhase ? campaignPhase.label : '—'} hint={campaignPhase ? campaignPhase.detail : 'Not reported by the backend'} />
               <PseFact label="Capacity" value={numOrDash(stat('totalCapacityGBPPerHour'), gbpHour)} />

@@ -1435,3 +1435,9 @@
 .pse-admin-operations .pse-ops-wallet-warning { padding:13px 15px; border-left:3px solid #e5a64b; border-radius:0 10px 10px 0; background:rgba(229,166,75,.08); color:#c9bba3; font-size:12px; line-height:1.65; }
 .pse-admin-operations .pse-ops-wallet-warning strong { color:#f0c47c; }
 @media (max-width:640px) { .pse-admin-operations .pse-ops-wallet-heading { flex-direction:column; } .pse-admin-operations .pse-ops-current-destination code { font-size:11px; } }
+
+.pse-admin-operations .pse-ops-wallet-shortcut { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 16px; padding:13px 16px; border:1px solid rgba(104,160,255,.24); border-radius:14px; background:linear-gradient(105deg,rgba(26,47,79,.58),rgba(11,17,31,.72)); }
+.pse-admin-operations .pse-ops-wallet-shortcut-copy { display:grid; min-width:0; gap:5px; }
+.pse-admin-operations .pse-ops-wallet-shortcut-copy code { color:#b6dcff; font-size:12px; overflow-wrap:anywhere; }
+.pse-admin-operations .pse-ops-wallet-shortcut-copy small { color:#8e9db8; font-size:11px; }
+@media (max-width:640px) { .pse-admin-operations .pse-ops-wallet-shortcut { align-items:stretch; flex-direction:column; } .pse-admin-operations .pse-ops-wallet-shortcut > * { align-self:flex-start; } }

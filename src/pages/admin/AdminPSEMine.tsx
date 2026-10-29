@@ -141,6 +141,7 @@ export const AdminPSEMine: React.FC = () => {
   const [resolving, setResolving] = useState<string | null>(null);
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
   const [receiverWalletInput, setReceiverWalletInput] = useState('');
+  const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
   const [walletSaveBusy, setWalletSaveBusy] = useState(false);
   const [walletAcknowledged, setWalletAcknowledged] = useState(false);
 
@@ -218,7 +219,9 @@ export const AdminPSEMine: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    setReceiverWalletInput(String(campaign?.receiverWalletAddress || ''));
+    const configured = String(campaign?.receiverWalletAddress || '');
+    setReceiverWalletCurrent(configured);
+    setReceiverWalletInput(configured);
   }, [campaign?.receiverWalletAddress]);
 
   /** Change the campaign receiving wallet. The server validates, persists and audits it. */
@@ -228,7 +231,7 @@ export const AdminPSEMine: React.FC = () => {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
       return;
     }
-    if (address.toLowerCase() === String(campaign?.receiverWalletAddress || '').toLowerCase()) {
+    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase()) {
       toast('This is already the configured receiving address.');
       return;
     }
@@ -252,6 +255,8 @@ export const AdminPSEMine: React.FC = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Receiving wallet update failed.');
       toast.success('PSEmine receiving wallet updated for new quotes.');
+      setReceiverWalletCurrent(address);
+      setReceiverWalletInput(address);
       setWalletAcknowledged(false);
       await refreshCampaign();
       await load(true);
@@ -900,7 +905,7 @@ export const AdminPSEMine: React.FC = () => {
               </div>
               <div className="pse-ops-current-destination">
                 <span>Currently configured</span>
-                <code>{campaign?.receiverWalletAddress || 'Not reported by campaign API'}</code>
+                <code>{receiverWalletCurrent || 'Not reported by campaign API'}</code>
               </div>
               <PseField label="New receiving wallet address" htmlFor="pse-receiver-wallet">
                 <PseInput id="pse-receiver-wallet" value={receiverWalletInput}
@@ -916,7 +921,7 @@ export const AdminPSEMine: React.FC = () => {
                   busy={walletSaveBusy} onClick={() => void saveReceiverWallet()}>
                   {walletSaveBusy ? 'Saving destination…' : 'Save receiving wallet'}
                 </PseButton>
-                <PseButton variant="secondary" disabled={walletSaveBusy} onClick={() => { setReceiverWalletInput(String(campaign?.receiverWalletAddress || '')); setWalletAcknowledged(false); }}>Reset</PseButton>
+                <PseButton variant="secondary" disabled={walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
               </div>
               <div className="pse-ops-wallet-warning" role="note">
                 <strong>Important:</strong> this affects new quotes only. Existing quotes and purchase intents retain their recorded destination and amount. Never change the address based on an unsolicited message; verify it independently before saving. Every change is recorded in the admin audit trail.

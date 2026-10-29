@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pseCore';
@@ -63,28 +63,6 @@ const EyeGlyph: React.FC<{ off?: boolean }> = ({ off = false }) => (
     {off && <path d="M4 16.5 16 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />}
   </svg>
 );
-
-/**
- * Password quality, computed from the real input and rendered only once there
- * is one. Four bands on one rail: a band is reported, never a score, and the
- * rail is `aria-hidden` because the sentence below already says the same thing
- * in words — a screen reader should not hear it twice.
- */
-const STRENGTH_STEPS = ['Weak', 'Fair', 'Good', 'Strong'] as const;
-
-const StrengthMeter: React.FC<{ label: string }> = ({ label }) => {
-  const step = Math.max(1, STRENGTH_STEPS.indexOf(label as (typeof STRENGTH_STEPS)[number]) + 1);
-  return (
-    <div className="mt-2.5" aria-live="polite">
-      <span className="pse-meter" data-step={step} aria-hidden="true">
-        <span style={{ width: `${(step / STRENGTH_STEPS.length) * 100}%` }} />
-      </span>
-      <p className="pse-small mt-2">
-        Password quality: <span className="pse-strong">{label}</span>
-      </p>
-    </div>
-  );
-};
 
 /** The tick inside the agreement control. Drawn, never a font glyph. */
 const CheckGlyph: React.FC = () => (
@@ -259,15 +237,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   const refFromQuery = params.get('ref') || undefined;
   const returnTo = params.get('returnTo') || undefined;
 
-  const strength = useMemo(() => {
-    let score = 0;
-    if (password.length >= 8) score += 25;
-    if (/[A-Z]/.test(password)) score += 25;
-    if (/[0-9]/.test(password)) score += 25;
-    if (/[^A-Za-z0-9]/.test(password)) score += 25;
-    return score <= 25 ? 'Weak' : score <= 50 ? 'Fair' : score <= 75 ? 'Good' : 'Strong';
-  }, [password]);
-
   // Session restore: route completed sessions to their next step. Access is NOT
   // judged here — the protected route owns that decision so an account without
   // PSEmine access gets an explanation, not a silent redirect.
@@ -333,8 +302,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
       title={isSignup ? 'Create your account' : 'Sign in'}
       lede={
         isSignup
-          ? 'One account covers your units, your capacity and any payout wallet you record. Creating it takes a moment.'
-          : 'Sign in to your PSEmine console.'
+          ? 'Create your PSEmine account.'
+          : 'Welcome back. Sign in to continue.'
       }
       footer={
         <p className="pse-small flex flex-wrap items-center gap-x-1.5">
@@ -359,6 +328,17 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             </span>
           </p>
         )}
+
+        <button
+          type="button"
+          onClick={() => void google()}
+          disabled={googlePending}
+          className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
+        >
+          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Continue with Google'}
+        </button>
+
+        <p className="pse-auth-or">or continue with email</p>
 
         {submitCount > 0 && summaryItems.length > 0 && (
           <ErrorSummary
@@ -441,8 +421,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             </span>
           </Field>
 
-          {isSignup && password.length > 0 && <StrengthMeter label={strength} />}
-
           {isSignup && (
             <Agreement
               id="pse-signup-terms"
@@ -451,26 +429,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               onChange={v => { setAgreed(v); clearField('terms'); }}
               error={fieldErrors.terms}
             >
-              I agree to the PSEmine Terms of Service, and I acknowledge the Privacy Policy and the Risk Disclosure.
+              I agree to the <Link to={PSE_DOC_PATH.terms}>Terms of Service</Link> and acknowledge the <Link to={PSE_DOC_PATH.privacy}>Privacy Policy</Link> and <Link to={PSE_DOC_PATH.risk}>Risk Disclosure</Link>.
             </Agreement>
-          )}
-
-          {/*
-            * The documents the checkbox refers to, as their own controls.
-            *
-            * Words inside a sentence are the one place a target cannot be 44px
-            * without the sentence collapsing into a list of buttons, so the
-            * documents ARE the list: three real controls under the agreement,
-            * each one comfortably tappable, each one naming exactly what it opens.
-            */}
-          {isSignup && (
-            <div className="pse-auth-doc-chips">
-              {(['terms', 'privacy', 'risk'] as const).map(id => (
-                <Link key={id} to={PSE_DOC_PATH[id]} className="pse-auth-doc-chip">
-                  {PSE_DOC_LABEL[id]}
-                </Link>
-              ))}
-            </div>
           )}
 
           {formError && (
@@ -492,16 +452,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           )}
         </form>
 
-        <p className="pse-auth-or">or</p>
-
-        <button
-          type="button"
-          onClick={() => void google()}
-          disabled={googlePending}
-          className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
-        >
-          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Continue with Google'}
-        </button>
       </div>
     </PseAuthFrame>
   );

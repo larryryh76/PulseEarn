@@ -283,7 +283,6 @@ export const AdminPSEMine: React.FC = () => {
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
       setWalletAcknowledged(false);
-      await refreshCampaign();
       await load(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Receiving wallet update failed.');

@@ -483,12 +483,13 @@
 .pse-app-unit-art { display: flex; color: var(--pse-ink-3); }
 
 .pse-app-unit-name {
+  min-width: 0;
   font-size: 0.75rem;
   letter-spacing: -0.005em;
   color: var(--pse-ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
 }
 
 .pse-app-unit-count {
@@ -1966,7 +1967,7 @@
 .pse-access-disclosure-mark { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; background: rgba(99,91,255,.13); color: #b0adff; font-weight: 800; }
 .pse-access-disclosure p { margin: 0; color: #a9b5ca; font-size: 12px; line-height: 1.85; }
 .pse-access-disclosure p strong { color: #f0f3ff; }
-.pse-access-disclosure-link { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; color: #b0adff; font-size: 12px; text-decoration: none; white-space: nowrap; }
+.pse-access-disclosure-link { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; color: #b0adff; font-size: 12px; text-decoration: none; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .pse-access-journey { grid-template-columns: minmax(0,1fr); gap: 0; }
   .pse-access-step { min-height: 0; padding: 24px; }

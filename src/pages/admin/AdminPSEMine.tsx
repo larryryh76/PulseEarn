@@ -116,7 +116,7 @@ export const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
   const { currentUser } = useAuth();
-  const { campaign } = usePSEMine();
+  const { campaign, refreshData: refreshCampaign } = usePSEMine();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

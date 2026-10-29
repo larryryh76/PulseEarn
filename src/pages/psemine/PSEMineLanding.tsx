@@ -777,7 +777,7 @@ export const PSEMineLanding: React.FC = () => {
            */}
           <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine is launching a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign to make managed mining access available to people who cannot afford the full equipment, setup and operating process on their own. The campaign publishes its unit prices and GBP-denominated capacity up front, with settlement governed by the live campaign terms.
+            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day managed SHA-mining access campaign for people who cannot afford to buy, configure and operate a full mining setup themselves. Review each unit's price and the campaign's recorded capacity before joining. Participation is not a guaranteed return; actual accrual and settlement follow the campaign rules.
           </p>
 
           <div className="pse-hero-cta mt-8">
@@ -808,8 +808,8 @@ export const PSEMineLanding: React.FC = () => {
               </dd>
             </div>
             <div>
-              <dt>Settlement</dt>
-              <dd>GBP → BNB</dd>
+              <dt>Mining / settlement</dt>
+              <dd>SHA · GBP → BNB</dd>
             </div>
           </dl>
         </Reveal>
@@ -831,10 +831,7 @@ export const PSEMineLanding: React.FC = () => {
             <span className="pse-access-eyebrow"><span className="pse-access-pulse" /> WHY PSEMINE EXISTS</span>
             <h2>Mining has a high entry cost.<br /><span>Access should have a clearer starting point.</span></h2>
             <p>
-              Building a cryptocurrency mining setup can require specialist equipment, technical knowledge,
-              electricity planning and ongoing maintenance. PSEmine's 90-day access campaign is designed to lower
-              that entry barrier by offering a limited, managed campaign product instead of asking every participant
-              to build and operate a full setup alone.
+              SHA mining can involve specialist hardware, setup knowledge, electricity planning and ongoing maintenance. PSEmine's 90-day access campaign is designed to lower that entry barrier: the mining engine is handled by the managed service, while participants use the console to review their units, campaign status and account records instead of operating a full setup themselves.
             </p>
           </div>
           <div className="pse-access-journey" aria-label="How the campaign access model works">
@@ -861,7 +858,7 @@ export const PSEMineLanding: React.FC = () => {
           </div>
           <div className="pse-access-disclosure">
             <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
-            <p><strong>Asset and value clarity.</strong> The current product configuration records capacity in GBP and uses BNB Smart Chain for purchases, with payouts configured in BNB. SHA mining or SHA-denominated payouts are not represented as live functionality by that configuration. The advertised mining asset and settlement asset must be made consistent with the actual backend and verified on-chain before the campaign is promoted as SHA mining.</p>
+            <p><strong>What SHA means here.</strong> SHA mining is the mining functionality behind PSEmine. It is separate from the account's display and payment units: campaign capacity and accrual are recorded in GBP, purchases are made in BNB on BNB Smart Chain, and eligible settled payouts are handled in BNB under the campaign terms. SHA is not the GBP accounting unit or the payout currency. Results are not guaranteed; review the risk disclosure and live terms before participating.</p>
             <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
           </div>
         </div>

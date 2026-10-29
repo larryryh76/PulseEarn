@@ -537,6 +537,7 @@ const ConsoleFoot: React.FC = () => (
 const PublicFooter: React.FC = () => (
   <footer className="pse-console-foot">
     <div className="pse-console-foot-inner pse-console-foot-inner--public">
+      <span className="pse-public-definition">PSEmine provides managed SHA-mining access during a defined campaign. Capacity is recorded in GBP; purchases and approved payouts use BNB.</span>
       <span>PSEmine · 90-day mining campaign</span>
       <span className="pse-console-foot-links">
         <Link to="/mine/terms">Terms</Link>

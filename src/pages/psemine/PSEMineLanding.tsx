@@ -775,11 +775,9 @@ export const PSEMineLanding: React.FC = () => {
            * end. Three short sentences, each one true, and between them they
            * state the whole model before a paragraph is read.
            */}
-          <h1 className="pse-display mt-5">BUILD MINING CAPACITY.<br /><span className="pse-hero-highlight">ACCRUE CAMPAIGN EARNINGS.</span><br />SETTLE AT CAMPAIGN CLOSE.</h1>
+          <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day mining campaign on BNB Smart Chain. Units are
-            bought at a fixed price list, each adds a locked capacity per hour denominated in GBP, and settled campaign
-            earnings are disbursed in BNB once the campaign ends.
+            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day managed SHA-mining access campaign for people who cannot afford to buy, configure and operate a full mining setup themselves. Review each unit's price and the campaign's recorded capacity before joining. Participation is not a guaranteed return; actual accrual and settlement follow the campaign rules.
           </p>
 
           <div className="pse-hero-cta mt-8">
@@ -810,8 +808,8 @@ export const PSEMineLanding: React.FC = () => {
               </dd>
             </div>
             <div>
-              <dt>Settlement</dt>
-              <dd>GBP → BNB</dd>
+              <dt>Mining / settlement</dt>
+              <dd>SHA · GBP → BNB</dd>
             </div>
           </dl>
         </Reveal>
@@ -824,6 +822,46 @@ export const PSEMineLanding: React.FC = () => {
           build={EXAMPLE_BUILD}
           spine={SCENARIO_SPINE}
         />
+      </section>
+
+      {/* ── The access proposition: who the campaign is for ─────────────── */}
+      <section id="access-story" className="pse-access-story">
+        <div className="pse-wrap">
+          <div className="pse-access-intro">
+            <span className="pse-access-eyebrow"><span className="pse-access-pulse" /> WHY PSEMINE EXISTS</span>
+            <h2>Mining has a high entry cost.<br /><span>Access should have a clearer starting point.</span></h2>
+            <p>
+              SHA mining can involve specialist hardware, setup knowledge, electricity planning and ongoing maintenance. PSEmine's 90-day access campaign is designed to lower that entry barrier: the mining engine is handled by the managed service, while participants use the console to review their units, campaign status and account records instead of operating a full setup themselves.
+            </p>
+          </div>
+          <div className="pse-access-journey" aria-label="How the campaign access model works">
+            <div className="pse-access-step">
+              <span className="pse-access-index">01</span>
+              <span className="pse-access-symbol" aria-hidden="true">⌁</span>
+              <h3>Start smaller</h3>
+              <p>Review the published unit prices and ownership limits before deciding whether to participate.</p>
+            </div>
+            <div className="pse-access-connector" aria-hidden="true"><span>→</span></div>
+            <div className="pse-access-step pse-access-step--featured">
+              <span className="pse-access-index">02</span>
+              <span className="pse-access-symbol" aria-hidden="true">◈</span>
+              <h3>Follow the campaign</h3>
+              <p>Track campaign status and your account's recorded capacity and accrual while mining is enabled.</p>
+            </div>
+            <div className="pse-access-connector" aria-hidden="true"><span>→</span></div>
+            <div className="pse-access-step">
+              <span className="pse-access-index">03</span>
+              <span className="pse-access-symbol" aria-hidden="true">↗</span>
+              <h3>Review settlement</h3>
+              <p>See the final ledger and payout status under the published campaign rules when the campaign closes.</p>
+            </div>
+          </div>
+          <div className="pse-access-disclosure">
+            <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
+            <p><strong>What SHA means here.</strong> SHA mining is the mining functionality behind PSEmine. It is separate from the account's display and payment units: campaign capacity and accrual are recorded in GBP, purchases are made in BNB on BNB Smart Chain, and eligible settled payouts are handled in BNB under the campaign terms. SHA is not the GBP accounting unit or the payout currency. Results are not guaranteed; review the risk disclosure and live terms before participating.</p>
+            <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
+          </div>
+        </div>
       </section>
 
       {/* ── 01 · The purchase: reading column left, the rail right ───────── */}

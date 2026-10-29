@@ -701,21 +701,8 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
             {/* Version and update date above are the document metadata. */}
           </header>
 
-          <div className="pse-doc-body">
-            <nav className="pse-doc-toc" aria-label="On this page">
-              <span className="pse-micro">On this page</span>
-              <ol>
-                {d.sections.map((s, i) => (
-                  <li key={s.id}>
-                    <a href={`#${s.id}`}>
-                      <span aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                      {s.h}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-
+          <div className="pse-doc-layout">
+            <div className="pse-doc-body">
             <div className="pse-doc-clauses">
               {d.sections.map((s, i) => (
                 <section key={s.id} id={s.id} className="pse-doc-clause">
@@ -743,6 +730,20 @@ export const PSEminePolicy: React.FC<{ doc: PseDocId }> = ({ doc }) => {
                 </section>
               ))}
             </div>
+            </div>
+            <nav className="pse-doc-toc" aria-label="On this page">
+              <span className="pse-micro">On this page</span>
+              <ol>
+                {d.sections.map((s, i) => (
+                  <li key={s.id}>
+                    <a href={`#${s.id}`}>
+                      <span aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                      {s.h}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
         </article>
       </main>

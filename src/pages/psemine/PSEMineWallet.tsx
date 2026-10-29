@@ -200,7 +200,7 @@ export const PSEMineWallet: React.FC = () => {
      place the balance would be — never a bare spinner and never £0.00. */
   if (error && !state) {
     return (
-      <div className="pse-console-main pse-wallet">
+      <div className="pse-console-main pse-route-wallet pse-wallet">
         <WalletHead
           walletName={walletName}
           connectedWallet={connectedWallet}
@@ -216,7 +216,7 @@ export const PSEMineWallet: React.FC = () => {
   const initialLoading = loading && !state;
 
   return (
-    <div className="pse-console-main pse-wallet">
+    <div className="pse-console-main pse-route-wallet pse-wallet">
       <WalletHead
         walletName={walletName}
         connectedWallet={connectedWallet}

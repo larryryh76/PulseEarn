@@ -165,45 +165,6 @@ const Field: React.FC<{
 );
 
 /**
- * What the account gives access to, in the product's own terms.
- *
- * Capabilities, from the published price list and the campaign rules — the same
- * facts the public page states. No figure here belongs to an account, which is
- * why this can sit on a sign-in screen: it says what the product is, not what
- * anyone holds. On a phone the block is ordered BELOW the form (see
- * src/styles/psemine-auth.css), so the task stays first on the small axis.
- */
-const SIGNIN_CONTEXT = [
-  { key: 'Campaign console', value: 'Your units, their capacity and the record behind them' },
-  { key: 'Purchases', value: 'Quotes, on-chain verification and activation, as the service records them' },
-  { key: 'Settlement and payout', value: 'GBP settlement, and a payout sent to the wallet you record' },
-];
-
-const SIGNUP_CONTEXT = [
-  { key: 'Campaign access', value: 'One account for the whole campaign, from opening to settlement' },
-  { key: 'Mining tools', value: 'All four units at the published price list, each with its ownership limit' },
-  { key: 'Capacity', value: 'Unit and referral capacity, accrued and recorded server-side' },
-  { key: 'Wallet', value: 'Pay in from your own wallet, and record the payout wallet you want settled funds sent to' },
-];
-
-const AuthContext: React.FC<{ heading: string; rows: ReadonlyArray<{ key: string; value: string }> }> = ({
-  heading,
-  rows,
-}) => (
-  <div className="pse-auth-context-block">
-    <span className="pse-micro">{heading}</span>
-    <dl className="pse-auth-context-rows">
-      {rows.map(row => (
-        <div key={row.key} className="pse-auth-context-row">
-          <dt>{row.key}</dt>
-          <dd>{row.value}</dd>
-        </div>
-      ))}
-    </dl>
-  </div>
-);
-
-/**
  * The error summary.
  *
  * A rejected multi-field form that answers with red borders alone leaves a
@@ -375,12 +336,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           ? 'One account covers your units, your capacity and any payout wallet you record. Creating it takes a moment.'
           : 'Sign in to your PSEmine console.'
       }
-      aside={
-        <AuthContext
-          heading={isSignup ? 'What your account gives you' : 'What you are signing in to'}
-          rows={isSignup ? SIGNUP_CONTEXT : SIGNIN_CONTEXT}
-        />
-      }
       footer={
         <p className="pse-small flex flex-wrap items-center gap-x-1.5">
           <span>{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
@@ -527,13 +482,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           <button type="submit" className="pse-btn pse-btn--lg pse-btn--block" disabled={pending} aria-busy={pending}>
             {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
           </button>
-
-          {isSignup && (
-            <p className="pse-small">
-              Creating an account is free and charges nothing. Buying a unit is a separate decision you make later, and
-              the Purchase Terms set out how that works — they are linked at the foot of this page.
-            </p>
-          )}
 
           {!isSignup && (
             <p className="text-center">

@@ -64,6 +64,10 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         overview = API_SOURCE[overview_start:overview_end]
         self.assertIn("'status', '==', 'confirmed'", overview)
         self.assertIn("totalToolIncomeGbp", overview)
+        self.assertIn("verificationSource", overview)
+        self.assertIn("bsc_rpc_receipt", overview)
+        self.assertIn("Total tool income", ADMIN_SOURCE)
+        self.assertIn("Real on-chain confirmed tool payments only", ADMIN_SOURCE)
         self.assertIn("priceGbp", overview)
         self.assertIn("psemine_orders", overview)
         self.assertIn("income_complete", overview)

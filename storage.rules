@@ -15,6 +15,8 @@ service firebase.storage {
       return isAuthenticated() && (
         getUserData().role == 'admin' ||
         getUserData().role == 'ADMIN' ||
+        getUserData().role == 'super_admin' ||
+        getUserData().role == 'SUPER_ADMIN' ||
         getUserData().isRoot == true
       );
     }

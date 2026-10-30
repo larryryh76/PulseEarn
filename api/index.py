@@ -7687,6 +7687,7 @@ def admin_psemine_overview():
             # A verified payment without a recoverable GBP amount is a data
             # integrity issue; do not publish a partial lifetime total.
             if gbp_amount is None:
+                # Never present a partial sum as lifetime income.
                 tool_income_gbp = None
                 income_complete = False
                 logging.error(

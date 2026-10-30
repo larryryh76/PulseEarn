@@ -363,7 +363,9 @@ export const PSEMineWallet: React.FC = () => {
                     onSubmit={async (amountGbp) => {
                       const res = await requestPayout(amountGbp);
                       if (res.success) {
-                        toast.success('Payout request submitted for review.');
+                        toast.success(res.amountBnb
+                          ? `Payout submitted: ${res.amountBnb} BNB locked at £${Number(res.exchangeRateBNBGBP || 0).toLocaleString('en-GB', { maximumFractionDigits: 4 })}/BNB.`
+                          : 'Payout request submitted for review.');
                         await refresh();
                         return true;
                       }
@@ -639,6 +641,10 @@ const PayoutRecord: React.FC<{
   const [open, setOpen] = useState(false);
   const view = payoutStatusView(record.status);
   const amount = payoutAmount(record);
+  const amountBnb = record.amountBnb !== undefined && record.amountBnb !== null && Number.isFinite(Number(record.amountBnb))
+    ? Number(record.amountBnb) : null;
+  const payoutRate = record.exchangeRateBNBGBP !== undefined && record.exchangeRateBNBGBP !== null && Number.isFinite(Number(record.exchangeRateBNBGBP))
+    ? Number(record.exchangeRateBNBGBP) : null;
   const failed = payoutState(record.status) === 'failed';
   const dest = record.destinationWallet || record.payoutWallet || record.payoutAddress || null;
   const tx = record.payoutTxHash || record.transactionHash || null;
@@ -662,6 +668,7 @@ const PayoutRecord: React.FC<{
           <span className="pse-w-txmeta">
             <span>{fmtDateTime(record.createdAt)}</span>
             {dest && <span className="pse-w-txhash">to {shortAddr(dest)}</span>}
+            {amountBnb !== null && <span className="pse-w-txhash">{amountBnb.toFixed(8)} BNB locked</span>}
             {tx && <span className="pse-w-txhash">{shortHash(tx, 8)}</span>}
           </span>
         </span>
@@ -682,6 +689,18 @@ const PayoutRecord: React.FC<{
               {record.updatedAt ? ` · updated ${fmtDateTime(record.updatedAt)}` : ''}
             </span>
           </div>
+          {amountBnb !== null && (
+            <div className="pse-w-kv">
+              <span className="pse-w-kv-key">Locked payout amount</span>
+              <span className="pse-w-kv-val">{amountBnb.toFixed(8)} BNB · BNB Smart Chain</span>
+            </div>
+          )}
+          {payoutRate !== null && (
+            <div className="pse-w-kv">
+              <span className="pse-w-kv-key">Locked conversion rate</span>
+              <span className="pse-w-kv-val">£{payoutRate.toLocaleString('en-GB', { maximumFractionDigits: 4 })} per BNB</span>
+            </div>
+          )}
           <div className="pse-w-kv">
             <span className="pse-w-kv-key">Destination</span>
             <span className="pse-w-kv-val">

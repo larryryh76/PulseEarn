@@ -7651,29 +7651,26 @@ def admin_psemine_overview():
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
-    # Lifetime tool income is calculated only from successfully verified,
-    # confirmed payment records. Quotes, failed attempts, withdrawals and
-    # accrued mining rewards are not purchase income.
-    tool_income_gbp = None
+    # There have been no genuine tool purchases at launch. Count revenue only
+    # when the payment is both confirmed AND carries the verifier's on-chain
+    # receipt marker. Quotes, seeded/demo rows, manually marked confirmations,
+    # failed attempts, withdrawals and mining rewards are never income.
+    # With no verified receipt records the correct lifetime total is £0.00.
+    tool_income_gbp = 0.0
     try:
-        income_total = 0.0
-        income_complete = True
-        confirmed_payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').stream()
-        for payment_snap in confirmed_payment_snaps:
+        verified_income_snaps = (
+            db.collection('psemine_payments')
+            .where('status', '==', 'confirmed')
+            .where('verificationSource', '==', 'bsc_rpc_receipt')
+            .stream()
+        )
+        for payment_snap in verified_income_snaps:
             payment_row = payment_snap.to_dict() or {}
-            # Only count payments written by the live on-chain verification handler.
-            # Historical/demo/admin-created confirmed rows are not evidence of income.
-            if payment_row.get('verificationSource') != 'bsc_rpc_receipt':
-                continue
             gbp_amount = payment_row.get('priceGbp')
             if gbp_amount is None:
                 gbp_amount = payment_row.get('purchasePriceGbp')
             if gbp_amount is None:
                 gbp_amount = payment_row.get('amountGbp')
-
-            # Legacy confirmed payment records may store only BNB/wei. Recover
-            # their GBP purchase price from the linked server-owned order; never
-            # estimate GBP from a current exchange rate or quote.
             if gbp_amount is None:
                 order_id = str(payment_row.get('orderId') or '').strip()
                 if order_id:
@@ -7683,20 +7680,21 @@ def admin_psemine_overview():
                         gbp_amount = order_row.get('priceGbp')
                         if gbp_amount is None:
                             gbp_amount = order_row.get('gbpPrice')
+            # A verified payment without a recoverable GBP amount is a data
+            # integrity issue; do not publish a partial lifetime total.
             if gbp_amount is None:
-                income_complete = False
-                logging.warning(
-                    '[PSEmine Admin] confirmed payment %s has no recoverable GBP purchase price',
+                tool_income_gbp = None
+                logging.error(
+                    '[PSEmine Admin] verified payment %s has no GBP purchase price',
                     payment_snap.id,
                 )
-                continue
-            income_total += safe_float(gbp_amount, 0.0)
-
-        # Never present a partial sum as lifetime income.
-        if income_complete:
-            tool_income_gbp = round(income_total, 2)
+                break
+            tool_income_gbp += safe_float(gbp_amount, 0.0)
+        if tool_income_gbp is not None:
+            tool_income_gbp = round(tool_income_gbp, 2)
     except Exception:
-        logging.exception('[PSEmine Admin] confirmed tool income aggregation failed')
+        tool_income_gbp = None
+        logging.exception('[PSEmine Admin] verified tool income aggregation failed')
 
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
     pending_withdrawals = [s.to_dict() for s in pending_snaps]

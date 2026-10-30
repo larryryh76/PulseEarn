@@ -90,8 +90,11 @@ export const AdminPSEMine: React.FC = () => {
   const [config, setConfig] = useState<Row | null>(null);
   // Permissions are read from the authenticated admin API, not inferred from a
   // potentially stale client-side profile snapshot.
-  const canConfigureReceiverWallet = config?.canConfigureReceiverWallet === true;
-  const isAdmin = config?.canManageCampaign === true;
+  // The backend remains authoritative on every write. The signed-in admin
+  // profile is a UI fallback so a transient overview-load failure cannot leave
+  // the confirmation controls permanently disabled.
+  const canConfigureReceiverWallet = config?.canConfigureReceiverWallet === true || role === 'admin';
+  const isAdmin = config?.canManageCampaign === true || role === 'admin';
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [recovery, setRecovery] = useState<Row[]>([]);
@@ -186,7 +189,7 @@ export const AdminPSEMine: React.FC = () => {
     const address = walletInput.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) { toast.error('Enter a valid, non-zero BNB Smart Chain address.'); return; }
     if (!walletAck) { toast.error('Confirm that you verified the receiving wallet and network.'); return; }
-    if (walletPhrase !== 'CONFIRM RECEIVER') { toast.error('Type CONFIRM RECEIVER to save the payment destination.'); return; }
+    if (walletPhrase.trim() !== 'CONFIRM RECEIVER') { toast.error('Type CONFIRM RECEIVER to save the payment destination.'); return; }
     setBusy(true);
     try {
       await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_receiver_wallet', receiverWalletAddress: address, reason: 'PSEmine operations configuration' }) });
@@ -288,14 +291,14 @@ export const AdminPSEMine: React.FC = () => {
           <Panel id="ops-settings" title="Purchase receiving wallet" detail="Campaign receiving destination — not a user's personal payout wallet and distinct from payout destinations.">
             <div className="flex flex-wrap items-center justify-between gap-2"><Pill value={config?.purchaseReady ? 'Purchases enabled' : 'Purchases blocked'} /><span className="text-[11px] text-slate-500">Network ID: {config?.paymentChainId ?? 56}</span></div>
             <div className="mt-3 break-all rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-cyan-100">{config?.receiverWalletAddress || 'No receiving address is configured'}</div>
-            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The address has not been confirmed by a admin. New tool purchase quotes are blocked.'}</div>
-            {!canConfigureReceiverWallet && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The backend only permits role super_admin or isRoot=true to change the campaign receiving wallet. A page redesign cannot override this security rule; the account must be granted the correct role by an authorised identity administrator.</div>}
+            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The receiving address has not been confirmed by an admin. New tool purchase quotes remain blocked.'}</div>
+            {!canConfigureReceiverWallet && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The authenticated backend permits the platform admin role to configure this wallet. If this control remains unavailable, refresh the admin session and inspect the permission error returned by the server.</div>}
             <label className="mt-4 block text-xs font-medium text-slate-300">BNB Smart Chain receiving address</label>
             <input value={walletInput} onChange={e => setWalletInput(e.target.value)} placeholder="0x…" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-3 font-mono text-xs text-white outline-none focus:border-cyan-400/50 disabled:opacity-50" />
             <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!canConfigureReceiverWallet || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
             <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
             <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
-            <button onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
+            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
             <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
           </Panel>
         </div>

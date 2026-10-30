@@ -1441,3 +1441,9 @@
 .pse-admin-operations .pse-ops-wallet-shortcut-copy code { color:#b6dcff; font-size:12px; overflow-wrap:anywhere; }
 .pse-admin-operations .pse-ops-wallet-shortcut-copy small { color:#8e9db8; font-size:11px; }
 @media (max-width:640px) { .pse-admin-operations .pse-ops-wallet-shortcut { align-items:stretch; flex-direction:column; } .pse-admin-operations .pse-ops-wallet-shortcut > * { align-self:flex-start; } }
+
+/* Keep notices full-width on narrow screens; title and body must stack. */
+.pse-notice { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; align-items: start; width: 100%; min-width: 0; box-sizing: border-box; }
+.pse-notice-title, .pse-notice-content { display: block; width: 100%; min-width: 0; grid-column: 1 / -1; }
+.pse-notice-content > * { max-width: 100%; min-width: 0; }
+@media (max-width: 620px) { .pse-notice { padding-inline: 12px; } .pse-notice-content .pse-facts { grid-template-columns: minmax(0, 1fr); } }

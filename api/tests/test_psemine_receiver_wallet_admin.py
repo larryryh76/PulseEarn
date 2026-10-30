@@ -159,8 +159,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("not physical mining hardware", TOOLS_SOURCE)
 
     def test_admin_recovery_action_passes_purchase_id_for_safe_attachment(self):
-        self.assertIn("const purchaseId = typeof c.purchaseId === 'string' ? c.purchaseId : undefined", ADMIN_SOURCE)
-        self.assertIn("purchaseId);", ADMIN_SOURCE)
+        self.assertIn("const purchaseId = typeof row.purchaseId === 'string' ? row.purchaseId : undefined", ADMIN_SOURCE)
+        self.assertIn("'attach_to_purchase', purchaseId", ADMIN_SOURCE)
         self.assertIn("This recovery case has no canonical purchase ID", ADMIN_SOURCE)
 
     def test_admin_can_reconfirm_same_legacy_seeded_address(self):

@@ -214,7 +214,14 @@ export const PSEMineTools: React.FC = () => {
     }
   };
 
-  const receiverWalletReady = campaign?.purchaseReady === true;
+  const receiverAddress = String(campaign?.receiverWalletAddress || '').trim();
+  // The context is backed by the live campaign document. Mirror the backend's
+  // strict confirmation predicate for display; the quote/intent APIs enforce it again.
+  const receiverWalletReady = campaign?.receiverWalletConfigured === true
+    && Boolean(campaign?.receiverWalletConfiguredAt)
+    && Boolean(campaign?.receiverWalletConfiguredBy)
+    && /^0x[a-fA-F0-9]{40}$/.test(receiverAddress)
+    && !/^0x0{40}$/i.test(receiverAddress);
   const purchaseOpen = receiverWalletReady && campaign?.purchaseEnabled !== false && campaign?.status === 'active';
   const walletSetupRequired = campaign?.status === 'active' && campaign?.purchaseEnabled !== false && !receiverWalletReady;
   // Every ownership the backend reports is listed: filtering to "operating"

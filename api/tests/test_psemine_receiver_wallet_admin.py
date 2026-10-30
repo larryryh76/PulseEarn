@@ -45,7 +45,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("'super_admin'", TYPES_SOURCE)
 
     def test_tool_catalogue_fails_closed_until_wallet_is_ready(self):
-        self.assertIn("campaign?.purchaseReady === true", TOOLS_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)
         self.assertIn("Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
         self.assertIn("campaign_state['purchaseReady']", API_SOURCE)
 

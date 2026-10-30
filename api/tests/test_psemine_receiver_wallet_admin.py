@@ -116,7 +116,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
 
     def test_admin_money_totals_require_canonical_on_chain_receipts(self):
         overview_start = API_SOURCE.index("def get_admin_mine_overview():")
-        overview_end = API_SOURCE.index("\\n@app.route(", overview_start)
+        overview_end = API_SOURCE.index("\n@app.route(", overview_start)
         overview = API_SOURCE[overview_start:overview_end]
         self.assertIn("verificationSource', '==', 'bsc_rpc_receipt'", overview)
         self.assertIn("_is_canonical_verified_psemine_payment(_payment)", overview)

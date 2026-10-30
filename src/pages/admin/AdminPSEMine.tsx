@@ -149,7 +149,6 @@ export const AdminPSEMine: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     const q = orderQuery.trim().toLowerCase();
-    if (!q) return orders;
     const verifiedOrderIds = new Set(payments.map(payment => String(payment.orderId || '')).filter(Boolean));
     return orders.filter(order => {
       const status = String(order.status || '').toLowerCase();
@@ -157,7 +156,7 @@ export const AdminPSEMine: React.FC = () => {
       // paid only when the independent BSC receipt ledger contains its order ID.
       if (['paid', 'confirmed', 'completed', 'verified', 'success'].includes(status)
           && !verifiedOrderIds.has(String(order.id || order.orderId || ''))) return false;
-      return [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
+      return !q || [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
         .some(value => String(value || '').toLowerCase().includes(q));
     });
   }, [orders, orderQuery, payments]);

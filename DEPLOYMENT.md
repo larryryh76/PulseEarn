@@ -43,9 +43,12 @@ from any temp directory.
   intentionally does NOT force-warm at import (boot-order safety).
 - PSEmine has ONE receiving destination: the explicitly configured
   `psemine_campaigns/active_campaign.receiverWalletAddress`, changed by a
-  super-admin in **PSEmine Operations → Configuration**. There is no code,
+  super-admin in **PSEmine Operations → Configuration**. A fresh admin save
+  writes explicit `receiverWalletConfigured*` audit markers; old seeded values
+  are not trusted until an administrator reconfirms them. There is no code,
   environment-variable, frontend, or bootstrap fallback wallet. If the value
-  is missing or invalid, both checkout APIs refuse to create quotes. Previously
+  or its confirmation markers are missing or invalid, both checkout APIs refuse
+  to create quotes. Previously
   issued server quotes retain their immutable destination and amount; never
   rewrite a quote after a user may have paid. Do not store private keys or seed
   phrases here.

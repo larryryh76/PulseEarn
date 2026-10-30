@@ -7181,7 +7181,8 @@ def psemine_verify_payment():
             quote_id=order_id, reason='PURCHASES_DISABLED_AT_VERIFICATION_LEGACY')
         return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
-    # Quote Expiry Check
+    # Quote expiry cannot discard a transaction the user may already have sent.
+    # Record it for review and retain the legacy order instead of marking it dead.
     expiry_raw = order.get('quoteExpiry')
     if expiry_raw:
         try:
@@ -7192,10 +7193,31 @@ def psemine_verify_payment():
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > exp_dt:
-                order_ref.update({'status': 'expired', 'updatedAt': firestore.SERVER_TIMESTAMP})
-                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote expired. Please create a new order."}), 409
+                _pse_engine.create_payment_recovery(
+                    db, uid, tx_hash=tx_hash, quote_id=order_id,
+                    sender=order.get('intendedPaymentWallet'),
+                    recipient=order.get('destinationAddress'),
+                    chain_id=PSEMINE_BSC_CHAIN_ID,
+                    reason='LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                    extra={'message': 'Legacy order quote expired before verification completed.'})
+                order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                                  'reviewReason': 'LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                                  'updatedAt': firestore.SERVER_TIMESTAMP})
+                return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                                "message": "This order quote expired. The transaction was recorded for admin review. Do not send another payment."}), 409
         except Exception:
-            pass
+            _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=order.get('destinationAddress'),
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='INVALID_LEGACY_QUOTE_EXPIRY',
+                extra={'message': 'Legacy order quote expiry could not be parsed.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'reviewReason': 'INVALID_LEGACY_QUOTE_EXPIRY',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "The order expiry is invalid. The transaction was recorded for admin review. Do not send another payment."}), 409
 
     intended_payment_wallet = order.get('intendedPaymentWallet')
     expected_sender = intended_payment_wallet.strip().lower() if isinstance(intended_payment_wallet, str) else ''

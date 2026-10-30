@@ -124,9 +124,21 @@ const run = async () => {
       hasDiscover: typeof m.discoverInjectedWallets === 'function',
       hasSend: typeof m.sendPaymentTransaction === 'function',
       wcConfigured: m.isWalletConnectConfigured(),
+      chainIdCases: [
+        ['hex', m.parseChainId('0x38'), 56],
+        ['decimal-string', m.parseChainId('56'), 56],
+        ['number', m.parseChainId(56), 56],
+        ['caip2', m.parseChainId('eip155:56'), 56],
+        ['ethereum-hex', m.parseChainId('0x1'), 1],
+        ['invalid', m.parseChainId('not-a-chain'), null],
+      ],
     };
   });
   step('module-loaded', mod);
+  step('chain-id-normalization', {
+    cases: mod.chainIdCases,
+    pass: mod.chainIdCases.every(([, actual, expected]) => actual === expected),
+  });
 
   // 1. EIP-6963 discovery
   const discovered = await page.evaluate(async () => {
@@ -152,6 +164,13 @@ const run = async () => {
     pass: connection.address === STUB_ADDR && connection.transport === 'injected' && connection.chainId === 56,
   });
 
+  // 2b. Decimal chain IDs are normalised as decimal (not hexadecimal).
+  const decimalChain = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    return m.getChainId({ request: async ({ method }) => method === 'eth_chainId' ? '56' : null });
+  });
+  step('decimal-chain-id', { chainId: decimalChain, pass: decimalChain === 56 });
+
   // 3. ensureChain — correct chain passes without any switch request
   const chainOk = await page.evaluate(async () => {
     const m = await import('/__pseWallet.mjs');
@@ -159,6 +178,27 @@ const run = async () => {
     return m.ensureChain(list[0].provider, 56);
   });
   step('ensureChain-correct-chain56', { pass: chainOk === true });
+
+  // 3a. An unreadable chain can be recovered through an explicit wallet switch.
+  const unreadableRecovered = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    let readable = false;
+    const provider = {
+      request: async ({ method, params }) => {
+        if (method === 'eth_chainId') {
+          if (!readable) throw new Error('chain temporarily unavailable');
+          return '56';
+        }
+        if (method === 'wallet_switchEthereumChain') { readable = true; return null; }
+        return null;
+      },
+    };
+    return m.ensureChain(provider, 56);
+  });
+  step('ensureChain-recovers-unreadable-network', {
+    pass: unreadableRecovered === true,
+    note: 'switch request is made, then the live chain is re-read before payment is allowed',
+  });
 
   // 3b. Wrong chain + wallet cannot switch → must return false (STOP before send)
   const chainRefused = await page.evaluate(async () => {

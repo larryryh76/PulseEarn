@@ -6,12 +6,12 @@
 
 ### P0 — Money destination configuration (remediated in fail-closed wallet PR)
 - There is one permitted receiving destination: the active campaign's explicitly configured `receiverWalletAddress`.
-- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero.
+- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero. They also require `receiverWalletConfigured`, `receiverWalletConfiguredAt`, and `receiverWalletConfiguredBy`, written only by the super-admin configuration action; this prevents an old seeded Firestore value from silently remaining payable.
 - The old `PSEMINE_PAYMENT_ADDRESS` constant, hardcoded fallback address, frontend default receiver, and bootstrap receiver assignment have been removed. New campaign bootstrap records an empty receiver and remains non-payable until a super-admin configures it.
 - Both verification paths use the immutable destination stored on the server-created quote/order and validate the BNB Smart Chain network. They do not fall back to a second wallet.
 - The legacy quote amount is rounded to the same eight decimal places displayed by its checkout UI before the exact wei amount is calculated. This closes a mismatch that could otherwise reject a payment after it had been sent.
 - A wallet change affects new quotes only. Existing quotes retain their original recipient and amount so an in-flight payment is not silently redirected.
-- Production database configuration still requires a live read-only verification before launch; source changes cannot prove which address is currently stored in Firestore.
+- Production database configuration still requires the admin to reconfirm the intended wallet in the live console before launch; source changes cannot prove which address is currently stored in Firestore. Until that confirmation is saved, purchase quotes fail closed.
 
 ### P1 — Existing operational panels need a full functional audit
 - **Overview:** displays backend-reported KPIs and correctly avoids inventing missing numbers, but the admin still needs a reconciliation view tying confirmed purchase payments, accrued liability, payouts/debits, and unresolved recovery cases together.

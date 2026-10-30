@@ -30,15 +30,15 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         if next_route >= 0:
             self.route = self.route[:next_route]
 
-    def test_wallet_change_uses_super_admin_gated_campaign_action(self):
+    def test_wallet_change_uses_platform_admin_gated_campaign_action(self):
         self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)
         self.assertIn("if not is_admin(uid)", self.route)
         self.assertIn("if action == 'set_receiver_wallet':", self.route)
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
-        self.assertIn("if not is_super_admin(uid)", wallet_action)
+        self.assertIn("if not is_admin(uid)", wallet_action)
 
-    def test_super_admin_role_is_authorized_by_backend_admin_gate(self):
-        self.assertIn("role in {'admin', 'super_admin'}", API_SOURCE)
+    def test_platform_admin_role_is_authorized_by_backend_admin_gate(self):
+        self.assertIn("return is_admin(uid)", API_SOURCE)
         self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
 
     def test_super_admin_role_is_preserved_by_auth_context(self):
@@ -51,7 +51,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)
-        self.assertIn("Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
+        self.assertIn("Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
         self.assertIn("campaign_state['purchaseReady']", API_SOURCE)
 
     def test_wallet_address_is_validated_and_zero_address_rejected(self):
@@ -178,7 +178,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn('"receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True', overview)
         self.assertIn('"purchaseReady": bool(configured_receiver)', overview)
         self.assertIn("setConfig(d.campaign || null)", ADMIN_SOURCE)
-        self.assertIn('"canConfigureReceiverWallet": is_super_admin(request.user["uid"])', overview)
+        self.assertIn('"canConfigureReceiverWallet": is_admin(request.user["uid"])', overview)
         self.assertIn("config?.canConfigureReceiverWallet === true", ADMIN_SOURCE)
         self.assertIn("config?.receiverWalletConfigured", ADMIN_SOURCE)
         self.assertNotIn("campaign?.receiverWalletConfigured === true", ADMIN_SOURCE)

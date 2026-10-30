@@ -9477,13 +9477,37 @@ def mine_create_withdrawal():
     amount = data.get('amountGbp')
     try:
         amount = float(amount)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError("amount must be positive and finite")
     except (TypeError, ValueError):
         return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
+
+    # Lock the BNB conversion at request time. The exact rounded amount shown
+    # to the operator is the same wei amount the admin verifier later checks.
+    bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
+    if bnb_gbp_price is None or bnb_gbp_price <= 0:
+        return jsonify({"success": False, "error": "PRICE_SERVICE_UNAVAILABLE",
+                        "message": "A live BNB/GBP rate is unavailable. No payout request or debit was created."}), 503
+    amount_bnb = round(amount / bnb_gbp_price, 8)
+    amount_wei = int((Decimal(str(amount_bnb)) * Decimal('1000000000000000000')).to_integral_value())
+    if amount_bnb <= 0 or amount_wei <= 0:
+        return jsonify({"success": False, "error": "PAYOUT_AMOUNT_TOO_SMALL",
+                        "message": "The requested GBP amount converts to less than the minimum transferable BNB precision."}), 400
+    payout_quote = {
+        "amountBnb": format(Decimal(str(amount_bnb)), "f"),
+        "expectedAmountWei": str(amount_wei),
+        "exchangeRateBNBGBP": str(bnb_gbp_price),
+        "provider": quote_provider,
+        "quotedAt": datetime.now(timezone.utc).isoformat(),
+        "asset": "BNB",
+        "chainId": PSEMINE_BSC_CHAIN_ID,
+    }
     import psemine_engine as _pse_engine
-    result = _pse_engine.create_payout_request(db, uid, amount)
+    result = _pse_engine.create_payout_request(db, uid, amount, payout_quote=payout_quote)
     if not result.get("ok"):
         status = {"BELOW_MINIMUM": 400, "CAMPAIGN_ACTIVE": 403, "NO_PAYOUT_WALLET": 400,
-                  "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409}.get(result.get("error"), 400)
+                  "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409,
+                  "INVALID_PAYOUT_QUOTE": 409}.get(result.get("error"), 400)
         return jsonify({"success": False, "error": result.get("error"), "message": result.get("message", str(result.get("error", "")).replace('_', ' ').title())}), status
     return jsonify({"success": True, "withdrawalId": result.get("withdrawalId")})
 

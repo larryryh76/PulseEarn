@@ -14,6 +14,11 @@ const money = (value: unknown, currency = 'GBP') => {
   try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n); }
   catch { return String(n); }
 };
+const formatLockedBnb = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return 'No locked BNB quote';
+  const amountBnb = Number(value);
+  return Number.isFinite(amountBnb) ? amountBnb.toFixed(8) + ' BNB' : 'No locked BNB quote';
+};
 const dateText = (value: unknown) => {
   if (!value) return '—';
   const d = new Date(value as any);
@@ -46,8 +51,8 @@ const londonIso = (date: string, time: string) => {
   return new Date(candidate).toISOString();
 };
 
-const Panel: React.FC<{ title: string; detail?: string; right?: React.ReactNode; children: React.ReactNode }> = ({ title, detail, right, children }) => (
-  <section className="rounded-2xl border border-white/10 bg-[#0c1220] p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,.18)]">
+const Panel: React.FC<{ id?: string; title: string; detail?: string; right?: React.ReactNode; children: React.ReactNode }> = ({ id, title, detail, right, children }) => (
+  <section id={id} className="rounded-2xl border border-white/10 bg-[#0c1220] p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,.18)]">
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="text-base font-semibold text-white">{title}</h2>{detail && <p className="mt-1 text-xs text-slate-400">{detail}</p>}</div>
       {right}
@@ -194,6 +199,12 @@ export const AdminPSEMine: React.FC = () => {
     finally { setBusy(false); }
   };
 
+  const attachRecovery = async (row: Row) => {
+    const purchaseId = typeof row.purchaseId === 'string' ? row.purchaseId : undefined;
+    if (!purchaseId) { toast.error('This recovery case has no canonical purchase ID; it cannot be attached safely.'); return; }
+    await resolveCase(String(row.id || row.recoveryId), 'attach_to_purchase', purchaseId);
+  };
+
   const reviewPayout = async (id: string, action: 'APPROVE' | 'REJECT') => {
     let txHash: string | undefined;
     if (action === 'APPROVE') {
@@ -241,7 +252,7 @@ export const AdminPSEMine: React.FC = () => {
         {loadErrors.length > 0 && <div className="rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-4"><div className="font-medium text-amber-200">Some operational data could not be loaded</div><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-100/80">{loadErrors.map(x => <li key={x}>{x}</li>)}</ul><p className="mt-2 text-xs text-slate-400">Unavailable data is not treated as zero. The error for each register is shown above.</p></div>}
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Stat label="Total tool income" value={incomeReady ? money(income) : 'Unavailable'} note="Verified BSC receipt records only" emphasis />
+          <Stat label="Total tool income" value={incomeReady ? money(income) : 'Unavailable'} note={incomeReady ? "Real on-chain confirmed tool payments only" : "Reconciliation incomplete — total withheld"} emphasis />
           <Stat label="Confirmed tool payments" value={fmtStat(mineStats.totalConfirmedPayments ?? stats.totalConfirmedPayments)} note="Successful on-chain verification" />
           <Stat label="Active tool ownerships" value={fmtStat(mineStats.activeToolOwnerships ?? stats.activeToolOwnerships)} />
           <Stat label="Active mining sessions" value={fmtStat(mineStats.activeMiningSessions ?? stats.activeMiningSessions)} />
@@ -255,7 +266,7 @@ export const AdminPSEMine: React.FC = () => {
         </section>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,.7fr)]">
-          <Panel title="Campaign configuration" detail="The actual campaign document and purchase readiness returned by the backend.">
+          <Panel id="ops-campaign" title="Campaign configuration" detail="The actual campaign document and purchase readiness returned by the backend.">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">Campaign status</div><div className="mt-1 text-lg font-semibold text-white">{String(campaignStatus)}</div></div>
               <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">Campaign duration</div><div className="mt-1 text-lg font-semibold text-white">{campaign?.durationDays ?? stats.durationDays ?? '—'} days</div></div>
@@ -264,7 +275,7 @@ export const AdminPSEMine: React.FC = () => {
             </div>
             <details className="mt-3 rounded-xl border border-white/10 p-3"><summary className="cursor-pointer text-xs font-medium text-cyan-200">Show every backend campaign metric</summary><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(stats).map(([key, value]) => <div key={key} className="rounded-lg bg-white/[.03] p-2"><div className="break-all text-[10px] text-slate-500">{key}</div><div className="mt-1 break-all text-sm text-white">{fmtStat(value)}</div></div>)}</div></details>
           </Panel>
-          <Panel title="Purchase receiving wallet" detail="One campaign-level destination. This is not a user's payout wallet.">
+          <Panel id="ops-settings" title="Purchase receiving wallet" detail="Campaign receiving destination — not a user's personal payout wallet and distinct from payout destinations.">
             <div className="flex flex-wrap items-center justify-between gap-2"><Pill value={config?.purchaseReady ? 'Purchases enabled' : 'Purchases blocked'} /><span className="text-[11px] text-slate-500">Network ID: {config?.paymentChainId ?? 56}</span></div>
             <div className="mt-3 break-all rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-cyan-100">{config?.receiverWalletAddress || 'No receiving address is configured'}</div>
             <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The address has not been confirmed by a super-admin. New tool purchase quotes are blocked.'}</div>
@@ -279,7 +290,7 @@ export const AdminPSEMine: React.FC = () => {
           </Panel>
         </div>
 
-        <Panel title="Campaign lifecycle controls" detail="Actions affect the live campaign and are written to the audit log.">
+        <Panel id="ops-lifecycle" title="Campaign lifecycle controls" detail="Actions affect the live campaign and are written to the audit log.">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-xs text-slate-400">New start date (UK)<input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
             <label className="text-xs text-slate-400">New start time (UK)<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
@@ -289,27 +300,27 @@ export const AdminPSEMine: React.FC = () => {
           {!isAdmin && <p className="mt-3 text-xs text-amber-200">Admin or super-admin role required for lifecycle actions.</p>}
         </Panel>
 
-        <Panel title="Tool register" detail="Published locked tool prices and capacity. Economics are read-only in this console.">
+        <Panel id="ops-tools" title="Tool register" detail="Published locked tool prices and capacity. Economics are read-only in this console.">
           <Table columns={['Tool', 'Price', 'Hourly capacity', 'Max per user', 'Status / action']} rows={tools} empty="No locked tool definitions are available." render={(tool) => <tr className="bg-transparent"><td className="px-3 py-3 font-medium text-white">{tool.name || tool.id || tool.toolId}</td><td className="px-3 py-3 text-slate-300">{money(tool.purchasePriceGBP)}</td><td className="px-3 py-3 text-slate-300">{money(tool.hourlyRateGBP) + ' / hr'}</td><td className="px-3 py-3 text-slate-300">{tool.maxPerUser ?? '—'}</td><td className="px-3 py-3"><button onClick={() => void deprecateTool(String(tool.id || tool.toolId || tool.key || ''))} disabled={!isAdmin || busy} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-300 disabled:opacity-40">Deprecate</button></td></tr>} />
         </Panel>
 
-        <Panel title="Purchase orders" detail="Order intents are not counted as income until an on-chain payment is verified." right={<input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="Search user, order, tx hash…" className="w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" />}>
+        <Panel id="ops-purchases" title="Purchase orders" detail="Order intents are not counted as income until an on-chain payment is verified." right={<input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="Search user, order, tx hash…" className="w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" />}>
           <Table columns={['Order', 'User', 'Tool', 'Amount', 'Status', 'Transaction']} rows={filteredOrders} empty="No order intents have been returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{row.toolName || row.toolId || '—'}</td><td className="px-3 py-3 text-slate-300">{money(row.priceGbp ?? row.amountGbp ?? row.gbpPrice)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
         </Panel>
 
-        <Panel title="Verified tool payments" detail="Only backend-confirmed BNB Smart Chain receipt records belong here.">
+        <Panel id="ops-payments" title="Verified tool payments" detail="Only backend-confirmed BNB Smart Chain receipt records belong here.">
           <Table columns={['Confirmed', 'Payment', 'Order', 'User', 'GBP value', 'BNB received', 'Transaction']} rows={payments} empty="No genuine verified tool payments recorded yet." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.confirmedAt)}</td><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.priceGbp ?? row.purchasePriceGbp ?? row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.paidBnbAmount ?? row.amountBnb ?? '—'} BNB</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
         </Panel>
 
-        <Panel title="Payment recovery" detail="Review failed or ambiguous payment evidence. Never ask a user to pay again until the existing transaction is reconciled.">
-          <Table columns={['Case', 'User', 'Reason', 'Transaction', 'Created', 'Actions']} rows={recovery} empty="No open payment-recovery cases." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1"><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        <Panel id="ops-recovery" title="Payment recovery" detail="Review failed or ambiguous payment evidence. Never ask a user to pay again until the existing transaction is reconciled.">
+          <Table columns={['Case', 'User', 'Reason', 'Transaction', 'Created', 'Actions']} rows={recovery} empty="No open payment-recovery cases." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1"><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void attachRecovery(row)} disabled={!isAdmin || busy || typeof row.purchaseId !== 'string'} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Attach to purchase</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject') disabled={!isAdmin || busy} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
         </Panel>
 
-        <Panel title="Payout queue" detail="Approvals require a BNB Smart Chain transaction hash; the backend validates the transfer before finalising.">
-          <Table columns={['Request', 'User', 'GBP requested', 'BNB locked', 'Destination', 'Status', 'Review']} rows={withdrawals} empty="No payout requests returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.amountBnb ?? row.lockedBnbAmount ?? '—'}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.payoutAddress || row.walletAddress)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3"><div className="flex gap-1"><button onClick={() => void reviewPayout(String(row.id), 'APPROVE')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Approve + tx</button><button onClick={() => void reviewPayout(String(row.id), 'REJECT')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        <Panel id="ops-payouts" title="Payout queue" detail="Approvals require a BNB Smart Chain transaction hash; the backend validates the transfer before finalising.">
+          <Table columns={['Request', 'User', 'GBP requested', 'BNB locked', 'Destination', 'Status', 'Review']} rows={withdrawals} empty="No payout requests returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{formatLockedBnb(row.amountBnb ?? row.lockedBnbAmount)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.payoutAddress || row.walletAddress)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3"><div className="flex gap-1"><button onClick={() => void reviewPayout(String(row.id), 'APPROVE')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Approve + tx</button><button onClick={() => void reviewPayout(String(row.id), 'REJECT')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
         </Panel>
 
-        <Panel title="Audit history" detail="Backend audit events; newest records are shown first according to the API response.">
+        <Panel id="ops-audit" title="Audit history" detail="Backend audit events; newest records are shown first according to the API response.">
           <Table columns={['Time', 'Action', 'Target', 'Actor', 'Outcome']} rows={audit} empty="No audit records returned." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.timestamp)}</td><td className="px-3 py-3 text-white">{String(row.action || 'ADMIN_ACTION').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.targetEntity || row.target)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.adminId || row.actorId)}</td><td className="px-3 py-3"><Pill value={row.outcome || row.status || 'recorded'} /></td></tr>} />
         </Panel>
 

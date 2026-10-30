@@ -81,11 +81,6 @@ export const AdminPSEMine: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { campaign, refreshData: refreshCampaign } = usePSEMine();
   const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
-  // Permissions are read from the authenticated admin API, not inferred from a
-  // potentially stale client-side profile snapshot.
-  const isSuperAdmin = config?.canConfigureReceiverWallet === true;
-  const isAdmin = config?.canManageCampaign === true;
-
   const [busy, setBusy] = useState(false);
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
   const [loadState, setLoadState] = useState<ApiState>('loading');
@@ -93,6 +88,10 @@ export const AdminPSEMine: React.FC = () => {
   const [stats, setStats] = useState<Row>({});
   const [mineStats, setMineStats] = useState<Row>({});
   const [config, setConfig] = useState<Row | null>(null);
+  // Permissions are read from the authenticated admin API, not inferred from a
+  // potentially stale client-side profile snapshot.
+  const isSuperAdmin = config?.canConfigureReceiverWallet === true;
+  const isAdmin = config?.canManageCampaign === true;
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [recovery, setRecovery] = useState<Row[]>([]);

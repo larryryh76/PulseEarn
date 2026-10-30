@@ -7105,7 +7105,7 @@ def psemine_create_order():
         receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)
         if not receiver_wallet:
             return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
-                            "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
+                            "message": "Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet."}), 503
 
         legacy_review_orders = db.collection('psemine_orders').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
         if legacy_review_orders:
@@ -8223,7 +8223,7 @@ def generate_psemine_tool_quote():
 
     receiver_wallet = _configured_psemine_receiver_wallet(camp_data)
     if not receiver_wallet:
-        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED", "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED", "message": "Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet."}), 503
 
     quote = {
         "quoteId": quote_id,
@@ -8878,7 +8878,7 @@ def admin_campaign_action():
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
-    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+    if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
 
     data = request.get_json() or {}
     action = data.get('action') # 'pause', 'resume', 'schedule', 'settle', 'shutdown'
@@ -8886,12 +8886,21 @@ def admin_campaign_action():
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
+    if not camp_snap.exists and action == 'set_receiver_wallet':
+        # Wallet configuration must work on a fresh install too. This is an
+        # explicit authenticated admin write path; the public GET endpoints
+        # remain read-only and never bootstrap campaign data.
+        try:
+            psemine_ensure_canonical_data(db)
+            camp_snap = camp_ref.get()
+        except Exception:
+            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before receiver setup')
     if not camp_snap.exists:
         return jsonify({
             "success": False,
             "error": "CAMPAIGN_NOT_INITIALIZED",
-            "message": "Active campaign has not been initialized."
-        }), 404
+            "message": "The campaign could not be initialized. Refresh the console and retry."
+        }), 503
 
     camp_before = camp_snap.to_dict() or {}
     current_status = camp_before.get('status', 'active')

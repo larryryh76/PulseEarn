@@ -144,6 +144,14 @@ export const AdminPSEMine: React.FC = () => {
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
   const [receiverWalletInput, setReceiverWalletInput] = useState('');
   const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
+  const [receiverWalletConfig, setReceiverWalletConfig] = useState<{
+    receiverWalletAddress: string;
+    receiverWalletConfigured: boolean;
+    receiverWalletConfiguredAt: string | null;
+    receiverWalletConfiguredBy: boolean;
+    purchaseReady: boolean;
+    paymentChainId?: number;
+  } | null>(null);
   const [receiverConfirmationOverride, setReceiverConfirmationOverride] = useState<boolean | null>(null);
   const [walletSaveBusy, setWalletSaveBusy] = useState(false);
   const [walletAcknowledged, setWalletAcknowledged] = useState(false);
@@ -179,7 +187,20 @@ export const AdminPSEMine: React.FC = () => {
       if (pseRes.ok) {
         const d = await pseRes.json().catch(() => ({}));
         setMineOverview(d?.stats || {});
-      } else { setMineOverview({}); unavailable.push('tool/session metrics'); }
+        const config = d?.campaign;
+        setReceiverWalletConfig(config && typeof config === 'object' ? {
+          receiverWalletAddress: String(config.receiverWalletAddress || ''),
+          receiverWalletConfigured: config.receiverWalletConfigured === true,
+          receiverWalletConfiguredAt: config.receiverWalletConfiguredAt || null,
+          receiverWalletConfiguredBy: config.receiverWalletConfiguredBy === true,
+          purchaseReady: config.purchaseReady === true,
+          paymentChainId: typeof config.paymentChainId === 'number' ? config.paymentChainId : undefined,
+        } : null);
+      } else {
+        setMineOverview({});
+        setReceiverWalletConfig(null);
+        unavailable.push('tool/session metrics and campaign payment configuration');
+      }
 
       if (recRes.ok) {
         const d = await recRes.json().catch(() => ({}));
@@ -222,18 +243,24 @@ export const AdminPSEMine: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    const configured = String(campaign?.receiverWalletAddress || '');
+    if (!receiverWalletConfig) {
+      setReceiverWalletCurrent('');
+      setReceiverWalletInput('');
+      setReceiverConfirmationOverride(null);
+      return;
+    }
+    const configured = receiverWalletConfig.receiverWalletAddress;
     setReceiverWalletCurrent(configured);
     setReceiverWalletInput(configured);
     setReceiverConfirmationOverride(null);
-  }, [campaign?.receiverWalletAddress, campaign?.receiverWalletConfiguredAt]);
+  }, [receiverWalletConfig]);
 
   // Existing campaign documents may still contain the former bootstrap value.
   // A fresh super-admin save must explicitly attest to the destination once.
   const receiverIsConfirmed = receiverConfirmationOverride ?? (
-    campaign?.receiverWalletConfigured === true
-    && Boolean(campaign?.receiverWalletConfiguredAt)
-    && Boolean(campaign?.receiverWalletConfiguredBy)
+    receiverWalletConfig?.receiverWalletConfigured === true
+    && Boolean(receiverWalletConfig?.receiverWalletConfiguredAt)
+    && receiverWalletConfig?.receiverWalletConfiguredBy === true
   );
   const receiverNeedsConfirmation = !receiverIsConfirmed;
 
@@ -302,6 +329,14 @@ export const AdminPSEMine: React.FC = () => {
       toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
+      setReceiverWalletConfig({
+        receiverWalletAddress: address,
+        receiverWalletConfigured: true,
+        receiverWalletConfiguredAt: new Date().toISOString(),
+        receiverWalletConfiguredBy: true,
+        purchaseReady: true,
+        paymentChainId: receiverWalletConfig?.paymentChainId,
+      });
       setReceiverConfirmationOverride(true);
       setWalletAcknowledged(false);
       await load(true);

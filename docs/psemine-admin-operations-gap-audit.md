@@ -19,7 +19,7 @@
 - **Tool register:** the current table shows the locked tier prices/rates/caps from frontend constants. It does not clearly report the backend's live per-tool operational status or offer a controlled way to pause/deprecate a tier. Locked economics must remain read-only.
 - **Payment verification:** real recovery records and server-side resolution actions exist, but the panel needs end-to-end tests for each reason, retry, and failure mode.
 - **Purchases:** verified payments and order intents are separate, which is correct. Search/filter/pagination and destination mismatch visibility need to be checked against real response shapes.
-- **Payouts:** a queue and review actions exist. The approval path needs explicit evidence that a transaction hash is validated against the intended network/recipient/amount before the request can be marked paid; a supplied hash alone must never be treated as proof.
+- **Payouts:** the canonical request now locks the live BNB/GBP conversion, exact BNB amount/wei and the user's saved payout destination before reserving the GBP debit. Admin review requires a successful BSC receipt, exact recipient and amount, and the configured confirmation depth. The legacy unquoted payout writer is retired; legacy rows without a locked BNB amount remain blocked for reconciliation rather than being guessed.
 - **Audit:** a read-only feed exists, but configuration changes and all lifecycle/payment/payout actions must consistently include actor, before/after state, target, and outcome.
 - **Configuration:** receiving-wallet setup was missing. Chain/network settings, locked economic parameters, secrets, and user payout wallets must not be mixed into this control.
 

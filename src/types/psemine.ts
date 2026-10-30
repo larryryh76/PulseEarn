@@ -56,6 +56,9 @@ export interface PSEMineCampaign {
   paymentChainId: number; // 56 for Mainnet, 97 for Testnet
   paymentAsset: 'BNB';
   receiverWalletAddress: string;
+  receiverWalletConfigured?: boolean;
+  receiverWalletConfiguredAt?: string | null;
+  receiverWalletConfiguredBy?: string | null;
   walletChangeDeadline: string; // Cutoff before settlement
   purchaseEnabled: boolean;
   miningEnabled: boolean;

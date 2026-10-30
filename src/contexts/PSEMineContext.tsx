@@ -631,7 +631,23 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     let cancelled = false;
     const raw = localStorage.getItem('psemine_connected_wallet');
-    if (!raw) return;
+    // First-time WalletConnect handoff can return by reloading this page before
+    // connectWalletConnectTransport() gets a chance to persist the local marker.
+    // Reown keeps the approved session in its own storage, so attempt a silent
+    // restore even when PSEmine has no local wallet record yet.
+    if (!raw) {
+      if (isWalletConnectConfigured()) {
+        setWalletConnectAvailable(true);
+        void restoreWalletConnectSession().then(async provider => {
+          if (cancelled || !provider) return;
+          const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
+          if (cancelled || !connection) return;
+          adoptConnection(connection);
+          if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
+        }).catch(() => { /* no approved session yet — explicit connect remains */ });
+      }
+      return () => { cancelled = true; };
+    }
     try {
       const stored = JSON.parse(raw) as { address?: string; transport?: PseWalletTransport; walletName?: string };
       if (!stored?.address) return;

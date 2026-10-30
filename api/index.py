@@ -9425,7 +9425,6 @@ def mine_create_withdrawal():
         "amountGbp": amount,
         "amountBnb": payout_quote["amountBnb"],
         "exchangeRateBNBGBP": payout_quote["exchangeRateBNBGBP"],
-        "payoutWallet": payout_quote.get("destinationWallet"),
         "asset": "BNB",
         "network": "BNB Smart Chain",
         "chainId": PSEMINE_BSC_CHAIN_ID,

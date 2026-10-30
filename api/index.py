@@ -7891,6 +7891,16 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_NOT_FOUND', 'message': 'The transaction is not yet available on BNB Smart Chain. No payout status was changed.'}), 409
             if int(receipt.get('status', '0x0'), 16) != 1:
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
+            payout_block = int(receipt.get('blockNumber', '0x0'), 16)
+            if payout_block <= 0:
+                return jsonify({'success': False, 'error': 'PAYOUT_BLOCK_MISSING', 'message': 'The payout receipt has no valid block number. No payout status was changed.'}), 409
+            latest_block = int(_rpc('eth_blockNumber', []), 16)
+            payout_confirmations = max(0, latest_block - payout_block + 1)
+            if payout_confirmations < PSEMINE_MIN_CONFIRMATIONS:
+                return jsonify({'success': False, 'error': 'PAYOUT_INSUFFICIENT_CONFIRMATIONS',
+                                'message': f'The payout has {payout_confirmations}/{PSEMINE_MIN_CONFIRMATIONS} confirmations. No payout status was changed.',
+                                'confirmations': payout_confirmations,
+                                'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS}), 409
             if str(tx.get('hash') or '').lower() != _norm:
                 return jsonify({'success': False, 'error': 'PAYOUT_HASH_MISMATCH', 'message': 'The chain returned a different transaction hash.'}), 409
             tx_to = str(tx.get('to') or '').lower()
@@ -7914,7 +7924,9 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_INVALID', 'message': 'The stored expected payout amount is invalid.'}), 409
             if expected_wei <= 0 or value_wei != expected_wei:
                 return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_MISMATCH', 'message': 'The on-chain BNB amount does not match the locked payout amount.'}), 409
-            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.get('blockNumber', '0x0'), 16), 'amountWei': str(value_wei), 'recipient': tx_to}
+            verified_payout = {'chainId': 56, 'blockNumber': payout_block, 'confirmations': payout_confirmations,
+                               'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
+                               'amountWei': str(value_wei), 'recipient': tx_to}
         except Exception:
             logging.exception('[PSEmine Admin] payout transaction verification failed')
             return jsonify({'success': False, 'error': 'PAYOUT_VERIFICATION_UNAVAILABLE', 'message': 'The transaction could not be verified on BNB Smart Chain. No payout status was changed.'}), 503
@@ -7937,12 +7949,15 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                     holder = (res_snap.to_dict() or {}).get('withdrawalId')
                     if holder and holder != withdrawal_id:
                         return False
-                txn.set(_tx_doc, {'withdrawalId': withdrawal_id, 'payoutTxHash': _norm,
-                                  'reservedAt': firestore.SERVER_TIMESTAMP})
             if not wd_snap_t.exists:
                 return None
             if (wd_snap_t.to_dict() or {}).get('status') not in ('pending', 'under_review'):
                 return None
+            # Reserve only after the target withdrawal is confirmed eligible;
+            # otherwise an invalid/stale request could consume a tx hash.
+            if _norm:
+                txn.set(_tx_doc, {'withdrawalId': withdrawal_id, 'payoutTxHash': _norm,
+                                  'reservedAt': firestore.SERVER_TIMESTAMP})
             txn.update(wd_ref, {
                 'status': 'completed',
                 'adminNotes': admin_notes,

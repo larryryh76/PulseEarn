@@ -10,7 +10,7 @@
 
 export type Scenario = 'loading' | 'empty' | 'full' | 'wrongchain' | 'error' | 'settled';
 
-const PAYOUT = '0x8b32A461d3106B3356e9A389DfeB74aC084c8F33';
+const PAYOUT = '0x2222222222222222222222222222222222222222'; // isolated UI fixture, not a production wallet
 const CONNECTED = '0x1111111111111111111111111111111111111111';
 const HASH = '0x9f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f901234';
 

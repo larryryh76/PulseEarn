@@ -4,12 +4,15 @@
 
 ## Confirmed findings
 
-### P0 — Money destination configuration (this change)
-- The console had no receiving-wallet configuration section, despite the active campaign storing `receiverWalletAddress`.
-- First-time campaign seeding used a hardcoded fallback, which is reasonable as a bootstrap default but is not a usable operational settings workflow.
-- The canonical quote flow reads the campaign's receiving address, but the legacy order-quote path wrote `PSEMINE_PAYMENT_ADDRESS` directly. That would ignore an admin change.
-- This PR adds a super-admin-only configuration section, server-side address validation (including zero-address rejection), explicit typed confirmation, persistence to the active campaign, and an audit record. The legacy quote path now reads the campaign destination with the existing constant as fallback only.
-- Changes apply to **new quotes**. A previously issued quote must keep its original destination and amount; changing its destination retroactively would break the payer's signed quote.
+### P0 — Money destination configuration (remediated in fail-closed wallet PR)
+- There is one permitted receiving destination: the active campaign's explicitly configured `receiverWalletAddress`.
+- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero. They also require `receiverWalletConfigured`, `receiverWalletConfiguredAt`, and `receiverWalletConfiguredBy`, written only by the super-admin configuration action; this prevents an old seeded Firestore value from silently remaining payable.
+- The old `PSEMINE_PAYMENT_ADDRESS` constant, hardcoded fallback address, frontend default receiver, and bootstrap receiver assignment have been removed. New campaign bootstrap records an empty receiver and remains non-payable until a super-admin configures it.
+- Both verification paths use the immutable destination stored on the server-created quote/order and validate the BNB Smart Chain network. They do not fall back to a second wallet.
+- The legacy quote amount is rounded to the same eight decimal places displayed by its checkout UI before the exact wei amount is calculated. This closes a mismatch that could otherwise reject a payment after it had been sent.
+- If a user submits a transaction hash after a quote expires or the stored expiry is malformed/missing, the purchase is put into `manual_review`, a recovery case is opened, and the user is explicitly told not to pay again. New purchases for that tool are blocked while the case is open. A super-admin can attach the recovery case only to the matching user's exact purchase/quote/hash; the canonical verifier then re-checks the same on-chain terms and closes the case after activation.
+- A wallet change affects new quotes only. Existing quotes retain their original recipient and amount so an in-flight payment is not silently redirected.
+- Production database configuration still requires the admin to reconfirm the intended wallet in the live console before launch; source changes cannot prove which address is currently stored in Firestore. Until that confirmation is saved, purchase quotes fail closed.
 
 ### P1 — Existing operational panels need a full functional audit
 - **Overview:** displays backend-reported KPIs and correctly avoids inventing missing numbers, but the admin still needs a reconciliation view tying confirmed purchase payments, accrued liability, payouts/debits, and unresolved recovery cases together.
@@ -17,7 +20,7 @@
 - **Tool register:** the current table shows the locked tier prices/rates/caps from frontend constants. It does not clearly report the backend's live per-tool operational status or offer a controlled way to pause/deprecate a tier. Locked economics must remain read-only.
 - **Payment verification:** real recovery records and server-side resolution actions exist, but the panel needs end-to-end tests for each reason, retry, and failure mode.
 - **Purchases:** verified payments and order intents are separate, which is correct. Search/filter/pagination and destination mismatch visibility need to be checked against real response shapes.
-- **Payouts:** a queue and review actions exist. The approval path needs explicit evidence that a transaction hash is validated against the intended network/recipient/amount before the request can be marked paid; a supplied hash alone must never be treated as proof.
+- **Payouts:** the canonical request now locks the live BNB/GBP conversion, exact BNB amount/wei and the user's saved payout destination before reserving the GBP debit. Admin review requires a successful BSC receipt, exact recipient and amount, and the configured confirmation depth. The legacy unquoted payout writer is retired; legacy rows without a locked BNB amount remain blocked for reconciliation rather than being guessed.
 - **Audit:** a read-only feed exists, but configuration changes and all lifecycle/payment/payout actions must consistently include actor, before/after state, target, and outcome.
 - **Configuration:** receiving-wallet setup was missing. Chain/network settings, locked economic parameters, secrets, and user payout wallets must not be mixed into this control.
 

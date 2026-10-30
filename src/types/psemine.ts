@@ -30,15 +30,10 @@ export interface PSEMineToolDefinition {
   enabled: boolean;
   version: number;
   displayOrder: number;
-  specs: {
-    powerEfficiency: string;
-    hashRateClass: string;
-    warrantyDays: number;
-  };
-  /** Operating behavior (see PSEToolOperatingModel). Backend-authoritative at
-   *  runtime; this mirror drives tool-card labels only. */
+  /** Campaign operating behavior (backend-authoritative at runtime). */
   operating: {
     model: PSEToolOperatingModel;
+    sessionDurationHours?: number;
     /** Backend-owned restart latency for session tools, in minutes. */
     restartDelayMinutes?: number;
   };
@@ -56,6 +51,9 @@ export interface PSEMineCampaign {
   paymentChainId: number; // 56 for Mainnet, 97 for Testnet
   paymentAsset: 'BNB';
   receiverWalletAddress: string;
+  receiverWalletConfigured?: boolean;
+  receiverWalletConfiguredAt?: string | null;
+  receiverWalletConfiguredBy?: string | null;
   walletChangeDeadline: string; // Cutoff before settlement
   purchaseEnabled: boolean;
   miningEnabled: boolean;
@@ -249,76 +247,56 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
     id: 'starter',
     name: 'Starter Miner',
     tier: 1,
-    tagline: 'Entry-level mining capacity for emerging miners',
-    description: 'Deploys a lightweight, dedicated mining node with £0.10/hour of campaign capacity on session-based operation — the easiest way to enter PSEmine.',
+    tagline: 'Entry-level campaign capacity unit',
+    description: 'A virtual campaign unit with £0.10/hour of capacity while its 24-hour session is active. Maintenance and a 10-minute restart window are required between sessions.',
     purchasePriceGBP: 3,
     hourlyRateGBP: 0.10,
     maxPerUser: 5,
     enabled: true,
     version: 1,
     displayOrder: 1,
-    specs: {
-      powerEfficiency: '98.4%',
-      hashRateClass: 'Class-1 Standard',
-      warrantyDays: 90
-    },
-    operating: { model: 'session', restartDelayMinutes: 10 }
+    operating: { model: 'session', sessionDurationHours: 24, restartDelayMinutes: 10 }
   },
   builder: {
     id: 'builder',
     name: 'Builder Miner',
     tier: 2,
-    tagline: 'Growth-focused rig for scaling core capacity',
-    description: 'Deploys a balanced mining rig delivering £0.50/hour of campaign capacity on session-based operation, with enhanced tool statistics and restart control.',
+    tagline: 'Growth-focused campaign capacity unit',
+    description: 'A larger virtual campaign unit with £0.50/hour of capacity while its 24-hour session is active. Maintenance and a 10-minute restart window are required between sessions.',
     purchasePriceGBP: 10,
     hourlyRateGBP: 0.50,
     maxPerUser: 3,
     enabled: true,
     version: 1,
     displayOrder: 2,
-    specs: {
-      powerEfficiency: '99.1%',
-      hashRateClass: 'Class-2 Advanced',
-      warrantyDays: 90
-    },
-    operating: { model: 'session', restartDelayMinutes: 10 }
+    operating: { model: 'session', sessionDurationHours: 24, restartDelayMinutes: 10 }
   },
   advanced: {
     id: 'advanced',
     name: 'Advanced Miner',
     tier: 3,
-    tagline: 'High-throughput unit for building a larger position',
-    description: 'High-density computational node providing £1.20/hour of campaign capacity on session-based operation, with stacking visualization and deeper earnings analytics.',
+    tagline: 'Higher-capacity campaign unit',
+    description: 'An advanced virtual campaign unit with £1.20/hour of capacity while its 24-hour session is active. Maintenance and a 10-minute restart window are required between sessions.',
     purchasePriceGBP: 50,
     hourlyRateGBP: 1.20,
     maxPerUser: 3,
     enabled: true,
     version: 1,
     displayOrder: 3,
-    specs: {
-      powerEfficiency: '99.6%',
-      hashRateClass: 'Class-3 Enterprise',
-      warrantyDays: 90
-    },
-    operating: { model: 'session', restartDelayMinutes: 10 }
+    operating: { model: 'session', sessionDurationHours: 24, restartDelayMinutes: 10 }
   },
   elite: {
     id: 'elite',
     name: 'Elite Miner',
     tier: 4,
-    tagline: 'Premium tier — continuous campaign operation',
-    description: 'Institutional-grade mining cluster providing £2.50/hour of campaign capacity with continuous operation: no manual session restarts while the campaign runs.',
+    tagline: 'Premium continuous campaign capacity unit',
+    description: 'The highest-capacity virtual campaign unit, with £2.50/hour of capacity while the campaign is active. It operates continuously and does not require manual session restarts.',
     purchasePriceGBP: 200,
     hourlyRateGBP: 2.50,
     maxPerUser: 2,
     enabled: true,
     version: 1,
     displayOrder: 4,
-    specs: {
-      powerEfficiency: '99.9%',
-      hashRateClass: 'Class-4 Tier-1',
-      warrantyDays: 90
-    },
     operating: { model: 'continuous' }
   }
 };
@@ -341,6 +319,5 @@ export const PSEMINE_CONSTANTS = {
   DEFAULT_BSC_CHAIN_ID: 56,
   DEFAULT_BSC_TESTNET_CHAIN_ID: 97,
   PAYMENT_NETWORK_NAME: 'BNB Smart Chain',
-  DEFAULT_RECEIVER_WALLET: '0x8b32A461d3106B3356e9A389DfeB74aC084c8F33',
   FALLBACK_BNB_GBP_PRICE: 485.50
 };

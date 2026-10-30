@@ -10,7 +10,7 @@ import logging
 import traceback
 import uuid
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from functools import wraps
 
 # ---------------------------------------------------------------------------
@@ -6541,8 +6541,35 @@ except Exception as e:
 # PSEMINE BACKEND ENGINE & REAL ECONOMIC FOUNDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PSEMINE_PAYMENT_ADDRESS = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
 PSEMINE_BSC_CHAIN_ID = 56
+
+def _is_valid_psemine_receiver_wallet(value):
+    """Strict EVM destination validation; zero/missing values are never payable."""
+    if not isinstance(value, str):
+        return False
+    address = value.strip()
+    return (
+        len(address) == 42
+        and address.startswith('0x')
+        and all(char in '0123456789abcdefABCDEF' for char in address[2:])
+        and address.lower() != '0x' + ('0' * 40)
+    )
+
+
+def _configured_psemine_receiver_wallet(campaign):
+    """Return ONLY the campaign's explicitly admin-configured receiving wallet."""
+    if not isinstance(campaign, dict):
+        return None
+    address = campaign.get('receiverWalletAddress')
+    # Older campaign documents may contain the former bootstrap address. A
+    # syntactically valid value is NOT enough: require a fresh explicit
+    # super-admin confirmation marker before allowing any new payment quote.
+    if campaign.get('receiverWalletConfigured') is not True:
+        return None
+    if not campaign.get('receiverWalletConfiguredAt') or not campaign.get('receiverWalletConfiguredBy'):
+        return None
+    return address.strip() if _is_valid_psemine_receiver_wallet(address) else None
+
 PSEMINE_QUOTE_TTL_MINUTES = 15
 PSEMINE_CAMPAIGN_DOC_ID = "active_campaign"
 try:
@@ -6578,7 +6605,10 @@ def psemine_ensure_canonical_data(db):
                 'paymentNetwork': 'BNB Smart Chain',
                 'paymentChainId': PSEMINE_BSC_CHAIN_ID,
                 'paymentAsset': 'BNB',
-                'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                'receiverWalletAddress': '',
+                'receiverWalletConfigured': False,
+                'receiverWalletConfiguredAt': None,
+                'receiverWalletConfiguredBy': None,
                 'walletChangeDeadline': deadline_dt.isoformat(),
                 'purchaseEnabled': True,
                 'miningEnabled': True,
@@ -7054,11 +7084,27 @@ def psemine_create_order():
             }), 503
 
         gbp_price = float(tool_cfg['price_gbp'])
-        bnb_amount = gbp_price / bnb_gbp_price
-        wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
+        # Match the exact 8-decimal amount shown by the legacy checkout UI.
+        # Verifying an unrounded float after showing 8 decimals could reject a
+        # payment that the user already sent.
+        bnb_amount = round(gbp_price / bnb_gbp_price, 8)
+        wei_amount = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
 
         now_dt = datetime.now(timezone.utc)
         expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+
+        # Legacy checkout uses the same single admin-configured destination.
+        _legacy_campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+        _legacy_campaign = (_legacy_campaign_snap.to_dict() or {}) if _legacy_campaign_snap.exists else {}
+        receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)
+        if not receiver_wallet:
+            return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                            "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
+
+        legacy_review_orders = db.collection('psemine_orders').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+        if legacy_review_orders:
+            return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                            "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved."}), 409
 
         order_ref = db.collection('psemine_orders').document()
         order_payload = {
@@ -7074,7 +7120,7 @@ def psemine_create_order():
             'quoteProvider': quote_provider,
             'quoteTimestamp': now_dt.isoformat(),
             'quoteExpiry': expiry_dt.isoformat(),
-            'destinationAddress': ((db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get().to_dict() or {}).get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip(),
+            'destinationAddress': receiver_wallet,
             'intendedPaymentWallet': payment_wallet,
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'status': 'quoted',
@@ -7131,6 +7177,29 @@ def psemine_verify_payment():
     # end — same shared terminal predicate as the canonical flow.
     import psemine_engine as _pse_engine
     _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    # Legacy orders created before the explicit receiver-confirmation gate may
+    # still contain the former bootstrap destination. Do not accept a payment
+    # to that stale address after an administrator has confirmed a new one.
+    _current_receiver = _configured_psemine_receiver_wallet(_camp)
+    _order_receiver = order.get('destinationAddress')
+    if (not _current_receiver or not _is_valid_psemine_receiver_wallet(_order_receiver)
+            or _order_receiver.lower() != _current_receiver.lower()):
+        try:
+            _legacy_recovery_id = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=_order_receiver, chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='LEGACY_ORDER_RECEIVER_STALE',
+                extra={'message': 'Legacy order destination no longer matches the explicitly confirmed campaign receiver.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'recoveryCaseId': _legacy_recovery_id,
+                              'reviewReason': 'LEGACY_ORDER_RECEIVER_STALE',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+        except Exception:
+            logging.exception('[PSEmine] stale legacy receiver recovery failed')
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This legacy order uses a stale or unconfirmed receiving address. The transaction was sent for manual review. Do not send another payment."}), 409
+
     if _eff in _pse_engine.TERMINAL_CAMPAIGN_STATUSES:
         _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
             quote_id=order_id, reason='CAMPAIGN_ENDED_AT_VERIFICATION_LEGACY')
@@ -7140,8 +7209,22 @@ def psemine_verify_payment():
             quote_id=order_id, reason='PURCHASES_DISABLED_AT_VERIFICATION_LEGACY')
         return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
-    # Quote Expiry Check
+    # Quote expiry cannot discard a transaction the user may already have sent.
+    # Record it for review and retain the legacy order instead of marking it dead.
     expiry_raw = order.get('quoteExpiry')
+    if not expiry_raw:
+        _pse_engine.create_payment_recovery(
+            db, uid, tx_hash=tx_hash, quote_id=order_id,
+            sender=order.get('intendedPaymentWallet'),
+            recipient=order.get('destinationAddress'),
+            chain_id=PSEMINE_BSC_CHAIN_ID,
+            reason='MISSING_LEGACY_QUOTE_EXPIRY',
+            extra={'message': 'Legacy order has no expiry and was sent for manual review.'})
+        order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                          'reviewReason': 'MISSING_LEGACY_QUOTE_EXPIRY',
+                          'updatedAt': firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This order has no valid expiry. The transaction was recorded for admin review. Do not send another payment."}), 409
     if expiry_raw:
         try:
             if isinstance(expiry_raw, datetime):
@@ -7151,10 +7234,31 @@ def psemine_verify_payment():
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > exp_dt:
-                order_ref.update({'status': 'expired', 'updatedAt': firestore.SERVER_TIMESTAMP})
-                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote expired. Please create a new order."}), 409
+                _pse_engine.create_payment_recovery(
+                    db, uid, tx_hash=tx_hash, quote_id=order_id,
+                    sender=order.get('intendedPaymentWallet'),
+                    recipient=order.get('destinationAddress'),
+                    chain_id=PSEMINE_BSC_CHAIN_ID,
+                    reason='LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                    extra={'message': 'Legacy order quote expired before verification completed.'})
+                order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                                  'reviewReason': 'LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                                  'updatedAt': firestore.SERVER_TIMESTAMP})
+                return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                                "message": "This order quote expired. The transaction was recorded for admin review. Do not send another payment."}), 409
         except Exception:
-            pass
+            _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=order.get('destinationAddress'),
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='INVALID_LEGACY_QUOTE_EXPIRY',
+                extra={'message': 'Legacy order quote expiry could not be parsed.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'reviewReason': 'INVALID_LEGACY_QUOTE_EXPIRY',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "The order expiry is invalid. The transaction was recorded for admin review. Do not send another payment."}), 409
 
     intended_payment_wallet = order.get('intendedPaymentWallet')
     expected_sender = intended_payment_wallet.strip().lower() if isinstance(intended_payment_wallet, str) else ''
@@ -7165,10 +7269,19 @@ def psemine_verify_payment():
             "message": "This order is not bound to a payment wallet. Please create a new order."
         }), 422
 
+    # Only the immutable server-created order destination may be verified.
+    legacy_destination = order.get('destinationAddress')
+    if not _is_valid_psemine_receiver_wallet(legacy_destination):
+        return jsonify({"success": False, "error": "INVALID_ORDER_RECEIVER",
+                        "message": "This order has no valid receiving wallet. Do not send payment; create a new order."}), 409
+    if int(order.get('chainId') or 0) != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "ORDER_NETWORK_MISMATCH",
+                        "message": "This order is not for BNB Smart Chain."}), 409
+
     # On-Chain Verification
     verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(
         tx_hash,
-        order['destinationAddress'],
+        legacy_destination,
         order['payableWeiAmount'],
         expected_sender=expected_sender
     )
@@ -7513,122 +7626,12 @@ def psemine_sync_session():
 @verify_token
 @require_db
 def psemine_create_withdrawal():
-    """Create backend-validated withdrawal request."""
-    db = get_db()
-    uid = request.user['uid']
-    data = request.json or {}
-
-    amount_gbp = safe_float(data.get('amountGbp'), 0.0)
-    payout_address = (data.get('payoutAddress') or '').strip()
-
-    if amount_gbp < 10.0:
-        return jsonify({"success": False, "error": "BELOW_THRESHOLD", "message": "Minimum withdrawal amount is £10.00 GBP."}), 400
-
-    if not payout_address or not payout_address.startswith('0x') or len(payout_address) != 42:
-        return jsonify({"success": False, "error": "INVALID_ADDRESS", "message": "Valid BEP-20 address (0x...) required."}), 400
-
-    # Campaign gating: user payout requests are blocked while the campaign is live.
-    import psemine_engine as _pse_engine
-    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
-    if _eff in ('active', 'paused'):
-        return jsonify({"success": False, "error": "CAMPAIGN_ACTIVE", "message": "Withdrawals open after the campaign ends and balances are finalized."}), 403
-
-    # 1. Canonical ledger balance (accruedMinor) + legacy read-model, minus payouts.
-    # (B1) _legacy_balance_minor returns 0 once absorbed — legacy counted EXACTLY ONCE.
-    _u = db.collection('psemine_users').document(uid).get().to_dict() or {}
-    _ledger_rows = _pse_engine.payout_ledger_rows(db, uid)
-    _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
-    accumulated_output = _pse_engine.available_balance_minor(
-        int(_u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
-        legacy_accrued_minor=_pse_engine._legacy_balance_minor(_u),
-    ) / 100.0
-
-    # 1b. Balance gate: payout requests require an operating mining tool
-    # (canonical rule: ownership persists, but payouts require active mining state).
-    _op = db.collection('psemine_tool_ownership').where('userId', '==', uid).where('status', '==', 'active').limit(1).get()
-    if not list(_op):
-        return jsonify({"success": False, "error": "NO_OPERATING_TOOL", "message": "An operating mining tool is required."}), 403
-
-    # 2. Sum existing pending / approved / processing / completed withdrawals
-    wd_snaps = db.collection('psemine_withdrawals') \
-        .where('userId', '==', uid) \
-        .get()
-
-    # (B-F1 composition) accumulated_output is ALREADY the canonical NET
-    # available balance (canonical debits net of reversals + genuine legacy
-    # debits, each exactly once). The withdrawn_total loop previously
-    # subtracted the same payouts a SECOND time here. It is kept ONLY for the
-    # pending-request guard, never for balance math.
-    has_pending = False
-
-    for w_doc in wd_snaps:
-        st = (w_doc.to_dict() or {}).get('status')
-        if st in ('pending', 'under_review', 'processing'):
-            has_pending = True
-            break
-
-    if has_pending:
-        return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
-
-    available_balance = max(0.0, accumulated_output)
-    if amount_gbp > available_balance:
-        return jsonify({
-            "success": False,
-            "error": "INSUFFICIENT_OUTPUT_BALANCE",
-            "message": f"Insufficient available mining balance (£{available_balance:.2f} GBP available)."
-        }), 400
-
-    # Create Pending Withdrawal Record inside transaction
-    wd_ref = db.collection('psemine_withdrawals').document()
-    wd_payload = {
-        'id': wd_ref.id,
-        'userId': uid,
-        'amountGbp': round(amount_gbp, 2),
-        'amountMinor': int(round(amount_gbp * 100)),
-        'payoutAddress': payout_address,
-        'status': 'pending',
-        'createdAt': firestore.SERVER_TIMESTAMP,
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    }
-
-    @firestore.transactional
-    def process_withdrawal_creation(txn):
-        pending_check = db.collection('psemine_withdrawals').where('userId', '==', uid).where('status', '==', 'pending').get(transaction=txn)
-        if pending_check:
-            raise Exception("PENDING_WITHDRAWAL_EXISTS")
-        txn.set(wd_ref, wd_payload)
-
-    try:
-        process_withdrawal_creation(db.transaction())
-    except Exception as e:
-        if "PENDING_WITHDRAWAL_EXISTS" in str(e):
-            return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
-        return jsonify({"success": False, "error": "WITHDRAWAL_FAILED", "message": str(e)}), 400
-
-    # Record Activity & Notification
-    act_ref = db.collection('psemine_activities').document()
-    act_ref.set({
-        'id': act_ref.id,
-        'userId': uid,
-        'type': 'WITHDRAWAL_REQUESTED',
-        'title': f"Withdrawal Requested (£{amount_gbp:.2f})",
-        'description': f"Submitted payout request to {payout_address[:6]}...{payout_address[-4:]}. Pending admin review.",
-        'metadata': {'withdrawalId': wd_ref.id, 'payoutAddress': payout_address, 'amountGbp': amount_gbp},
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    })
-
-    notif_ref = db.collection('psemine_notifications').document()
-    notif_ref.set({
-        'id': notif_ref.id,
-        'userId': uid,
-        'type': 'withdrawal',
-        'title': 'Withdrawal Under Review',
-        'message': f"Your payout request of £{amount_gbp:.2f} to {payout_address[:6]}...{payout_address[-4:]} is pending admin review.",
-        'read': False,
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    })
-
-    return jsonify({"success": True, "withdrawal": wd_payload})
+    """Retired legacy payout writer. All payouts must use the canonical quoted flow."""
+    return jsonify({
+        "success": False,
+        "error": "LEGACY_PAYOUT_DISABLED",
+        "message": "This legacy payout endpoint is disabled. Use the current PSEmine wallet withdrawal flow so the BNB amount is locked before any debit is created.",
+    }), 410
 
 @app.route('/api/admin/psemine/overview', methods=['GET'])
 @verify_token
@@ -7657,6 +7660,7 @@ def admin_psemine_overview():
     # failed attempts, withdrawals and mining rewards are never income.
     # With no verified receipt records the correct lifetime total is £0.00.
     tool_income_gbp = 0.0
+    income_complete = True
     try:
         verified_income_snaps = (
             db.collection('psemine_payments')
@@ -7683,7 +7687,9 @@ def admin_psemine_overview():
             # A verified payment without a recoverable GBP amount is a data
             # integrity issue; do not publish a partial lifetime total.
             if gbp_amount is None:
+                # Never present a partial sum as lifetime income.
                 tool_income_gbp = None
+                income_complete = False
                 logging.error(
                     '[PSEmine Admin] verified payment %s has no GBP purchase price',
                     payment_snap.id,
@@ -7694,6 +7700,7 @@ def admin_psemine_overview():
             tool_income_gbp = round(tool_income_gbp, 2)
     except Exception:
         tool_income_gbp = None
+        income_complete = False
         logging.exception('[PSEmine Admin] verified tool income aggregation failed')
 
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
@@ -7707,6 +7714,7 @@ def admin_psemine_overview():
             "activeToolOwnerships": ownership_count,
             "activeMiningSessions": sessions_count,
             "totalToolIncomeGbp": tool_income_gbp,
+            "toolIncomeComplete": income_complete,
             "pendingWithdrawalsCount": len(pending_withdrawals),
             "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
         }
@@ -7851,6 +7859,16 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_NOT_FOUND', 'message': 'The transaction is not yet available on BNB Smart Chain. No payout status was changed.'}), 409
             if int(receipt.get('status', '0x0'), 16) != 1:
                 return jsonify({'success': False, 'error': 'PAYOUT_TRANSACTION_FAILED', 'message': 'The on-chain transaction failed. No payout status was changed.'}), 409
+            payout_block = int(receipt.get('blockNumber', '0x0'), 16)
+            if payout_block <= 0:
+                return jsonify({'success': False, 'error': 'PAYOUT_BLOCK_MISSING', 'message': 'The payout receipt has no valid block number. No payout status was changed.'}), 409
+            latest_block = int(_rpc('eth_blockNumber', []), 16)
+            payout_confirmations = max(0, latest_block - payout_block + 1)
+            if payout_confirmations < PSEMINE_MIN_CONFIRMATIONS:
+                return jsonify({'success': False, 'error': 'PAYOUT_INSUFFICIENT_CONFIRMATIONS',
+                                'message': f'The payout has {payout_confirmations}/{PSEMINE_MIN_CONFIRMATIONS} confirmations. No payout status was changed.',
+                                'confirmations': payout_confirmations,
+                                'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS}), 409
             if str(tx.get('hash') or '').lower() != _norm:
                 return jsonify({'success': False, 'error': 'PAYOUT_HASH_MISMATCH', 'message': 'The chain returned a different transaction hash.'}), 409
             tx_to = str(tx.get('to') or '').lower()
@@ -7874,7 +7892,9 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                 return jsonify({'success': False, 'error': 'PAYOUT_EXPECTED_AMOUNT_INVALID', 'message': 'The stored expected payout amount is invalid.'}), 409
             if expected_wei <= 0 or value_wei != expected_wei:
                 return jsonify({'success': False, 'error': 'PAYOUT_AMOUNT_MISMATCH', 'message': 'The on-chain BNB amount does not match the locked payout amount.'}), 409
-            verified_payout = {'chainId': 56, 'blockNumber': int(receipt.get('blockNumber', '0x0'), 16), 'amountWei': str(value_wei), 'recipient': tx_to}
+            verified_payout = {'chainId': 56, 'blockNumber': payout_block, 'confirmations': payout_confirmations,
+                               'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
+                               'amountWei': str(value_wei), 'recipient': tx_to}
         except Exception:
             logging.exception('[PSEmine Admin] payout transaction verification failed')
             return jsonify({'success': False, 'error': 'PAYOUT_VERIFICATION_UNAVAILABLE', 'message': 'The transaction could not be verified on BNB Smart Chain. No payout status was changed.'}), 503
@@ -7897,12 +7917,15 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                     holder = (res_snap.to_dict() or {}).get('withdrawalId')
                     if holder and holder != withdrawal_id:
                         return False
-                txn.set(_tx_doc, {'withdrawalId': withdrawal_id, 'payoutTxHash': _norm,
-                                  'reservedAt': firestore.SERVER_TIMESTAMP})
             if not wd_snap_t.exists:
                 return None
             if (wd_snap_t.to_dict() or {}).get('status') not in ('pending', 'under_review'):
                 return None
+            # Reserve only after the target withdrawal is confirmed eligible;
+            # otherwise an invalid/stale request could consume a tx hash.
+            if _norm:
+                txn.set(_tx_doc, {'withdrawalId': withdrawal_id, 'payoutTxHash': _norm,
+                                  'reservedAt': firestore.SERVER_TIMESTAMP})
             txn.update(wd_ref, {
                 'status': 'completed',
                 'adminNotes': admin_notes,
@@ -8129,7 +8152,9 @@ def generate_psemine_tool_quote():
     expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
     quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
 
-    receiver_wallet = (camp_data.get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip()
+    receiver_wallet = _configured_psemine_receiver_wallet(camp_data)
+    if not receiver_wallet:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED", "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
 
     quote = {
         "quoteId": quote_id,
@@ -8213,17 +8238,61 @@ def verify_psemine_tool_purchase():
             reason='PURCHASES_DISABLED_AT_VERIFICATION')
         return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
-    # 2. Check quote expiry
+    # An expired payment is never silently discarded. It becomes a recovery
+    # case; an admin may attach that exact case to this exact purchase, after
+    # which the same immutable quote can be re-verified on-chain.
+    recovery_authorized = False
+    recovery_case_id = purchase.get('recoveryCaseId')
+    if purchase.get('status') == 'manual_review' and recovery_case_id:
+        _recovery_snap = db.collection('psemine_payment_recovery').document(recovery_case_id).get()
+        _recovery_data = _recovery_snap.to_dict() or {} if _recovery_snap.exists else {}
+        recovery_authorized = (
+            _recovery_data.get('status') == 'attached'
+            and _recovery_data.get('attachedPurchaseId') == purchase_id
+            and str(_recovery_data.get('txHash') or '').lower() == tx_hash
+        )
+
+    def _flag_expired_purchase(reason, message, recipient=None):
+        try:
+            _rid = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=purchase.get('quoteId'),
+                purchase_id=purchase_id, sender=sender_wallet,
+                recipient=recipient or purchase.get('receiverWallet'),
+                chain_id=PSEMINE_BSC_CHAIN_ID, reason=reason,
+                extra={'message': message, 'quoteExpiresAt': purchase.get('expiresAt')},
+            )
+            purchase_ref.update({
+                'status': 'manual_review',
+                'transactionHash': tx_hash,
+                'recoveryCaseId': _rid,
+                'reviewReason': reason,
+                'statusMessage': 'Payment needs manual review. Do not send another payment.',
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "This quote has expired. Your transaction has been recorded for admin review. Do not send another payment.",
+                            "recoveryCaseId": _rid}), 409
+        except Exception:
+            logging.exception('[PSEmine] expired payment recovery recording failed')
+            return jsonify({"success": False, "error": "PAYMENT_RECOVERY_UNAVAILABLE",
+                            "message": "The payment could not be safely reconciled automatically. Do not pay again; contact support with your transaction hash."}), 503
+
+    # 2. Check quote expiry. A malformed expiry also fails closed into recovery.
     expires_at_raw = purchase.get('expiresAt')
-    if expires_at_raw:
+    if not expires_at_raw and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_PURCHASE_QUOTE_EXPIRY',
+                                      'The purchase record has no server quote expiry.')
+    if expires_at_raw and not recovery_authorized:
         try:
             exp_dt = datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > exp_dt:
-                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote has expired. Please create a new purchase."}), 409
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The submitted transaction was presented after the purchase quote expired.')
         except Exception:
-            pass
+            return _flag_expired_purchase('INVALID_PURCHASE_QUOTE_EXPIRY',
+                                          'The stored purchase expiry could not be parsed safely.')
 
     # 3. Prevent replay attacks: check prior redemption before attempting verification
     dupes_p = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
@@ -8257,11 +8326,6 @@ def verify_psemine_tool_purchase():
         }), 400
 
     # 5. Bind on-chain verification terms strictly to server-owned quote and campaign parameters
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    campaign_receiver = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
-    if camp_doc.exists:
-        campaign_receiver = camp_doc.to_dict().get('receiverWalletAddress', campaign_receiver)
-
     quote_id = (purchase.get('quoteId') or data.get('quoteId') or '').strip()
     if not quote_id:
         return jsonify({
@@ -8295,24 +8359,33 @@ def verify_psemine_tool_purchase():
         }), 400
 
     q_exp = q_data.get('expiresAt')
+    if not q_exp and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_SERVER_QUOTE_EXPIRY',
+                                      'The saved quote has no server expiry.',
+                                      recipient=q_data.get('receiverWallet'))
     if q_exp:
         try:
             q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
             if q_exp_dt.tzinfo is None:
                 q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > q_exp_dt:
-                return jsonify({
-                    "success": False,
-                    "error": "QUOTE_EXPIRED",
-                    "message": "Server quote has expired. Please request a new quote."
-                }), 409
+            if datetime.now(timezone.utc) > q_exp_dt and not recovery_authorized:
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The server quote expired before verification completed.',
+                                              recipient=q_data.get('receiverWallet'))
         except Exception:
-            return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+            if not recovery_authorized:
+                return _flag_expired_purchase('INVALID_SERVER_QUOTE_EXPIRY',
+                                              'The saved quote expiry could not be parsed safely.',
+                                              recipient=q_data.get('receiverWallet'))
 
     # Derive expected destination and amount strictly from server-owned data
-    expected_destination = campaign_receiver
-    if q_data.get('receiverWallet'):
-        expected_destination = q_data.get('receiverWallet')
+    # The persisted server quote is the immutable payment instruction. Never
+    # fall back to an environment constant or a second wallet at verification.
+    expected_destination = q_data.get('receiverWallet')
+    if not _is_valid_psemine_receiver_wallet(expected_destination):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER", "message": "The saved quote has no valid receiving wallet. Do not send payment; request a new quote."}), 409
+    if q_data.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH", "message": "The saved quote is not for BNB Smart Chain."}), 409
 
     server_quoted_bnb = q_data.get('bnbAmount')
     if not server_quoted_bnb or float(server_quoted_bnb) <= 0:
@@ -8370,19 +8443,29 @@ def verify_psemine_tool_purchase():
             and os.environ.get('NODE_ENV', 'production') != 'production'
         )
         if not allow_skip:
-            # Persist evidence for administrator review. Never auto-assign, never refund.
+            # Preserve an admin-attached recovery while confirmations propagate;
+            # re-opening it here would make an expired quote impossible to retry.
             try:
-                _pse_engine.create_payment_recovery(db, uid,
-                    tx_hash=tx_hash,
-                    quote_id=quote_id,
-                    purchase_id=purchase_id,
-                    sender=expected_sender,
-                    recipient=expected_destination,
-                    observed_wei=None,
-                    chain_id=PSEMINE_BSC_CHAIN_ID,
-                    block_number=receipt_block,
-                    reason=err_code or 'VERIFICATION_FAILED',
-                    extra={'message': err_msg})
+                if recovery_authorized and recovery_case_id:
+                    db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                        'lastVerificationError': err_code or 'VERIFICATION_FAILED',
+                        'lastVerificationMessage': err_msg,
+                        'lastVerificationBlock': receipt_block,
+                        'lastVerificationAt': firestore.SERVER_TIMESTAMP,
+                        'updatedAt': firestore.SERVER_TIMESTAMP,
+                    })
+                else:
+                    _pse_engine.create_payment_recovery(db, uid,
+                        tx_hash=tx_hash,
+                        quote_id=quote_id,
+                        purchase_id=purchase_id,
+                        sender=expected_sender,
+                        recipient=expected_destination,
+                        observed_wei=None,
+                        chain_id=PSEMINE_BSC_CHAIN_ID,
+                        block_number=receipt_block,
+                        reason=err_code or 'VERIFICATION_FAILED',
+                        extra={'message': err_msg})
             except Exception:
                 logging.warning('[PSEmine] recovery record failed', exc_info=True)
             return jsonify({
@@ -8555,7 +8638,7 @@ def verify_psemine_tool_purchase():
                     'paymentNetwork': 'BNB Smart Chain',
                     'paymentChainId': PSEMINE_BSC_CHAIN_ID,
                     'paymentAsset': 'BNB',
-                    'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                    'receiverWalletAddress': '',  # No implicit receiving wallet; admin configuration is mandatory.
                     'walletChangeDeadline': deadline_dt.isoformat(),
                     'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
                     'totalBNBCollected': quoted_bnb,
@@ -8569,6 +8652,17 @@ def verify_psemine_tool_purchase():
 
         transaction = db.transaction()
         commit_purchase_activation(transaction)
+
+        if recovery_authorized and recovery_case_id:
+            try:
+                db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                    'status': 'resolved',
+                    'resolvedAt': now_iso,
+                    'resolvedBy': 'system:verified_purchase_activation',
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                })
+            except Exception:
+                logging.warning('[PSEmine] recovery case activation closure failed', exc_info=True)
 
         # 7. Canonical referral qualification (single backend-authoritative path).
         try:
@@ -8750,10 +8844,21 @@ def admin_campaign_action():
                 receiver_address.lower() == '0x' + ('0' * 40)):
             return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
         previous_address = str(camp_before.get('receiverWalletAddress') or '')
-        if previous_address.lower() == receiver_address.lower():
+        already_confirmed = (
+            camp_before.get('receiverWalletConfigured') is True
+            and bool(camp_before.get('receiverWalletConfiguredAt'))
+            and bool(camp_before.get('receiverWalletConfiguredBy'))
+        )
+        if previous_address.lower() == receiver_address.lower() and already_confirmed:
             return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
         now_iso = datetime.now(timezone.utc).isoformat()
-        camp_ref.update({"receiverWalletAddress": receiver_address, "updatedAt": now_iso})
+        camp_ref.update({
+            "receiverWalletAddress": receiver_address,
+            "receiverWalletConfigured": True,
+            "receiverWalletConfiguredAt": now_iso,
+            "receiverWalletConfiguredBy": uid,
+            "updatedAt": now_iso,
+        })
         db.collection('admin_audit_logs').add({
             "timestamp": firestore.SERVER_TIMESTAMP,
             "adminId": uid,
@@ -9040,7 +9145,7 @@ def mine_state():
     pending_purchases = []
     try:
         pur_rows = db.collection('psemine_purchases').where('userId', '==', uid) \
-            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming']).get()
+            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming', 'manual_review']).get()
         for pr in pur_rows:
             pd = pr.to_dict() or {}
             pending_purchases.append({
@@ -9238,6 +9343,37 @@ def mine_create_purchase():
     q = q_snap.to_dict() or {}
     if q.get('userId') != uid:
         return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote terms do not match this account."}), 403
+
+    # A quote can become stale if an administrator changes the receiving wallet
+    # after it was issued. Before the user creates an intent (and before they
+    # send anything), require the quote to match the currently configured
+    # destination. Once an intent exists, verification keeps its immutable quote
+    # destination so a later admin change cannot redirect an in-flight payment.
+    configured_receiver = _configured_psemine_receiver_wallet(camp)
+    quoted_receiver = q.get('receiverWallet')
+    if not configured_receiver:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                        "message": "Purchases are disabled until the campaign receiving wallet is configured."}), 503
+    if not _is_valid_psemine_receiver_wallet(quoted_receiver):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER",
+                        "message": "This quote has no valid receiving wallet. Request a new quote."}), 409
+    if quoted_receiver.lower() != configured_receiver.lower():
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_CHANGED",
+                        "message": "The campaign receiving wallet changed after this quote. Request a fresh quote before paying."}), 409
+    if q.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH",
+                        "message": "This quote is not for BNB Smart Chain. Request a fresh quote."}), 409
+    try:
+        quoted_wei = int(str(q.get('bnbAmountWei') or '0'))
+        quoted_bnb = Decimal(str(q.get('bnbAmount')))
+        if quoted_wei <= 0 or quoted_bnb <= 0:
+            raise ValueError("non-positive quote")
+        exact_wei = int((quoted_bnb * Decimal('1000000000000000000')).to_integral_value())
+        if exact_wei != quoted_wei:
+            raise ValueError("quote BNB and wei disagree")
+    except Exception:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_AMOUNT",
+                        "message": "The saved quote amount is inconsistent. Request a fresh quote."}), 409
     try:
         exp = datetime.fromisoformat(str(q.get('expiresAt')).replace('Z', '+00:00'))
         if exp.tzinfo is None: exp = exp.replace(tzinfo=timezone.utc)
@@ -9263,6 +9399,11 @@ def mine_create_purchase():
     # a later create call must never be able to move it to another wallet — that
     # binding is what the on-chain sender is compared against at verification.
     # The decision itself is a pure, unit-tested function.
+    manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+    if manual_review_rows:
+        return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                        "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved."}), 409
+
     existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
     for e in existing:
         stored = e.to_dict() or {}
@@ -9405,15 +9546,54 @@ def mine_create_withdrawal():
     amount = data.get('amountGbp')
     try:
         amount = float(amount)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError("amount must be positive and finite")
     except (TypeError, ValueError):
         return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
+    # The GBP ledger is pence-denominated; use the same half-up minor-unit
+    # rounding as the canonical engine before calculating the BNB quote.
+    amount_minor = int((Decimal(str(amount)) * Decimal('100')).to_integral_value(rounding=ROUND_HALF_UP))
+    amount = float(Decimal(amount_minor) / Decimal('100'))
+    if amount_minor <= 0:
+        return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
+
+    # Lock the BNB conversion at request time. The exact rounded amount shown
+    # to the operator is the same wei amount the admin verifier later checks.
+    bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
+    if bnb_gbp_price is None or bnb_gbp_price <= 0:
+        return jsonify({"success": False, "error": "PRICE_SERVICE_UNAVAILABLE",
+                        "message": "A live BNB/GBP rate is unavailable. No payout request or debit was created."}), 503
+    amount_bnb = round(amount / bnb_gbp_price, 8)
+    amount_wei = int((Decimal(str(amount_bnb)) * Decimal('1000000000000000000')).to_integral_value())
+    if amount_bnb <= 0 or amount_wei <= 0:
+        return jsonify({"success": False, "error": "PAYOUT_AMOUNT_TOO_SMALL",
+                        "message": "The requested GBP amount converts to less than the minimum transferable BNB precision."}), 400
+    payout_quote = {
+        "amountBnb": format(Decimal(str(amount_bnb)), "f"),
+        "expectedAmountWei": str(amount_wei),
+        "exchangeRateBNBGBP": str(bnb_gbp_price),
+        "provider": quote_provider,
+        "quotedAt": datetime.now(timezone.utc).isoformat(),
+        "asset": "BNB",
+        "chainId": PSEMINE_BSC_CHAIN_ID,
+    }
     import psemine_engine as _pse_engine
-    result = _pse_engine.create_payout_request(db, uid, amount)
+    result = _pse_engine.create_payout_request(db, uid, amount, payout_quote=payout_quote)
     if not result.get("ok"):
         status = {"BELOW_MINIMUM": 400, "CAMPAIGN_ACTIVE": 403, "NO_PAYOUT_WALLET": 400,
-                  "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409}.get(result.get("error"), 400)
+                  "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409,
+                  "INVALID_PAYOUT_QUOTE": 409}.get(result.get("error"), 400)
         return jsonify({"success": False, "error": result.get("error"), "message": result.get("message", str(result.get("error", "")).replace('_', ' ').title())}), status
-    return jsonify({"success": True, "withdrawalId": result.get("withdrawalId")})
+    return jsonify({
+        "success": True,
+        "withdrawalId": result.get("withdrawalId"),
+        "amountGbp": amount,
+        "amountBnb": payout_quote["amountBnb"],
+        "exchangeRateBNBGBP": payout_quote["exchangeRateBNBGBP"],
+        "asset": "BNB",
+        "network": "BNB Smart Chain",
+        "chainId": PSEMINE_BSC_CHAIN_ID,
+    })
 
 @app.route('/api/mine/cron/lifecycle', methods=['POST', 'GET'])
 def mine_cron_lifecycle():

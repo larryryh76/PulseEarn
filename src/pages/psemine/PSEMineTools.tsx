@@ -253,23 +253,26 @@ export const PSEMineTools: React.FC = () => {
     const rows = state?.pendingPurchases || [];
     if (rows.length === 0) return null;
     const rank = (p: PsePendingPurchase) => {
+      const needsReview = p.status === 'manual_review';
       const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming';
       const parsed = p.expiresAt ? Date.parse(p.expiresAt) : NaN;
-      return { inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
+      return { needsReview, inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
     };
     return [...rows].sort((a, b) => {
       const ra = rank(a);
       const rb = rank(b);
+      if (ra.needsReview !== rb.needsReview) return ra.needsReview ? -1 : 1;
       if (ra.inFlight !== rb.inFlight) return ra.inFlight ? -1 : 1;
       return rb.exp - ra.exp;
     })[0];
   }, [state?.pendingPurchases]);
+  const pendingNeedsReview = pendingPurchase?.status === 'manual_review';
   const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming';
   const pendingQuoteLive = Boolean(
     pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
   );
 
-  const toolsObjective = 'The catalogue of mining equipment. Each tool has a fixed GBP price and a fixed hourly capacity; purchases are quoted and paid in BNB from your own wallet.';
+  const toolsObjective = 'The catalogue of virtual campaign-capacity units. Each has a fixed GBP price and accounting rate; purchases are quoted and paid in BNB from your own wallet.';
 
   /* THE CATALOGUE IS PUBLIC; THE ACCOUNT'S SLOTS ARE NOT. The price list is a
      static definition, so it renders immediately and honestly — only the
@@ -278,7 +281,11 @@ export const PSEMineTools: React.FC = () => {
   if (loading && !state) {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
-        <PseStatBar cols={4}>
+        <PseNotice tone="attention" title="How campaign tools operate">
+        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+      </PseNotice>
+
+      <PseStatBar cols={4}>
           {['Equipment owned', 'Tool capacity', 'Capacity headroom', 'Referral capacity'].map(label => (
             <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
           ))}
@@ -311,13 +318,13 @@ export const PSEMineTools: React.FC = () => {
   return (
     <PsePage
       title="Mining tools"
-      objective="Fixed-price equipment. Pay in BNB; capacity activates after on-chain verification."
+      objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
       <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
         <div className="pse-marketplace-hero-copy">
-          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE EQUIPMENT MARKETPLACE</span>
-          <h2 id="pse-marketplace-hero-title">Build your <em>mining setup.</em></h2>
+          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE CAMPAIGN UNITS</span>
+          <h2 id="pse-marketplace-hero-title">Build your <em>campaign setup.</em></h2>
           <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
           <div className="pse-marketplace-hero-actions">
             <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
@@ -338,6 +345,10 @@ export const PSEMineTools: React.FC = () => {
           <a href="#pse-catalogue">Compare equipment <span aria-hidden="true">↗</span></a>
         </div>
       </section>
+
+      <PseNotice tone="attention" title="How campaign tools operate">
+        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+      </PseNotice>
 
       <PseStatBar cols={4}>
         <PseStat
@@ -363,12 +374,14 @@ export const PSEMineTools: React.FC = () => {
       </PseStatBar>
 
       {pendingPurchase && (
-        <PseNotice tone="attention" title="Purchase in progress">
-          {pendingInFlight
-            ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
-            : pendingQuoteLive
-              ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
-              : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}{' '}
+        <PseNotice tone="attention" title={pendingNeedsReview ? "Payment under manual review" : "Purchase in progress"}>
+          {pendingNeedsReview
+            ? `Your payment for ${pendingPurchase.toolName || pendingPurchase.toolId} has been recorded for admin review. Do not send another payment. Wait for the recovery case to be resolved.`
+            : pendingInFlight
+              ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
+              : pendingQuoteLive
+                ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
+                : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}
           <button
             type="button"
             className="pse-link"
@@ -377,7 +390,7 @@ export const PSEMineTools: React.FC = () => {
               if (def) setPurchasing(def);
             }}
           >
-            Continue this purchase
+            {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
           </button>
         </PseNotice>
       )}
@@ -417,7 +430,7 @@ export const PSEMineTools: React.FC = () => {
                       </span>
                     </h3>
                     <p className="pse-product-desc">{tool.description}</p>
-                    <span className="pse-product-tier">TIER {tool.tier} · {tool.specs.hashRateClass}</span>
+                    <span className="pse-product-tier">TIER {tool.tier} · {continuous ? 'Continuous campaign unit' : 'Session-based campaign unit'}</span>
                   </div>
 
                   <dl className="pse-product-specs">
@@ -434,12 +447,12 @@ export const PSEMineTools: React.FC = () => {
                       <dd>{owned} <span>/ {tool.maxPerUser}</span></dd>
                     </div>
                     <div className="pse-product-spec">
-                      <dt>Efficiency</dt>
-                      <dd>{tool.specs.powerEfficiency}</dd>
+                      <dt>Session length</dt>
+                      <dd>{continuous ? 'Continuous' : `${tool.operating.sessionDurationHours ?? 24} hours`}</dd>
                     </div>
                     <div className="pse-product-spec">
-                      <dt>Warranty</dt>
-                      <dd>{tool.specs.warrantyDays} <span>days</span></dd>
+                      <dt>Restart delay</dt>
+                      <dd>{continuous ? 'Not required' : `${tool.operating.restartDelayMinutes ?? 10} min`}</dd>
                     </div>
                   </dl>
 
@@ -921,10 +934,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Recovered purchase: a transaction was already submitted ── */}
       {showingRecovery && resume?.kind === 'submitted' && (
-        <PseSection title={resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
+        <PseSection title={resume.purchase.status === 'manual_review' ? 'Payment under manual review' : resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
           <p className="pse-prose">
-            {tool.name} — a transaction was submitted for this purchase and the backend is verifying it on
-            BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.
+            {resume.purchase.status === 'manual_review'
+              ? `${tool.name} — your transaction hash is recorded, but the purchase is waiting for an administrator to attach the recovery case. No second payment is needed.`
+              : `${tool.name} — a transaction was submitted for this purchase and the backend is verifying it on BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.`}
           </p>
           {resume.purchase.transactionHash && (
             <p className="text-sm">
@@ -934,8 +948,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </p>
           )}
           <PseNotice tone="attention">
-            The backend needs a few block confirmations before the tool activates. Do not send the payment again — the
-            same transaction hash is reused for every verification check.
+            {resume.purchase.status === 'manual_review'
+              ? 'This payment is held for admin review. Once the recovery case is attached to this exact purchase, use Check verification again. Do not send another payment.'
+              : 'The backend needs a few block confirmations before the tool activates. Do not send the payment again — the same transaction hash is reused for every verification check.'}
           </PseNotice>
           <div className="flex flex-wrap gap-2">
             <PseButton onClick={() => void recheckRecovered()} disabled={rechecking || !resume.purchase.transactionHash}>

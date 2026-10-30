@@ -124,7 +124,7 @@ export const AdminPSEMine: React.FC = () => {
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
 
   const [stats, setStats] = useState<Record<string, number | string>>({});
-  const [mineOverview, setMineOverview] = useState<Record<string, number | string>>({});
+  const [mineOverview, setMineOverview] = useState<Record<string, number | string | boolean>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [verifiedPayments, setVerifiedPayments] = useState<Array<Record<string, unknown>>>([]);
@@ -142,6 +142,7 @@ export const AdminPSEMine: React.FC = () => {
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
   const [receiverWalletInput, setReceiverWalletInput] = useState('');
   const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
+  const [receiverConfirmationOverride, setReceiverConfirmationOverride] = useState<boolean | null>(null);
   const [walletSaveBusy, setWalletSaveBusy] = useState(false);
   const [walletAcknowledged, setWalletAcknowledged] = useState(false);
 
@@ -222,30 +223,43 @@ export const AdminPSEMine: React.FC = () => {
     const configured = String(campaign?.receiverWalletAddress || '');
     setReceiverWalletCurrent(configured);
     setReceiverWalletInput(configured);
-  }, [campaign?.receiverWalletAddress]);
+    setReceiverConfirmationOverride(null);
+  }, [campaign?.receiverWalletAddress, campaign?.receiverWalletConfiguredAt]);
 
-  /** Require a second, typed confirmation before changing where future purchases are paid. */
+  // Existing campaign documents may still contain the former bootstrap value.
+  // A fresh super-admin save must explicitly attest to the destination once.
+  const receiverIsConfirmed = receiverConfirmationOverride ?? (
+    campaign?.receiverWalletConfigured === true
+    && Boolean(campaign?.receiverWalletConfiguredAt)
+    && Boolean(campaign?.receiverWalletConfiguredBy)
+  );
+  const receiverNeedsConfirmation = !receiverIsConfirmed;
+
+  /** Require a second, typed confirmation before changing or reconfirming the receiver. */
   const saveReceiverWallet = () => {
     const address = receiverWalletInput.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
       return;
     }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase()) {
-      toast('This is already the configured receiving address.');
+    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
+      toast('This receiving address is already confirmed by an administrator.');
       return;
     }
     if (!walletAcknowledged) {
       toast.error('Confirm that you have verified ownership and network before saving.');
       return;
     }
+    const reconfirming = receiverNeedsConfirmation && address.toLowerCase() === receiverWalletCurrent.toLowerCase();
     setConfirm({
-      title: 'Change tool purchase receiving wallet?',
-      consequence: `New PSEmine tool purchase quotes will direct BNB to the new address. Existing quotes retain their original destination. Verify the entire address independently before proceeding. Current: ${receiverWalletCurrent || 'not reported'}. New: ${address}.`,
+      title: reconfirming ? 'Confirm the campaign receiving wallet?' : 'Change tool purchase receiving wallet?',
+      consequence: reconfirming
+        ? `This campaign may still contain an old bootstrap address. Confirm that this exact address is the intended wallet you control or are authorised to receive funds at. New purchase quotes remain blocked until this confirmation is saved.`
+        : `New PSEmine tool purchase quotes will direct BNB to the new address. Existing quotes retain their original destination. Verify the entire address independently before proceeding. Current: ${receiverWalletCurrent || 'not reported'}. New: ${address}.`,
       affected: 'psemine_campaigns/active_campaign.receiverWalletAddress',
-      confirmLabel: 'Change receiving wallet',
+      confirmLabel: reconfirming ? 'Confirm receiving wallet' : 'Change receiving wallet',
       danger: true,
-      requireText: 'CHANGE WALLET',
+      requireText: reconfirming ? 'CONFIRM WALLET' : 'CHANGE WALLET',
       run: async () => { await commitReceiverWalletChange(address); },
     });
   };
@@ -256,8 +270,8 @@ export const AdminPSEMine: React.FC = () => {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
       return;
     }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase()) {
-      toast('This is already the configured receiving address.');
+    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
+      toast('This receiving address is already confirmed by an administrator.');
       return;
     }
     if (!walletAcknowledged) {
@@ -279,9 +293,10 @@ export const AdminPSEMine: React.FC = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Receiving wallet update failed.');
-      toast.success('PSEmine receiving wallet updated for new quotes.');
+      toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
+      setReceiverConfirmationOverride(true);
       setWalletAcknowledged(false);
       await load(true);
     } catch (e) {
@@ -428,8 +443,8 @@ export const AdminPSEMine: React.FC = () => {
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   }, [mineOverview]);
 
-  const numOrDash = (value: number | string | null | undefined, format?: (n: number) => string): string => {
-    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return '—';
+  const numOrDash = (value: number | string | boolean | null | undefined, format?: (n: number) => string): string => {
+    if (value === null || value === undefined || typeof value === 'boolean' || (typeof value === 'string' && value.trim() === '')) return '—';
     const numericValue = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(numericValue)) return '—';
     return format ? format(numericValue) : String(numericValue);
@@ -487,7 +502,7 @@ export const AdminPSEMine: React.FC = () => {
         <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
           <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Active miners</span><strong>{numOrDash(stat('activeMiners'))}</strong><small>{numOrDash(stat('totalMiners'))} total registered accounts</small></article>
-          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Total tool income</span><strong>{numOrDash(mineOverview.totalToolIncomeGbp, gbp)}</strong><small>Real on-chain confirmed tool payments only</small></article>
+          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Total tool income</span><strong>{numOrDash(mineOverview.totalToolIncomeGbp, gbp)}</strong><small>{mineOverview.toolIncomeComplete === false ? 'Reconciliation incomplete · total withheld' : 'Real on-chain confirmed tool payments only'}</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
         </section>
@@ -496,7 +511,7 @@ export const AdminPSEMine: React.FC = () => {
           <div className="pse-ops-wallet-shortcut-copy">
             <span className="pse-ops-kpi-label">Tool purchase receiving wallet</span>
             <code>{receiverWalletCurrent || 'Receiving wallet not reported'}</code>
-            <small>BNB Smart Chain · new quotes use this destination</small>
+            <small>{receiverNeedsConfirmation ? 'Admin confirmation required · purchases remain blocked' : 'BNB Smart Chain · new quotes use this destination'}</small>
           </div>
           <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
         </section>
@@ -684,14 +699,18 @@ export const AdminPSEMine: React.FC = () => {
                             variant="secondary"
                             disabled={resolving !== null}
                             onClick={() => setConfirm({
-                              title: 'Complete purchase from recovery evidence?',
-                              consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
+                              title: 'Attach recovery to the exact purchase?',
+                              consequence: 'This links the recovery evidence to its matching purchase. It does not send funds or activate a tool. The user can then retry verification from the purchase recovery panel; the backend activates only after all on-chain checks pass.',
                               affected: `psemine_payment_recovery/${id}`,
                               confirmLabel: 'Re-verify & attempt purchase',
-                              run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
+                              run: async () => {
+                                const purchaseId = typeof c.purchaseId === 'string' ? c.purchaseId : undefined;
+                                if (!purchaseId) { toast.error('This recovery case has no canonical purchase ID. It requires manual reconciliation.'); return; }
+                                await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.', purchaseId);
+                              },
                             })}
                           >
-                            Complete purchase
+                            Attach recovery
                           </PseButton>
                           <PseButton
                             size="sm"
@@ -871,13 +890,20 @@ export const AdminPSEMine: React.FC = () => {
                   const view = payoutStatusView(status);
                   const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
                     : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
+                  const amountBnb = w.amountBnb !== undefined && w.amountBnb !== null && Number.isFinite(Number(w.amountBnb))
+                    ? Number(w.amountBnb) : null;
                   const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
                   const requester = String(w.userId || w.uid || '');
                   return (
                     <PseRow key={id}>
                       <PseCell>{w.createdAt ? fmtDateTime(w.createdAt as string) : '—'}</PseCell>
                       <PseCell>{view.label}</PseCell>
-                      <PseCell numeric>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</PseCell>
+                      <PseCell numeric>
+                        <div>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</div>
+                        <div className="text-xs text-white/55">
+                          {amountBnb !== null ? `${amountBnb.toFixed(8)} BNB · locked` : 'No locked BNB quote'}
+                        </div>
+                      </PseCell>
                       <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
                       <PseCell mono>{requester ? shortAddr(requester) : '—'}</PseCell>
                       <PseCell>
@@ -964,9 +990,14 @@ export const AdminPSEMine: React.FC = () => {
                 <span className="pse-ops-config-badge">Sensitive setting</span>
               </div>
               <div className="pse-ops-current-destination">
-                <span>Currently configured</span>
+                <span>{receiverNeedsConfirmation ? 'Saved address · admin confirmation required' : 'Admin-confirmed receiving wallet'}</span>
                 <code>{receiverWalletCurrent || 'Not reported by campaign API'}</code>
               </div>
+              {receiverNeedsConfirmation && (
+                <PseNotice tone="attention">
+                  Purchases are currently blocked. Re-enter or confirm this exact address below to prove it is the intended BNB Smart Chain destination.
+                </PseNotice>
+              )}
               <PseField label="New receiving wallet address" htmlFor="pse-receiver-wallet">
                 <PseInput id="pse-receiver-wallet" value={receiverWalletInput}
                   onChange={e => { setReceiverWalletInput(e.target.value); setWalletAcknowledged(false); }}
@@ -977,9 +1008,9 @@ export const AdminPSEMine: React.FC = () => {
                 <span>I have independently verified this destination address and confirmed that I control or am authorised to receive funds there on BNB Smart Chain.</span>
               </label>
               <div className="pse-ops-wallet-actions">
-                <PseButton disabled={walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase()}
+                <PseButton disabled={walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || (receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation)}
                   busy={walletSaveBusy} onClick={() => void saveReceiverWallet()}>
-                  {walletSaveBusy ? 'Saving destination…' : 'Save receiving wallet'}
+                  {walletSaveBusy ? 'Saving destination…' : receiverNeedsConfirmation && receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() ? 'Confirm receiving wallet' : 'Save receiving wallet'}
                 </PseButton>
                 <PseButton variant="secondary" disabled={walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
               </div>

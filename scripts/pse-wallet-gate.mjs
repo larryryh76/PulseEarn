@@ -36,7 +36,7 @@ import { chromium } from 'playwright';
 const DIST = path.join(process.cwd(), 'dist');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 
-const RECEIVER = '0x8b32a461d3106b3356e9a389dfeb74ac084c8f33'; // authoritative destination (on-chain lowercase form)
+const RECEIVER = '0x2222222222222222222222222222222222222222'; // isolated test fixture only; never a production receiver
 const STUB_ADDR = '0x1111111111111111111111111111111111111111';
 
 // 0. Transpile the real production module once (esbuild → self-contained ESM).

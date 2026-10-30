@@ -12,6 +12,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 API_SOURCE = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
 ADMIN_SOURCE = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text(encoding="utf-8")
+ENGINE_SOURCE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
+WALLET_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_text(encoding="utf-8")
+PSE_API_SOURCE = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
+TOOLS_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_text(encoding="utf-8")
+POLICY_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEminePolicy.tsx").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -40,12 +45,108 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("previousReceiverWalletAddress", wallet_action)
         self.assertIn("newReceiverWalletAddress", wallet_action)
         self.assertIn('"existingQuotesPreserved": True', wallet_action)
+        self.assertIn('"receiverWalletConfigured": True', wallet_action)
+        self.assertIn('"receiverWalletConfiguredAt": now_iso', wallet_action)
+        self.assertIn('"receiverWalletConfiguredBy": uid', wallet_action)
 
-    def test_legacy_order_quotes_use_campaign_configured_destination(self):
-        self.assertRegex(
-            API_SOURCE,
-            r"'destinationAddress': \(\(db\.collection\('psemine_campaigns'\).*?get\(\).*?receiverWalletAddress.*?PSEMINE_PAYMENT_ADDRESS\)\.strip\(\)",
-        )
+    def test_all_quote_paths_fail_closed_without_the_single_admin_wallet(self):
+        self.assertIn("def _configured_psemine_receiver_wallet(campaign):", API_SOURCE)
+        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(camp_data)", API_SOURCE)
+        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)", API_SOURCE)
+        self.assertGreaterEqual(API_SOURCE.count("RECEIVER_WALLET_NOT_CONFIGURED"), 2)
+        self.assertIn("'destinationAddress': receiver_wallet", API_SOURCE)
+        self.assertNotIn("PSEMINE_PAYMENT_ADDRESS", API_SOURCE)
+        self.assertNotIn("0x8b32A461d3106B3356e9A389DfeB74aC084c8F33", API_SOURCE)
+        self.assertIn("expected_destination = q_data.get('receiverWallet')", API_SOURCE)
+        self.assertIn("legacy_destination = order.get('destinationAddress')", API_SOURCE)
+
+    def test_bootstrap_campaign_never_invents_a_receiving_wallet(self):
+        self.assertGreaterEqual(API_SOURCE.count("'receiverWalletAddress': ''"), 2)
+        self.assertIn("def _is_valid_psemine_receiver_wallet(value):", API_SOURCE)
+        self.assertIn("address.lower() != '0x' + ('0' * 40)", API_SOURCE)
+        self.assertIn("campaign.get('receiverWalletConfigured') is not True", API_SOURCE)
+        self.assertIn("receiverWalletConfiguredAt", API_SOURCE)
+        self.assertIn("receiverWalletConfiguredBy", API_SOURCE)
+
+    def test_legacy_quote_amount_matches_the_eight_decimal_ui_amount(self):
+        self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
+        self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
+
+    def test_legacy_order_verification_rejects_stale_receiver(self):
+        self.assertIn("LEGACY_ORDER_RECEIVER_STALE", API_SOURCE)
+        self.assertIn("_order_receiver.lower() != _current_receiver.lower()", API_SOURCE)
+        self.assertIn("stale or unconfirmed receiving address", API_SOURCE)
+
+    def test_purchase_intent_rejects_stale_receiver_and_inconsistent_amount(self):
+        start = API_SOURCE.index("def mine_create_purchase():")
+        end = API_SOURCE.index("\n@app.route(", start)
+        route = API_SOURCE[start:end]
+        self.assertIn("_configured_psemine_receiver_wallet(camp)", route)
+        self.assertIn("RECEIVER_WALLET_CHANGED", route)
+        self.assertIn("QUOTE_NETWORK_MISMATCH", route)
+        self.assertIn("exact_wei != quoted_wei", route)
+        self.assertIn("INVALID_QUOTE_AMOUNT", route)
+
+    def test_payout_requests_lock_bnb_amount_and_admin_checks_confirmations(self):
+        route_start = API_SOURCE.index("def mine_create_withdrawal():")
+        route_end = API_SOURCE.index("\n@app.route(", route_start)
+        route = API_SOURCE[route_start:route_end]
+        self.assertIn("fetch_psemine_bnb_gbp_quote()", route)
+        self.assertIn("ROUND_HALF_UP", route)
+        self.assertIn("amount_minor = int((Decimal(str(amount)) * Decimal('100')).to_integral_value(rounding=ROUND_HALF_UP))", route)
+        self.assertIn("expectedAmountWei", route)
+        self.assertIn('"amountBnb": payout_quote["amountBnb"]', route)
+        self.assertIn("payout_quote=payout_quote", route)
+        engine_start = ENGINE_SOURCE.index("def create_payout_request(")
+        engine_end = ENGINE_SOURCE.index("\ndef create_payment_recovery", engine_start)
+        engine = ENGINE_SOURCE[engine_start:engine_end]
+        self.assertIn('"expectedAmountWei": str(amount_wei)', engine)
+        self.assertIn('"destinationWallet": u.get("payoutWallet")', engine)
+        self.assertIn("exact_wei != amount_wei", engine)
+        payout_start = API_SOURCE.index("def admin_psemine_review_withdrawal(")
+        payout_end = API_SOURCE.index("\n@app.route(", payout_start)
+        payout = API_SOURCE[payout_start:payout_end]
+        self.assertIn("PAYOUT_INSUFFICIENT_CONFIRMATIONS", payout)
+        self.assertIn("PAYOUT_AMOUNT_MISMATCH", payout)
+        self.assertIn("payout_block", payout)
+        self.assertIn("txn.set(_tx_doc", payout)
+        self.assertIn("No locked BNB quote", ADMIN_SOURCE)
+        self.assertIn("amountBnb.toFixed(8)", ADMIN_SOURCE)
+        self.assertIn("Locked payout amount", WALLET_SOURCE)
+        self.assertIn("Locked conversion rate", WALLET_SOURCE)
+        self.assertIn("amountBnb.toFixed(8)", WALLET_SOURCE)
+        self.assertIn("amountBnb?: string | number", PSE_API_SOURCE)
+
+    def test_expired_payment_recovery_warns_user_not_to_pay_twice(self):
+        self.assertIn("'manual_review'", API_SOURCE)
+        self.assertIn("where('status', '==', 'manual_review').get()", API_SOURCE)
+        self.assertIn("const pendingNeedsReview = pendingPurchase?.status === 'manual_review'", TOOLS_SOURCE)
+        self.assertIn("Payment under manual review", TOOLS_SOURCE)
+        self.assertIn("Open payment recovery", TOOLS_SOURCE)
+        self.assertIn("Do not send another payment", TOOLS_SOURCE)
+        self.assertIn("'confirming', 'manual_review']", API_SOURCE)
+
+    def test_tool_specs_are_campaign_operating_rules_not_fake_hardware_metrics(self):
+        self.assertNotIn("hashRateClass", TOOLS_SOURCE)
+        self.assertNotIn("powerEfficiency", TOOLS_SOURCE)
+        self.assertNotIn("warrantyDays", TOOLS_SOURCE)
+        self.assertIn("sessionDurationHours", TOOLS_SOURCE)
+        self.assertIn("restartDelayMinutes", TOOLS_SOURCE)
+        self.assertIn("virtual campaign-capacity units", TOOLS_SOURCE)
+        self.assertIn("not physical mining hardware", POLICY_SOURCE)
+        self.assertIn("not physical mining hardware", TOOLS_SOURCE)
+
+    def test_admin_recovery_action_passes_purchase_id_for_safe_attachment(self):
+        self.assertIn("const purchaseId = typeof c.purchaseId === 'string' ? c.purchaseId : undefined", ADMIN_SOURCE)
+        self.assertIn("purchaseId);", ADMIN_SOURCE)
+        self.assertIn("This recovery case has no canonical purchase ID", ADMIN_SOURCE)
+
+    def test_admin_can_reconfirm_same_legacy_seeded_address(self):
+        self.assertIn("const receiverIsConfirmed = receiverConfirmationOverride ?? (", ADMIN_SOURCE)
+        self.assertIn("const receiverNeedsConfirmation = !receiverIsConfirmed", ADMIN_SOURCE)
+        self.assertIn("address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation", ADMIN_SOURCE)
+        self.assertIn("Confirm receiving wallet", ADMIN_SOURCE)
+        self.assertIn("purchases remain blocked", ADMIN_SOURCE)
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)
@@ -71,6 +172,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("priceGbp", overview)
         self.assertIn("psemine_orders", overview)
         self.assertIn("income_complete", overview)
+        self.assertIn("toolIncomeComplete", overview)
+        self.assertIn("Reconciliation incomplete", ADMIN_SOURCE)
         self.assertIn("Never present a partial sum as lifetime income.", overview)
         self.assertIn("activeMiningSessions", overview)
         self.assertIn("activeToolOwnerships", overview)

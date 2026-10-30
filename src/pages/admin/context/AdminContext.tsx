@@ -52,8 +52,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       // 2. Role Verification — allow both admin and moderator roles
-      const role = userData?.role;
-      if (role !== 'admin' && role !== 'moderator') {
+      const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
+      if (role !== 'admin' && role !== 'super_admin' && role !== 'moderator' && userData?.isRoot !== true) {
         logger.log('WARN', 'AUTH', 'Unauthorized access attempt', { uid: currentUser.uid, email: currentUser.email });
         setIsInitialized(false);
         return;

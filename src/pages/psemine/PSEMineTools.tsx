@@ -253,17 +253,20 @@ export const PSEMineTools: React.FC = () => {
     const rows = state?.pendingPurchases || [];
     if (rows.length === 0) return null;
     const rank = (p: PsePendingPurchase) => {
+      const needsReview = p.status === 'manual_review';
       const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming';
       const parsed = p.expiresAt ? Date.parse(p.expiresAt) : NaN;
-      return { inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
+      return { needsReview, inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
     };
     return [...rows].sort((a, b) => {
       const ra = rank(a);
       const rb = rank(b);
+      if (ra.needsReview !== rb.needsReview) return ra.needsReview ? -1 : 1;
       if (ra.inFlight !== rb.inFlight) return ra.inFlight ? -1 : 1;
       return rb.exp - ra.exp;
     })[0];
   }, [state?.pendingPurchases]);
+  const pendingNeedsReview = pendingPurchase?.status === 'manual_review';
   const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming';
   const pendingQuoteLive = Boolean(
     pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
@@ -315,13 +318,13 @@ export const PSEMineTools: React.FC = () => {
   return (
     <PsePage
       title="Mining tools"
-      objective="Fixed-price equipment. Pay in BNB; capacity activates after on-chain verification."
+      objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
       <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
         <div className="pse-marketplace-hero-copy">
-          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE EQUIPMENT MARKETPLACE</span>
-          <h2 id="pse-marketplace-hero-title">Build your <em>mining setup.</em></h2>
+          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE CAMPAIGN UNITS</span>
+          <h2 id="pse-marketplace-hero-title">Build your <em>campaign setup.</em></h2>
           <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
           <div className="pse-marketplace-hero-actions">
             <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
@@ -342,6 +345,10 @@ export const PSEMineTools: React.FC = () => {
           <a href="#pse-catalogue">Compare equipment <span aria-hidden="true">↗</span></a>
         </div>
       </section>
+
+      <PseNotice tone="attention" title="How campaign tools operate">
+        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+      </PseNotice>
 
       <PseStatBar cols={4}>
         <PseStat
@@ -367,22 +374,26 @@ export const PSEMineTools: React.FC = () => {
       </PseStatBar>
 
       {pendingPurchase && (
-        <PseNotice tone="attention" title="Purchase in progress">
-          {pendingInFlight
-            ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
-            : pendingQuoteLive
-              ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
-              : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}{' '}
-          <button
-            type="button"
-            className="pse-link"
-            onClick={() => {
-              const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
-              if (def) setPurchasing(def);
-            }}
-          >
-            Continue this purchase
-          </button>
+        <PseNotice tone="attention" title={pendingNeedsReview ? "Payment under manual review" : "Purchase in progress"}>
+          {pendingNeedsReview
+            ? `Your payment for ${pendingPurchase.toolName || pendingPurchase.toolId} has been recorded for admin review. Do not send another payment. Wait for the recovery case to be resolved.`
+            : pendingInFlight
+              ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
+              : pendingQuoteLive
+                ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
+                : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}
+          {!pendingNeedsReview && (
+            <button
+              type="button"
+              className="pse-link"
+              onClick={() => {
+                const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
+                if (def) setPurchasing(def);
+              }}
+            >
+              Continue this purchase
+            </button>
+          )}
         </PseNotice>
       )}
 

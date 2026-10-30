@@ -443,8 +443,8 @@ export const AdminPSEMine: React.FC = () => {
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   }, [mineOverview]);
 
-  const numOrDash = (value: number | string | null | undefined, format?: (n: number) => string): string => {
-    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return '—';
+  const numOrDash = (value: number | string | boolean | null | undefined, format?: (n: number) => string): string => {
+    if (value === null || value === undefined || typeof value === 'boolean' || (typeof value === 'string' && value.trim() === '')) return '—';
     const numericValue = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(numericValue)) return '—';
     return format ? format(numericValue) : String(numericValue);

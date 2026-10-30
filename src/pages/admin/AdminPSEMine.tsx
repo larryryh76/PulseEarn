@@ -1073,7 +1073,7 @@ export const AdminPSEMine: React.FC = () => {
             <PseFacts cols={2}>
               <PseFact label="Payment network" value="BNB Smart Chain" text />
               <PseFact label="Payment asset" value="BNB" text />
-              <PseFact label="Chain ID" value={String(campaign?.paymentChainId ?? '—')} text />
+              <PseFact label="Chain ID" value={String(receiverWalletConfig?.paymentChainId ?? '—')} text />
               <PseFact label="Tool prices and rates" value="Locked campaign economics" text hint="Not editable here; backend remains authoritative." />
             </PseFacts>
             <PseNotice tone="attention">The receiving wallet is distinct from payout destinations used when paying users. This setting does not transfer funds, move collected assets, or modify existing purchase records.</PseNotice>

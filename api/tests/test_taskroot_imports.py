@@ -94,12 +94,12 @@ class TestBootstrapShape(unittest.TestCase):
         #     /sessions/sync, the v1 quote, the v1 activation, the canonical
         #     activation transaction, the canonical-data seed, and the derived
         #     LOCKED_PSEMINE_TOOLS_CONFIG builder);
-        #   * psemine_engine census updated to 28 after additional lifecycle imports;\n        #     keep this count synchronized with actual import sites.\n        #   * previous note: psemine_sync_session carried a duplicate
+        #   * psemine_engine census updated to 27 after retiring the legacy unquoted payout writer;\n        #     keep this count synchronized with actual import sites.\n        #   * previous note: psemine_sync_session carried a duplicate
         #     `import psemine_engine as _pse_engine` in the same function body;
         #   * psemine_public 1 -> 2: the public tool projection is imported by
         #     the app's _public_tool_view, beside public_campaign_view.
         per_file = {
-            "index.py": {"psemine_engine": 28, "psemine_core": 11,
+            "index.py": {"psemine_engine": 27, "psemine_core": 11,
                          "psemine_public": 2, "services.provider_cache": 6},
             "psemine_engine.py": {"psemine_engine": 0, "psemine_core": 1,
                                   "psemine_public": 0},

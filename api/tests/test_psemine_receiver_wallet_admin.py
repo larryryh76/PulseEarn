@@ -122,7 +122,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("not physical mining hardware", TOOLS_SOURCE)
 
     def test_admin_can_reconfirm_same_legacy_seeded_address(self):
-        self.assertIn("const receiverNeedsConfirmation = campaign?.receiverWalletConfigured !== true", ADMIN_SOURCE)
+        self.assertIn("const receiverIsConfirmed = receiverConfirmationOverride ?? (", ADMIN_SOURCE)
+        self.assertIn("const receiverNeedsConfirmation = !receiverIsConfirmed", ADMIN_SOURCE)
         self.assertIn("address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation", ADMIN_SOURCE)
         self.assertIn("Confirm receiving wallet", ADMIN_SOURCE)
         self.assertIn("purchases remain blocked", ADMIN_SOURCE)

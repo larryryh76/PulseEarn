@@ -218,5 +218,86 @@ class TestActivationPayerIsServerDerived(unittest.TestCase):
         self.assertIn("expected_sender", handler)
 
 
+class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
+    def setUp(self):
+        self.source = tfg._read(tfg.INDEX_SRC)
+        self.verify_handler = tfg._handler_body(self.source, "verify_psemine_tool_purchase")
+        self.create_handler = tfg._handler_body(self.source, "mine_create_purchase")
+
+    def test_expired_submitted_hash_is_recorded_not_silently_discarded(self):
+        self.assertIn("_flag_expired_purchase", self.verify_handler)
+        self.assertIn("PAYMENT_REQUIRES_REVIEW", self.verify_handler)
+        self.assertIn("status': 'manual_review'", self.verify_handler)
+        self.assertIn("Do not send another payment", self.verify_handler)
+
+    def test_attached_recovery_is_required_to_retry_expired_quote(self):
+        self.assertIn("recovery_authorized", self.verify_handler)
+        self.assertIn("_recovery_data.get('status') == 'attached'", self.verify_handler)
+        self.assertIn("_recovery_data.get('attachedPurchaseId') == purchase_id", self.verify_handler)
+        self.assertIn("if datetime.now(timezone.utc) > exp_dt and not recovery_authorized", self.verify_handler)
+        self.assertIn("PAYMENT_UNDER_REVIEW", self.create_handler)
+
+    def test_admin_attachment_binds_case_to_matching_user_quote_and_tx(self):
+        db = tpc.FakeDB()
+        _orig_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        tx_hash = "0x" + "cd" * 32
+        purchase_id = "purchase_user1"
+        try:
+            db.collection("psemine_purchases").document(purchase_id).set({
+                "id": purchase_id,
+                "userId": "user1",
+                "quoteId": "quote_user1",
+                "transactionHash": tx_hash,
+                "status": "manual_review",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=tx_hash, quote_id="quote_user1",
+                purchase_id=purchase_id, reason="QUOTE_EXPIRED_AT_VERIFICATION",
+            )
+            result = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                notes="Verified transaction details", purchase_id=purchase_id,
+            )
+            self.assertTrue(result.get("ok"), result)
+            purchase = db.collection("psemine_purchases").document(purchase_id).get().to_dict()
+            recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+            self.assertEqual("manual_review", purchase["status"])
+            self.assertEqual(recovery_id, purchase["recoveryCaseId"])
+            self.assertEqual(tx_hash, purchase["transactionHash"])
+            self.assertEqual("attached", recovery["status"])
+            self.assertEqual(purchase_id, recovery["attachedPurchaseId"])
+        finally:
+            psemine_engine.firestore_server_ts = _orig_ts
+
+    def test_admin_cannot_attach_another_users_purchase(self):
+        db = tpc.FakeDB()
+        _orig_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        tx_hash = "0x" + "ef" * 32
+        try:
+            db.collection("psemine_purchases").document("purchase_user2").set({
+                "id": "purchase_user2",
+                "userId": "user2",
+                "quoteId": "quote_user1",
+                "transactionHash": tx_hash,
+                "status": "manual_review",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=tx_hash, quote_id="quote_user1",
+                purchase_id="purchase_user1", reason="QUOTE_EXPIRED_AT_VERIFICATION",
+            )
+            result = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase_user2",
+            )
+            self.assertFalse(result.get("ok"))
+            self.assertEqual("PURCHASE_MISMATCH", result.get("error"))
+            recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+            self.assertEqual("open", recovery["status"])
+        finally:
+            psemine_engine.firestore_server_ts = _orig_ts
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -725,29 +725,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     if (!connectedWallet) return 'Connect a wallet to continue.';
     if (!walletLive) return 'Reconnect your wallet in this browser — the payment must be signed by the wallet that pays, and this session has no live wallet connection.';
     if (walletChanged) return `This purchase is locked to ${shortAddr(boundPayer)} — reconnect that wallet to pay.`;
-    // Fail closed on an UNREADABLE chain: the backend verifies the transfer on
-    // chain 56, so paying from an unknown network is a dead end, not a warning.
-    if (chainUnknown) return `Your wallet's network could not be read. Reconnect the wallet, or switch it to ${networkName} (chain ${requiredChainId}), before paying.`;
-    if (wrongChain) return `Switch your wallet to ${networkName} (chain ${requiredChainId}) — chain ${walletChainId} cannot be verified.`;
+    // Chain selection is handled automatically by payNow through the active
+    // wallet provider. If needed, the wallet app will show its own switch/add
+    // network approval prompt; the user must not navigate wallet settings.
     if (!quoteValid) return 'The quote expired. Refresh it to continue — the backend will not accept a stale quote.';
     if (!ownershipOk) return `Maximum ownership reached for ${tool.name}.`;
     return null;
   })();
   const payBlocked = blockedReason !== null;
-
-  const switchChain = async () => {
-    const ok = await ensurePaymentChain(requiredChainId);
-    if (!ok) {
-      toast.error(`Switch your wallet to ${networkName} in the wallet app — the request was refused or unsupported.`);
-      return;
-    }
-    const chain = await refreshWalletChain();
-    if (chain === requiredChainId) {
-      toast.success(`Wallet switched to ${networkName}.`);
-    } else {
-      toast(`Confirm ${networkName} in your wallet to continue.`, { icon: '⏳' });
-    }
-  };
 
   const refreshQuoteNow = () => {
     setResume(null);
@@ -786,9 +771,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       if (!chainOk) {
         setSubmissionState('NOT_SUBMITTED');
         setStep('pay');
-        toast.error(`Could not verify ${networkName}. Approve the network switch in your wallet and try again.`);
+        toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
         return;
       }
+      // Refresh the displayed chain after the wallet approves the switch.
+      await refreshWalletChain();
 
       // 2. BIND THE PAYER — server-side, against this account and this quote,
       //    BEFORE any signature exists.
@@ -1129,8 +1116,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   : onRequiredChain
                     ? `${networkName} (chain ${requiredChainId})`
                     : chainUnknown
-                      ? `Network unreadable — reconnect or switch to ${networkName} (chain ${requiredChainId})`
-                      : `Wrong network — wallet is on chain ${walletChainId}`,
+                      ? `Network not confirmed yet — PSEmine will request ${networkName} automatically when you tap Pay`
+                      : `Network switch required — PSEmine will request ${networkName} automatically before payment`,
               },
               { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
               { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
@@ -1159,11 +1146,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {connectedWallet && (wrongChain || chainUnknown) && (
             <PseNotice tone="attention">
               {chainUnknown
-                ? `The wallet is connected, but its network has not been reported. Ask the wallet to switch to ${networkName} (chain ${requiredChainId}); the app will re-read the network before enabling payment.`
-                : `Wrong network — this payment must be sent on ${networkName} (chain ${requiredChainId}); your wallet is on chain ${walletChainId}, and a transaction signed elsewhere can never be verified.`}{' '}
-              <button type="button" className="pse-link" onClick={() => void switchChain()}>
-                {chainUnknown ? 'Read / switch to BNB Smart Chain' : 'Switch to BNB Smart Chain'}
-              </button>
+                ? `Your wallet is connected, but its network is not confirmed yet. When you tap Pay, PSEmine will ask your wallet app to verify or switch to ${networkName} (chain ${requiredChainId}).`
+                : `Your wallet is currently on chain ${walletChainId}. When you tap Pay, PSEmine will request ${networkName} (chain ${requiredChainId}) from your wallet app before preparing the payment.`}
+              {' '}Approve that network request in the wallet app if it appears; you do not need to open wallet settings yourself.
             </PseNotice>
           )}
 
@@ -1272,24 +1257,25 @@ const WalletConnectStep: React.FC = () => {
       </p>
 
       <div className="flex flex-wrap gap-2">
-        {injectedWallets.map(w => (
-          <PseButton key={w.id} onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
-            {w.name}
-          </PseButton>
-        ))}
-        {walletConnectAvailable && (
+        {walletConnectAvailable ? (
           <PseButton onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
-            WalletConnect — mobile &amp; extension wallets
+            Connect Wallet
           </PseButton>
+        ) : (
+          injectedWallets.map(w => (
+            <PseButton key={w.id} onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
+              Connect {w.name}
+            </PseButton>
+          ))
         )}
       </div>
 
-      {isConnectingWallet && <PseNotice>Waiting for the wallet…</PseNotice>}
+      {isConnectingWallet && <PseNotice>Opening wallet selection — choose your installed wallet and approve the connection there…</PseNotice>}
 
       {!walletConnectAvailable && injectedWallets.length === 0 && (
         <PseNotice tone="attention">
-          No wallet detected. Open PSEmine in your wallet&apos;s browser (Trust, MetaMask), install an extension, or
-          configure WalletConnect for this deployment.
+          WalletConnect is not configured for this deployment yet. Add the public Reown project ID as
+          VITE_WALLETCONNECT_PROJECT_ID, or open PSEmine inside your wallet&apos;s browser.
         </PseNotice>
       )}
     </PseSection>

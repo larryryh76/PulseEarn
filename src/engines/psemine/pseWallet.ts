@@ -288,7 +288,9 @@ export const discoverInjectedWallets = (): Promise<PseInjectedWallet[]> =>
       // Fallback for wallets that do not implement EIP-6963 (older Trust
       // Browser builds, some in-app dapp browsers): a single "Browser wallet"
       // entry bound to window.ethereum.
-      if (found.size === 0 && win?.ethereum?.request) {
+      // Keep window.ethereum as an additional provider even when EIP-6963
+      // wallets announced: it may be a separate wallet with the remembered payer.
+      if (win?.ethereum?.request && ![...found.values()].some(w => w.provider === win.ethereum)) {
         found.set('injected', { id: 'injected', name: 'Browser wallet', provider: win.ethereum });
       }
       resolve([...found.values()]);

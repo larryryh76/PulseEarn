@@ -104,7 +104,7 @@ class TestLegacySurfaceInventory(unittest.TestCase):
     def test_legacy_payout_writer_is_retired(self):
         source = _read(INDEX_SRC)
         start = source.index("def psemine_create_withdrawal():")
-        end = source.index("\\n@app.route(", start)
+        end = source.index("\n@app.route(", start)
         route = source[start:end]
         self.assertIn("LEGACY_PAYOUT_DISABLED", route)
         self.assertIn("), 410", route)

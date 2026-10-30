@@ -224,7 +224,7 @@ export const AdminPSEMine: React.FC = () => {
   const campaignStatus = campaign?.status || stats.campaignStatus || 'Not reported';
   const income = mineStats.totalToolIncomeGbp;
   const incomeReady = mineStats.toolIncomeComplete !== false && income !== null && income !== undefined;
-  const tools = Object.values(LOCKED_PSEMINE_TOOLS as Record<string, any>).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  const tools = Object.values(LOCKED_PSEMINE_TOOLS as Record<string, any>).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) as Row[];
   const fmtStat = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'number' ? v.toLocaleString('en-GB') : String(v);
 
   return (
@@ -290,7 +290,7 @@ export const AdminPSEMine: React.FC = () => {
         </Panel>
 
         <Panel title="Tool register" detail="Published locked tool prices and capacity. Economics are read-only in this console.">
-          <Table columns={['Tool', 'Price', 'Hourly capacity', 'Campaign capacity', 'Status / action']} rows={tools} empty="No locked tool definitions are available." render={(tool) => <tr className="bg-transparent"><td className="px-3 py-3 font-medium text-white">{tool.name || tool.id || tool.toolId}</td><td className="px-3 py-3 text-slate-300">{money(tool.priceGbp ?? tool.price ?? tool.priceGBP)}</td><td className="px-3 py-3 text-slate-300">{tool.hourlyRateGbp ?? tool.capacityGBPPerHour ?? tool.hourlyCapacity ?? '—'}</td><td className="px-3 py-3 text-slate-300">{tool.capacity ?? tool.referralCapacity ?? '—'}</td><td className="px-3 py-3"><button onClick={() => void deprecateTool(String(tool.id || tool.toolId || tool.key || ''))} disabled={!isAdmin || busy} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-300 disabled:opacity-40">Deprecate</button></td></tr>} />
+          <Table columns={['Tool', 'Price', 'Hourly capacity', 'Max per user', 'Status / action']} rows={tools} empty="No locked tool definitions are available." render={(tool) => <tr className="bg-transparent"><td className="px-3 py-3 font-medium text-white">{tool.name || tool.id || tool.toolId}</td><td className="px-3 py-3 text-slate-300">{money(tool.purchasePriceGBP)}</td><td className="px-3 py-3 text-slate-300">{money(tool.hourlyRateGBP) + ' / hr'}</td><td className="px-3 py-3 text-slate-300">{tool.maxPerUser ?? '—'}</td><td className="px-3 py-3"><button onClick={() => void deprecateTool(String(tool.id || tool.toolId || tool.key || ''))} disabled={!isAdmin || busy} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-300 disabled:opacity-40">Deprecate</button></td></tr>} />
         </Panel>
 
         <Panel title="Purchase orders" detail="Order intents are not counted as income until an on-chain payment is verified." right={<input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="Search user, order, tx hash…" className="w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" />}>

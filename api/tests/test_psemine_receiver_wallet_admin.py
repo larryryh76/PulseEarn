@@ -72,6 +72,11 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
         self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
 
+    def test_legacy_order_verification_rejects_stale_receiver(self):
+        self.assertIn("LEGACY_ORDER_RECEIVER_STALE", API_SOURCE)
+        self.assertIn("_order_receiver.lower() != _current_receiver.lower()", API_SOURCE)
+        self.assertIn("stale or unconfirmed receiving address", API_SOURCE)
+
     def test_purchase_intent_rejects_stale_receiver_and_inconsistent_amount(self):
         start = API_SOURCE.index("def mine_create_purchase():")
         end = API_SOURCE.index("\n@app.route(", start)

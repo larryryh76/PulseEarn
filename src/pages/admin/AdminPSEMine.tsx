@@ -699,8 +699,8 @@ export const AdminPSEMine: React.FC = () => {
                             variant="secondary"
                             disabled={resolving !== null}
                             onClick={() => setConfirm({
-                              title: 'Complete purchase from recovery evidence?',
-                              consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
+                              title: 'Attach recovery to the exact purchase?',
+                              consequence: 'This links the recovery evidence to its matching purchase. It does not send funds or activate a tool. The user can then retry verification from the purchase recovery panel; the backend activates only after all on-chain checks pass.',
                               affected: `psemine_payment_recovery/${id}`,
                               confirmLabel: 'Re-verify & attempt purchase',
                               run: async () => {
@@ -710,7 +710,7 @@ export const AdminPSEMine: React.FC = () => {
                               },
                             })}
                           >
-                            Complete purchase
+                            Attach recovery
                           </PseButton>
                           <PseButton
                             size="sm"

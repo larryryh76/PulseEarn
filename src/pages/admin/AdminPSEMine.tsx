@@ -1,1104 +1,321 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import {
-  campaignStatusView, fmtDateTime, gbp, gbpHour, payoutStatusView, shortAddr, shortHash, usePseDocumentTitle,
-} from '../../components/psemine/pseCore';
-import {
-  PseButton, PseCell, PseConfirm, PseEmptyNote, PseFact, PseFacts, PseField, PseInput, PseLoading,
-  PseNotice, PsePage, PseRow, PseSection, PseTable,
-} from '../../components/psemine/PseBasics';
+import { usePseDocumentTitle } from '../../components/psemine/pseCore';
 import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import toast from 'react-hot-toast';
 
-/**
- * ════════════════════════════════════════════════════════════════════════════
- * PSEmine Operations — the campaign's own console.
- * ════════════════════════════════════════════════════════════════════════════
- *
- * WHAT THIS IS. The operations surface for one PSEmine campaign: its lifecycle,
- * the tool economics it is running under, the purchases it has taken, the
- * payments that failed verification, and the payouts awaiting review. It is not
- * a generic admin dashboard and it shows no metric it cannot read from the
- * backend.
- *
- * WHAT FIXED THE PREVIOUS VERSION. Three concrete defects, not taste:
- *
- *   1. IT RENDERED OUTSIDE ITS OWN PLANE. Every primitive below (`pse-facts`,
- *      `pse-ledger`, `pse-block`) styles itself from the `--pse-*` tokens, which
- *      are declared on `.pse`. This component is mounted inside the operations
- *      shell, which does not carry that class, so the tokens were undefined and
- *      the console rendered as unstyled markup — the "weak layout / generic
- *      components" symptom. It is now rooted in `.pse pse-surface`, so it wears
- *      the same surface as the rest of PSEmine.
- *   2. IT INVENTED ZEROES. A stat the backend had not reported printed as `0`,
- *      which is a metric the page made up. Absent data is now `—`, and the page
- *      says so instead of stating a figure.
- *   3. IT OMITTED SYSTEMS THAT EXIST. The tool register, purchases and the
- *      campaign's ownership/session counts are all readable from endpoints the
- *      backend already exposes, so they are here now.
- *
- * WHAT IT MUST NEVER DO. Invent a row, print a placeholder figure, or activate
- * anything from the browser. Every consequential control calls a backend route
- * that authorises, verifies and audits the action itself; the confirmations
- * below state exactly what each one writes.
- */
+type Row = Record<string, any>;
+type ApiState = 'loading' | 'ready' | 'partial' | 'error';
 
-/** One locked campaign tier, flattened for the register. */
-const TIERS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-
-const CAMPAIGN_TIME_ZONE = 'Europe/London';
-
-function localDateInputValue(date: Date): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: CAMPAIGN_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(date);
-  const part = (type: string) => parts.find(item => item.type === type)?.value || '';
-  return [part('year'), part('month'), part('day')].join('-');
-}
-
-/** Convert a Europe/London wall-clock time to UTC, applying GMT/BST for that date. */
-function londonDateTimeToIso(dateValue: string, timeValue: string): string {
-  const [year, month, day] = dateValue.split('-').map(Number);
-  const [hour, minute] = timeValue.split(':').map(Number);
-  const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
-  let candidate = targetAsUtc;
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    timeZone: CAMPAIGN_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-  });
-  for (let i = 0; i < 3; i += 1) {
-    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate)).map(p => [p.type, p.value]));
-    const representedAsUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day),
-      Number(parts.hour), Number(parts.minute), Number(parts.second));
-    const correction = targetAsUtc - representedAsUtc;
+const money = (value: unknown, currency = 'GBP') => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n); }
+  catch { return String(n); }
+};
+const dateText = (value: unknown) => {
+  if (!value) return '—';
+  const d = new Date(value as any);
+  return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }).format(d) + ' UK' : String(value);
+};
+const short = (value: unknown, n = 10) => {
+  const s = String(value || '');
+  return s.length > n * 2 ? s.slice(0, n) + '…' + s.slice(-n) : s || '—';
+};
+const statusTone = (value: unknown) => {
+  const s = String(value || '').toLowerCase();
+  if (['active', 'confirmed', 'paid', 'completed', 'ready', 'approved'].includes(s)) return 'good';
+  if (['failed', 'rejected', 'error', 'expired', 'archived'].includes(s)) return 'bad';
+  if (['pending', 'paused', 'scheduled', 'under_review', 'processing', 'settling'].includes(s)) return 'warn';
+  return 'neutral';
+};
+const londonIso = (date: string, time: string) => {
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, min] = time.split(':').map(Number);
+  const target = Date.UTC(y, m - 1, d, h, min);
+  let candidate = target;
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  for (let i = 0; i < 3; i++) {
+    const p = Object.fromEntries(fmt.formatToParts(new Date(candidate)).map(x => [x.type, x.value]));
+    const represented = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute), Number(p.second));
+    const correction = target - represented;
     candidate += correction;
-    if (correction === 0) break;
+    if (!correction) break;
   }
   return new Date(candidate).toISOString();
-}
+};
 
-function nextTuesdayDateValue(): string {
-  const [year, month, day] = localDateInputValue(new Date()).split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  const daysUntilTuesday = (2 - date.getUTCDay() + 7) % 7 || 7;
-  date.setUTCDate(date.getUTCDate() + daysUntilTuesday);
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
-}
-
-function fmtUKDateTime(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(date.getTime())) return '—';
-  // Do not combine dateStyle/timeStyle with timeZoneName: browsers reject that
-  // Intl.DateTimeFormat option combination and crash the entire admin module.
-  // Explicit fields are broadly supported on mobile Chrome and preserve UK time.
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: CAMPAIGN_TIME_ZONE,
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short',
-  }).format(date) + ' UK time';
-}
-
-type ScreenSection = 'campaign' | 'lifecycle' | 'tools' | 'payments' | 'purchases' | 'payouts' | 'audit' | 'settings';
-
-const SECTIONS: ReadonlyArray<{ id: ScreenSection; label: string }> = [
-  { id: 'campaign', label: 'Overview' },
-  { id: 'lifecycle', label: 'Lifecycle' },
-  { id: 'payments', label: 'Payment verification' },
-  { id: 'tools', label: 'Tool register' },
-  { id: 'purchases', label: 'Purchases' },
-  { id: 'payouts', label: 'Payouts' },
-  { id: 'audit', label: 'Audit' },
-  { id: 'settings', label: 'Configuration' },
-];
+const Panel: React.FC<{ title: string; detail?: string; right?: React.ReactNode; children: React.ReactNode }> = ({ title, detail, right, children }) => (
+  <section className="rounded-2xl border border-white/10 bg-[#0c1220] p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,.18)]">
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-base font-semibold text-white">{title}</h2>{detail && <p className="mt-1 text-xs text-slate-400">{detail}</p>}</div>
+      {right}
+    </div>
+    {children}
+  </section>
+);
+const Pill: React.FC<{ value: unknown }> = ({ value }) => {
+  const tone = statusTone(value);
+  const colors: Record<string, string> = { good: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200', bad: 'border-rose-400/20 bg-rose-400/10 text-rose-200', warn: 'border-amber-400/20 bg-amber-400/10 text-amber-200', neutral: 'border-white/10 bg-white/5 text-slate-300' };
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${colors[tone]}`}>{String(value || 'Not reported').replace(/_/g, ' ')}</span>;
+};
+const Stat: React.FC<{ label: string; value: React.ReactNode; note?: string; emphasis?: boolean }> = ({ label, value, note, emphasis }) => (
+  <div className={`rounded-xl border p-4 ${emphasis ? 'border-cyan-400/20 bg-cyan-400/[.06]' : 'border-white/10 bg-white/[.025]'}`}>
+    <div className="text-xs text-slate-400">{label}</div><div className="mt-2 break-words text-2xl font-semibold tracking-tight text-white">{value}</div>{note && <div className="mt-1 text-[11px] text-slate-500">{note}</div>}
+  </div>
+);
+const Empty: React.FC<{ text: string }> = ({ text }) => <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-slate-500">{text}</div>;
+const Table: React.FC<{ columns: string[]; rows: Row[]; render: (row: Row, index: number) => React.ReactNode; empty: string }> = ({ columns, rows, render, empty }) => (
+  rows.length ? <div className="overflow-x-auto rounded-xl border border-white/10"><table className="w-full min-w-[720px] text-left text-xs"><thead className="bg-white/[.04] text-slate-400"><tr>{columns.map(c => <th key={c} className="px-3 py-3 font-medium">{c}</th>)}</tr></thead><tbody className="divide-y divide-white/[.07]">{rows.map((r, i) => <React.Fragment key={String(r.id || r.orderId || r.withdrawalId || i)}>{render(r, i)}</React.Fragment>)}</tbody></table></div> : <Empty text={empty} />
+);
 
 export const AdminPSEMine: React.FC = () => {
-  usePseDocumentTitle('Operations');
-
+  usePseDocumentTitle('PSEmine Operations');
   const { currentUser, userData } = useAuth();
   const { campaign, refreshData: refreshCampaign } = usePSEMine();
-  const normalizedRole = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
-  const canConfigureReceiverWallet = normalizedRole === 'super_admin' || userData?.isRoot === true;
+  const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
+  const isSuperAdmin = role === 'super_admin' || (userData as any)?.isRoot === true;
+  const isAdmin = isSuperAdmin || role === 'admin';
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
-
-  const [stats, setStats] = useState<Record<string, number | string>>({});
-  const [mineOverview, setMineOverview] = useState<Record<string, number | string | boolean>>({});
-  const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
-  const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
-  const [verifiedPayments, setVerifiedPayments] = useState<Array<Record<string, unknown>>>([]);
-  const [purchaseView, setPurchaseView] = useState<'payments' | 'orders'>('payments');
-  const [orderFilter, setOrderFilter] = useState('all');
-  const [activeSection, setActiveSection] = useState<ScreenSection>('campaign');
-  const [partialErrors, setPartialErrors] = useState<string[]>([]);
-  const [orderSearch, setOrderSearch] = useState('');
-  const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
-  const [auditRows, setAuditRows] = useState<Array<Record<string, unknown>>>([]);
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
-  const [scheduleDate, setScheduleDate] = useState(nextTuesdayDateValue());
+  const [loadState, setLoadState] = useState<ApiState>('loading');
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  const [stats, setStats] = useState<Row>({});
+  const [mineStats, setMineStats] = useState<Row>({});
+  const [config, setConfig] = useState<Row | null>(null);
+  const [orders, setOrders] = useState<Row[]>([]);
+  const [payments, setPayments] = useState<Row[]>([]);
+  const [recovery, setRecovery] = useState<Row[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Row[]>([]);
+  const [audit, setAudit] = useState<Row[]>([]);
+  const [walletInput, setWalletInput] = useState('');
+  const [walletAck, setWalletAck] = useState(false);
+  const [walletPhrase, setWalletPhrase] = useState('');
+  const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('09:00');
-  const [resolving, setResolving] = useState<string | null>(null);
-  const [txInputs, setTxInputs] = useState<Record<string, string>>({});
-  const [receiverWalletInput, setReceiverWalletInput] = useState('');
-  const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
-  const [receiverWalletConfig, setReceiverWalletConfig] = useState<{
-    receiverWalletAddress: string;
-    receiverWalletConfigured: boolean;
-    receiverWalletConfiguredAt: string | null;
-    receiverWalletConfiguredBy: boolean;
-    purchaseReady: boolean;
-    paymentChainId?: number;
-  } | null>(null);
-  const [receiverConfirmationOverride, setReceiverConfirmationOverride] = useState<boolean | null>(null);
-  const [walletSaveBusy, setWalletSaveBusy] = useState(false);
-  const [walletAcknowledged, setWalletAcknowledged] = useState(false);
+  const [orderQuery, setOrderQuery] = useState('');
+  const [actionReason, setActionReason] = useState('Admin console action');
 
-  const [confirm, setConfirm] = useState<{
-    title: string; consequence: string; affected: string;
-    confirmLabel: string; danger?: boolean; requireText?: string;
-    run: () => Promise<void>;
-  } | null>(null);
-  const [confirmBusy, setConfirmBusy] = useState(false);
-
-  const load = useCallback(async (isRefresh = false) => {
-    if (!currentUser) return;
-    if (isRefresh) setRefreshing(true); else setLoading(true);
-    setError(null);
-    try {
-      const token = await currentUser.getIdToken();
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const [ovRes, recRes, wdRes, ordersRes, paymentsRes, pseRes, auditRes] = await Promise.all([
-        fetch('/api/admin/mine/overview', { headers }),
-        fetch('/api/admin/mine/payment-recovery?status=open', { headers }),
-        fetch('/api/admin/psemine/withdrawals', { headers }),
-        fetch('/api/admin/psemine/orders', { headers }),
-        fetch('/api/admin/psemine/payments', { headers }),
-        fetch('/api/admin/psemine/overview', { headers }),
-        fetch('/api/admin/mine/audit', { headers }),
-      ]);
-      if (!ovRes.ok) throw new Error(`Campaign overview unavailable (${ovRes.status})`);
-      const ov = await ovRes.json().catch(() => ({}));
-      setStats(ov?.stats || {});
-      const unavailable: string[] = [];
-
-      if (pseRes.ok) {
-        const d = await pseRes.json().catch(() => ({}));
-        setMineOverview(d?.stats || {});
-        const config = d?.campaign;
-        setReceiverWalletConfig(config && typeof config === 'object' ? {
-          receiverWalletAddress: String(config.receiverWalletAddress || ''),
-          receiverWalletConfigured: config.receiverWalletConfigured === true,
-          receiverWalletConfiguredAt: config.receiverWalletConfiguredAt || null,
-          receiverWalletConfiguredBy: config.receiverWalletConfiguredBy === true,
-          purchaseReady: config.purchaseReady === true,
-          paymentChainId: typeof config.paymentChainId === 'number' ? config.paymentChainId : undefined,
-        } : null);
-      } else {
-        setMineOverview({});
-        setReceiverWalletConfig(null);
-        unavailable.push('tool/session metrics and campaign payment configuration');
-      }
-
-      if (recRes.ok) {
-        const d = await recRes.json().catch(() => ({}));
-        setRecoveryCases(Array.isArray(d?.cases) ? d.cases : []);
-      } else { setRecoveryCases([]); unavailable.push('payment recovery'); }
-
-      if (ordersRes.ok) {
-        const d = await ordersRes.json().catch(() => ({}));
-        setOrders(Array.isArray(d?.orders) ? d.orders : []);
-      } else { setOrders([]); unavailable.push('order intents'); }
-
-      if (paymentsRes.ok) {
-        const d = await paymentsRes.json().catch(() => ({}));
-        setVerifiedPayments(Array.isArray(d?.payments) ? d.payments : []);
-      } else { setVerifiedPayments([]); unavailable.push('verified payments'); }
-
-      if (wdRes.ok) {
-        const d = await wdRes.json().catch(() => ({}));
-        const all: Array<Record<string, unknown>> = Array.isArray(d?.withdrawals) ? d.withdrawals : [];
-        setWithdrawalQueue(all.filter(w => ['pending', 'under_review', 'approved', 'processing'].includes(String(w.status))));
-      } else { setWithdrawalQueue([]); unavailable.push('payout queue'); }
-
-      if (auditRes.ok) {
-        const d = await auditRes.json().catch(() => ({}));
-        setAuditRows(Array.isArray(d?.records) ? d.records : []);
-      } else {
-        setAuditRows([]);
-        unavailable.push('audit feed');
-      }
-      setPartialErrors(unavailable);
-      setLoadedAt(Date.now());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load PSEmine operations data.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const request = useCallback(async (path: string, init: RequestInit = {}) => {
+    if (!currentUser) throw new Error('Admin session unavailable. Sign in again.');
+    const token = await currentUser.getIdToken();
+    const response = await fetch(path, {
+      ...init,
+      headers: { ...(init.headers || {}), Authorization: `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.success === false) {
+      const error = new Error(data.message || data.error || `Request failed (${response.status})`);
+      (error as any).status = response.status;
+      throw error;
     }
+    return data;
   }, [currentUser]);
 
-  useEffect(() => { void load(); }, [load]);
-
-  useEffect(() => {
-    if (!receiverWalletConfig) {
-      setReceiverWalletCurrent('');
-      setReceiverWalletInput('');
-      setReceiverConfirmationOverride(null);
-      return;
-    }
-    const configured = receiverWalletConfig.receiverWalletAddress;
-    setReceiverWalletCurrent(configured);
-    setReceiverWalletInput(configured);
-    setReceiverConfirmationOverride(null);
-  }, [receiverWalletConfig]);
-
-  // Existing campaign documents may still contain the former bootstrap value.
-  // A fresh super-admin save must explicitly attest to the destination once.
-  const receiverIsConfirmed = receiverConfirmationOverride ?? (
-    receiverWalletConfig?.receiverWalletConfigured === true
-    && Boolean(receiverWalletConfig?.receiverWalletConfiguredAt)
-    && receiverWalletConfig?.receiverWalletConfiguredBy === true
-  );
-  const receiverNeedsConfirmation = !receiverIsConfirmed;
-
-  /** Require a second, typed confirmation before changing or reconfirming the receiver. */
-  const saveReceiverWallet = () => {
-    if (!canConfigureReceiverWallet) {
-      toast.error('Only a super-admin can configure the campaign receiving wallet.');
-      return;
-    }
-    const address = receiverWalletInput.trim();
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) {
-      toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
-      return;
-    }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
-      toast('This receiving address is already confirmed by an administrator.');
-      return;
-    }
-    if (!walletAcknowledged) {
-      toast.error('Confirm that you have verified ownership and network before saving.');
-      return;
-    }
-    const reconfirming = receiverNeedsConfirmation && address.toLowerCase() === receiverWalletCurrent.toLowerCase();
-    setConfirm({
-      title: reconfirming ? 'Confirm the campaign receiving wallet?' : 'Change tool purchase receiving wallet?',
-      consequence: reconfirming
-        ? `This campaign may still contain an old bootstrap address. Confirm that this exact address is the intended wallet you control or are authorised to receive funds at. New purchase quotes remain blocked until this confirmation is saved.`
-        : `New PSEmine tool purchase quotes will direct BNB to the new address. Existing quotes retain their original destination. Verify the entire address independently before proceeding. Current: ${receiverWalletCurrent || 'not reported'}. New: ${address}.`,
-      affected: 'psemine_campaigns/active_campaign.receiverWalletAddress',
-      confirmLabel: reconfirming ? 'Confirm receiving wallet' : 'Change receiving wallet',
-      danger: true,
-      requireText: reconfirming ? 'CONFIRM WALLET' : 'CHANGE WALLET',
-      run: async () => { await commitReceiverWalletChange(address); },
-    });
-  };
-
-  /** Persist the confirmed change. The server validates, persists and audits it. */
-  const commitReceiverWalletChange = async (address: string) => {
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) {
-      toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
-      return;
-    }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
-      toast('This receiving address is already confirmed by an administrator.');
-      return;
-    }
-    if (!walletAcknowledged) {
-      toast.error('Confirm that you have verified ownership and network before saving.');
-      return;
-    }
-    setWalletSaveBusy(true);
-    try {
-      const token = await currentUser?.getIdToken();
-      if (!token) throw new Error('Your admin session is unavailable. Sign in again.');
-      const res = await fetch('/api/admin/mine/campaign/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          action: 'set_receiver_wallet',
-          receiverWalletAddress: address,
-          reason: 'Updated from PSEmine admin configuration',
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Receiving wallet update failed.');
-      toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
-      setReceiverWalletCurrent(address);
-      setReceiverWalletInput(address);
-      setReceiverWalletConfig({
-        receiverWalletAddress: address,
-        receiverWalletConfigured: true,
-        receiverWalletConfiguredAt: new Date().toISOString(),
-        receiverWalletConfiguredBy: true,
-        purchaseReady: true,
-        paymentChainId: receiverWalletConfig?.paymentChainId,
-      });
-      setReceiverConfirmationOverride(true);
-      setWalletAcknowledged(false);
-      await load(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Receiving wallet update failed.');
-    } finally { setWalletSaveBusy(false); }
-  };
-
-  /** Campaign lifecycle actions, confirmed before execution. */
-  const campaignAction = async (action: 'pause' | 'resume' | 'schedule' | 'settle' | 'shutdown') => {
+  const load = useCallback(async (quiet = false) => {
     if (!currentUser) return;
-    let startAtIso: string | undefined;
+    if (!quiet) setLoadState('loading');
+    setLoadErrors([]);
+    const jobs = [
+      ['campaign metrics', '/api/admin/mine/overview', (d: Row) => setStats(d.stats || {})],
+      ['payment configuration and tool metrics', '/api/admin/psemine/overview', (d: Row) => { setMineStats(d.stats || {}); setConfig(d.campaign || null); }],
+      ['purchase orders', '/api/admin/psemine/orders', (d: Row) => setOrders(Array.isArray(d.orders) ? d.orders : [])],
+      ['verified payments', '/api/admin/psemine/payments', (d: Row) => setPayments(Array.isArray(d.payments) ? d.payments : [])],
+      ['payment recovery cases', '/api/admin/mine/payment-recovery?status=open', (d: Row) => setRecovery(Array.isArray(d.cases) ? d.cases : [])],
+      ['payout queue', '/api/admin/psemine/withdrawals', (d: Row) => setWithdrawals(Array.isArray(d.withdrawals) ? d.withdrawals : [])],
+      ['audit history', '/api/admin/mine/audit', (d: Row) => setAudit(Array.isArray(d.records) ? d.records : [])],
+    ] as const;
+    const failures: string[] = [];
+    await Promise.all(jobs.map(async ([label, path, apply]) => {
+      try { const data = await request(path); apply(data); }
+      catch (e) { failures.push(`${label}: ${e instanceof Error ? e.message : 'unavailable'}`); }
+    }));
+    setLoadErrors(failures);
+    setLoadState(failures.length === jobs.length ? 'error' : failures.length ? 'partial' : 'ready');
+    setLoadedAt(Date.now());
+  }, [currentUser, request]);
+
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setWalletInput(String(config?.receiverWalletAddress || '')); }, [config?.receiverWalletAddress]);
+
+  const filteredOrders = useMemo(() => {
+    const q = orderQuery.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(r => [r.id, r.orderId, r.userId, r.toolId, r.toolName, r.status, r.txHash, r.transactionHash].some(v => String(v || '').toLowerCase().includes(q)));
+  }, [orders, orderQuery]);
+
+  const runCampaignAction = async (action: string) => {
+    if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }
+    let startAt: string | undefined;
     if (action === 'schedule') {
-      if (!scheduleDate || !scheduleTime) {
-        toast.error('Choose a campaign start date and time first.');
-        return;
-      }
-      // Schedule in Europe/London time, independent of the admin device timezone.
-      try { startAtIso = londonDateTimeToIso(scheduleDate, scheduleTime); }
-      catch { startAtIso = undefined; }
-      const parsed = new Date(startAtIso || '');
-      if (!startAtIso || !Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
-        toast.error('The scheduled start must be a valid future date and time.');
-        return;
-      }
+      if (!scheduleDate || !scheduleTime) { toast.error('Choose a future campaign start date and time.'); return; }
+      try { startAt = londonIso(scheduleDate, scheduleTime); } catch { toast.error('Invalid UK date/time.'); return; }
+      if (new Date(startAt).getTime() <= Date.now()) { toast.error('The selected UK start time must be in the future.'); return; }
     }
-    const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
-      pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
-      resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
-      schedule: { title: 'Schedule a fresh 90-day window?', detail: `The current mining window will stop immediately and the campaign will become Scheduled until ${fmtUKDateTime(startAtIso!)}. The next window will run for 90 days from that time. Existing balances, purchases, tool ownership and history are preserved; this does not settle or erase previous accrual. Purchases and referrals stay closed while scheduled and reopen when the backend starts the campaign.` },
-      settle: { title: 'Begin settlement?', detail: 'Mining ends, purchases close, ownership states settle, and payout review opens. A settlement job is created and this is recorded in the audit log. Not casually reversible.' },
-      shutdown: { title: 'SHUTDOWN — archive the campaign?', detail: 'Permanently archives the campaign: mining, purchases, and referrals close, and public mining interfaces close. This is recorded in the audit log.', requireText: 'shutdown' },
-    };
-    const m = messages[action];
-    setConfirm({
-      title: m.title,
-      consequence: m.detail,
-      affected: 'psemine_campaigns/active_campaign',
-      confirmLabel: action === 'shutdown' ? 'Archive campaign' : action === 'schedule' ? 'Schedule campaign' : action.charAt(0).toUpperCase() + action.slice(1) + ' campaign',
-      danger: action === 'shutdown' || action === 'schedule',
-      requireText: m.requireText,
-      run: async () => {
-        setActionBusy(action);
-        try {
-          const token = await currentUser.getIdToken();
-          const res = await fetch('/api/admin/mine/campaign/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ action, reason: `Admin console: ${action}`, ...(startAtIso ? { startAt: startAtIso } : {}) }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            toast.success(action === 'schedule'
-              ? `Campaign scheduled for ${fmtUKDateTime(data.startAt || startAtIso!)}.`
-              : `Campaign action "${action}" executed.`);
-            await refreshCampaign();
-            await load(true);
-          } else {
-            toast.error(data.message || data.error || `Action "${action}" failed.`);
-          }
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : 'Execution error.');
-        } finally { setActionBusy(null); }
-      },
-    });
-  };
-
-  /** Recovery resolution. Backend contract: mark_reviewed | attach_to_purchase |
-   *  reject — none activates a tool from the browser. */
-  const resolveRecovery = async (recoveryId: string, action: 'mark_reviewed' | 'attach_to_purchase' | 'reject', notes: string, purchaseId?: string) => {
-    setResolving(recoveryId + action);
+    const phrase = action === 'shutdown' ? 'ARCHIVE' : action === 'settle' ? 'SETTLE' : action.toUpperCase();
+    if (window.prompt(`Type ${phrase} to confirm this campaign action. This action is recorded.`) !== phrase) return;
+    setBusy(true);
     try {
-      const token = await currentUser?.getIdToken();
-      const res = await fetch(`/api/admin/mine/payment-recovery/${encodeURIComponent(recoveryId)}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ action, notes, ...(purchaseId ? { purchaseId } : {}) }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        toast.success(`Recovery case ${action.replace(/_/g, ' ')}d.`);
-        await load(true);
-      } else {
-        toast.error(data.error || 'Resolution failed (super admin required).');
-      }
-    } finally { setResolving(null); }
+      await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action, reason: actionReason, ...(startAt ? { startAt } : {}) }) });
+      toast.success(`Campaign ${action} request completed.`);
+      await refreshCampaign();
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Campaign action failed.'); }
+    finally { setBusy(false); }
   };
 
-  /** Payout review: { action: 'APPROVE', txHash } or { action: 'REJECT' }. */
-  const reviewWithdrawal = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
-    if (action === 'APPROVE' && !txHash) { toast.error('A transaction hash is required to approve a payout.'); return; }
-    if (action === 'REJECT') {
-      setConfirm({
-        title: 'Reject this payout?',
-        consequence: 'The request is rejected and its reserved debit is reversed exactly once. The decision is recorded by the backend.',
-        affected: `psemine_withdrawals/${withdrawalId}`,
-        confirmLabel: 'Reject payout',
-        danger: true,
-        run: async () => { await submitWithdrawalReview(withdrawalId, 'REJECT'); },
-      });
-      return;
-    }
-    await submitWithdrawalReview(withdrawalId, action, txHash);
-  };
-
-  /** Shared reviewer call — contract unchanged: {action:'APPROVE', txHash} or
-   *  {action:'REJECT'}; success only on backend confirmation. */
-  const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
-    setResolving(withdrawalId + action);
+  const saveWallet = async () => {
+    if (!isSuperAdmin) { toast.error('Your account needs the super-admin role to configure the campaign receiver.'); return; }
+    const address = walletInput.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) { toast.error('Enter a valid, non-zero BNB Smart Chain address.'); return; }
+    if (!walletAck) { toast.error('Confirm that you verified the receiving wallet and network.'); return; }
+    if (walletPhrase !== 'CONFIRM RECEIVER') { toast.error('Type CONFIRM RECEIVER to save the payment destination.'); return; }
+    setBusy(true);
     try {
-      const token = await currentUser?.getIdToken();
-      const res = await fetch(`/api/admin/psemine/withdrawals/${encodeURIComponent(withdrawalId)}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(action === 'APPROVE' ? { action, txHash } : { action }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        toast.success(action === 'APPROVE' ? 'Payout approved and marked paid.' : 'Payout rejected and debit reversed.');
-        await load(true);
-      } else {
-        toast.error(data.error || data.message || `Payout ${action.toLowerCase()} failed.`);
-      }
-    } catch (error) {
-      // A network/parse failure must surface as a failed review, not silence.
-      toast.error(error instanceof Error && error.message ? error.message : `Payout ${action.toLowerCase()} failed.`);
-    } finally {
-      setResolving(null);
-    }
+      await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_receiver_wallet', receiverWalletAddress: address, reason: 'PSEmine operations configuration' }) });
+      toast.success('Campaign receiving wallet saved. New purchase quotes can now be issued.');
+      setWalletAck(false); setWalletPhrase('');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Wallet configuration failed.'); }
+    finally { setBusy(false); }
   };
 
-  /**
-   * A campaign figure, or `—`.
-   *
-   * A statistic the backend has not reported is NOT zero, and printing it as `0`
-   * is the page stating a number that nothing measured. Absent is rendered as
-   * absent.
-   */
-  const stat = useCallback((key: string): number | null => {
-    const v = stats[key];
-    return typeof v === 'number' && Number.isFinite(v) ? v : null;
-  }, [stats]);
-  const overviewStat = useCallback((key: string): number | null => {
-    const v = mineOverview[key];
-    return typeof v === 'number' && Number.isFinite(v) ? v : null;
-  }, [mineOverview]);
-
-  const numOrDash = (value: number | string | boolean | null | undefined, format?: (n: number) => string): string => {
-    if (value === null || value === undefined || typeof value === 'boolean' || (typeof value === 'string' && value.trim() === '')) return '—';
-    const numericValue = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(numericValue)) return '—';
-    return format ? format(numericValue) : String(numericValue);
+  const resolveCase = async (id: string, action: 'mark_reviewed' | 'reject' | 'attach_to_purchase', purchaseId?: string) => {
+    const notes = window.prompt('Add an audit note explaining this decision:');
+    if (!notes?.trim()) return;
+    setBusy(true);
+    try {
+      await request(`/api/admin/mine/payment-recovery/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify({ action, notes, ...(purchaseId ? { purchaseId } : {}) }) });
+      toast.success('Recovery case updated.');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Recovery action failed.'); }
+    finally { setBusy(false); }
   };
 
-  const visibleOrders = useMemo(() => {
-    const query = orderSearch.trim().toLowerCase();
-    return orders.filter(order => {
-      const status = String(order.status || '').toLowerCase();
-      const matchesFilter = orderFilter === 'all' || (orderFilter === 'confirmed' ? status === 'confirmed' : orderFilter === 'pending' ? ['quoted', 'pending', 'awaiting_payment', 'submitted', 'processing', 'awaiting payment'].includes(status) : ['failed', 'rejected', 'expired', 'under_review', 'recovery'].includes(status));
-      const haystack = [order.id, order.orderId, order.toolName, order.toolId, order.status, order.txHash, order.transactionHash, order.userId].map(value => String(value || '')).join(' ').toLowerCase();
-      return matchesFilter && (!query || haystack.includes(query));
-    });
-  }, [orders, orderFilter, orderSearch]);
-  const campaignPhase = useMemo(() => {
-    const raw = (campaign?.status || (typeof stats.campaignStatus === 'string' ? stats.campaignStatus : '')) || '';
-    return raw ? campaignStatusView(raw) : null;
-  }, [campaign?.status, stats.campaignStatus]);
+  const reviewPayout = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    let txHash: string | undefined;
+    if (action === 'APPROVE') {
+      txHash = window.prompt('Enter the BNB Smart Chain transaction hash for this payout:') || undefined;
+      if (!txHash) return;
+    } else if (!window.confirm('Reject this payout and reverse its reserved debit?')) return;
+    setBusy(true);
+    try {
+      await request(`/api/admin/psemine/withdrawals/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(action === 'APPROVE' ? { action, txHash } : { action }) });
+      toast.success(action === 'APPROVE' ? 'Payout review submitted.' : 'Payout rejected.');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Payout review failed.'); }
+    finally { setBusy(false); }
+  };
 
-  if (loading) {
-    return (
-      <div className="pse pse-surface pse-console-shell pse-admin-operations">
-        <div className="pse-console-main">
-          <PseLoading label="Loading PSEmine operations" />
-        </div>
-      </div>
-    );
-  }
+  const deprecateTool = async (toolId: string) => {
+    const reason = window.prompt(`Reason for deprecating ${toolId}:`);
+    if (!reason?.trim()) return;
+    setBusy(true);
+    try {
+      await request(`/api/admin/mine/tools/${encodeURIComponent(toolId)}/deprecate`, { method: 'POST', body: JSON.stringify({ reason }) });
+      toast.success('Tool deprecation recorded.');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Tool update failed.'); }
+    finally { setBusy(false); }
+  };
+
+  const campaignStatus = campaign?.status || stats.campaignStatus || 'Not reported';
+  const income = mineStats.totalToolIncomeGbp;
+  const incomeReady = mineStats.toolIncomeComplete !== false && income !== null && income !== undefined;
+  const tools = Object.values(LOCKED_PSEMINE_TOOLS as Record<string, any>).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  const fmtStat = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'number' ? v.toLocaleString('en-GB') : String(v);
 
   return (
-    /* ROOTED IN THE PRODUCT'S OWN PLANE. `.pse` declares the tokens every
-       primitive below reads; without it the console renders unstyled (the defect
-       this rebuild exists to fix). */
-    <div className="pse pse-surface pse-console-shell pse-admin-operations">
-      <PsePage
-        title="PSEmine operations"
-        objective="Live campaign operations · verified records only."
-        actions={
-          <PseButton onClick={() => void load(true)} busy={refreshing}>
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </PseButton>
-        }
-      >
-        <section className="pse-ops-hero" aria-label="PSEmine operational summary">
-          <div className="pse-ops-hero-copy">
-            <span className="pse-ops-eyebrow"><span className={`pse-ops-live-dot ${error || partialErrors.length > 0 ? 'is-error' : loadedAt ? 'is-connected' : ''}`} /> CAMPAIGN CONTROL CENTRE</span>
-            <h2>Campaign overview.<br /><em>Evidence, not estimates.</em></h2>
-            <div className="pse-ops-hero-meta">
-              <span className={campaignPhase?.label?.toLowerCase().includes('active') ? 'is-positive' : 'is-neutral'}>{campaignPhase?.label || 'Campaign state unavailable'}</span>
-              
-            </div>
+    <main className="min-h-screen bg-[#070b14] px-3 py-5 text-slate-200 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px] space-y-5">
+        <header className="overflow-hidden rounded-3xl border border-cyan-400/15 bg-[radial-gradient(ellipse_at_top_left,rgba(36,115,190,.22),transparent_55%),linear-gradient(135deg,#101a2c,#090e19_70%)] p-5 sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div><div className="text-[10px] font-bold tracking-[.24em] text-cyan-300">PULSE EARN / PSEMINE</div><h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Operations command centre</h1><p className="mt-2 max-w-3xl text-sm text-slate-400">Campaign controls, receiving wallet, tool capacity, verified purchases, payment recovery, payouts and audit history — all visible on one page.</p></div>
+            <div className="flex items-center gap-3"><div className="text-right"><Pill value={loadState === 'ready' ? 'Connected' : loadState === 'partial' ? 'Partial data' : loadState === 'error' ? 'Unavailable' : 'Loading'} /><div className="mt-1 text-[10px] text-slate-500">{loadedAt ? `Updated ${dateText(loadedAt)}` : 'Waiting for first sync'}</div></div><button onClick={() => void load()} disabled={busy || loadState === 'loading'} className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50">Refresh data</button></div>
           </div>
-          <div className="pse-ops-hero-mark" aria-hidden="true"><span>PSE</span><strong>{campaign?.durationDays ?? '—'}</strong><small>DAY WINDOW</small></div>
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs"><Pill value={campaignStatus} /><span className="text-slate-500">Campaign timezone: Europe/London</span><span className="text-slate-500">·</span><span className="text-slate-500">Signed-in role: {role || 'not reported'}</span></div>
+        </header>
+
+        {loadErrors.length > 0 && <div className="rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-4"><div className="font-medium text-amber-200">Some operational data could not be loaded</div><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-100/80">{loadErrors.map(x => <li key={x}>{x}</li>)}</ul><p className="mt-2 text-xs text-slate-400">Unavailable data is not treated as zero. The error for each register is shown above.</p></div>}
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Stat label="Total tool income" value={incomeReady ? money(income) : 'Unavailable'} note="Verified BSC receipt records only" emphasis />
+          <Stat label="Confirmed tool payments" value={fmtStat(mineStats.totalConfirmedPayments ?? stats.totalConfirmedPayments)} note="Successful on-chain verification" />
+          <Stat label="Active tool ownerships" value={fmtStat(mineStats.activeToolOwnerships ?? stats.activeToolOwnerships)} />
+          <Stat label="Active mining sessions" value={fmtStat(mineStats.activeMiningSessions ?? stats.activeMiningSessions)} />
+          <Stat label="Accrued liability" value={money(stats.totalAccruedLiabilityGBP)} note="Recorded eligible earnings" />
         </section>
-        <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
-          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
-          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Active miners</span><strong>{numOrDash(stat('activeMiners'))}</strong><small>{numOrDash(stat('totalMiners'))} total registered accounts</small></article>
-          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Total tool income</span><strong>{numOrDash(mineOverview.totalToolIncomeGbp, gbp)}</strong><small>{mineOverview.toolIncomeComplete === false ? 'Reconciliation incomplete · total withheld' : 'Real on-chain confirmed tool payments only'}</small></article>
-          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
-          <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Active miners" value={fmtStat(stats.activeMiners)} />
+          <Stat label="Registered miners" value={fmtStat(stats.totalMiners)} />
+          <Stat label="Open recovery cases" value={fmtStat(stats.openRecoveryCases ?? recovery.length)} />
+          <Stat label="Payout requests" value={fmtStat(withdrawals.length)} />
         </section>
 
-        <section className="pse-ops-wallet-shortcut" aria-label="Tool purchase payment destination">
-          <div className="pse-ops-wallet-shortcut-copy">
-            <span className="pse-ops-kpi-label">Tool purchase receiving wallet</span>
-            <code>{receiverWalletCurrent || 'Receiving wallet not reported'}</code>
-            <small>{receiverNeedsConfirmation ? 'Admin confirmation required · purchases remain blocked' : 'BNB Smart Chain · new quotes use this destination'}</small>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,.7fr)]">
+          <Panel title="Campaign configuration" detail="The actual campaign document and purchase readiness returned by the backend.">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">Campaign status</div><div className="mt-1 text-lg font-semibold text-white">{String(campaignStatus)}</div></div>
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">Campaign duration</div><div className="mt-1 text-lg font-semibold text-white">{campaign?.durationDays ?? stats.durationDays ?? '—'} days</div></div>
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">Start (UK time)</div><div className="mt-1 text-sm font-medium text-white">{dateText(campaign?.startAt || stats.startAt)}</div></div>
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-xs text-slate-500">End (UK time)</div><div className="mt-1 text-sm font-medium text-white">{dateText(campaign?.endAt || stats.endAt)}</div></div>
+            </div>
+            <details className="mt-3 rounded-xl border border-white/10 p-3"><summary className="cursor-pointer text-xs font-medium text-cyan-200">Show every backend campaign metric</summary><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(stats).map(([key, value]) => <div key={key} className="rounded-lg bg-white/[.03] p-2"><div className="break-all text-[10px] text-slate-500">{key}</div><div className="mt-1 break-all text-sm text-white">{fmtStat(value)}</div></div>)}</div></details>
+          </Panel>
+          <Panel title="Purchase receiving wallet" detail="One campaign-level destination. This is not a user's payout wallet.">
+            <div className="flex flex-wrap items-center justify-between gap-2"><Pill value={config?.purchaseReady ? 'Purchases enabled' : 'Purchases blocked'} /><span className="text-[11px] text-slate-500">Network ID: {config?.paymentChainId ?? 56}</span></div>
+            <div className="mt-3 break-all rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-cyan-100">{config?.receiverWalletAddress || 'No receiving address is configured'}</div>
+            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The address has not been confirmed by a super-admin. New tool purchase quotes are blocked.'}</div>
+            {!isSuperAdmin && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Super-admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The backend only permits role super_admin or isRoot=true to change the campaign receiving wallet. A page redesign cannot override this security rule; the account must be granted the correct role by an authorised identity administrator.</div>}
+            <label className="mt-4 block text-xs font-medium text-slate-300">BNB Smart Chain receiving address</label>
+            <input value={walletInput} onChange={e => setWalletInput(e.target.value)} placeholder="0x…" disabled={!isSuperAdmin || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-3 font-mono text-xs text-white outline-none focus:border-cyan-400/50 disabled:opacity-50" />
+            <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!isSuperAdmin || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
+            <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
+            <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!isSuperAdmin || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
+            <button onClick={() => void saveWallet()} disabled={!isSuperAdmin || busy || !walletAck || walletPhrase !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
+          </Panel>
+        </div>
+
+        <Panel title="Campaign lifecycle controls" detail="Actions affect the live campaign and are written to the audit log.">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs text-slate-400">New start date (UK)<input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
+            <label className="text-xs text-slate-400">New start time (UK)<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
+            <label className="text-xs text-slate-400 sm:col-span-2">Reason / audit note<input value={actionReason} onChange={e => setActionReason(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
           </div>
-          {canConfigureReceiverWallet ? (
-            <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
-          ) : (
-            <span className="pse-ops-kpi-label">Super-admin only</span>
-          )}
-        </section>
+          <div className="mt-4 flex flex-wrap gap-2">{(['pause', 'resume', 'schedule', 'settle', 'shutdown'] as const).map(action => <button key={action} onClick={() => void runCampaignAction(action)} disabled={busy || !isAdmin} className={`rounded-lg border px-4 py-2.5 text-xs font-semibold capitalize disabled:opacity-40 ${action === 'shutdown' || action === 'settle' ? 'border-rose-400/30 bg-rose-400/10 text-rose-200' : action === 'resume' ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/15 bg-white/5 text-slate-200'}`}>{action}</button>)}</div>
+          {!isAdmin && <p className="mt-3 text-xs text-amber-200">Admin or super-admin role required for lifecycle actions.</p>}
+        </Panel>
 
-        {/* Section rail — in-page, because this is one console with six
-            registers rather than six routes. */}
-        <nav className="pse-ops-register-nav" aria-label="All PSEmine administration sections">
-          <div className="pse-ops-tabs" role="tablist" aria-label="PSEmine operations">
-            {SECTIONS.map(s => (
-              <button
-                key={s.id}
-                type="button"
-                role="tab"
-                aria-selected={activeSection === s.id}
-                aria-controls={`ops-${s.id}`}
-                onClick={() => { setActiveSection(s.id); document.getElementById(`ops-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-                className={`pse-ops-tab ${activeSection === s.id ? 'is-active' : ''}`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-          <span className="pse-ops-asof">
-            {loadedAt ? `Synced ${fmtDateTime(new Date(loadedAt))}` : 'Awaiting first sync'}
-          </span>
-        </nav>
+        <Panel title="Tool register" detail="Published locked tool prices and capacity. Economics are read-only in this console.">
+          <Table columns={['Tool', 'Price', 'Hourly capacity', 'Campaign capacity', 'Status / action']} rows={tools} empty="No locked tool definitions are available." render={(tool) => <tr className="bg-transparent"><td className="px-3 py-3 font-medium text-white">{tool.name || tool.id || tool.toolId}</td><td className="px-3 py-3 text-slate-300">{money(tool.priceGbp ?? tool.price ?? tool.priceGBP)}</td><td className="px-3 py-3 text-slate-300">{tool.hourlyRateGbp ?? tool.capacityGBPPerHour ?? tool.hourlyCapacity ?? '—'}</td><td className="px-3 py-3 text-slate-300">{tool.capacity ?? tool.referralCapacity ?? '—'}</td><td className="px-3 py-3"><button onClick={() => void deprecateTool(String(tool.id || tool.toolId || tool.key || ''))} disabled={!isAdmin || busy} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-slate-300 disabled:opacity-40">Deprecate</button></td></tr>} />
+        </Panel>
 
-        {error && <PseNotice tone="danger">{error}</PseNotice>}
-        {partialErrors.length > 0 && (
-          <PseNotice tone="attention">
-            Unavailable registers: {partialErrors.join(', ')}. Their empty results are not evidence that no records exist; refresh after the service recovers.
-          </PseNotice>
-        )}
-        {!campaignPhase && (
-          <PseNotice tone="attention">
-            The backend did not report a campaign state. Every figure below is read from the API; nothing is inferred.
-          </PseNotice>
-        )}
+        <Panel title="Purchase orders" detail="Order intents are not counted as income until an on-chain payment is verified." right={<input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="Search user, order, tx hash…" className="w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" />}>
+          <Table columns={['Order', 'User', 'Tool', 'Amount', 'Status', 'Transaction']} rows={filteredOrders} empty="No order intents have been returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{row.toolName || row.toolId || '—'}</td><td className="px-3 py-3 text-slate-300">{money(row.priceGbp ?? row.amountGbp ?? row.gbpPrice)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
+        </Panel>
 
-        {/* ── 01 · CAMPAIGN ───────────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-campaign" className="scroll-mt-24">
-          <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
-            <PseFacts cols={3}>
-              <PseFact
-                label="Active mining sessions"
-                value={numOrDash(overviewStat('activeMiningSessions'))}
-                hint="Sessions whose backend state is active"
-              />
-              <PseFact
-                label="Active tools owned"
-                value={numOrDash(overviewStat('activeToolOwnerships'))}
-                hint="Active ownership records"
-              />
-              <PseFact
-                label="Confirmed tool payments"
-                value={numOrDash(overviewStat('totalConfirmedPayments'))}
-                hint="Verified on-chain purchases"
-              />
-              <PseFact
-                label="Total tool income"
-                value={numOrDash(overviewStat('totalToolIncomeGbp'), gbp)}
-                hint="Lifetime GBP value of confirmed tool purchases only"
-              />
-            </PseFacts>
-            <PseFacts cols={3}>
-              <PseFact label="Status" text value={campaignPhase ? campaignPhase.label : '—'} hint={campaignPhase ? campaignPhase.detail : 'Not reported by the backend'} />
-              <PseFact label="Capacity" value={numOrDash(stat('totalCapacityGBPPerHour'), gbpHour)} />
-              <PseFact label="Campaign duration" value={campaign?.durationDays ? `${campaign.durationDays} days` : '—'} />
-              <PseFact label="Starts (UK time)" value={campaign?.startAt ? fmtUKDateTime(campaign.startAt) : '—'} />
-              <PseFact label="Ends (UK time)" value={campaign?.endAt ? fmtUKDateTime(campaign.endAt) : '—'} />
-            </PseFacts>
-            <details className="pse-ops-details">
-              <summary>Additional campaign metrics</summary>
-              <PseFacts cols={3}>
-                <PseFact label="Qualified referrals" value={numOrDash(stat('qualifiedReferrals'))} />
-                <PseFact label="BNB collected" value={numOrDash(stat('totalBNBCollected'))} />
-                <PseFact label="Accrued · debited" value={stat('totalAccruedMinor') === null && stat('totalDebitedMinor') === null ? '—' : `${numOrDash(stat('totalAccruedMinor'), n => gbp(n / 100))} · ${numOrDash(stat('totalDebitedMinor'), n => gbp(n / 100))}`} hint="Accrued · paid out" />
-              </PseFacts>
-            </details>
-          </PseSection>
-        </div>
-        )}
+        <Panel title="Verified tool payments" detail="Only backend-confirmed BNB Smart Chain receipt records belong here.">
+          <Table columns={['Confirmed', 'Payment', 'Order', 'User', 'GBP value', 'BNB received', 'Transaction']} rows={payments} empty="No genuine verified tool payments recorded yet." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.confirmedAt)}</td><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.priceGbp ?? row.purchasePriceGbp ?? row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.paidBnbAmount ?? row.amountBnb ?? '—'} BNB</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
+        </Panel>
 
+        <Panel title="Payment recovery" detail="Review failed or ambiguous payment evidence. Never ask a user to pay again until the existing transaction is reconciled.">
+          <Table columns={['Case', 'User', 'Reason', 'Transaction', 'Created', 'Actions']} rows={recovery} empty="No open payment-recovery cases." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1"><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        </Panel>
 
-        {true && (
-          <div id="ops-lifecycle" className="scroll-mt-24">
-            <PseSection title="Campaign lifecycle" meta="Schedule, pause, resume or settle the campaign">
+        <Panel title="Payout queue" detail="Approvals require a BNB Smart Chain transaction hash; the backend validates the transfer before finalising.">
+          <Table columns={['Request', 'User', 'GBP requested', 'BNB locked', 'Destination', 'Status', 'Review']} rows={withdrawals} empty="No payout requests returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.amountBnb ?? row.lockedBnbAmount ?? '—'}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.payoutAddress || row.walletAddress)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3"><div className="flex gap-1"><button onClick={() => void reviewPayout(String(row.id), 'APPROVE')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Approve + tx</button><button onClick={() => void reviewPayout(String(row.id), 'REJECT')} disabled={!isAdmin || busy || !['pending', 'under_review'].includes(String(row.status))} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        </Panel>
 
+        <Panel title="Audit history" detail="Backend audit events; newest records are shown first according to the API response.">
+          <Table columns={['Time', 'Action', 'Target', 'Actor', 'Outcome']} rows={audit} empty="No audit records returned." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.timestamp)}</td><td className="px-3 py-3 text-white">{String(row.action || 'ADMIN_ACTION').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.targetEntity || row.target)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.adminId || row.actorId)}</td><td className="px-3 py-3"><Pill value={row.outcome || row.status || 'recorded'} /></td></tr>} />
+        </Panel>
 
-            <div className="pse-block">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <PseField label="Start date (Tuesday preselected)" htmlFor="pse-campaign-start-date">
-                  <PseInput
-                    id="pse-campaign-start-date"
-                    type="date"
-                    value={scheduleDate}
-                    onChange={e => setScheduleDate(e.target.value)}
-                    min={localDateInputValue(new Date())}
-                    autoComplete="off"
-                  />
-                </PseField>
-                <PseField label="Start time (UK time · Europe/London)" htmlFor="pse-campaign-start-time">
-                  <PseInput
-                    id="pse-campaign-start-time"
-                    type="time"
-                    value={scheduleTime}
-                    onChange={e => setScheduleTime(e.target.value)}
-                    autoComplete="off"
-                    required
-                  />
-                </PseField>
-              </div>
-              <p className="pse-prose--sm">
-                Times use Europe/London. Scheduling changes the campaign window immediately, preserves existing balances and records, and sets a new 90-day end date.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <PseButton
-                  variant="secondary"
-                  tone="danger"
-                  onClick={() => void campaignAction('schedule')}
-                  disabled={actionBusy !== null || !scheduleDate || !scheduleTime}
-                  busy={actionBusy === 'schedule'}
-                >
-                  {actionBusy === 'schedule' ? 'Scheduling…' : 'Schedule 90-day campaign'}
-                </PseButton>
-              </div>
-            </div>
-
-
-
-            <div className="flex flex-wrap gap-2">
-              {(['pause', 'resume', 'settle', 'shutdown'] as const).map(action => (
-                <PseButton
-                  key={action}
-                  tone={action === 'shutdown' ? 'danger' : 'default'}
-                  variant={action === 'resume' ? 'primary' : 'secondary'}
-                  onClick={() => void campaignAction(action)}
-                  disabled={actionBusy !== null}
-                  busy={actionBusy === action}
-                >
-                  {actionBusy === action ? 'Working…' : action.charAt(0).toUpperCase() + action.slice(1)}
-                </PseButton>
-              ))}
-            </div>
-
-            </PseSection>
-          </div>
-        )}
-
-        {/* ── 02 · PAYMENT VERIFICATION ───────────────────────────────────── */}
-        {true && (
-        <div id="ops-payments" className="scroll-mt-24">
-          <PseSection
-            title="Payment verification"
-            meta="Failed on-chain payments · review evidence"
-          >
-            {recoveryCases.length === 0 ? (
-              <PseEmptyNote title={partialErrors.includes('payment recovery') ? "Payment recovery unavailable" : "No payments awaiting verification review"}>
-                {partialErrors.includes('payment recovery')
-                  ? 'The recovery endpoint could not be read. This is not an empty queue; refresh after the service recovers.'
-                  : 'Cases with amount, chain, sender or expiry mismatches appear here with recorded evidence.'}
-              </PseEmptyNote>
-            ) : (
-              <PseTable head={['Case', 'Reason', 'Recorded', 'On-chain transaction', 'Actions']}>
-                {recoveryCases.map(c => {
-                  const id = String(c.id || c.recoveryId || '');
-                  const hash = (c.txHash || c.transactionHash) as string | undefined;
-                  return (
-                    <PseRow key={id}>
-                      <PseCell mono>{shortHash(id, 8)}</PseCell>
-                      <PseCell>{String(c.reason || 'unknown').replace(/_/g, ' ')}</PseCell>
-                      <PseCell>{c.createdAt ? fmtDateTime(c.createdAt as string) : '—'}</PseCell>
-                      <PseCell mono>
-                        {hash ? (
-                          <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
-                            {shortHash(hash)}
-                          </a>
-                        ) : '—'}
-                      </PseCell>
-                      <PseCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          <PseButton
-                            size="sm"
-                            variant="secondary"
-                            disabled={resolving !== null}
-                            onClick={() => setConfirm({
-                              title: 'Attach recovery to the exact purchase?',
-                              consequence: 'This links the recovery evidence to its matching purchase. It does not send funds or activate a tool. The user can then retry verification from the purchase recovery panel; the backend activates only after all on-chain checks pass.',
-                              affected: `psemine_payment_recovery/${id}`,
-                              confirmLabel: 'Re-verify & attempt purchase',
-                              run: async () => {
-                                const purchaseId = typeof c.purchaseId === 'string' ? c.purchaseId : undefined;
-                                if (!purchaseId) { toast.error('This recovery case has no canonical purchase ID. It requires manual reconciliation.'); return; }
-                                await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.', purchaseId);
-                              },
-                            })}
-                          >
-                            Attach recovery
-                          </PseButton>
-                          <PseButton
-                            size="sm"
-                            tone="danger"
-                            variant="secondary"
-                            disabled={resolving !== null}
-                            onClick={() => setConfirm({
-                              title: 'Dismiss this recovery case?',
-                              consequence: 'The case is marked rejected and closed without linking the transaction. Evidence is retained in psemine_payment_recovery. Recorded in the audit log.',
-                              affected: `psemine_payment_recovery/${id}`,
-                              confirmLabel: 'Dismiss case',
-                              danger: true,
-                              run: async () => { await resolveRecovery(id, 'reject', 'Dismissed after review.'); },
-                            })}
-                          >
-                            Dismiss
-                          </PseButton>
-                        </div>
-                      </PseCell>
-                    </PseRow>
-                  );
-                })}
-              </PseTable>
-            )}
-          </PseSection>
-        </div>
-        )}
-
-        {/* ── 03 · TOOL REGISTER ──────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-tools" className="scroll-mt-24">
-          <PseSection
-            title="Tool register"
-            meta="Locked campaign tiers and economics"
-          >
-            <PseFacts cols={2}>
-              <PseFact label="Active tool ownerships" value={numOrDash(overviewStat('activeToolOwnerships'))} />
-              <PseFact label="Active mining sessions" value={numOrDash(overviewStat('activeMiningSessions'))} />
-            </PseFacts>
-            <PseTable
-              head={['Tier', 'Unit', 'Price', 'Capacity', 'Ownership cap', 'Duty']}
-              numeric={[2, 3, 4]}
-              caption="PSEmine tool tiers and their locked campaign values"
-            >
-              {TIERS.map(t => (
-                <PseRow key={t.tier}>
-                  <PseCell mono>{`T${String(t.tier).padStart(2, '0')}`}</PseCell>
-                  <PseCell>
-                    {t.name}
-                    <span className="pse-ledger-sub">{t.operating?.model === 'continuous' ? 'Continuous duty' : 'Session duty'}</span>
-                  </PseCell>
-                  <PseCell numeric>{gbp(t.purchasePriceGBP)}</PseCell>
-                  <PseCell numeric>{gbpHour(t.hourlyRateGBP)}</PseCell>
-                  <PseCell numeric>{`×${t.maxPerUser}`}</PseCell>
-                  <PseCell numeric>
-                    {t.operating?.model === 'continuous' ? 'Continuous' : `${t.operating?.restartDelayMinutes ?? 0}m restart`}
-                  </PseCell>
-                </PseRow>
-              ))}
-            </PseTable>
-          </PseSection>
-        </div>
-        )}
-
-        {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-purchases" className="scroll-mt-24">
-          <PseSection title="Payments & order intents" meta="Confirmed payments are separate from order intents">
-            <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
-              <button type="button" role="tab" aria-selected={purchaseView === 'payments'} className={`pse-ops-subtab ${purchaseView === 'payments' ? 'is-active' : ''}`} onClick={() => setPurchaseView('payments')}>
-                Verified payments <span>{verifiedPayments.length}</span>
-              </button>
-              <button type="button" role="tab" aria-selected={purchaseView === 'orders'} className={`pse-ops-subtab ${purchaseView === 'orders' ? 'is-active' : ''}`} onClick={() => setPurchaseView('orders')}>
-                Order intents <span>{orders.length}</span>
-              </button>
-            </div>
-            {purchaseView === 'payments' ? (
-              partialErrors.includes('verified payments') ? (
-                <PseEmptyNote title="Verified payment ledger unavailable">
-                  The payment endpoint failed. No conclusion can be drawn about whether confirmed payments exist.
-                </PseEmptyNote>
-              ) : verifiedPayments.length === 0 ? (
-                <PseEmptyNote title="No confirmed payments recorded">
-                  Only backend-confirmed on-chain payments appear here. Quotes and unverified hashes are excluded.
-                </PseEmptyNote>
-              ) : (
-                <PseTable head={['Confirmed', 'Tool', 'Amount', 'Block', 'Order', 'On-chain transaction']}>
-                  {verifiedPayments.map((p, i) => {
-                    const id = String(p.id || '');
-                    const hash = String(p.txHash || p.transactionHash || '');
-                    const amount = p.paidBnbAmount ?? p.amountBnb;
-                    const amountNumber = amount !== undefined && amount !== null && Number.isFinite(Number(amount)) ? Number(amount) : null;
-                    return (
-                      <PseRow key={id || hash || `payment_${i}`}>
-                        <PseCell>{p.confirmedAt || p.createdAt ? fmtDateTime(String(p.confirmedAt || p.createdAt)) : '—'}</PseCell>
-                        <PseCell>{String(p.toolId || '—')}</PseCell>
-                        <PseCell numeric>{amountNumber === null ? '—' : `${amountNumber.toLocaleString('en-GB', { maximumFractionDigits: 8 })} BNB`}</PseCell>
-                        <PseCell mono>{p.blockNumber === undefined || p.blockNumber === null ? '—' : String(p.blockNumber)}</PseCell>
-                        <PseCell mono>{p.orderId ? shortHash(String(p.orderId), 10) : '—'}</PseCell>
-                        <PseCell mono>{hash ? <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">{shortHash(hash)}</a> : '—'}</PseCell>
-                      </PseRow>
-                    );
-                  })}
-                </PseTable>
-              )
-            ) : (
-              <>
-            <p className="pse-ops-register-note">These are order/quote records, not a payment ledger. An order is counted as paid only when its separate confirmed-payment record exists.</p>
-            <div className="pse-ops-ledger-tools">
-              <label className="pse-ops-search"><span>Search order intents</span><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Order ID, user, tool or transaction hash" /></label>
-              <label className="pse-ops-filter"><span>Order state</span><select value={orderFilter} onChange={e => setOrderFilter(e.target.value)}><option value="all">All order intents</option><option value="confirmed">Confirmed on-chain</option><option value="pending">Awaiting payment</option><option value="attention">Needs attention</option></select></label>
-              <span className="pse-ops-record-count">{visibleOrders.length} of {orders.length} intents</span>
-            </div>
-            {partialErrors.includes('order intents') ? (
-              <PseEmptyNote title="Order intents unavailable">
-                The order endpoint failed. This view cannot confirm whether orders exist.
-              </PseEmptyNote>
-            ) : orders.length === 0 ? (
-              <PseEmptyNote title="No order intents recorded">
-                An order intent appears after a quote is issued. It is not proof of payment; successful on-chain verification creates a separate confirmed-payment record.
-              </PseEmptyNote>
-            ) : visibleOrders.length === 0 ? (
-              <PseEmptyNote title="No matching purchase records">Change the payment-state filter or search term. No records have been added to fill this view.</PseEmptyNote>
-            ) : (
-              <PseTable head={['Order intent', 'Tool', 'Order state', 'Quoted amount', 'Created', 'Submitted hash / verification']}>
-                {visibleOrders.map((o, i) => {
-                  const id = String(o.id || o.orderId || '');
-                  const hash = (o.txHash || o.transactionHash) as string | undefined;
-                  const orderStatus = String(o.status || '').toLowerCase();
-                  const amountValue = o.priceGbp ?? o.amountGbp ?? o.amount;
-                  const amountGbp = amountValue !== undefined && amountValue !== null && Number.isFinite(Number(amountValue)) ? Number(amountValue) : null;
-                  return (
-                    <PseRow key={id || `order_${i}`}>
-                      <PseCell mono>{id ? shortHash(id, 10) : '—'}</PseCell>
-                      <PseCell>{String(o.toolName || o.toolId || '—')}</PseCell>
-                      <PseCell>{String(o.status || '—').replace(/_/g, ' ')}</PseCell>
-                      <PseCell numeric>{amountGbp === null ? '—' : gbp(amountGbp)}</PseCell>
-                      <PseCell>{o.createdAt ? fmtDateTime(o.createdAt as string) : '—'}</PseCell>
-                      <PseCell mono>
-                        {hash ? orderStatus === 'confirmed' ? (
-                          <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="underline">
-                            {shortHash(hash)} · confirmed
-                          </a>
-                        ) : (
-                          <span title="Hash is recorded on the order but is not confirmed as a payment">{shortHash(hash)} · unverified</span>
-                        ) : 'No hash'}
-                      </PseCell>
-                    </PseRow>
-                  );
-                })}
-              </PseTable>
-            )}
-              </>
-            )}
-          </PseSection>
-        </div>
-        )}
-
-        {/* ── 05 · PAYOUTS ────────────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-payouts" className="scroll-mt-24">
-          <PseSection
-            title="Payout review"
-            meta="Verify recipient, locked amount and on-chain receipt before marking paid"
-          >
-            {withdrawalQueue.length === 0 ? (
-              <PseEmptyNote title={partialErrors.includes('payout queue') ? "Payout queue unavailable" : "No payouts awaiting review"}>
-                {partialErrors.includes('payout queue')
-                  ? 'The payout endpoint failed. This is not evidence that the queue is empty.'
-                  : 'A hash alone is not proof of payment. Requests without a locked BNB amount remain blocked until reconciled.'}
-              </PseEmptyNote>
-            ) : (
-              <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Requester', 'Transaction hash', 'Actions']}>
-                {withdrawalQueue.map(w => {
-                  const id = String(w.id || '');
-                  const status = String(w.status || 'pending');
-                  const view = payoutStatusView(status);
-                  const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
-                    : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
-                  const amountBnb = w.amountBnb !== undefined && w.amountBnb !== null && Number.isFinite(Number(w.amountBnb))
-                    ? Number(w.amountBnb) : null;
-                  const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
-                  const requester = String(w.userId || w.uid || '');
-                  return (
-                    <PseRow key={id}>
-                      <PseCell>{w.createdAt ? fmtDateTime(w.createdAt as string) : '—'}</PseCell>
-                      <PseCell>{view.label}</PseCell>
-                      <PseCell numeric>
-                        <div>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</div>
-                        <div className="text-xs text-white/55">
-                          {amountBnb !== null ? `${amountBnb.toFixed(8)} BNB · locked` : 'No locked BNB quote'}
-                        </div>
-                      </PseCell>
-                      <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
-                      <PseCell mono>{requester ? shortAddr(requester) : '—'}</PseCell>
-                      <PseCell>
-                        <PseField label="On-chain payout transaction hash" htmlFor={`pse-tx-${id}`}>
-                          <PseInput
-                            id={`pse-tx-${id}`}
-                            value={txInputs[id] || ''}
-                            onChange={e => setTxInputs(prev => ({ ...prev, [id]: e.target.value }))}
-                            placeholder="0x… (successful BNB Chain transfer)"
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                        </PseField>
-                      </PseCell>
-                      <PseCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          <PseButton
-                            size="sm"
-                            disabled={resolving !== null}
-                            busy={resolving === id + 'APPROVE'}
-                            onClick={() => void reviewWithdrawal(id, 'APPROVE', (txInputs[id] || '').trim())}
-                          >
-                            {resolving === id + 'APPROVE' ? 'Approving…' : 'Approve'}
-                          </PseButton>
-                          <PseButton
-                            size="sm"
-                            tone="danger"
-                            variant="secondary"
-                            disabled={resolving !== null}
-                            busy={resolving === id + 'REJECT'}
-                            onClick={() => void reviewWithdrawal(id, 'REJECT')}
-                          >
-                            {resolving === id + 'REJECT' ? 'Rejecting…' : 'Reject'}
-                          </PseButton>
-                        </div>
-                      </PseCell>
-                    </PseRow>
-                  );
-                })}
-              </PseTable>
-            )}
-          </PseSection>
-        </div>
-        )}
-
-        {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-audit" className="scroll-mt-24">
-          <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
-            {auditRows.length === 0 ? (
-              <PseEmptyNote title={partialErrors.includes('audit feed') ? "Audit feed unavailable" : "No audit records returned"}>
-                {partialErrors.includes('audit feed')
-                  ? 'The audit endpoint failed. No conclusion can be drawn about prior administrative actions.'
-                  : 'The audit feed returned no records. This is not proof that no actions occurred; check backend audit-write health and access permissions.'}
-              </PseEmptyNote>
-            ) : (
-              <PseTable head={["Time", "Action", "Target", "Actor", "Outcome"]}>
-                {auditRows.map(row => (
-                  <PseRow key={String(row.id || "")}>
-                    <PseCell>{row.timestamp ? fmtDateTime(String(row.timestamp)) : "Time unavailable"}</PseCell>
-                    <PseCell><span className="pse-ops-audit-action">{String(row.action || "ADMIN_ACTION").replace(/_/g, " ")}</span></PseCell>
-                    <PseCell>{String(row.targetEntity || "Target not recorded")}</PseCell>
-                    <PseCell mono>{row.adminId ? shortAddr(String(row.adminId)) : "Actor not recorded"}</PseCell>
-                    <PseCell>{String(row.outcome || "recorded")}</PseCell>
-                  </PseRow>
-                ))}
-              </PseTable>
-            )}
-          </PseSection>
-        </div>
-        )}
-
-        {/* ── 08 · CONFIGURATION ─────────────────────────────────────────── */}
-        {true && (
-        <div id="ops-settings" className="scroll-mt-24 pse-ops-settings">
-          <PseSection title="Payment configuration" meta="Campaign-level receiving destination · super-admin only">
-            {!canConfigureReceiverWallet && (
-              <PseNotice tone="attention" title="Super-admin authorization required">
-                Only a super-admin can configure or confirm this campaign receiving wallet. Tool purchases remain disabled until that confirmation is saved.
-              </PseNotice>
-            )}
-            <div className="pse-ops-wallet-panel">
-              <div className="pse-ops-wallet-heading">
-                <div>
-                  <span className="pse-ops-kpi-label">Tool purchase receiving wallet</span>
-                  <h3>BNB Smart Chain · BNB</h3>
-                  <p>Funds from new PSEmine tool purchase quotes are sent to this address. This is not a user's personal payout wallet.</p>
-                </div>
-                <span className="pse-ops-config-badge">Sensitive setting</span>
-              </div>
-              <div className="pse-ops-current-destination">
-                <span>{receiverNeedsConfirmation ? 'Saved address · admin confirmation required' : 'Admin-confirmed receiving wallet'}</span>
-                <code>{receiverWalletCurrent || 'Not reported by campaign API'}</code>
-              </div>
-              {receiverNeedsConfirmation && (
-                <PseNotice tone="attention">
-                  Purchases are currently blocked. Re-enter or confirm this exact address below to prove it is the intended BNB Smart Chain destination.
-                </PseNotice>
-              )}
-              <PseField label="New receiving wallet address" htmlFor="pse-receiver-wallet">
-                <PseInput id="pse-receiver-wallet" value={receiverWalletInput} disabled={!canConfigureReceiverWallet}
-                  onChange={e => { setReceiverWalletInput(e.target.value); setWalletAcknowledged(false); }}
-                  placeholder="0x… (42-character BNB Smart Chain address)" autoComplete="off" spellCheck={false} />
-              </PseField>
-              <label className="pse-ops-wallet-confirm">
-                <input type="checkbox" checked={walletAcknowledged} disabled={!canConfigureReceiverWallet} onChange={e => setWalletAcknowledged(e.target.checked)} />
-                <span>I have independently verified this destination address and confirmed that I control or am authorised to receive funds there on BNB Smart Chain.</span>
-              </label>
-              <div className="pse-ops-wallet-actions">
-                <PseButton disabled={!canConfigureReceiverWallet || walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || (receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation)}
-                  busy={walletSaveBusy} onClick={() => void saveReceiverWallet()}>
-                  {walletSaveBusy ? 'Saving destination…' : receiverNeedsConfirmation && receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() ? 'Confirm receiving wallet' : 'Save receiving wallet'}
-                </PseButton>
-                <PseButton variant="secondary" disabled={!canConfigureReceiverWallet || walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
-              </div>
-              <div className="pse-ops-wallet-warning" role="note">
-                <strong>Important:</strong> this affects new quotes only. Existing quotes and purchase intents retain their recorded destination and amount. Never change the address based on an unsolicited message; verify it independently before saving. Every change is recorded in the admin audit trail.
-              </div>
-            </div>
-          </PseSection>
-          <PseSection title="Configuration boundaries" meta="What this console can and cannot change">
-            <PseFacts cols={2}>
-              <PseFact label="Payment network" value="BNB Smart Chain" text />
-              <PseFact label="Payment asset" value="BNB" text />
-              <PseFact label="Chain ID" value={String(receiverWalletConfig?.paymentChainId ?? '—')} text />
-              <PseFact label="Tool prices and rates" value="Locked campaign economics" text hint="Not editable here; backend remains authoritative." />
-            </PseFacts>
-            <PseNotice tone="attention">The receiving wallet is distinct from payout destinations used when paying users. This setting does not transfer funds, move collected assets, or modify existing purchase records.</PseNotice>
-          </PseSection>
-        </div>
-        )}
-
-        <PseConfirm
-          open={confirm !== null}
-          title={confirm?.title || ''}
-          consequence={confirm?.consequence || ''}
-          affected={confirm?.affected}
-          confirmLabel={confirm?.confirmLabel}
-          danger={confirm?.danger}
-          requireText={confirm?.requireText}
-          busy={confirmBusy}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => {
-            if (!confirm) return;
-            setConfirmBusy(true);
-            void confirm.run().finally(() => { setConfirmBusy(false); setConfirm(null); });
-          }}
-        />
-      </PsePage>
-    </div>
+        <footer className="rounded-xl border border-white/10 bg-white/[.02] p-4 text-[11px] leading-relaxed text-slate-500">Financial integrity: tool income is derived only from verified on-chain purchase receipts. Order intents, sample/demo data, failed attempts and payout transfers are not tool income. Missing backend data is shown as unavailable, never silently replaced with a fabricated zero. Locked tool economics and user balances cannot be edited from this screen.</footer>
+      </div>
+    </main>
   );
 };
 

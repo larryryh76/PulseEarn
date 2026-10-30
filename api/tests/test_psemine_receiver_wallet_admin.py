@@ -87,7 +87,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         route_end = API_SOURCE.index("\n@app.route(", route_start)
         route = API_SOURCE[route_start:route_end]
         self.assertIn("fetch_psemine_bnb_gbp_quote()", route)
-        self.assertIn("amount = round(amount, 2)", route)
+        self.assertIn("ROUND_HALF_UP", route)
+        self.assertIn("amount_minor = int((Decimal(str(amount)) * Decimal('100')).to_integral_value(rounding=ROUND_HALF_UP))", route)
         self.assertIn("expectedAmountWei", route)
         self.assertIn('"amountBnb": payout_quote["amountBnb"]', route)
         self.assertIn("payout_quote=payout_quote", route)

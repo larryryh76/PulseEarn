@@ -32,7 +32,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
 
     def test_wallet_change_uses_platform_admin_gated_campaign_action(self):
         self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)
-        self.assertIn("if not is_admin(uid)", self.route)
+        self.assertIn('"error": "ADMIN_REQUIRED"', self.route)
         self.assertIn("if action == 'set_receiver_wallet':", self.route)
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
         self.assertIn("if not is_admin(uid)", wallet_action)

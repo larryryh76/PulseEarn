@@ -19,6 +19,7 @@ TOOLS_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_te
 POLICY_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEminePolicy.tsx").read_text(encoding="utf-8")
 AUTH_SOURCE = (ROOT / "src" / "contexts" / "AuthContext.tsx").read_text(encoding="utf-8")
 TYPES_SOURCE = (ROOT / "src" / "types" / "index.ts").read_text(encoding="utf-8")
+PSEMINE_TYPES_SOURCE = (ROOT / "src" / "types" / "psemine.ts").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -45,6 +46,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("'super_admin'", TYPES_SOURCE)
 
     def test_tool_catalogue_fails_closed_until_wallet_is_ready(self):
+        self.assertIn("campaign?.purchaseReady === true ||", TOOLS_SOURCE)
+        self.assertIn("purchaseReady?: boolean;", PSEMINE_TYPES_SOURCE)
         self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)

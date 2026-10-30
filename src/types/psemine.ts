@@ -51,6 +51,8 @@ export interface PSEMineCampaign {
   paymentChainId: number; // 56 for Mainnet, 97 for Testnet
   paymentAsset: 'BNB';
   receiverWalletAddress: string;
+  /** Derived by the public campaign projection; absent on raw Firestore documents. */
+  purchaseReady?: boolean;
   receiverWalletConfigured?: boolean;
   receiverWalletConfiguredAt?: string | null;
   receiverWalletConfiguredBy?: string | null;

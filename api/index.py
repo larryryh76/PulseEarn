@@ -8170,17 +8170,58 @@ def verify_psemine_tool_purchase():
             reason='PURCHASES_DISABLED_AT_VERIFICATION')
         return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
-    # 2. Check quote expiry
+    # An expired payment is never silently discarded. It becomes a recovery
+    # case; an admin may attach that exact case to this exact purchase, after
+    # which the same immutable quote can be re-verified on-chain.
+    recovery_authorized = False
+    recovery_case_id = purchase.get('recoveryCaseId')
+    if purchase.get('status') == 'manual_review' and recovery_case_id:
+        _recovery_snap = db.collection('psemine_payment_recovery').document(recovery_case_id).get()
+        _recovery_data = _recovery_snap.to_dict() or {} if _recovery_snap.exists else {}
+        recovery_authorized = (
+            _recovery_data.get('status') == 'attached'
+            and _recovery_data.get('attachedPurchaseId') == purchase_id
+            and str(_recovery_data.get('txHash') or '').lower() == tx_hash
+        )
+
+    def _flag_expired_purchase(reason, message, recipient=None):
+        try:
+            _rid = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=purchase.get('quoteId'),
+                purchase_id=purchase_id, sender=sender_wallet,
+                recipient=recipient or purchase.get('receiverWallet'),
+                chain_id=PSEMINE_BSC_CHAIN_ID, reason=reason,
+                extra={'message': message, 'quoteExpiresAt': purchase.get('expiresAt')},
+            )
+            purchase_ref.update({
+                'status': 'manual_review',
+                'transactionHash': tx_hash,
+                'recoveryCaseId': _rid,
+                'reviewReason': reason,
+                'statusMessage': 'Payment needs manual review. Do not send another payment.',
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "This quote has expired. Your transaction has been recorded for admin review. Do not send another payment.",
+                            "recoveryCaseId": _rid}), 409
+        except Exception:
+            logging.exception('[PSEmine] expired payment recovery recording failed')
+            return jsonify({"success": False, "error": "PAYMENT_RECOVERY_UNAVAILABLE",
+                            "message": "The payment could not be safely reconciled automatically. Do not pay again; contact support with your transaction hash."}), 503
+
+    # 2. Check quote expiry. A malformed expiry also fails closed into recovery.
     expires_at_raw = purchase.get('expiresAt')
-    if expires_at_raw:
+    if expires_at_raw and not recovery_authorized:
         try:
             exp_dt = datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > exp_dt:
-                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote has expired. Please create a new purchase."}), 409
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The submitted transaction was presented after the purchase quote expired.')
         except Exception:
-            pass
+            return _flag_expired_purchase('INVALID_PURCHASE_QUOTE_EXPIRY',
+                                          'The stored purchase expiry could not be parsed safely.')
 
     # 3. Prevent replay attacks: check prior redemption before attempting verification
     dupes_p = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
@@ -8252,14 +8293,15 @@ def verify_psemine_tool_purchase():
             q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
             if q_exp_dt.tzinfo is None:
                 q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > q_exp_dt:
-                return jsonify({
-                    "success": False,
-                    "error": "QUOTE_EXPIRED",
-                    "message": "Server quote has expired. Please request a new quote."
-                }), 409
+            if datetime.now(timezone.utc) > q_exp_dt and not recovery_authorized:
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The server quote expired before verification completed.',
+                                              recipient=q_data.get('receiverWallet'))
         except Exception:
-            return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+            if not recovery_authorized:
+                return _flag_expired_purchase('INVALID_SERVER_QUOTE_EXPIRY',
+                                              'The saved quote expiry could not be parsed safely.',
+                                              recipient=q_data.get('receiverWallet'))
 
     # Derive expected destination and amount strictly from server-owned data
     # The persisted server quote is the immutable payment instruction. Never
@@ -9007,7 +9049,7 @@ def mine_state():
     pending_purchases = []
     try:
         pur_rows = db.collection('psemine_purchases').where('userId', '==', uid) \
-            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming']).get()
+            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming', 'manual_review']).get()
         for pr in pur_rows:
             pd = pr.to_dict() or {}
             pending_purchases.append({
@@ -9261,6 +9303,11 @@ def mine_create_purchase():
     # a later create call must never be able to move it to another wallet — that
     # binding is what the on-chain sender is compared against at verification.
     # The decision itself is a pure, unit-tested function.
+    manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+    if manual_review_rows:
+        return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                        "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved."}), 409
+
     existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
     for e in existing:
         stored = e.to_dict() or {}

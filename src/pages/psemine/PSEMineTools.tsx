@@ -272,7 +272,7 @@ export const PSEMineTools: React.FC = () => {
     pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
   );
 
-  const toolsObjective = 'The catalogue of mining equipment. Each tool has a fixed GBP price and a fixed hourly capacity; purchases are quoted and paid in BNB from your own wallet.';
+  const toolsObjective = 'The catalogue of virtual campaign-capacity units. Each has a fixed GBP price and accounting rate; purchases are quoted and paid in BNB from your own wallet.';
 
   /* THE CATALOGUE IS PUBLIC; THE ACCOUNT'S SLOTS ARE NOT. The price list is a
      static definition, so it renders immediately and honestly — only the

@@ -124,7 +124,7 @@ export const AdminPSEMine: React.FC = () => {
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
 
   const [stats, setStats] = useState<Record<string, number | string>>({});
-  const [mineOverview, setMineOverview] = useState<Record<string, number | string>>({});
+  const [mineOverview, setMineOverview] = useState<Record<string, number | string | boolean>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [verifiedPayments, setVerifiedPayments] = useState<Array<Record<string, unknown>>>([]);

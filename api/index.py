@@ -6561,6 +6561,13 @@ def _configured_psemine_receiver_wallet(campaign):
     if not isinstance(campaign, dict):
         return None
     address = campaign.get('receiverWalletAddress')
+    # Older campaign documents may contain the former bootstrap address. A
+    # syntactically valid value is NOT enough: require a fresh explicit
+    # super-admin confirmation marker before allowing any new payment quote.
+    if campaign.get('receiverWalletConfigured') is not True:
+        return None
+    if not campaign.get('receiverWalletConfiguredAt') or not campaign.get('receiverWalletConfiguredBy'):
+        return None
     return address.strip() if _is_valid_psemine_receiver_wallet(address) else None
 
 PSEMINE_QUOTE_TTL_MINUTES = 15
@@ -6598,7 +6605,10 @@ def psemine_ensure_canonical_data(db):
                 'paymentNetwork': 'BNB Smart Chain',
                 'paymentChainId': PSEMINE_BSC_CHAIN_ID,
                 'paymentAsset': 'BNB',
-                'receiverWalletAddress': '',  # No implicit receiving wallet; admin configuration is mandatory.
+                'receiverWalletAddress': '',
+                'receiverWalletConfigured': False,
+                'receiverWalletConfiguredAt': None,
+                'receiverWalletConfiguredBy': None,
                 'walletChangeDeadline': deadline_dt.isoformat(),
                 'purchaseEnabled': True,
                 'miningEnabled': True,
@@ -8696,10 +8706,21 @@ def admin_campaign_action():
                 receiver_address.lower() == '0x' + ('0' * 40)):
             return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
         previous_address = str(camp_before.get('receiverWalletAddress') or '')
-        if previous_address.lower() == receiver_address.lower():
+        already_confirmed = (
+            camp_before.get('receiverWalletConfigured') is True
+            and bool(camp_before.get('receiverWalletConfiguredAt'))
+            and bool(camp_before.get('receiverWalletConfiguredBy'))
+        )
+        if previous_address.lower() == receiver_address.lower() and already_confirmed:
             return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
         now_iso = datetime.now(timezone.utc).isoformat()
-        camp_ref.update({"receiverWalletAddress": receiver_address, "updatedAt": now_iso})
+        camp_ref.update({
+            "receiverWalletAddress": receiver_address,
+            "receiverWalletConfigured": True,
+            "receiverWalletConfiguredAt": now_iso,
+            "receiverWalletConfiguredBy": uid,
+            "updatedAt": now_iso,
+        })
         db.collection('admin_audit_logs').add({
             "timestamp": firestore.SERVER_TIMESTAMP,
             "adminId": uid,

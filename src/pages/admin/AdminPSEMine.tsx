@@ -9,6 +9,7 @@ type Row = Record<string, any>;
 type ApiState = 'loading' | 'ready' | 'partial' | 'error';
 
 const money = (value: unknown, currency = 'GBP') => {
+  if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
   try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n); }

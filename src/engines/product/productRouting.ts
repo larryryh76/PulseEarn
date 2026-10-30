@@ -46,8 +46,8 @@ export type ProductKind = 'pulseearn' | 'psemine';
 
 /** Operations membership. Mirrors the `OpsRoute`/Firestore rules definition. */
 export function isOpsAccount(userData: UserData | null | undefined): boolean {
-  const role = userData?.role;
-  return role === 'admin' || role === 'moderator' || userData?.isRoot === true;
+  const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
+  return role === 'admin' || role === 'super_admin' || role === 'moderator' || userData?.isRoot === true;
 }
 
 /**

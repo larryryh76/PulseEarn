@@ -28,7 +28,7 @@ Contract:
 PUBLIC_CAMPAIGN_FIELDS = (
     'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
     'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentChainId',
-    'receiverWalletAddress', 'purchaseEnabled', 'miningEnabled', 'referralEnabled',
+    'receiverWalletAddress', 'purchaseEnabled', 'purchaseReady', 'miningEnabled', 'referralEnabled',
 )
 
 # The name the campaign document actually carries. It was previously listed here
@@ -42,6 +42,7 @@ CAMPAIGN_CHAIN_ID_FIELD = 'paymentChainId'
 # the allow-list so a reviewer sees the intent without reading the purchase flow.
 PUBLIC_CAMPAIGN_FIELD_NOTES = {
     'receiverWalletAddress': 'Payers must see the receiving address before signing in.',
+    'purchaseReady': 'Derived readiness: a valid non-zero BNB Smart Chain receiver explicitly confirmed by a super-admin.',
 }
 
 # Never published. These are the operational fields the bootstrap writer, the
@@ -53,19 +54,43 @@ PUBLIC_CAMPAIGN_FIELD_NOTES = {
 PRIVATE_CAMPAIGN_FIELDS = (
     'totalCapacitiesRegisteredGBPPerHour', 'totalAccruedLiabilityGBP',
     'totalBNBCollected', 'totalMinersCount', 'walletChangeDeadline',
+    'receiverWalletConfigured', 'receiverWalletConfiguredAt', 'receiverWalletConfiguredBy',
     'pauseWindows', 'shutdownState', 'createdAt', 'updatedAt',
 )
+
+
+def campaign_purchase_ready(camp):
+    """True only for an explicitly confirmed, valid, non-zero campaign receiver."""
+    if not isinstance(camp, dict):
+        return False
+    address = camp.get('receiverWalletAddress')
+    if camp.get('receiverWalletConfigured') is not True:
+        return False
+    if not camp.get('receiverWalletConfiguredAt') or not camp.get('receiverWalletConfiguredBy'):
+        return False
+    if not isinstance(address, str):
+        return False
+    address = address.strip()
+    return (
+        len(address) == 42
+        and address.startswith('0x')
+        and all(char in '0123456789abcdefABCDEF' for char in address[2:])
+        and address.lower() != '0x' + ('0' * 40)
+    )
 
 
 def public_campaign_view(camp):
     """Project a campaign document down to the public allow-list.
 
     Returns None for a missing/empty document so callers can fall back to their
-    default public configuration.
+    default public configuration. Readiness is derived and never trusts a stored
+    `purchaseReady` field or exposes the super-admin identity/timestamps.
     """
     if not camp:
         return None
-    return {k: camp[k] for k in PUBLIC_CAMPAIGN_FIELDS if k in camp}
+    view = {k: camp[k] for k in PUBLIC_CAMPAIGN_FIELDS if k in camp and k != 'purchaseReady'}
+    view['purchaseReady'] = campaign_purchase_ready(camp)
+    return view
 
 
 # ---------------------------------------------------------------------------

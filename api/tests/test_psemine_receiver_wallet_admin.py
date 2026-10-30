@@ -17,6 +17,9 @@ WALLET_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_
 PSE_API_SOURCE = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
 TOOLS_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_text(encoding="utf-8")
 POLICY_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEminePolicy.tsx").read_text(encoding="utf-8")
+AUTH_SOURCE = (ROOT / "src" / "contexts" / "AuthContext.tsx").read_text(encoding="utf-8")
+TYPES_SOURCE = (ROOT / "src" / "types" / "index.ts").read_text(encoding="utf-8")
+PSEMINE_TYPES_SOURCE = (ROOT / "src" / "types" / "psemine.ts").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -31,6 +34,25 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)
         self.assertIn("if not is_admin(uid)", self.route)
         self.assertIn("if action == 'set_receiver_wallet':", self.route)
+        wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
+        self.assertIn("if not is_super_admin(uid)", wallet_action)
+
+    def test_super_admin_role_is_authorized_by_backend_admin_gate(self):
+        self.assertIn("role in {'admin', 'super_admin'}", API_SOURCE)
+        self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
+
+    def test_super_admin_role_is_preserved_by_auth_context(self):
+        self.assertIn("normalized_role === 'super_admin'", AUTH_SOURCE)
+        self.assertIn("'super_admin'", TYPES_SOURCE)
+
+    def test_tool_catalogue_fails_closed_until_wallet_is_ready(self):
+        self.assertIn("campaign?.purchaseReady === true ||", TOOLS_SOURCE)
+        self.assertIn("purchaseReady?: boolean;", PSEMINE_TYPES_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
+        self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)
+        self.assertIn("Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
+        self.assertIn("campaign_state['purchaseReady']", API_SOURCE)
 
     def test_wallet_address_is_validated_and_zero_address_rejected(self):
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]

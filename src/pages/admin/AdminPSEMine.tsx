@@ -115,8 +115,10 @@ const SECTIONS: ReadonlyArray<{ id: ScreenSection; label: string }> = [
 export const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const { campaign, refreshData: refreshCampaign } = usePSEMine();
+  const normalizedRole = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
+  const canConfigureReceiverWallet = normalizedRole === 'super_admin' || userData?.isRoot === true;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -237,6 +239,10 @@ export const AdminPSEMine: React.FC = () => {
 
   /** Require a second, typed confirmation before changing or reconfirming the receiver. */
   const saveReceiverWallet = () => {
+    if (!canConfigureReceiverWallet) {
+      toast.error('Only a super-admin can configure the campaign receiving wallet.');
+      return;
+    }
     const address = receiverWalletInput.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
@@ -513,7 +519,11 @@ export const AdminPSEMine: React.FC = () => {
             <code>{receiverWalletCurrent || 'Receiving wallet not reported'}</code>
             <small>{receiverNeedsConfirmation ? 'Admin confirmation required · purchases remain blocked' : 'BNB Smart Chain · new quotes use this destination'}</small>
           </div>
-          <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
+          {canConfigureReceiverWallet ? (
+            <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
+          ) : (
+            <span className="pse-ops-kpi-label">Super-admin only</span>
+          )}
         </section>
 
         {/* Section rail — in-page, because this is one console with six
@@ -980,6 +990,11 @@ export const AdminPSEMine: React.FC = () => {
         {activeSection === 'settings' && (
         <div id="ops-settings" className="scroll-mt-24 pse-ops-settings">
           <PseSection title="Payment configuration" meta="Campaign-level receiving destination · super-admin only">
+            {!canConfigureReceiverWallet && (
+              <PseNotice tone="attention" title="Super-admin authorization required">
+                Only a super-admin can configure or confirm this campaign receiving wallet. Tool purchases remain disabled until that confirmation is saved.
+              </PseNotice>
+            )}
             <div className="pse-ops-wallet-panel">
               <div className="pse-ops-wallet-heading">
                 <div>
@@ -999,20 +1014,20 @@ export const AdminPSEMine: React.FC = () => {
                 </PseNotice>
               )}
               <PseField label="New receiving wallet address" htmlFor="pse-receiver-wallet">
-                <PseInput id="pse-receiver-wallet" value={receiverWalletInput}
+                <PseInput id="pse-receiver-wallet" value={receiverWalletInput} disabled={!canConfigureReceiverWallet}
                   onChange={e => { setReceiverWalletInput(e.target.value); setWalletAcknowledged(false); }}
                   placeholder="0x… (42-character BNB Smart Chain address)" autoComplete="off" spellCheck={false} />
               </PseField>
               <label className="pse-ops-wallet-confirm">
-                <input type="checkbox" checked={walletAcknowledged} onChange={e => setWalletAcknowledged(e.target.checked)} />
+                <input type="checkbox" checked={walletAcknowledged} disabled={!canConfigureReceiverWallet} onChange={e => setWalletAcknowledged(e.target.checked)} />
                 <span>I have independently verified this destination address and confirmed that I control or am authorised to receive funds there on BNB Smart Chain.</span>
               </label>
               <div className="pse-ops-wallet-actions">
-                <PseButton disabled={walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || (receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation)}
+                <PseButton disabled={!canConfigureReceiverWallet || walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || (receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation)}
                   busy={walletSaveBusy} onClick={() => void saveReceiverWallet()}>
                   {walletSaveBusy ? 'Saving destination…' : receiverNeedsConfirmation && receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() ? 'Confirm receiving wallet' : 'Save receiving wallet'}
                 </PseButton>
-                <PseButton variant="secondary" disabled={walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
+                <PseButton variant="secondary" disabled={!canConfigureReceiverWallet || walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
               </div>
               <div className="pse-ops-wallet-warning" role="note">
                 <strong>Important:</strong> this affects new quotes only. Existing quotes and purchase intents retain their recorded destination and amount. Never change the address based on an unsolicited message; verify it independently before saving. Every change is recorded in the admin audit trail.

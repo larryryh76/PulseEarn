@@ -89,7 +89,7 @@ export interface PseStateTool {
 export interface PseStateCampaign {
   id?: string; name?: string; status?: string; startAt?: string; endAt?: string; durationDays?: number;
   purchaseEnabled?: boolean; miningEnabled?: boolean; referralEnabled?: boolean;
-  receiverWalletAddress?: string; paymentNetwork?: string;
+  receiverWalletAddress?: string; paymentNetwork?: string; purchaseReady?: boolean;
 }
 /** An in-flight purchase the client can RESUME after a refresh instead of
  *  creating a second purchase intent. Read-only projection of the user's own
@@ -267,6 +267,7 @@ export interface PsePublicCampaign {
   paymentNetwork?: string;
   paymentChainId?: number;
   receiverWalletAddress?: string;
+  purchaseReady?: boolean;
   purchaseEnabled?: boolean;
   miningEnabled?: boolean;
   referralEnabled?: boolean;

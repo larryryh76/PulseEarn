@@ -235,6 +235,8 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.assertIn("_recovery_data.get('status') == 'attached'", self.verify_handler)
         self.assertIn("_recovery_data.get('attachedPurchaseId') == purchase_id", self.verify_handler)
         self.assertIn("if datetime.now(timezone.utc) > exp_dt and not recovery_authorized", self.verify_handler)
+        self.assertIn("if recovery_authorized and recovery_case_id:", self.verify_handler)
+        self.assertIn("'lastVerificationError'", self.verify_handler)
         self.assertIn("PAYMENT_UNDER_REVIEW", self.create_handler)
         self.assertIn("MISSING_PURCHASE_QUOTE_EXPIRY", self.verify_handler)
         self.assertIn("MISSING_SERVER_QUOTE_EXPIRY", self.verify_handler)

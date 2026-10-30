@@ -382,18 +382,16 @@ export const PSEMineTools: React.FC = () => {
               : pendingQuoteLive
                 ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
                 : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}
-          {!pendingNeedsReview && (
-            <button
-              type="button"
-              className="pse-link"
-              onClick={() => {
-                const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
-                if (def) setPurchasing(def);
-              }}
-            >
-              {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
-            </button>
-          )}
+          <button
+            type="button"
+            className="pse-link"
+            onClick={() => {
+              const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
+              if (def) setPurchasing(def);
+            }}
+          >
+            {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
+          </button>
         </PseNotice>
       )}
 

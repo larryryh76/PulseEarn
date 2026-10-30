@@ -15,6 +15,8 @@ ADMIN_SOURCE = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text
 ENGINE_SOURCE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
 WALLET_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_text(encoding="utf-8")
 PSE_API_SOURCE = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
+TOOLS_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_text(encoding="utf-8")
+POLICY_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEminePolicy.tsx").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -108,6 +110,16 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("Locked conversion rate", WALLET_SOURCE)
         self.assertIn("amountBnb.toFixed(8)", WALLET_SOURCE)
         self.assertIn("amountBnb?: string | number", PSE_API_SOURCE)
+
+    def test_tool_specs_are_campaign_operating_rules_not_fake_hardware_metrics(self):
+        self.assertNotIn("hashRateClass", TOOLS_SOURCE)
+        self.assertNotIn("powerEfficiency", TOOLS_SOURCE)
+        self.assertNotIn("warrantyDays", TOOLS_SOURCE)
+        self.assertIn("sessionDurationHours", TOOLS_SOURCE)
+        self.assertIn("restartDelayMinutes", TOOLS_SOURCE)
+        self.assertIn("virtual campaign-capacity units", TOOLS_SOURCE)
+        self.assertIn("not physical mining hardware", POLICY_SOURCE)
+        self.assertIn("not physical mining hardware", TOOLS_SOURCE)
 
     def test_admin_can_reconfirm_same_legacy_seeded_address(self):
         self.assertIn("const receiverNeedsConfirmation = campaign?.receiverWalletConfigured !== true", ADMIN_SOURCE)

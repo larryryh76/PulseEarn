@@ -6541,8 +6541,28 @@ except Exception as e:
 # PSEMINE BACKEND ENGINE & REAL ECONOMIC FOUNDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PSEMINE_PAYMENT_ADDRESS = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
 PSEMINE_BSC_CHAIN_ID = 56
+
+def _is_valid_psemine_receiver_wallet(value):
+    """Strict EVM destination validation; zero/missing values are never payable."""
+    if not isinstance(value, str):
+        return False
+    address = value.strip()
+    return (
+        len(address) == 42
+        and address.startswith('0x')
+        and all(char in '0123456789abcdefABCDEF' for char in address[2:])
+        and address.lower() != '0x' + ('0' * 40)
+    )
+
+
+def _configured_psemine_receiver_wallet(campaign):
+    """Return ONLY the campaign's explicitly admin-configured receiving wallet."""
+    if not isinstance(campaign, dict):
+        return None
+    address = campaign.get('receiverWalletAddress')
+    return address.strip() if _is_valid_psemine_receiver_wallet(address) else None
+
 PSEMINE_QUOTE_TTL_MINUTES = 15
 PSEMINE_CAMPAIGN_DOC_ID = "active_campaign"
 try:
@@ -6578,7 +6598,7 @@ def psemine_ensure_canonical_data(db):
                 'paymentNetwork': 'BNB Smart Chain',
                 'paymentChainId': PSEMINE_BSC_CHAIN_ID,
                 'paymentAsset': 'BNB',
-                'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                'receiverWalletAddress': '',  # No implicit receiving wallet; admin configuration is mandatory.
                 'walletChangeDeadline': deadline_dt.isoformat(),
                 'purchaseEnabled': True,
                 'miningEnabled': True,
@@ -7054,11 +7074,22 @@ def psemine_create_order():
             }), 503
 
         gbp_price = float(tool_cfg['price_gbp'])
-        bnb_amount = gbp_price / bnb_gbp_price
-        wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
+        # Match the exact 8-decimal amount shown by the legacy checkout UI.
+        # Verifying an unrounded float after showing 8 decimals could reject a
+        # payment that the user already sent.
+        bnb_amount = round(gbp_price / bnb_gbp_price, 8)
+        wei_amount = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
 
         now_dt = datetime.now(timezone.utc)
         expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+
+        # Legacy checkout uses the same single admin-configured destination.
+        _legacy_campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+        _legacy_campaign = (_legacy_campaign_snap.to_dict() or {}) if _legacy_campaign_snap.exists else {}
+        receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)
+        if not receiver_wallet:
+            return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                            "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
 
         order_ref = db.collection('psemine_orders').document()
         order_payload = {
@@ -7074,7 +7105,7 @@ def psemine_create_order():
             'quoteProvider': quote_provider,
             'quoteTimestamp': now_dt.isoformat(),
             'quoteExpiry': expiry_dt.isoformat(),
-            'destinationAddress': ((db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get().to_dict() or {}).get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip(),
+            'destinationAddress': receiver_wallet,
             'intendedPaymentWallet': payment_wallet,
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'status': 'quoted',
@@ -7165,10 +7196,19 @@ def psemine_verify_payment():
             "message": "This order is not bound to a payment wallet. Please create a new order."
         }), 422
 
+    # Only the immutable server-created order destination may be verified.
+    legacy_destination = order.get('destinationAddress')
+    if not _is_valid_psemine_receiver_wallet(legacy_destination):
+        return jsonify({"success": False, "error": "INVALID_ORDER_RECEIVER",
+                        "message": "This order has no valid receiving wallet. Do not send payment; create a new order."}), 409
+    if int(order.get('chainId') or 0) != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "ORDER_NETWORK_MISMATCH",
+                        "message": "This order is not for BNB Smart Chain."}), 409
+
     # On-Chain Verification
     verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(
         tx_hash,
-        order['destinationAddress'],
+        legacy_destination,
         order['payableWeiAmount'],
         expected_sender=expected_sender
     )
@@ -8129,7 +8169,9 @@ def generate_psemine_tool_quote():
     expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
     quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
 
-    receiver_wallet = (camp_data.get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip()
+    receiver_wallet = _configured_psemine_receiver_wallet(camp_data)
+    if not receiver_wallet:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED", "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
 
     quote = {
         "quoteId": quote_id,
@@ -8257,11 +8299,6 @@ def verify_psemine_tool_purchase():
         }), 400
 
     # 5. Bind on-chain verification terms strictly to server-owned quote and campaign parameters
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    campaign_receiver = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
-    if camp_doc.exists:
-        campaign_receiver = camp_doc.to_dict().get('receiverWalletAddress', campaign_receiver)
-
     quote_id = (purchase.get('quoteId') or data.get('quoteId') or '').strip()
     if not quote_id:
         return jsonify({
@@ -8310,9 +8347,13 @@ def verify_psemine_tool_purchase():
             return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
 
     # Derive expected destination and amount strictly from server-owned data
-    expected_destination = campaign_receiver
-    if q_data.get('receiverWallet'):
-        expected_destination = q_data.get('receiverWallet')
+    # The persisted server quote is the immutable payment instruction. Never
+    # fall back to an environment constant or a second wallet at verification.
+    expected_destination = q_data.get('receiverWallet')
+    if not _is_valid_psemine_receiver_wallet(expected_destination):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER", "message": "The saved quote has no valid receiving wallet. Do not send payment; request a new quote."}), 409
+    if q_data.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH", "message": "The saved quote is not for BNB Smart Chain."}), 409
 
     server_quoted_bnb = q_data.get('bnbAmount')
     if not server_quoted_bnb or float(server_quoted_bnb) <= 0:
@@ -8555,7 +8596,7 @@ def verify_psemine_tool_purchase():
                     'paymentNetwork': 'BNB Smart Chain',
                     'paymentChainId': PSEMINE_BSC_CHAIN_ID,
                     'paymentAsset': 'BNB',
-                    'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                    'receiverWalletAddress': '',  # No implicit receiving wallet; admin configuration is mandatory.
                     'walletChangeDeadline': deadline_dt.isoformat(),
                     'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
                     'totalBNBCollected': quoted_bnb,

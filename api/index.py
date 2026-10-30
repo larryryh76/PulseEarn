@@ -7667,6 +7667,10 @@ def admin_psemine_overview():
         "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
         "purchaseReady": bool(configured_receiver),
         "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
+        # Return the effective backend permissions so the console never guesses
+        # whether a cached client profile can perform a protected operation.
+        "canConfigureReceiverWallet": is_super_admin(request.user["uid"]),
+        "canManageCampaign": is_admin(request.user["uid"]),
     }
 
     try:

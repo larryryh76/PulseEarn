@@ -41,11 +41,25 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("newReceiverWalletAddress", wallet_action)
         self.assertIn('"existingQuotesPreserved": True', wallet_action)
 
-    def test_legacy_order_quotes_use_campaign_configured_destination(self):
-        self.assertRegex(
-            API_SOURCE,
-            r"'destinationAddress': \(\(db\.collection\('psemine_campaigns'\).*?get\(\).*?receiverWalletAddress.*?PSEMINE_PAYMENT_ADDRESS\)\.strip\(\)",
-        )
+    def test_all_quote_paths_fail_closed_without_the_single_admin_wallet(self):
+        self.assertIn("def _configured_psemine_receiver_wallet(campaign):", API_SOURCE)
+        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(camp_data)", API_SOURCE)
+        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)", API_SOURCE)
+        self.assertGreaterEqual(API_SOURCE.count("RECEIVER_WALLET_NOT_CONFIGURED"), 2)
+        self.assertIn("'destinationAddress': receiver_wallet", API_SOURCE)
+        self.assertNotIn("PSEMINE_PAYMENT_ADDRESS", API_SOURCE)
+        self.assertNotIn("0x8b32A461d3106B3356e9A389DfeB74aC084c8F33", API_SOURCE)
+        self.assertIn("expected_destination = q_data.get('receiverWallet')", API_SOURCE)
+        self.assertIn("legacy_destination = order.get('destinationAddress')", API_SOURCE)
+
+    def test_bootstrap_campaign_never_invents_a_receiving_wallet(self):
+        self.assertGreaterEqual(API_SOURCE.count("'receiverWalletAddress': ''"), 2)
+        self.assertIn("def _is_valid_psemine_receiver_wallet(value):", API_SOURCE)
+        self.assertIn("address.lower() != '0x' + ('0' * 40)", API_SOURCE)
+
+    def test_legacy_quote_amount_matches_the_eight_decimal_ui_amount(self):
+        self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
+        self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)

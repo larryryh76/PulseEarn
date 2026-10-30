@@ -234,7 +234,7 @@ export const AdminPSEMine: React.FC = () => {
 
   const campaignStatus = campaign?.status || stats.campaignStatus || 'Not reported';
   const income = mineStats.totalToolIncomeGbp;
-  const incomeReady = mineStats.toolIncomeComplete !== false && income !== null && income !== undefined;
+  const incomeReady = mineStats.toolIncomeComplete !== false && income !== null && income !== undefined && income !== '' && Number.isFinite(Number(income));
   const tools = Object.values(LOCKED_PSEMINE_TOOLS as Record<string, any>).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) as Row[];
   const fmtStat = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'number' ? v.toLocaleString('en-GB') : String(v);
 

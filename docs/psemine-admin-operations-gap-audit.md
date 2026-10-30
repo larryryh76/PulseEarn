@@ -4,12 +4,14 @@
 
 ## Confirmed findings
 
-### P0 — Money destination configuration (this change)
-- The console had no receiving-wallet configuration section, despite the active campaign storing `receiverWalletAddress`.
-- First-time campaign seeding used a hardcoded fallback, which is reasonable as a bootstrap default but is not a usable operational settings workflow.
-- The canonical quote flow reads the campaign's receiving address, but the legacy order-quote path wrote `PSEMINE_PAYMENT_ADDRESS` directly. That would ignore an admin change.
-- This PR adds a super-admin-only configuration section, server-side address validation (including zero-address rejection), explicit typed confirmation, persistence to the active campaign, and an audit record. The legacy quote path now reads the campaign destination with the existing constant as fallback only.
-- Changes apply to **new quotes**. A previously issued quote must keep its original destination and amount; changing its destination retroactively would break the payer's signed quote.
+### P0 — Money destination configuration (remediated in fail-closed wallet PR)
+- There is one permitted receiving destination: the active campaign's explicitly configured `receiverWalletAddress`.
+- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero.
+- The old `PSEMINE_PAYMENT_ADDRESS` constant, hardcoded fallback address, frontend default receiver, and bootstrap receiver assignment have been removed. New campaign bootstrap records an empty receiver and remains non-payable until a super-admin configures it.
+- Both verification paths use the immutable destination stored on the server-created quote/order and validate the BNB Smart Chain network. They do not fall back to a second wallet.
+- The legacy quote amount is rounded to the same eight decimal places displayed by its checkout UI before the exact wei amount is calculated. This closes a mismatch that could otherwise reject a payment after it had been sent.
+- A wallet change affects new quotes only. Existing quotes retain their original recipient and amount so an in-flight payment is not silently redirected.
+- Production database configuration still requires a live read-only verification before launch; source changes cannot prove which address is currently stored in Firestore.
 
 ### P1 — Existing operational panels need a full functional audit
 - **Overview:** displays backend-reported KPIs and correctly avoids inventing missing numbers, but the admin still needs a reconciliation view tying confirmed purchase payments, accrued liability, payouts/debits, and unresolved recovery cases together.

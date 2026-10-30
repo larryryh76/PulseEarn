@@ -703,7 +703,11 @@ export const AdminPSEMine: React.FC = () => {
                               consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
                               affected: `psemine_payment_recovery/${id}`,
                               confirmLabel: 'Re-verify & attempt purchase',
-                              run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
+                              run: async () => {
+                                const purchaseId = typeof c.purchaseId === 'string' ? c.purchaseId : undefined;
+                                if (!purchaseId) { toast.error('This recovery case has no canonical purchase ID. It requires manual reconciliation.'); return; }
+                                await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.', purchaseId);
+                              },
                             })}
                           >
                             Complete purchase

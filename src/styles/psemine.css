@@ -710,8 +710,8 @@
 
 /* ── Notices ────────────────────────────────────────────────────────────── */
 .pse-notice {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   align-items: start;
   gap: 0.45rem;
   width: 100%;
@@ -727,7 +727,7 @@
 }
 
 .pse-notice-title { display: block; min-width: 0; color: var(--pse-ink); font-weight: 600; }
-.pse-notice-content { display: block; min-width: 0; width: 100%; }
+.pse-notice-content { display: block !important; min-width: 0; width: 100%; grid-column: 1 / -1; }
 .pse-notice-content > * { max-width: 100%; }
 .pse-notice p { margin: 0; }
 .pse-notice .pse-facts { width: 100%; min-width: 0; }

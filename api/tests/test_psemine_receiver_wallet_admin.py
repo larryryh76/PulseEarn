@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 API_SOURCE = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
 ADMIN_SOURCE = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text(encoding="utf-8")
 ENGINE_SOURCE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
+WALLET_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_text(encoding="utf-8")
+PSE_API_SOURCE = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -77,7 +79,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         route_end = API_SOURCE.index("\n@app.route(", route_start)
         route = API_SOURCE[route_start:route_end]
         self.assertIn("fetch_psemine_bnb_gbp_quote()", route)
+        self.assertIn("amount = round(amount, 2)", route)
         self.assertIn("expectedAmountWei", route)
+        self.assertIn('"amountBnb": payout_quote["amountBnb"]', route)
         self.assertIn("payout_quote=payout_quote", route)
         engine_start = ENGINE_SOURCE.index("def create_payout_request(")
         engine_end = ENGINE_SOURCE.index("\ndef create_payment_recovery", engine_start)
@@ -94,6 +98,10 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("txn.set(_tx_doc", payout)
         self.assertIn("No locked BNB quote", ADMIN_SOURCE)
         self.assertIn("amountBnb.toFixed(8)", ADMIN_SOURCE)
+        self.assertIn("Locked payout amount", WALLET_SOURCE)
+        self.assertIn("Locked conversion rate", WALLET_SOURCE)
+        self.assertIn("amountBnb.toFixed(8)", WALLET_SOURCE)
+        self.assertIn("amountBnb?: string | number", PSE_API_SOURCE)
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)

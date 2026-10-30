@@ -109,6 +109,12 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("amountBnb.toFixed(8)", WALLET_SOURCE)
         self.assertIn("amountBnb?: string | number", PSE_API_SOURCE)
 
+    def test_admin_can_reconfirm_same_legacy_seeded_address(self):
+        self.assertIn("const receiverNeedsConfirmation = campaign?.receiverWalletConfigured !== true", ADMIN_SOURCE)
+        self.assertIn("address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation", ADMIN_SOURCE)
+        self.assertIn("Confirm receiving wallet", ADMIN_SOURCE)
+        self.assertIn("purchases remain blocked", ADMIN_SOURCE)
+
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)
         self.assertIn("activeSection === 'settings'", ADMIN_SOURCE)

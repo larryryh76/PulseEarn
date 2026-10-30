@@ -101,6 +101,16 @@ class TestLegacySurfaceInventory(unittest.TestCase):
             "the legacy v1 surface changed; update the deprecation finding before merging",
         )
 
+    def test_legacy_payout_writer_is_retired(self):
+        source = _read(INDEX_SRC)
+        start = source.index("def psemine_create_withdrawal():")
+        end = source.index("\\n@app.route(", start)
+        route = source[start:end]
+        self.assertIn("LEGACY_PAYOUT_DISABLED", route)
+        self.assertIn("), 410", route)
+        self.assertNotIn("wd_ref.set", route)
+        self.assertNotIn("payout_debit", route)
+
     def test_app_enforces_the_rule_before_routing(self):
         source = _read(INDEX_SRC)
         hook_start = source.index("def _pse_before_request")

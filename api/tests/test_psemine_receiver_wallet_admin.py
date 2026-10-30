@@ -43,6 +43,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("previousReceiverWalletAddress", wallet_action)
         self.assertIn("newReceiverWalletAddress", wallet_action)
         self.assertIn('"existingQuotesPreserved": True', wallet_action)
+        self.assertIn('"receiverWalletConfigured": True', wallet_action)
+        self.assertIn('"receiverWalletConfiguredAt": now_iso', wallet_action)
+        self.assertIn('"receiverWalletConfiguredBy": uid', wallet_action)
 
     def test_all_quote_paths_fail_closed_without_the_single_admin_wallet(self):
         self.assertIn("def _configured_psemine_receiver_wallet(campaign):", API_SOURCE)
@@ -59,6 +62,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertGreaterEqual(API_SOURCE.count("'receiverWalletAddress': ''"), 2)
         self.assertIn("def _is_valid_psemine_receiver_wallet(value):", API_SOURCE)
         self.assertIn("address.lower() != '0x' + ('0' * 40)", API_SOURCE)
+        self.assertIn("campaign.get('receiverWalletConfigured') is not True", API_SOURCE)
+        self.assertIn("receiverWalletConfiguredAt", API_SOURCE)
+        self.assertIn("receiverWalletConfiguredBy", API_SOURCE)
 
     def test_legacy_quote_amount_matches_the_eight_decimal_ui_amount(self):
         self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)

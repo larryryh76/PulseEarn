@@ -596,6 +596,61 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
         self.assertEqual(available_balance_minor("500", [], []), 500)  # str tolerated
 
 
+class TestLockedPayoutQuote(unittest.TestCase):
+    def setUp(self):
+        self.db = FakeDB()
+        self._orig_fs = psemine_engine._firestore
+        self._orig_camp = psemine_engine.campaign_lifecycle_state
+        self._orig_ts = psemine_engine.firestore_server_ts
+        psemine_engine._firestore = None
+        psemine_engine.campaign_lifecycle_state = lambda db, force_write=True: ({"status": "ended"}, "ended", False)
+        psemine_engine.firestore_server_ts = lambda: TS
+
+    def tearDown(self):
+        psemine_engine._firestore = self._orig_fs
+        psemine_engine.campaign_lifecycle_state = self._orig_camp
+        psemine_engine.firestore_server_ts = self._orig_ts
+
+    def test_request_persists_exact_bnb_and_wei_quote_with_debit(self):
+        _make_user(self.db, accrued_minor=2500, wallet="0x" + "a" * 40)
+        quote = {
+            "amountBnb": "0.02000000",
+            "expectedAmountWei": "20000000000000000",
+            "exchangeRateBNBGBP": "500",
+            "provider": "test-rate",
+            "quotedAt": TS.isoformat(),
+            "asset": "BNB",
+            "chainId": 56,
+        }
+        result = psemine_engine.create_payout_request(self.db, "u1", 10.0, payout_quote=quote)
+        self.assertTrue(result.get("ok"), result)
+        withdrawal = self.db.collection("psemine_withdrawals").document(result["withdrawalId"]).get().to_dict()
+        self.assertEqual(withdrawal["amountGbp"], 10.0)
+        self.assertEqual(withdrawal["amountBnb"], "0.02000000")
+        self.assertEqual(withdrawal["expectedAmountWei"], "20000000000000000")
+        self.assertEqual(withdrawal["destinationWallet"], "0x" + "a" * 40)
+        self.assertEqual(withdrawal["chainId"], 56)
+        self.assertEqual(withdrawal["asset"], "BNB")
+        self.assertEqual(self.db.collection("psemine_users").document("u1").get().to_dict()["payoutDebitedMinor"], 1000)
+
+    def test_inconsistent_bnb_wei_quote_is_rejected_before_debit(self):
+        _make_user(self.db, accrued_minor=2500, wallet="0x" + "a" * 40)
+        quote = {
+            "amountBnb": "0.02000000",
+            "expectedAmountWei": "19999999999999999",
+            "exchangeRateBNBGBP": "500",
+            "provider": "test-rate",
+            "quotedAt": TS.isoformat(),
+            "asset": "BNB",
+            "chainId": 56,
+        }
+        result = psemine_engine.create_payout_request(self.db, "u1", 10.0, payout_quote=quote)
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(result.get("error"), "INVALID_PAYOUT_QUOTE")
+        self.assertEqual(self.db.collection("psemine_withdrawals").get(), [])
+        self.assertEqual(self.db.collection("psemine_users").document("u1").get().to_dict()["payoutDebitedMinor"], 0)
+
+
 class TestNetPaidEquation(unittest.TestCase):
     def test_debit_and_reversal_net_to_zero(self):
         """Verify debit and reversal net to zero."""

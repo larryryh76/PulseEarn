@@ -179,6 +179,27 @@ const run = async () => {
   });
   step('ensureChain-correct-chain56', { pass: chainOk === true });
 
+  // 3a. An unreadable chain can be recovered through an explicit wallet switch.
+  const unreadableRecovered = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    let readable = false;
+    const provider = {
+      request: async ({ method, params }) => {
+        if (method === 'eth_chainId') {
+          if (!readable) throw new Error('chain temporarily unavailable');
+          return '56';
+        }
+        if (method === 'wallet_switchEthereumChain') { readable = true; return null; }
+        return null;
+      },
+    };
+    return m.ensureChain(provider, 56);
+  });
+  step('ensureChain-recovers-unreadable-network', {
+    pass: unreadableRecovered === true,
+    note: 'switch request is made, then the live chain is re-read before payment is allowed',
+  });
+
   // 3b. Wrong chain + wallet cannot switch → must return false (STOP before send)
   const chainRefused = await page.evaluate(async () => {
     const m = await import('/__pseWallet.mjs');

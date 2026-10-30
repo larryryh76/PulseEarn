@@ -105,8 +105,8 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'what-it-is',
         h: 'What PSEmine is',
         p: [
-          'PSEmine sells a recorded right to a mining unit\u2019s hourly capacity for the duration of a single campaign. A unit has a fixed price, a fixed capacity per hour denominated in GBP, and an ownership limit; that capacity accrues campaign earnings while the campaign is running, and settled earnings are paid out in BNB after the campaign ends.',
-          'A unit is a campaign instrument rather than hardware you host: the service operates it, and the capacity it carries is recorded on your account. The price list, the hourly rates and the ownership limits are published and fixed before the campaign opens, and they do not move while it runs.',
+          'PSEmine sells a recorded right to campaign capacity for the duration of a single campaign. A unit has a fixed price, a fixed GBP-per-hour campaign accounting rate, and an ownership limit; eligible capacity accrues to the account under the published operating rules, and settled earnings may be requested for payout in BNB after the campaign ends.',
+          'A unit is a virtual campaign instrument, not physical mining hardware or rented blockchain hashpower. PSEmine does not allocate an ASIC to your account or claim that the displayed GBP/hour rate comes from proof-of-work rewards. The backend records eligible campaign accrual using the published rate and operating cycle. No earnings are guaranteed; review the campaign terms before buying.',
         ],
         list: [
           'Units are sold at the published price list, each with a fixed capacity per hour and a per-account ownership limit.',

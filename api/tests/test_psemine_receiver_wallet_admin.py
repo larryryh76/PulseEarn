@@ -113,7 +113,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
 
     def test_expired_payment_recovery_warns_user_not_to_pay_twice(self):
         self.assertIn("'manual_review'", API_SOURCE)
-        self.assertIn("'manual_review']).get()", API_SOURCE)
+        self.assertIn("where('status', '==', 'manual_review').get()", API_SOURCE)
         self.assertIn("const pendingNeedsReview = pendingPurchase?.status === 'manual_review'", TOOLS_SOURCE)
         self.assertIn("Payment under manual review", TOOLS_SOURCE)
         self.assertIn("Do not send another payment", TOOLS_SOURCE)

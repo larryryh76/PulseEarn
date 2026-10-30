@@ -10,7 +10,7 @@ import logging
 import traceback
 import uuid
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from functools import wraps
 
 # ---------------------------------------------------------------------------
@@ -9526,10 +9526,11 @@ def mine_create_withdrawal():
             raise ValueError("amount must be positive and finite")
     except (TypeError, ValueError):
         return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
-    # The GBP ledger is pence-denominated; quote exactly the rounded amount that
-    # the engine will debit, never the caller's unrounded float.
-    amount = round(amount, 2)
-    if amount <= 0:
+    # The GBP ledger is pence-denominated; use the same half-up minor-unit
+    # rounding as the canonical engine before calculating the BNB quote.
+    amount_minor = int((Decimal(str(amount)) * Decimal('100')).to_integral_value(rounding=ROUND_HALF_UP))
+    amount = float(Decimal(amount_minor) / Decimal('100'))
+    if amount_minor <= 0:
         return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
 
     # Lock the BNB conversion at request time. The exact rounded amount shown

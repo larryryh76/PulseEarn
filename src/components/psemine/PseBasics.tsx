@@ -394,10 +394,10 @@ export const PseNotice: React.FC<{
 }> = ({ tone = 'info', title, children }) => {
   const dataTone = tone === 'attention' ? 'hold' : tone === 'info' ? undefined : tone;
   return (
-    <p className="pse-notice" data-tone={dataTone} role={tone === 'danger' ? 'alert' : 'status'}>
+    <div className="pse-notice" data-tone={dataTone} role={tone === 'danger' ? 'alert' : 'status'}>
       {title && <span className="pse-notice-title">{title}</span>}
       <span>{children}</span>
-    </p>
+    </div>
   );
 };
 

@@ -9386,6 +9386,11 @@ def mine_create_withdrawal():
             raise ValueError("amount must be positive and finite")
     except (TypeError, ValueError):
         return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
+    # The GBP ledger is pence-denominated; quote exactly the rounded amount that
+    # the engine will debit, never the caller's unrounded float.
+    amount = round(amount, 2)
+    if amount <= 0:
+        return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
 
     # Lock the BNB conversion at request time. The exact rounded amount shown
     # to the operator is the same wei amount the admin verifier later checks.
@@ -9414,7 +9419,17 @@ def mine_create_withdrawal():
                   "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409,
                   "INVALID_PAYOUT_QUOTE": 409}.get(result.get("error"), 400)
         return jsonify({"success": False, "error": result.get("error"), "message": result.get("message", str(result.get("error", "")).replace('_', ' ').title())}), status
-    return jsonify({"success": True, "withdrawalId": result.get("withdrawalId")})
+    return jsonify({
+        "success": True,
+        "withdrawalId": result.get("withdrawalId"),
+        "amountGbp": amount,
+        "amountBnb": payout_quote["amountBnb"],
+        "exchangeRateBNBGBP": payout_quote["exchangeRateBNBGBP"],
+        "payoutWallet": payout_quote.get("destinationWallet"),
+        "asset": "BNB",
+        "network": "BNB Smart Chain",
+        "chainId": PSEMINE_BSC_CHAIN_ID,
+    })
 
 @app.route('/api/mine/cron/lifecycle', methods=['POST', 'GET'])
 def mine_cron_lifecycle():

@@ -7177,6 +7177,29 @@ def psemine_verify_payment():
     # end — same shared terminal predicate as the canonical flow.
     import psemine_engine as _pse_engine
     _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    # Legacy orders created before the explicit receiver-confirmation gate may
+    # still contain the former bootstrap destination. Do not accept a payment
+    # to that stale address after an administrator has confirmed a new one.
+    _current_receiver = _configured_psemine_receiver_wallet(_camp)
+    _order_receiver = order.get('destinationAddress')
+    if (not _current_receiver or not _is_valid_psemine_receiver_wallet(_order_receiver)
+            or _order_receiver.lower() != _current_receiver.lower()):
+        try:
+            _legacy_recovery_id = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=_order_receiver, chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='LEGACY_ORDER_RECEIVER_STALE',
+                extra={'message': 'Legacy order destination no longer matches the explicitly confirmed campaign receiver.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'recoveryCaseId': _legacy_recovery_id,
+                              'reviewReason': 'LEGACY_ORDER_RECEIVER_STALE',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+        except Exception:
+            logging.exception('[PSEmine] stale legacy receiver recovery failed')
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This legacy order uses a stale or unconfirmed receiving address. The transaction was sent for manual review. Do not send another payment."}), 409
+
     if _eff in _pse_engine.TERMINAL_CAMPAIGN_STATUSES:
         _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
             quote_id=order_id, reason='CAMPAIGN_ENDED_AT_VERIFICATION_LEGACY')

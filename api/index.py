@@ -7189,6 +7189,19 @@ def psemine_verify_payment():
     # Quote expiry cannot discard a transaction the user may already have sent.
     # Record it for review and retain the legacy order instead of marking it dead.
     expiry_raw = order.get('quoteExpiry')
+    if not expiry_raw:
+        _pse_engine.create_payment_recovery(
+            db, uid, tx_hash=tx_hash, quote_id=order_id,
+            sender=order.get('intendedPaymentWallet'),
+            recipient=order.get('destinationAddress'),
+            chain_id=PSEMINE_BSC_CHAIN_ID,
+            reason='MISSING_LEGACY_QUOTE_EXPIRY',
+            extra={'message': 'Legacy order has no expiry and was sent for manual review.'})
+        order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                          'reviewReason': 'MISSING_LEGACY_QUOTE_EXPIRY',
+                          'updatedAt': firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This order has no valid expiry. The transaction was recorded for admin review. Do not send another payment."}), 409
     if expiry_raw:
         try:
             if isinstance(expiry_raw, datetime):
@@ -8238,6 +8251,9 @@ def verify_psemine_tool_purchase():
 
     # 2. Check quote expiry. A malformed expiry also fails closed into recovery.
     expires_at_raw = purchase.get('expiresAt')
+    if not expires_at_raw and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_PURCHASE_QUOTE_EXPIRY',
+                                      'The purchase record has no server quote expiry.')
     if expires_at_raw and not recovery_authorized:
         try:
             exp_dt = datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
@@ -8315,6 +8331,10 @@ def verify_psemine_tool_purchase():
         }), 400
 
     q_exp = q_data.get('expiresAt')
+    if not q_exp and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_SERVER_QUOTE_EXPIRY',
+                                      'The saved quote has no server expiry.',
+                                      recipient=q_data.get('receiverWallet'))
     if q_exp:
         try:
             q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))

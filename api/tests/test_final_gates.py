@@ -241,9 +241,10 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
             "updatedAt": "2026-01-02T00:00:00+00:00",
         }
         view = psemine_public.public_campaign_view(camp)
-        self.assertEqual(
-            [f for f in psemine_public.PUBLIC_CAMPAIGN_FIELDS if f in camp], list(view)
-        )
+        expected = [f for f in psemine_public.PUBLIC_CAMPAIGN_FIELDS if f in camp]
+        expected.append("purchaseReady")  # derived from private confirmation fields, never stored in the public doc
+        self.assertEqual(expected, list(view))
+        self.assertFalse(view["purchaseReady"])
         for private in psemine_public.PRIVATE_CAMPAIGN_FIELDS:
             self.assertNotIn(private, view)
         # The chain id survives — the regression this replaced.

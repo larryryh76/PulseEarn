@@ -81,8 +81,10 @@ export const AdminPSEMine: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { campaign, refreshData: refreshCampaign } = usePSEMine();
   const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
-  const isSuperAdmin = role === 'super_admin' || (userData as any)?.isRoot === true;
-  const isAdmin = isSuperAdmin || role === 'admin';
+  // Permissions are read from the authenticated admin API, not inferred from a
+  // potentially stale client-side profile snapshot.
+  const isSuperAdmin = config?.canConfigureReceiverWallet === true;
+  const isAdmin = config?.canManageCampaign === true;
 
   const [busy, setBusy] = useState(false);
   const [loadedAt, setLoadedAt] = useState<number | null>(null);

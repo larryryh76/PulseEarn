@@ -858,7 +858,7 @@ export const PSEMineLanding: React.FC = () => {
           </div>
           <div className="pse-access-disclosure">
             <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
-            <p><strong>SHA is the mining function behind PSEmine.</strong> Campaign capacity and eligible earnings are recorded in GBP. You purchase units and receive approved payouts in BNB on BNB Smart Chain. At campaign end, recorded eligible earnings are settled and paid to your registered payout wallet after review.</p>
+            <p><strong>SHA is the mining function behind PSEmine.</strong> Campaign capacity and eligible earnings are recorded in GBP. You purchase units and receive approved payouts in BNB on BNB Smart Chain. At campaign end, recorded eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.</p>
             <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
@@ -1067,7 +1067,7 @@ export const PSEMineLanding: React.FC = () => {
         num="06"
         kicker="Settlement and payout"
         band="tint"
-        title="Earnings are settled in GBP, then paid in BNB."
+        title="Earnings settle in GBP, then your approved payout is sent in BNB."
         meta="GBP → approved → BNB"
         lede="SHA-mining accrual is accounted for in GBP. After the campaign closes, eligible balances are reviewed and approved payouts are sent in BNB under the published rules."
       >

@@ -144,9 +144,9 @@ const OwnedToolRow: React.FC<{
         </div>
         {maintenanceAvailable && (
           <div className="pse-owned-tool-maintenance">
-            <span>Session ended. Maintenance restores future earning eligibility; it does not create a reward.</span>
+            <span>Your 24-hour session has ended. Maintain free within 6 hours to schedule the next session. The 10-minute restart delay does not earn rewards.</span>
             <button type="button" className="pse-btn pse-btn--secondary pse-btn--sm" onClick={onMaintain} disabled={maintaining}>
-              {maintaining ? 'Maintaining…' : 'Maintain tool'}
+              {maintaining ? 'Maintaining…' : 'Maintain & restart · Free'}
             </button>
           </div>
         )}
@@ -292,8 +292,15 @@ export const PSEMineTools: React.FC = () => {
   if (loading && !state) {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
-        <PseNotice tone="attention" title="How campaign tools operate">
-        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+        <PseNotice tone="attention" title="Your tool cycle, at a glance">
+        <p>PSEmine units are virtual campaign-capacity tools, not physical mining rigs. Starter, Builder and Advanced follow this cycle:</p>
+        <PseFacts cols={2}>
+          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
+          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
+          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
+          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
+        </PseFacts>
+        <p>The 6-hour window is not extra earning time. Maintenance does not create a reward. Elite operates continuously while the campaign is active. The GBP/hour figure is a campaign accounting rate; earnings are not guaranteed.</p>
       </PseNotice>
 
       <PseStatBar cols={4}>
@@ -357,8 +364,15 @@ export const PSEMineTools: React.FC = () => {
         </div>
       </section>
 
-      <PseNotice tone="attention" title="How campaign tools operate">
-        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+      <PseNotice tone="attention" title="Your tool cycle, at a glance">
+        <p>PSEmine units are virtual campaign-capacity tools, not physical mining rigs. Starter, Builder and Advanced follow this cycle:</p>
+        <PseFacts cols={4}>
+          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
+          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
+          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
+          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
+        </PseFacts>
+        <p>The 6-hour window is not extra earning time. Maintenance does not create a reward. Elite operates continuously while the campaign is active. The GBP/hour figure is a campaign accounting rate; earnings are not guaranteed.</p>
       </PseNotice>
 
       <PseStatBar cols={4}>
@@ -495,7 +509,7 @@ export const PSEMineTools: React.FC = () => {
           </div>
           <div className="pse-marketplace-footnote">
             <strong>Operating rules</strong>
-            <span>Session tools run a 24-hour cycle, then enter the backend-controlled restart / maintenance lifecycle. Each owned unit shows its backend-reported restart delay and scheduled next-start time; the catalogue default is {TOOLS[0].operating.restartDelayMinutes} minutes.</span>
+            <span>Starter, Builder and Advanced run for 24 hours. After a session ends, you have 6 hours to request free manual maintenance. The next session is scheduled 10 minutes after that request; no rewards accrue during this delay. Each owned unit shows its backend-reported timing.</span>
             <span>Elite tools operate continuously while campaign mining is enabled. Displayed specifications are catalogue definitions; live state and timing are always taken from your account’s backend records.</span>
           </div>
         </section>

@@ -217,7 +217,7 @@ const SECTIONS: GuideSection[] = [
     title: 'Session and continuous units',
     tag: 'Operations',
     keywords: 'duty cycle session continuous restart maintenance operating uptime',
-    summary: 'Units run on one of two operating models, and the model decides whether you have to restart anything.',
+    summary: 'Starter, Builder and Advanced use a 24-hour session cycle with free manual maintenance. Elite operates continuously while the campaign is active.',
     visual: (
       <PseFacts cols={1}>
         <PseFact label="Session units" value="Starter, Builder and Advanced mine in fixed sessions, then stop until restarted." text />
@@ -230,10 +230,10 @@ const SECTIONS: GuideSection[] = [
       </PseFacts>
     ),
     details: [
-      'Session units stop at the end of a session. Restarting schedules the next session after a short backend-owned delay.',
-      'Continuous units keep operating while the campaign is active; there is no restart control to miss.',
-      'Nothing accrues for a unit that is not operating, and past accrual is never removed because a unit stopped.',
-      'The state of each owned unit — operating, restarting, cycle complete or maintenance required — is shown on the Tools page.',
+      'Starter, Builder and Advanced stop earning when their 24-hour session ends. You then have a 6-hour grace window to request free manual maintenance; this is not extra earning time.',
+      'After you request maintenance, the next session is scheduled 10 minutes later. No rewards accrue during this restart delay.',
+      'If the 6-hour window passes, the tool remains paused until you maintain it. It does not restart by itself.',
+      'Elite operates continuously while the campaign is active and does not use this manual maintenance cycle. Live states and countdowns come from your account records.',
     ],
     action: { to: '/mine/tools', label: 'Manage owned units' },
   },

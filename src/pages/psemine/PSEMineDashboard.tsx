@@ -380,7 +380,7 @@ export const PSEMineDashboard: React.FC = () => {
                           busy={restarting === tool.id}
                           disabled={restarting !== null}
                         >
-                          {restarting === tool.id ? 'Requesting…' : 'Restart'}
+                          {restarting === tool.id ? 'Requesting…' : 'Maintain & restart · Free'}
                         </PseButton>
                       ) : undefined}
                     />

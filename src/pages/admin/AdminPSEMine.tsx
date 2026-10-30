@@ -144,6 +144,14 @@ export const AdminPSEMine: React.FC = () => {
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
   const [receiverWalletInput, setReceiverWalletInput] = useState('');
   const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
+  const [receiverWalletConfig, setReceiverWalletConfig] = useState<{
+    receiverWalletAddress: string;
+    receiverWalletConfigured: boolean;
+    receiverWalletConfiguredAt: string | null;
+    receiverWalletConfiguredBy: boolean;
+    purchaseReady: boolean;
+    paymentChainId?: number;
+  } | null>(null);
   const [receiverConfirmationOverride, setReceiverConfirmationOverride] = useState<boolean | null>(null);
   const [walletSaveBusy, setWalletSaveBusy] = useState(false);
   const [walletAcknowledged, setWalletAcknowledged] = useState(false);
@@ -179,7 +187,20 @@ export const AdminPSEMine: React.FC = () => {
       if (pseRes.ok) {
         const d = await pseRes.json().catch(() => ({}));
         setMineOverview(d?.stats || {});
-      } else { setMineOverview({}); unavailable.push('tool/session metrics'); }
+        const config = d?.campaign;
+        setReceiverWalletConfig(config && typeof config === 'object' ? {
+          receiverWalletAddress: String(config.receiverWalletAddress || ''),
+          receiverWalletConfigured: config.receiverWalletConfigured === true,
+          receiverWalletConfiguredAt: config.receiverWalletConfiguredAt || null,
+          receiverWalletConfiguredBy: config.receiverWalletConfiguredBy === true,
+          purchaseReady: config.purchaseReady === true,
+          paymentChainId: typeof config.paymentChainId === 'number' ? config.paymentChainId : undefined,
+        } : null);
+      } else {
+        setMineOverview({});
+        setReceiverWalletConfig(null);
+        unavailable.push('tool/session metrics and campaign payment configuration');
+      }
 
       if (recRes.ok) {
         const d = await recRes.json().catch(() => ({}));
@@ -222,18 +243,24 @@ export const AdminPSEMine: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    const configured = String(campaign?.receiverWalletAddress || '');
+    if (!receiverWalletConfig) {
+      setReceiverWalletCurrent('');
+      setReceiverWalletInput('');
+      setReceiverConfirmationOverride(null);
+      return;
+    }
+    const configured = receiverWalletConfig.receiverWalletAddress;
     setReceiverWalletCurrent(configured);
     setReceiverWalletInput(configured);
     setReceiverConfirmationOverride(null);
-  }, [campaign?.receiverWalletAddress, campaign?.receiverWalletConfiguredAt]);
+  }, [receiverWalletConfig]);
 
   // Existing campaign documents may still contain the former bootstrap value.
   // A fresh super-admin save must explicitly attest to the destination once.
   const receiverIsConfirmed = receiverConfirmationOverride ?? (
-    campaign?.receiverWalletConfigured === true
-    && Boolean(campaign?.receiverWalletConfiguredAt)
-    && Boolean(campaign?.receiverWalletConfiguredBy)
+    receiverWalletConfig?.receiverWalletConfigured === true
+    && Boolean(receiverWalletConfig?.receiverWalletConfiguredAt)
+    && receiverWalletConfig?.receiverWalletConfiguredBy === true
   );
   const receiverNeedsConfirmation = !receiverIsConfirmed;
 
@@ -302,6 +329,14 @@ export const AdminPSEMine: React.FC = () => {
       toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
+      setReceiverWalletConfig({
+        receiverWalletAddress: address,
+        receiverWalletConfigured: true,
+        receiverWalletConfiguredAt: new Date().toISOString(),
+        receiverWalletConfiguredBy: true,
+        purchaseReady: true,
+        paymentChainId: receiverWalletConfig?.paymentChainId,
+      });
       setReceiverConfirmationOverride(true);
       setWalletAcknowledged(false);
       await load(true);
@@ -528,7 +563,7 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
-        <nav className="pse-ops-register-nav" aria-label="Operations registers">
+        <nav className="pse-ops-register-nav" aria-label="All PSEmine administration sections">
           <div className="pse-ops-tabs" role="tablist" aria-label="PSEmine operations">
             {SECTIONS.map(s => (
               <button
@@ -537,7 +572,7 @@ export const AdminPSEMine: React.FC = () => {
                 role="tab"
                 aria-selected={activeSection === s.id}
                 aria-controls={`ops-${s.id}`}
-                onClick={() => setActiveSection(s.id)}
+                onClick={() => { setActiveSection(s.id); document.getElementById(`ops-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                 className={`pse-ops-tab ${activeSection === s.id ? 'is-active' : ''}`}
               >
                 {s.label}
@@ -562,7 +597,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 01 · CAMPAIGN ───────────────────────────────────────────────── */}
-        {activeSection === 'campaign' && (
+        {true && (
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
             <PseFacts cols={3}>
@@ -607,7 +642,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
 
-        {activeSection === 'lifecycle' && (
+        {true && (
           <div id="ops-lifecycle" className="scroll-mt-24">
             <PseSection title="Campaign lifecycle" meta="Schedule, pause, resume or settle the campaign">
 
@@ -673,7 +708,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 02 · PAYMENT VERIFICATION ───────────────────────────────────── */}
-        {activeSection === 'payments' && (
+        {true && (
         <div id="ops-payments" className="scroll-mt-24">
           <PseSection
             title="Payment verification"
@@ -750,7 +785,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 03 · TOOL REGISTER ──────────────────────────────────────────── */}
-        {activeSection === 'tools' && (
+        {true && (
         <div id="ops-tools" className="scroll-mt-24">
           <PseSection
             title="Tool register"
@@ -786,7 +821,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
-        {activeSection === 'purchases' && (
+        {true && (
         <div id="ops-purchases" className="scroll-mt-24">
           <PseSection title="Payments & order intents" meta="Confirmed payments are separate from order intents">
             <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
@@ -880,7 +915,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 05 · PAYOUTS ────────────────────────────────────────────────── */}
-        {activeSection === 'payouts' && (
+        {true && (
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
@@ -960,7 +995,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
-        {activeSection === 'audit' && (
+        {true && (
         <div id="ops-audit" className="scroll-mt-24">
           <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
             {auditRows.length === 0 ? (
@@ -987,7 +1022,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 08 · CONFIGURATION ─────────────────────────────────────────── */}
-        {activeSection === 'settings' && (
+        {true && (
         <div id="ops-settings" className="scroll-mt-24 pse-ops-settings">
           <PseSection title="Payment configuration" meta="Campaign-level receiving destination · super-admin only">
             {!canConfigureReceiverWallet && (
@@ -1038,7 +1073,7 @@ export const AdminPSEMine: React.FC = () => {
             <PseFacts cols={2}>
               <PseFact label="Payment network" value="BNB Smart Chain" text />
               <PseFact label="Payment asset" value="BNB" text />
-              <PseFact label="Chain ID" value={String(campaign?.paymentChainId ?? '—')} text />
+              <PseFact label="Chain ID" value={String(receiverWalletConfig?.paymentChainId ?? '—')} text />
               <PseFact label="Tool prices and rates" value="Locked campaign economics" text hint="Not editable here; backend remains authoritative." />
             </PseFacts>
             <PseNotice tone="attention">The receiving wallet is distinct from payout destinations used when paying users. This setting does not transfer funds, move collected assets, or modify existing purchase records.</PseNotice>

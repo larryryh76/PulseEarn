@@ -168,12 +168,14 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   // the legacy PulseEarn admin chrome (green status styles, old sidebar and spacing).
   if (pathname === '/admin/mine') {
     const mineNav = [
-      { label: 'Campaign', href: '#ops-campaign', icon: Pickaxe },
+      { label: 'Overview', href: '#ops-campaign', icon: Pickaxe },
+      { label: 'Lifecycle', href: '#ops-lifecycle', icon: Activity },
       { label: 'Payment verification', href: '#ops-payments', icon: CreditCard },
       { label: 'Tool register', href: '#ops-tools', icon: Zap },
       { label: 'Purchases', href: '#ops-purchases', icon: Activity },
       { label: 'Payout review', href: '#ops-payouts', icon: ShieldCheck },
       { label: 'Audit trail', href: '#ops-audit', icon: FileText },
+      { label: 'Configuration', href: '#ops-settings', icon: Settings },
     ];
     return (
       <div className="pse-ops-frame">
@@ -186,25 +188,24 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="pse-ops-rail-label">CONTROL ROOM</div>
           <nav className="pse-ops-local-nav">
             {mineNav.map((item, index) => (
-              <a key={item.href} href={item.href} className={index === 0 ? 'is-current' : ''}>
+              <a key={item.href} href={item.href}>
                 <item.icon size={16} /><span>{item.label}</span><span className="pse-ops-nav-index">{String(index + 1).padStart(2, '0')}</span>
               </a>
             ))}
           </nav>
           <div className="pse-ops-rail-bottom">
             <div className="pse-ops-identity"><span className="pse-ops-avatar">{(userData?.username || 'A').slice(0, 1).toUpperCase()}</span><span><strong>{userData?.username || 'Administrator'}</strong><small>{currentUser?.email || 'Authenticated session'}</small></span></div>
-            <Link to="/admin/overview" className="pse-ops-back"><LayoutGrid size={15} /> PulseEarn admin <ChevronRight size={15} /></Link>
             <button className="pse-ops-signout" onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
           </div>
         </aside>
         <div className="pse-ops-workspace">
           <header className="pse-ops-topbar">
             <div className="pse-ops-crumbs"><span>OPERATIONS</span><ChevronRight size={13} /><strong>PSEmine / 90-day campaign</strong></div>
-            <div className="pse-ops-topbar-right"><span className={systemStatus === 'ONLINE' ? 'pse-ops-health is-online' : 'pse-ops-health is-attention'}><span />{systemStatus === 'ONLINE' ? 'SYSTEM ONLINE' : systemStatus === 'OFFLINE' ? 'SYSTEM OFFLINE' : 'SYSTEM CHECK'}</span><span className="pse-ops-admin-pill"><ShieldCheck size={14} /> ADMIN</span></div>
+            <div className="pse-ops-topbar-right"><span className={systemStatus === 'ONLINE' ? 'pse-ops-health is-online' : 'pse-ops-health is-attention'}><span />{systemStatus === 'ONLINE' ? 'SYSTEM ONLINE' : systemStatus === 'OFFLINE' ? 'SYSTEM OFFLINE' : 'SYSTEM CHECK'}</span><span className="pse-ops-admin-pill"><ShieldCheck size={14} /> {role === 'super_admin' || userData?.isRoot === true ? 'SUPER ADMIN' : 'ADMIN'}</span></div>
           </header>
           <main className="pse-ops-content"><AdminErrorBoundary><div className="pse-ops-content-inner">{children}</div></AdminErrorBoundary></main>
           <nav className="pse-ops-mobile-dock" aria-label="PSEmine operations sections">
-            {mineNav.filter((_, index) => [0, 1, 2, 4, 5].includes(index)).map(item => <a key={item.href} href={item.href}><item.icon size={17} /><span>{item.label === 'Payment verification' ? 'Payments' : item.label === 'Payout review' ? 'Payouts' : item.label === 'Audit trail' ? 'Audit' : item.label}</span></a>)}
+            {mineNav.filter((_, index) => [0, 1, 2, 3, 7].includes(index)).map(item => <a key={item.href} href={item.href}><item.icon size={17} /><span>{item.label === 'Payment verification' ? 'Payments' : item.label === 'Configuration' ? 'Config' : item.label}</span></a>)}
           </nav>
         </div>
       </div>

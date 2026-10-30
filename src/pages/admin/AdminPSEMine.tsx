@@ -428,8 +428,12 @@ export const AdminPSEMine: React.FC = () => {
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   }, [mineOverview]);
 
-  const numOrDash = (v: number | null, format?: (n: number) => string): string =>
-    v === null ? '—' : format ? format(v) : String(v);
+  const numOrDash = (value: number | string | null | undefined, format?: (n: number) => string): string => {
+    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return '—';
+    const numericValue = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numericValue)) return '—';
+    return format ? format(numericValue) : String(numericValue);
+  };
 
   const visibleOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();

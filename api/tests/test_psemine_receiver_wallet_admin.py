@@ -162,6 +162,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("priceGbp", overview)
         self.assertIn("psemine_orders", overview)
         self.assertIn("income_complete", overview)
+        self.assertIn("toolIncomeComplete", overview)
+        self.assertIn("Reconciliation incomplete", ADMIN_SOURCE)
         self.assertIn("Never present a partial sum as lifetime income.", overview)
         self.assertIn("activeMiningSessions", overview)
         self.assertIn("activeToolOwnerships", overview)

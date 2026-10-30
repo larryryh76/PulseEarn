@@ -422,7 +422,7 @@ export const PSEMineTools: React.FC = () => {
 
       {walletSetupRequired && (
         <PseNotice tone="attention" title="Purchases temporarily disabled">
-          Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet. No payment can be started or accepted before this setup is complete.
+          Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet. No payment can be started or accepted before this setup is complete.
         </PseNotice>
       )}
 

@@ -231,7 +231,7 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
             "durationDays": 90, "currencyDisplay": "GBP",
             "paymentNetwork": "BNB Smart Chain", "paymentChainId": 56,
             "paymentAsset": "BNB",
-            "receiverWalletAddress": "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33",
+            "receiverWalletAddress": "0x2222222222222222222222222222222222222222",
             "walletChangeDeadline": "2026-03-29T00:00:00+00:00",
             "purchaseEnabled": True, "miningEnabled": True, "referralEnabled": True,
             "totalCapacitiesRegisteredGBPPerHour": 42.5, "totalAccruedLiabilityGBP": 912.75,

@@ -279,7 +279,7 @@ export const PSEMineTools: React.FC = () => {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
         <PseNotice tone="attention" title="How campaign tools operate">
-        PSEmine tools are virtual campaign-capacity units, not physical ASIC hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+        PSEmine tools are virtual campaign-capacity units, not physical mining hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
       </PseNotice>
 
       <PseStatBar cols={4}>

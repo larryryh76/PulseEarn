@@ -391,7 +391,7 @@ export const PSEMineTools: React.FC = () => {
                 if (def) setPurchasing(def);
               }}
             >
-              Continue this purchase
+              {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
             </button>
           )}
         </PseNotice>
@@ -936,10 +936,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Recovered purchase: a transaction was already submitted ── */}
       {showingRecovery && resume?.kind === 'submitted' && (
-        <PseSection title={resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
+        <PseSection title={resume.purchase.status === 'manual_review' ? 'Payment under manual review' : resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
           <p className="pse-prose">
-            {tool.name} — a transaction was submitted for this purchase and the backend is verifying it on
-            BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.
+            {resume.purchase.status === 'manual_review'
+              ? `${tool.name} — your transaction hash is recorded, but the purchase is waiting for an administrator to attach the recovery case. No second payment is needed.`
+              : `${tool.name} — a transaction was submitted for this purchase and the backend is verifying it on BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.`}
           </p>
           {resume.purchase.transactionHash && (
             <p className="text-sm">
@@ -949,8 +950,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </p>
           )}
           <PseNotice tone="attention">
-            The backend needs a few block confirmations before the tool activates. Do not send the payment again — the
-            same transaction hash is reused for every verification check.
+            {resume.purchase.status === 'manual_review'
+              ? 'This payment is held for admin review. Once the recovery case is attached to this exact purchase, use Check verification again. Do not send another payment.'
+              : 'The backend needs a few block confirmations before the tool activates. Do not send the payment again — the same transaction hash is reused for every verification check.'}
           </PseNotice>
           <div className="flex flex-wrap gap-2">
             <PseButton onClick={() => void recheckRecovered()} disabled={rechecking || !resume.purchase.transactionHash}>

@@ -563,7 +563,7 @@ export const AdminPSEMine: React.FC = () => {
 
         {/* Section rail — in-page, because this is one console with six
             registers rather than six routes. */}
-        <nav className="pse-ops-register-nav" aria-label="Operations registers">
+        <nav className="pse-ops-register-nav" aria-label="All PSEmine administration sections">
           <div className="pse-ops-tabs" role="tablist" aria-label="PSEmine operations">
             {SECTIONS.map(s => (
               <button
@@ -572,7 +572,7 @@ export const AdminPSEMine: React.FC = () => {
                 role="tab"
                 aria-selected={activeSection === s.id}
                 aria-controls={`ops-${s.id}`}
-                onClick={() => setActiveSection(s.id)}
+                onClick={() => { setActiveSection(s.id); document.getElementById(`ops-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                 className={`pse-ops-tab ${activeSection === s.id ? 'is-active' : ''}`}
               >
                 {s.label}
@@ -597,7 +597,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 01 · CAMPAIGN ───────────────────────────────────────────────── */}
-        {activeSection === 'campaign' && (
+        {true && (
         <div id="ops-campaign" className="scroll-mt-24">
           <PseSection title="Campaign" meta="psemine_campaigns/active_campaign">
             <PseFacts cols={3}>
@@ -642,7 +642,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
 
-        {activeSection === 'lifecycle' && (
+        {true && (
           <div id="ops-lifecycle" className="scroll-mt-24">
             <PseSection title="Campaign lifecycle" meta="Schedule, pause, resume or settle the campaign">
 
@@ -708,7 +708,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 02 · PAYMENT VERIFICATION ───────────────────────────────────── */}
-        {activeSection === 'payments' && (
+        {true && (
         <div id="ops-payments" className="scroll-mt-24">
           <PseSection
             title="Payment verification"
@@ -785,7 +785,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 03 · TOOL REGISTER ──────────────────────────────────────────── */}
-        {activeSection === 'tools' && (
+        {true && (
         <div id="ops-tools" className="scroll-mt-24">
           <PseSection
             title="Tool register"
@@ -821,7 +821,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 04 · PURCHASES ──────────────────────────────────────────────── */}
-        {activeSection === 'purchases' && (
+        {true && (
         <div id="ops-purchases" className="scroll-mt-24">
           <PseSection title="Payments & order intents" meta="Confirmed payments are separate from order intents">
             <div className="pse-ops-subtabs" role="tablist" aria-label="Payment records">
@@ -915,7 +915,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 05 · PAYOUTS ────────────────────────────────────────────────── */}
-        {activeSection === 'payouts' && (
+        {true && (
         <div id="ops-payouts" className="scroll-mt-24">
           <PseSection
             title="Payout review"
@@ -995,7 +995,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 06 · AUDIT ──────────────────────────────────────────────────── */}
-        {activeSection === 'audit' && (
+        {true && (
         <div id="ops-audit" className="scroll-mt-24">
           <PseSection title="Administrative audit trail" meta="Latest 50 server-written records · read-only">
             {auditRows.length === 0 ? (
@@ -1022,7 +1022,7 @@ export const AdminPSEMine: React.FC = () => {
         )}
 
         {/* ── 08 · CONFIGURATION ─────────────────────────────────────────── */}
-        {activeSection === 'settings' && (
+        {true && (
         <div id="ops-settings" className="scroll-mt-24 pse-ops-settings">
           <PseSection title="Payment configuration" meta="Campaign-level receiving destination · super-admin only">
             {!canConfigureReceiverWallet && (

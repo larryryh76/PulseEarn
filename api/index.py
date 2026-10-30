@@ -7553,122 +7553,12 @@ def psemine_sync_session():
 @verify_token
 @require_db
 def psemine_create_withdrawal():
-    """Create backend-validated withdrawal request."""
-    db = get_db()
-    uid = request.user['uid']
-    data = request.json or {}
-
-    amount_gbp = safe_float(data.get('amountGbp'), 0.0)
-    payout_address = (data.get('payoutAddress') or '').strip()
-
-    if amount_gbp < 10.0:
-        return jsonify({"success": False, "error": "BELOW_THRESHOLD", "message": "Minimum withdrawal amount is £10.00 GBP."}), 400
-
-    if not payout_address or not payout_address.startswith('0x') or len(payout_address) != 42:
-        return jsonify({"success": False, "error": "INVALID_ADDRESS", "message": "Valid BEP-20 address (0x...) required."}), 400
-
-    # Campaign gating: user payout requests are blocked while the campaign is live.
-    import psemine_engine as _pse_engine
-    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
-    if _eff in ('active', 'paused'):
-        return jsonify({"success": False, "error": "CAMPAIGN_ACTIVE", "message": "Withdrawals open after the campaign ends and balances are finalized."}), 403
-
-    # 1. Canonical ledger balance (accruedMinor) + legacy read-model, minus payouts.
-    # (B1) _legacy_balance_minor returns 0 once absorbed — legacy counted EXACTLY ONCE.
-    _u = db.collection('psemine_users').document(uid).get().to_dict() or {}
-    _ledger_rows = _pse_engine.payout_ledger_rows(db, uid)
-    _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
-    accumulated_output = _pse_engine.available_balance_minor(
-        int(_u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
-        legacy_accrued_minor=_pse_engine._legacy_balance_minor(_u),
-    ) / 100.0
-
-    # 1b. Balance gate: payout requests require an operating mining tool
-    # (canonical rule: ownership persists, but payouts require active mining state).
-    _op = db.collection('psemine_tool_ownership').where('userId', '==', uid).where('status', '==', 'active').limit(1).get()
-    if not list(_op):
-        return jsonify({"success": False, "error": "NO_OPERATING_TOOL", "message": "An operating mining tool is required."}), 403
-
-    # 2. Sum existing pending / approved / processing / completed withdrawals
-    wd_snaps = db.collection('psemine_withdrawals') \
-        .where('userId', '==', uid) \
-        .get()
-
-    # (B-F1 composition) accumulated_output is ALREADY the canonical NET
-    # available balance (canonical debits net of reversals + genuine legacy
-    # debits, each exactly once). The withdrawn_total loop previously
-    # subtracted the same payouts a SECOND time here. It is kept ONLY for the
-    # pending-request guard, never for balance math.
-    has_pending = False
-
-    for w_doc in wd_snaps:
-        st = (w_doc.to_dict() or {}).get('status')
-        if st in ('pending', 'under_review', 'processing'):
-            has_pending = True
-            break
-
-    if has_pending:
-        return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
-
-    available_balance = max(0.0, accumulated_output)
-    if amount_gbp > available_balance:
-        return jsonify({
-            "success": False,
-            "error": "INSUFFICIENT_OUTPUT_BALANCE",
-            "message": f"Insufficient available mining balance (£{available_balance:.2f} GBP available)."
-        }), 400
-
-    # Create Pending Withdrawal Record inside transaction
-    wd_ref = db.collection('psemine_withdrawals').document()
-    wd_payload = {
-        'id': wd_ref.id,
-        'userId': uid,
-        'amountGbp': round(amount_gbp, 2),
-        'amountMinor': int(round(amount_gbp * 100)),
-        'payoutAddress': payout_address,
-        'status': 'pending',
-        'createdAt': firestore.SERVER_TIMESTAMP,
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    }
-
-    @firestore.transactional
-    def process_withdrawal_creation(txn):
-        pending_check = db.collection('psemine_withdrawals').where('userId', '==', uid).where('status', '==', 'pending').get(transaction=txn)
-        if pending_check:
-            raise Exception("PENDING_WITHDRAWAL_EXISTS")
-        txn.set(wd_ref, wd_payload)
-
-    try:
-        process_withdrawal_creation(db.transaction())
-    except Exception as e:
-        if "PENDING_WITHDRAWAL_EXISTS" in str(e):
-            return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
-        return jsonify({"success": False, "error": "WITHDRAWAL_FAILED", "message": str(e)}), 400
-
-    # Record Activity & Notification
-    act_ref = db.collection('psemine_activities').document()
-    act_ref.set({
-        'id': act_ref.id,
-        'userId': uid,
-        'type': 'WITHDRAWAL_REQUESTED',
-        'title': f"Withdrawal Requested (£{amount_gbp:.2f})",
-        'description': f"Submitted payout request to {payout_address[:6]}...{payout_address[-4:]}. Pending admin review.",
-        'metadata': {'withdrawalId': wd_ref.id, 'payoutAddress': payout_address, 'amountGbp': amount_gbp},
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    })
-
-    notif_ref = db.collection('psemine_notifications').document()
-    notif_ref.set({
-        'id': notif_ref.id,
-        'userId': uid,
-        'type': 'withdrawal',
-        'title': 'Withdrawal Under Review',
-        'message': f"Your payout request of £{amount_gbp:.2f} to {payout_address[:6]}...{payout_address[-4:]} is pending admin review.",
-        'read': False,
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    })
-
-    return jsonify({"success": True, "withdrawal": wd_payload})
+    """Retired legacy payout writer. All payouts must use the canonical quoted flow."""
+    return jsonify({
+        "success": False,
+        "error": "LEGACY_PAYOUT_DISABLED",
+        "message": "This legacy payout endpoint is disabled. Use the current PSEmine wallet withdrawal flow so the BNB amount is locked before any debit is created.",
+    }), 410
 
 @app.route('/api/admin/psemine/overview', methods=['GET'])
 @verify_token

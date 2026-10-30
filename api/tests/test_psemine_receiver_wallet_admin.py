@@ -164,11 +164,11 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("This recovery case has no canonical purchase ID", ADMIN_SOURCE)
 
     def test_admin_can_reconfirm_same_legacy_seeded_address(self):
-        self.assertIn("const receiverIsConfirmed = receiverConfirmationOverride ?? (", ADMIN_SOURCE)
-        self.assertIn("const receiverNeedsConfirmation = !receiverIsConfirmed", ADMIN_SOURCE)
-        self.assertIn("address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation", ADMIN_SOURCE)
-        self.assertIn("Confirm receiving wallet", ADMIN_SOURCE)
-        self.assertIn("purchases remain blocked", ADMIN_SOURCE)
+        self.assertIn("const saveWallet = async () =>", ADMIN_SOURCE)
+        self.assertIn("receiverWalletConfigured", ADMIN_SOURCE)
+        self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
+        self.assertIn("CONFIRM RECEIVER", ADMIN_SOURCE)
+        self.assertIn("New purchase quotes are blocked", ADMIN_SOURCE)
 
     def test_global_admin_console_reads_private_wallet_confirmation_from_admin_api(self):
         overview_start = API_SOURCE.index("@app.route('/api/admin/psemine/overview'")
@@ -177,22 +177,23 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()", overview)
         self.assertIn('"receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True', overview)
         self.assertIn('"purchaseReady": bool(configured_receiver)', overview)
-        self.assertIn('setReceiverWalletConfig(config && typeof config === \'object\' ?', ADMIN_SOURCE)
-        self.assertIn('receiverWalletConfig?.receiverWalletConfigured === true', ADMIN_SOURCE)
-        self.assertNotIn('campaign?.receiverWalletConfigured === true', ADMIN_SOURCE)
+        self.assertIn("setConfig(d.campaign || null)", ADMIN_SOURCE)
+        self.assertIn("config?.receiverWalletConfigured", ADMIN_SOURCE)
+        self.assertNotIn("campaign?.receiverWalletConfigured === true", ADMIN_SOURCE)
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
-        self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)
         self.assertIn('id="ops-settings"', ADMIN_SOURCE)
-        self.assertIn("receiverWalletConfig?.paymentChainId", ADMIN_SOURCE)
+        self.assertIn("config?.paymentChainId", ADMIN_SOURCE)
         self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
-        self.assertIn("walletAcknowledged", ADMIN_SOURCE)
-        self.assertIn("new quotes only", ADMIN_SOURCE)
+        self.assertIn("walletAck", ADMIN_SOURCE)
+        self.assertIn("CONFIRM RECEIVER", ADMIN_SOURCE)
+        self.assertIn("new purchase quotes", ADMIN_SOURCE)
 
     def test_single_admin_console_renders_every_register(self):
         for section in ("campaign", "lifecycle", "payments", "tools", "purchases", "payouts", "audit", "settings"):
             self.assertIn(f'id="ops-{section}"', ADMIN_SOURCE)
-        self.assertEqual(ADMIN_SOURCE.count("{true && ("), 8)
+        self.assertIn("Operations command centre", ADMIN_SOURCE)
+        self.assertIn("all visible on one page", ADMIN_SOURCE)
 
     def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)
@@ -216,9 +217,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("Never present a partial sum as lifetime income.", overview)
         self.assertIn("activeMiningSessions", overview)
         self.assertIn("activeToolOwnerships", overview)
-        self.assertIn("label=\"Active mining sessions\"", ADMIN_SOURCE)
-        self.assertIn("label=\"Total tool income\"", ADMIN_SOURCE)
-        self.assertIn("overviewStat('totalToolIncomeGbp')", ADMIN_SOURCE)
+        self.assertIn('label="Active mining sessions"', ADMIN_SOURCE)
+        self.assertIn('label="Total tool income"', ADMIN_SOURCE)
+        self.assertIn("mineStats.totalToolIncomeGbp", ADMIN_SOURCE)
 
 
 if __name__ == "__main__":

@@ -168,7 +168,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("receiverWalletConfigured", ADMIN_SOURCE)
         self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
         self.assertIn("CONFIRM RECEIVER", ADMIN_SOURCE)
-        self.assertIn("New purchase quotes are blocked", ADMIN_SOURCE)
+        self.assertIn("New tool purchase quotes are blocked", ADMIN_SOURCE)
 
     def test_global_admin_console_reads_private_wallet_confirmation_from_admin_api(self):
         overview_start = API_SOURCE.index("@app.route('/api/admin/psemine/overview'")

@@ -90,7 +90,7 @@ export const AdminPSEMine: React.FC = () => {
   const [config, setConfig] = useState<Row | null>(null);
   // Permissions are read from the authenticated admin API, not inferred from a
   // potentially stale client-side profile snapshot.
-  const isSuperAdmin = config?.canConfigureReceiverWallet === true;
+  const canConfigureReceiverWallet = config?.canConfigureReceiverWallet === true;
   const isAdmin = config?.canManageCampaign === true;
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
@@ -149,9 +149,17 @@ export const AdminPSEMine: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     const q = orderQuery.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter(r => [r.id, r.orderId, r.userId, r.toolId, r.toolName, r.status, r.txHash, r.transactionHash].some(v => String(v || '').toLowerCase().includes(q)));
-  }, [orders, orderQuery]);
+    const verifiedOrderIds = new Set(payments.map(payment => String(payment.orderId || '')).filter(Boolean));
+    return orders.filter(order => {
+      const status = String(order.status || '').toLowerCase();
+      // A legacy order marked "paid" is not payment evidence. It is shown as
+      // paid only when the independent BSC receipt ledger contains its order ID.
+      if (['paid', 'confirmed', 'completed', 'verified', 'success'].includes(status)
+          && !verifiedOrderIds.has(String(order.id || order.orderId || ''))) return false;
+      return !q || [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
+        .some(value => String(value || '').toLowerCase().includes(q));
+    });
+  }, [orders, orderQuery, payments]);
 
   const runCampaignAction = async (action: string) => {
     if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }
@@ -174,7 +182,7 @@ export const AdminPSEMine: React.FC = () => {
   };
 
   const saveWallet = async () => {
-    if (!isSuperAdmin) { toast.error('Your account needs the super-admin role to configure the campaign receiver.'); return; }
+    if (!canConfigureReceiverWallet) { toast.error('Your account needs platform admin permission to configure the campaign receiver.'); return; }
     const address = walletInput.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) { toast.error('Enter a valid, non-zero BNB Smart Chain address.'); return; }
     if (!walletAck) { toast.error('Confirm that you verified the receiving wallet and network.'); return; }
@@ -280,14 +288,14 @@ export const AdminPSEMine: React.FC = () => {
           <Panel id="ops-settings" title="Purchase receiving wallet" detail="Campaign receiving destination — not a user's personal payout wallet and distinct from payout destinations.">
             <div className="flex flex-wrap items-center justify-between gap-2"><Pill value={config?.purchaseReady ? 'Purchases enabled' : 'Purchases blocked'} /><span className="text-[11px] text-slate-500">Network ID: {config?.paymentChainId ?? 56}</span></div>
             <div className="mt-3 break-all rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-cyan-100">{config?.receiverWalletAddress || 'No receiving address is configured'}</div>
-            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The address has not been confirmed by a super-admin. New tool purchase quotes are blocked.'}</div>
-            {!isSuperAdmin && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Super-admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The backend only permits role super_admin or isRoot=true to change the campaign receiving wallet. A page redesign cannot override this security rule; the account must be granted the correct role by an authorised identity administrator.</div>}
+            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The address has not been confirmed by a admin. New tool purchase quotes are blocked.'}</div>
+            {!canConfigureReceiverWallet && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The backend only permits role super_admin or isRoot=true to change the campaign receiving wallet. A page redesign cannot override this security rule; the account must be granted the correct role by an authorised identity administrator.</div>}
             <label className="mt-4 block text-xs font-medium text-slate-300">BNB Smart Chain receiving address</label>
-            <input value={walletInput} onChange={e => setWalletInput(e.target.value)} placeholder="0x…" disabled={!isSuperAdmin || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-3 font-mono text-xs text-white outline-none focus:border-cyan-400/50 disabled:opacity-50" />
-            <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!isSuperAdmin || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
+            <input value={walletInput} onChange={e => setWalletInput(e.target.value)} placeholder="0x…" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-3 font-mono text-xs text-white outline-none focus:border-cyan-400/50 disabled:opacity-50" />
+            <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!canConfigureReceiverWallet || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
             <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
-            <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!isSuperAdmin || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
-            <button onClick={() => void saveWallet()} disabled={!isSuperAdmin || busy || !walletAck || walletPhrase !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
+            <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
+            <button onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
             <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
           </Panel>
         </div>
@@ -299,7 +307,7 @@ export const AdminPSEMine: React.FC = () => {
             <label className="text-xs text-slate-400 sm:col-span-2">Reason / audit note<input value={actionReason} onChange={e => setActionReason(e.target.value)} className="mt-1 block w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-white" /></label>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">{(['pause', 'resume', 'schedule', 'settle', 'shutdown'] as const).map(action => <button key={action} onClick={() => void runCampaignAction(action)} disabled={busy || !isAdmin} className={`rounded-lg border px-4 py-2.5 text-xs font-semibold capitalize disabled:opacity-40 ${action === 'shutdown' || action === 'settle' ? 'border-rose-400/30 bg-rose-400/10 text-rose-200' : action === 'resume' ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-100' : 'border-white/15 bg-white/5 text-slate-200'}`}>{action}</button>)}</div>
-          {!isAdmin && <p className="mt-3 text-xs text-amber-200">Admin or super-admin role required for lifecycle actions.</p>}
+          {!isAdmin && <p className="mt-3 text-xs text-amber-200">Admin or admin role required for lifecycle actions.</p>}
         </Panel>
 
         <Panel id="ops-tools" title="Tool register" detail="Published locked tool prices and capacity. Economics are read-only in this console.">

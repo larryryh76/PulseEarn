@@ -30,15 +30,15 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         if next_route >= 0:
             self.route = self.route[:next_route]
 
-    def test_wallet_change_uses_super_admin_gated_campaign_action(self):
+    def test_wallet_change_uses_platform_admin_gated_campaign_action(self):
         self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)
         self.assertIn("if not is_admin(uid)", self.route)
         self.assertIn("if action == 'set_receiver_wallet':", self.route)
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
-        self.assertIn("if not is_super_admin(uid)", wallet_action)
+        self.assertIn("if not is_admin(uid)", wallet_action)
 
-    def test_super_admin_role_is_authorized_by_backend_admin_gate(self):
-        self.assertIn("role in {'admin', 'super_admin'}", API_SOURCE)
+    def test_platform_admin_role_is_authorized_by_backend_admin_gate(self):
+        self.assertIn("return is_admin(uid)", API_SOURCE)
         self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
 
     def test_super_admin_role_is_preserved_by_auth_context(self):
@@ -51,7 +51,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
         self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)
-        self.assertIn("Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
+        self.assertIn("Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
         self.assertIn("campaign_state['purchaseReady']", API_SOURCE)
 
     def test_wallet_address_is_validated_and_zero_address_rejected(self):
@@ -178,7 +178,7 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn('"receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True', overview)
         self.assertIn('"purchaseReady": bool(configured_receiver)', overview)
         self.assertIn("setConfig(d.campaign || null)", ADMIN_SOURCE)
-        self.assertIn('"canConfigureReceiverWallet": is_super_admin(request.user["uid"])', overview)
+        self.assertIn('"canConfigureReceiverWallet": is_admin(request.user["uid"])', overview)
         self.assertIn("config?.canConfigureReceiverWallet === true", ADMIN_SOURCE)
         self.assertIn("config?.receiverWalletConfigured", ADMIN_SOURCE)
         self.assertNotIn("campaign?.receiverWalletConfigured === true", ADMIN_SOURCE)
@@ -196,6 +196,20 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
             self.assertIn(f'id="ops-{section}"', ADMIN_SOURCE)
         self.assertIn("Operations command centre", ADMIN_SOURCE)
         self.assertIn("all visible on one page", ADMIN_SOURCE)
+
+    def test_legacy_payment_shaped_rows_are_excluded_from_live_ledger(self):
+        self.assertIn("def _is_canonical_verified_psemine_payment(row):", API_SOURCE)
+        helper_start = API_SOURCE.index("def _is_canonical_verified_psemine_payment(row):")
+        helper_end = API_SOURCE.index("@app.route('/api/admin/psemine/overview'", helper_start)
+        helper = API_SOURCE[helper_start:helper_end]
+        for evidence in ("verificationSource", "bsc_rpc_receipt", "chain_id == PSEMINE_BSC_CHAIN_ID",
+                         "valid_hash", "valid_destination", "block_number > 0",
+                         "confirmations > 0", "paid_wei > 0", "price_gbp > 0"):
+            self.assertIn(evidence, helper)
+        payments_start = API_SOURCE.index("@app.route('/api/admin/psemine/payments'")
+        payments_end = API_SOURCE.index("@app.route(", payments_start + 1)
+        self.assertIn("_is_canonical_verified_psemine_payment(row)", API_SOURCE[payments_start:payments_end])
+        self.assertIn("_is_canonical_verified_psemine_payment(payment_row)", API_SOURCE)
 
     def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)

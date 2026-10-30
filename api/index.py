@@ -681,12 +681,8 @@ def is_admin(uid):
     return role in {'admin', 'super_admin'} or d.get('isRoot') is True
 
 def is_super_admin(uid):
-    """Only the explicitly privileged super-admin/root may set the payment receiver."""
-    d = _request_user_doc(uid)
-    if not d:
-        return False
-    role = str(d.get('role') or '').strip().lower().replace('-', '_')
-    return role == 'super_admin' or d.get('isRoot') is True
+    """Backward-compatible alias: PSEmine is operated by the platform admin role."""
+    return is_admin(uid)
 
 def has_psemine_access(uid):
     """B5: backend PSEmine entitlement check — THE authoritative source is the
@@ -7643,6 +7639,43 @@ def psemine_create_withdrawal():
         "message": "This legacy payout endpoint is disabled. Use the current PSEmine wallet withdrawal flow so the BNB amount is locked before any debit is created.",
     }), 410
 
+def _is_canonical_verified_psemine_payment(row):
+    """Accept only records carrying the complete evidence written by the BSC receipt verifier.
+
+    Older/demo/legacy payment-shaped documents are deliberately excluded from
+    the live payments ledger and lifetime income until they can be reconciled.
+    """
+    if not isinstance(row, dict):
+        return False
+    tx_hash = str(row.get('txHash') or '').strip()
+    destination = str(row.get('destinationAddress') or '').strip()
+    try:
+        chain_id = int(row.get('chainId'))
+        block_number = int(row.get('blockNumber'))
+        confirmations = int(row.get('confirmationDepth'))
+        paid_wei = int(row.get('paidWeiAmount'))
+        price_gbp = Decimal(str(row.get('priceGbp')))
+    except (TypeError, ValueError, ArithmeticError):
+        return False
+    valid_hash = (
+        len(tx_hash) == 66 and tx_hash.startswith('0x')
+        and all(char in '0123456789abcdefABCDEF' for char in tx_hash[2:])
+    )
+    valid_destination = (
+        len(destination) == 42 and destination.startswith('0x')
+        and all(char in '0123456789abcdefABCDEF' for char in destination[2:])
+        and destination.lower() != '0x' + ('0' * 40)
+    )
+    return bool(
+        row.get('status') == 'confirmed'
+        and row.get('verificationSource') == 'bsc_rpc_receipt'
+        and chain_id == PSEMINE_BSC_CHAIN_ID
+        and valid_hash and valid_destination
+        and block_number > 0 and confirmations > 0
+        and paid_wei > 0 and price_gbp.is_finite() and price_gbp > 0
+    )
+
+
 @app.route('/api/admin/psemine/overview', methods=['GET'])
 @verify_token
 @require_db
@@ -7669,19 +7702,21 @@ def admin_psemine_overview():
         "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
         # Return the effective backend permissions so the console never guesses
         # whether a cached client profile can perform a protected operation.
-        "canConfigureReceiverWallet": is_super_admin(request.user["uid"]),
+        "canConfigureReceiverWallet": is_admin(request.user["uid"]),
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
     try:
         orders_count = db.collection('psemine_orders').count().get()[0][0].value
         # Count only verified payments; payment documents can include failed attempts.
-        payments_count = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').count().get()[0][0].value
+        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').stream()
+        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
         ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
         sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
     except Exception:
         orders_count = len(db.collection('psemine_orders').get())
-        payments_count = len([p for p in db.collection('psemine_payments').where('status', '==', 'confirmed').get() if (p.to_dict() or {}).get('verificationSource') == 'bsc_rpc_receipt'])
+        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').get()
+        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
@@ -7701,6 +7736,8 @@ def admin_psemine_overview():
         )
         for payment_snap in verified_income_snaps:
             payment_row = payment_snap.to_dict() or {}
+            if not _is_canonical_verified_psemine_payment(payment_row):
+                continue
             gbp_amount = payment_row.get('priceGbp')
             if gbp_amount is None:
                 gbp_amount = payment_row.get('purchasePriceGbp')
@@ -7782,7 +7819,7 @@ def admin_psemine_payments():
             row = snap.to_dict() or {}
             # Defend the response contract even if a legacy/malformed document
             # slips through a test double or an inconsistent query result.
-            if row.get('status') != 'confirmed' or row.get('verificationSource') != 'bsc_rpc_receipt':
+            if not _is_canonical_verified_psemine_payment(row):
                 continue
             created_at = row.get('createdAt')
             confirmed_at = row.get('confirmedAt')
@@ -7796,7 +7833,7 @@ def admin_psemine_payments():
                 'paidBnbAmount': str(row.get('paidBnbAmount') or ''),
                 'asset': str(row.get('asset') or ''),
                 'chainId': row.get('chainId'),
-                'destination': str(row.get('destination') or ''),
+                'destination': str(row.get('destinationAddress') or ''),
                 'blockNumber': row.get('blockNumber'),
                 'status': 'confirmed',
                 'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
@@ -8866,9 +8903,9 @@ def admin_campaign_action():
         }), 400
 
     if action == 'set_receiver_wallet':
-        if not is_super_admin(uid):
-            return jsonify({"success": False, "error": "SUPER_ADMIN_REQUIRED",
-                            "message": "Only a super-admin can configure the campaign receiving wallet."}), 403
+        if not is_admin(uid):
+            return jsonify({"success": False, "error": "ADMIN_REQUIRED",
+                            "message": "An authenticated platform admin is required to configure the campaign receiving wallet."}), 403
         # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
         raw_address = data.get('receiverWalletAddress')
         if not isinstance(raw_address, str):

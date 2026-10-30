@@ -178,6 +178,8 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn('"receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True', overview)
         self.assertIn('"purchaseReady": bool(configured_receiver)', overview)
         self.assertIn("setConfig(d.campaign || null)", ADMIN_SOURCE)
+        self.assertIn('"canConfigureReceiverWallet": is_super_admin(request.user["uid"])', overview)
+        self.assertIn("config?.canConfigureReceiverWallet === true", ADMIN_SOURCE)
         self.assertIn("config?.receiverWalletConfigured", ADMIN_SOURCE)
         self.assertNotIn("campaign?.receiverWalletConfigured === true", ADMIN_SOURCE)
 

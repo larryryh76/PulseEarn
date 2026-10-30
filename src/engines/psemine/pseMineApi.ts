@@ -107,6 +107,9 @@ export interface PsePendingPurchase {
   chainId?: number;
   expiresAt?: string;
   transactionHash?: string | null;
+  recoveryCaseId?: string | null;
+  reviewReason?: string | null;
+  statusMessage?: string | null;
 }
 export interface PseState {
   success: boolean;

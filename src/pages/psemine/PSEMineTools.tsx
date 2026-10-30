@@ -278,7 +278,11 @@ export const PSEMineTools: React.FC = () => {
   if (loading && !state) {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
-        <PseStatBar cols={4}>
+        <PseNotice tone="attention" title="How campaign tools operate">
+        PSEmine tools are virtual campaign-capacity units, not physical ASIC hardware, rented hashpower or on-chain mining rigs. The GBP/hour figure is a campaign accounting rate. The backend controls accrual: Starter, Builder and Advanced run 24-hour sessions followed by maintenance and a 10-minute restart delay; Elite runs continuously while the campaign is active. No earnings are guaranteed.
+      </PseNotice>
+
+      <PseStatBar cols={4}>
           {['Equipment owned', 'Tool capacity', 'Capacity headroom', 'Referral capacity'].map(label => (
             <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
           ))}
@@ -417,7 +421,7 @@ export const PSEMineTools: React.FC = () => {
                       </span>
                     </h3>
                     <p className="pse-product-desc">{tool.description}</p>
-                    <span className="pse-product-tier">TIER {tool.tier} · {tool.specs.hashRateClass}</span>
+                    <span className="pse-product-tier">TIER {tool.tier} · {continuous ? 'Continuous campaign unit' : 'Session-based campaign unit'}</span>
                   </div>
 
                   <dl className="pse-product-specs">
@@ -434,12 +438,12 @@ export const PSEMineTools: React.FC = () => {
                       <dd>{owned} <span>/ {tool.maxPerUser}</span></dd>
                     </div>
                     <div className="pse-product-spec">
-                      <dt>Efficiency</dt>
-                      <dd>{tool.specs.powerEfficiency}</dd>
+                      <dt>Session length</dt>
+                      <dd>{continuous ? 'Continuous' : `${tool.operating.sessionDurationHours ?? 24} hours`}</dd>
                     </div>
                     <div className="pse-product-spec">
-                      <dt>Warranty</dt>
-                      <dd>{tool.specs.warrantyDays} <span>days</span></dd>
+                      <dt>Restart delay</dt>
+                      <dd>{continuous ? 'Not required' : `${tool.operating.restartDelayMinutes ?? 10} min`}</dd>
                     </div>
                   </dl>
 

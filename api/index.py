@@ -7652,6 +7652,23 @@ def admin_psemine_overview():
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
+    # The global PulseEarn admin can manage PSEmine without enrolling as a miner.
+    # Its PSEMineContext therefore receives the public campaign projection, which
+    # intentionally omits private confirmation metadata. Return the minimal
+    # admin-only configuration snapshot here instead of making the admin UI infer
+    # readiness from that public projection.
+    campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+    campaign_config = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
+    configured_receiver = _configured_psemine_receiver_wallet(campaign_config)
+    admin_campaign_config = {
+        "receiverWalletAddress": str(campaign_config.get("receiverWalletAddress") or ""),
+        "receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True,
+        "receiverWalletConfiguredAt": campaign_config.get("receiverWalletConfiguredAt"),
+        "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
+        "purchaseReady": bool(configured_receiver),
+        "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
+    }
+
     try:
         orders_count = db.collection('psemine_orders').count().get()[0][0].value
         # Count only verified payments; payment documents can include failed attempts.
@@ -7718,6 +7735,7 @@ def admin_psemine_overview():
 
     return jsonify({
         "success": True,
+        "campaign": admin_campaign_config,
         "stats": {
             "totalOrders": orders_count,
             "totalConfirmedPayments": payments_count,

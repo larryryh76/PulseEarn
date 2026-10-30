@@ -236,6 +236,9 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.assertIn("_recovery_data.get('attachedPurchaseId') == purchase_id", self.verify_handler)
         self.assertIn("if datetime.now(timezone.utc) > exp_dt and not recovery_authorized", self.verify_handler)
         self.assertIn("PAYMENT_UNDER_REVIEW", self.create_handler)
+        self.assertIn("MISSING_PURCHASE_QUOTE_EXPIRY", self.verify_handler)
+        self.assertIn("MISSING_SERVER_QUOTE_EXPIRY", self.verify_handler)
+        self.assertIn("MISSING_LEGACY_QUOTE_EXPIRY", self.source)
 
     def test_admin_attachment_binds_case_to_matching_user_quote_and_tx(self):
         db = tpc.FakeDB()

@@ -150,8 +150,17 @@ export const AdminPSEMine: React.FC = () => {
   const filteredOrders = useMemo(() => {
     const q = orderQuery.trim().toLowerCase();
     if (!q) return orders;
-    return orders.filter(r => [r.id, r.orderId, r.userId, r.toolId, r.toolName, r.status, r.txHash, r.transactionHash].some(v => String(v || '').toLowerCase().includes(q)));
-  }, [orders, orderQuery]);
+    const verifiedOrderIds = new Set(payments.map(payment => String(payment.orderId || '')).filter(Boolean));
+    return orders.filter(order => {
+      const status = String(order.status || '').toLowerCase();
+      // A legacy order marked "paid" is not payment evidence. It is shown as
+      // paid only when the independent BSC receipt ledger contains its order ID.
+      if (['paid', 'confirmed', 'completed', 'verified', 'success'].includes(status)
+          && !verifiedOrderIds.has(String(order.id || order.orderId || ''))) return false;
+      return [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
+        .some(value => String(value || '').toLowerCase().includes(q));
+    });
+  }, [orders, orderQuery, payments]);
 
   const runCampaignAction = async (action: string) => {
     if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }

@@ -677,7 +677,8 @@ def is_admin(uid):
     d = _request_user_doc(uid)
     if not d:
         return False
-    return d.get('role') in ['admin', 'ADMIN'] or d.get('isRoot') == True
+    role = str(d.get('role') or '').strip().lower().replace('-', '_')
+    return role in {'admin', 'super_admin'} or d.get('isRoot') is True
 
 def has_psemine_access(uid):
     """B5: backend PSEmine entitlement check — THE authoritative source is the
@@ -745,7 +746,8 @@ def is_moderator(uid):
     d = _request_user_doc(uid)
     if not d:
         return False
-    return d.get('role') in ['admin', 'ADMIN', 'moderator'] or d.get('isRoot') == True
+    role = str(d.get('role') or '').strip().lower().replace('-', '_')
+    return role in {'admin', 'super_admin', 'moderator'} or d.get('isRoot') is True
 
 @app.route('/api/mine/enroll', methods=['POST'])
 @verify_token

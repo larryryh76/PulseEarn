@@ -777,7 +777,7 @@ export const PSEMineLanding: React.FC = () => {
            */}
           <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine is a {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day managed SHA-mining access campaign for people who cannot afford to buy, configure and operate a full mining setup themselves. Review each unit's price and the campaign's recorded capacity before joining. Participation is not a guaranteed return; actual accrual and settlement follow the campaign rules.
+            PSEmine gives you access to a managed {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining campaign without buying and configuring your own mining setup. Choose a unit at its published price and hourly capacity. While the campaign is live and your unit is operating, eligible campaign earnings accrue in GBP. At the end of the campaign, your recorded earnings are settled and paid in BNB to your registered payout wallet after review.
           </p>
 
           <div className="pse-hero-cta mt-8">
@@ -858,7 +858,7 @@ export const PSEMineLanding: React.FC = () => {
           </div>
           <div className="pse-access-disclosure">
             <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
-            <p><strong>SHA is the mining functionality behind PSEmine.</strong> It is not a payment token: campaign capacity and accrual are recorded in GBP, while purchases and approved payouts use BNB on BNB Smart Chain. Returns are not guaranteed; review the campaign terms and risk disclosure before participating.</p>
+            <p><strong>SHA is the mining function behind PSEmine.</strong> Campaign capacity and eligible earnings are recorded in GBP. You purchase units and receive approved payouts in BNB on BNB Smart Chain. At campaign end, recorded eligible earnings are settled and paid to your registered payout wallet after review.</p>
             <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
           </div>
         </div>

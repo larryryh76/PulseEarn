@@ -142,6 +142,7 @@ export const AdminPSEMine: React.FC = () => {
   const [txInputs, setTxInputs] = useState<Record<string, string>>({});
   const [receiverWalletInput, setReceiverWalletInput] = useState('');
   const [receiverWalletCurrent, setReceiverWalletCurrent] = useState('');
+  const [receiverConfirmationOverride, setReceiverConfirmationOverride] = useState<boolean | null>(null);
   const [walletSaveBusy, setWalletSaveBusy] = useState(false);
   const [walletAcknowledged, setWalletAcknowledged] = useState(false);
 
@@ -222,12 +223,17 @@ export const AdminPSEMine: React.FC = () => {
     const configured = String(campaign?.receiverWalletAddress || '');
     setReceiverWalletCurrent(configured);
     setReceiverWalletInput(configured);
-  }, [campaign?.receiverWalletAddress]);
+    setReceiverConfirmationOverride(null);
+  }, [campaign?.receiverWalletAddress, campaign?.receiverWalletConfiguredAt]);
 
   // Existing campaign documents may still contain the former bootstrap value.
   // A fresh super-admin save must explicitly attest to the destination once.
-  const receiverNeedsConfirmation = campaign?.receiverWalletConfigured !== true
-    || !campaign?.receiverWalletConfiguredAt || !campaign?.receiverWalletConfiguredBy;
+  const receiverIsConfirmed = receiverConfirmationOverride ?? (
+    campaign?.receiverWalletConfigured === true
+    && Boolean(campaign?.receiverWalletConfiguredAt)
+    && Boolean(campaign?.receiverWalletConfiguredBy)
+  );
+  const receiverNeedsConfirmation = !receiverIsConfirmed;
 
   /** Require a second, typed confirmation before changing or reconfirming the receiver. */
   const saveReceiverWallet = () => {
@@ -290,6 +296,7 @@ export const AdminPSEMine: React.FC = () => {
       toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
+      setReceiverConfirmationOverride(true);
       setWalletAcknowledged(false);
       await load(true);
     } catch (e) {

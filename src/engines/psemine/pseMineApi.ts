@@ -139,6 +139,8 @@ export async function fetchPseState(): Promise<PseState> {
 
 export interface PseWithdrawal {
   id: string; status?: string; amountGBP?: number; amountGbp?: number; amountMinor?: number; requestedAmountGBP?: number;
+  amountBnb?: string | number; expectedAmountWei?: string; exchangeRateBNBGBP?: string | number;
+  asset?: 'BNB'; chainId?: number; network?: string; payoutQuoteProvider?: string; payoutQuoteCreatedAt?: string;
   destinationWallet?: string; payoutWallet?: string; payoutAddress?: string; payoutTxHash?: string | null; transactionHash?: string | null;
   createdAt?: string; updatedAt?: string; processedAt?: string | null; reviewNotes?: string | null;
 }
@@ -166,7 +168,7 @@ export async function fetchMyReferrals(): Promise<{ referrals: PseReferral[]; re
 
 export async function requestPayout(
   amountGbp: number,
-): Promise<{ success: boolean; error?: string; message?: string }> {
+): Promise<{ success: boolean; error?: string; message?: string; amountGbp?: number; amountBnb?: string; exchangeRateBNBGBP?: string }> {
   // Goes through the SAME classified request path as every other call, so an
   // expired session or a 409 (payout already pending) surfaces its real reason
   // instead of a single generic failure sentence.
@@ -182,7 +184,12 @@ export async function requestPayout(
       const err = pseDataError(OPERATION, res.status);
       return { success: false, error: err.code, message: err.toInfo().message };
     }
-    return { success: true };
+    return {
+      success: true,
+      amountGbp: typeof data.amountGbp === 'number' ? data.amountGbp : undefined,
+      amountBnb: typeof data.amountBnb === 'string' ? data.amountBnb : undefined,
+      exchangeRateBNBGBP: typeof data.exchangeRateBNBGBP === 'string' ? data.exchangeRateBNBGBP : undefined,
+    };
   } catch (e) {
     const info = toPseErrorInfo(e, OPERATION);
     return { success: false, error: info.code || info.kind, message: info.message };

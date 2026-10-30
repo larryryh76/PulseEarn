@@ -35,11 +35,11 @@ import {
   disconnectWalletConnect,
   discoverInjectedWallets,
   ensureChain,
-  hasInjectedProvider,
   isWalletConnectConfigured,
   isWalletRejection,
   restoreWalletConnectSession,
   getChainId,
+  parseChainId,
   sendPaymentTransaction,
   silentInjectedAccounts,
   subscribeWalletEvents,
@@ -487,13 +487,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // State refresh: the purchase UI reads walletChainId for its state-aware
         // network warning. Payment itself stays gated by ensurePaymentChain();
         // a chain change alone never activates or cancels a purchase.
-        if (typeof chainIdHex !== 'string') { setWalletChainId(null); return; }
-        try {
-          const n = Number.parseInt(chainIdHex, chainIdHex.startsWith('0x') ? 16 : 10);
-          setWalletChainId(Number.isFinite(n) ? n : null);
-        } catch {
-          setWalletChainId(null);
-        }
+        setWalletChainId(parseChainId(chainIdHex));
       },
       onDisconnect: () => {
         setConnectedWallet(null);
@@ -655,26 +649,27 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }).catch(() => { /* restore is best-effort; explicit connect remains */ });
         return;
       }
-      if (hasInjectedProvider()) {
-        const provider = (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider;
-        silentInjectedAccounts(provider).then(async accounts => {
-          if (!accounts.includes(stored.address as string)) return;
-          // Read the live chain too. The restore is silent (eth_accounts never
-          // prompts) but it must not leave the console believing the network is
-          // unknown: that would show the fail-closed "network unreadable" state
-          // — with no switch action — to a wallet sitting on BNB Smart Chain.
-          // eth_chainId is read-only and equally silent.
-          const chainId = await getChainId(provider);
+      // Restore the SAME authorised wallet, not blindly window.ethereum.
+      // EIP-6963 browsers can expose several independent providers; the default
+      // provider may be a different wallet and cannot report this payer's chain.
+      void discoverInjectedWallets().then(async wallets => {
+        const wanted = stored.address!.toLowerCase();
+        for (const wallet of wallets) {
+          const accounts = await silentInjectedAccounts(wallet.provider);
+          const matched = accounts.find(account => account.toLowerCase() === wanted);
+          if (!matched) continue;
+          const chainId = await getChainId(wallet.provider);
           if (cancelled) return;
           adoptConnection({
             transport: 'injected',
-            provider,
-            address: stored.address as string,
+            provider: wallet.provider,
+            address: matched.toLowerCase(),
             chainId,
-            walletName: stored.walletName || 'Browser wallet',
+            walletName: wallet.name || stored.walletName || 'Browser wallet',
           });
-        });
-      }
+          return;
+        }
+      }).catch(() => { /* restore is best-effort; explicit connect remains */ });
     } catch {
       /* malformed stored state — ignore; explicit connect still works */
     }

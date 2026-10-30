@@ -243,7 +243,7 @@ const SECTIONS: GuideSection[] = [
     title: 'Settlement, payouts and the payout wallet',
     tag: 'Payouts',
     keywords: 'settlement wallet payout bnb bep20 review withdrawal address',
-    summary: 'Accrual becomes payable when settlement finalises it. Payouts are made in BNB to the payout wallet recorded on your account.',
+    summary: 'At campaign end, eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
     visual: (
       <ol className="pse-chain">
         {[

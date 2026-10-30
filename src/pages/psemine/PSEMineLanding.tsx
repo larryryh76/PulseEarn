@@ -500,11 +500,11 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'What is PSEmine, in one paragraph?',
     a: (
       <>
-        PSEmine is a limited, campaign-based mining product. You buy mining units with BNB; each unit adds a fixed
-        capacity per hour denominated in GBP; that capacity accrues campaign earnings while the campaign runs; and the
-        earnings you have accrued are settled and paid out in BNB after the campaign ends. Nothing is mined on hardware
-        you own or host: a unit is a campaign instrument with a locked price, a locked hourly capacity and an ownership
-        limit, and the accrual itself is calculated by the PSEmine service.
+        PSEmine is a managed, 90-day SHA-mining campaign-access product. You purchase a campaign unit in BNB; each
+        unit adds published hourly capacity recorded in GBP. Eligible earnings accrue while your unit is operating and
+        the campaign is live. At campaign end, those earnings are settled in GBP and paid in BNB to your registered
+        payout wallet after review. PSEmine manages the campaign operations, so you can participate without buying,
+        hosting or configuring physical mining equipment.
       </>
     ),
   },
@@ -777,7 +777,7 @@ export const PSEMineLanding: React.FC = () => {
            */}
           <h1 className="pse-display mt-5">CRYPTO MINING ACCESS.<br /><span className="pse-hero-highlight">BUILT FOR MORE PEOPLE.</span></h1>
           <p className="pse-lead mt-5 max-w-[46ch]">
-            PSEmine gives you access to a managed {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining campaign without buying and configuring your own mining setup. Choose a unit at its published price and hourly capacity. While the campaign is live and your unit is operating, eligible campaign earnings accrue in GBP. At the end of the campaign, your recorded earnings are settled and paid in BNB to your registered payout wallet after review.
+            PSEmine gives you access to a managed {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining campaign without buying or operating your own equipment. Choose a campaign unit at its published price and hourly capacity. While the campaign is live and your unit is operating, eligible earnings accrue in GBP. At campaign end, your recorded eligible earnings are settled and paid in BNB to your registered payout wallet after review.
           </p>
 
           <div className="pse-hero-cta mt-8">

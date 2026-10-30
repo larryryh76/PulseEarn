@@ -52,7 +52,7 @@ class TestPublicCampaignProjection(unittest.TestCase):
         """A field nobody has thought of yet must not become public by default."""
         camp = {"status": "active", "someFutureInternalKey": "whatever", "_private": 1}
         view = psemine_public.public_campaign_view(camp)
-        self.assertEqual({"status": "active"}, view)
+        self.assertEqual({"status": "active", "purchaseReady": False}, view)
 
     def test_allow_list_is_exactly_the_public_contract(self):
         camp = {name: f"value-{name}" for name in psemine_public.PUBLIC_CAMPAIGN_FIELDS}
@@ -63,6 +63,29 @@ class TestPublicCampaignProjection(unittest.TestCase):
         """Payers must see the receiving address before they sign in."""
         self.assertIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
         self.assertIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELD_NOTES)
+
+    def test_purchase_ready_requires_explicit_valid_super_admin_confirmation(self):
+        configured = {
+            "receiverWalletAddress": "0x" + "1" * 40,
+            "receiverWalletConfigured": True,
+            "receiverWalletConfiguredAt": "2026-10-30T00:00:00+00:00",
+            "receiverWalletConfiguredBy": "super-admin-uid",
+        }
+        self.assertTrue(psemine_public.campaign_purchase_ready(configured))
+        self.assertTrue(psemine_public.public_campaign_view(configured)["purchaseReady"])
+
+        for patch in (
+            {"receiverWalletConfigured": False},
+            {"receiverWalletConfiguredAt": None},
+            {"receiverWalletConfiguredBy": ""},
+            {"receiverWalletAddress": "not-an-address"},
+            {"receiverWalletAddress": "0x" + "0" * 40},
+        ):
+            candidate = {**configured, **patch}
+            self.assertFalse(psemine_public.campaign_purchase_ready(candidate), patch)
+
+        # A caller cannot spoof the derived field in the Firestore document.
+        self.assertFalse(psemine_public.public_campaign_view({"purchaseReady": True})["purchaseReady"])
 
     def test_empty_document_returns_none(self):
         self.assertIsNone(psemine_public.public_campaign_view({}))

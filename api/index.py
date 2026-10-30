@@ -680,6 +680,14 @@ def is_admin(uid):
     role = str(d.get('role') or '').strip().lower().replace('-', '_')
     return role in {'admin', 'super_admin'} or d.get('isRoot') is True
 
+def is_super_admin(uid):
+    """Only the explicitly privileged super-admin/root may set the payment receiver."""
+    d = _request_user_doc(uid)
+    if not d:
+        return False
+    role = str(d.get('role') or '').strip().lower().replace('-', '_')
+    return role == 'super_admin' or d.get('isRoot') is True
+
 def has_psemine_access(uid):
     """B5: backend PSEmine entitlement check — THE authoritative source is the
     same users/{uid}.productAccess.psemine boolean the frontend gate reads.
@@ -8836,6 +8844,9 @@ def admin_campaign_action():
         }), 400
 
     if action == 'set_receiver_wallet':
+        if not is_super_admin(uid):
+            return jsonify({"success": False, "error": "SUPER_ADMIN_REQUIRED",
+                            "message": "Only a super-admin can configure the campaign receiving wallet."}), 403
         # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
         raw_address = data.get('receiverWalletAddress')
         if not isinstance(raw_address, str):
@@ -9167,6 +9178,9 @@ def mine_state():
     except Exception:
         logging.warning("[PSEmine State] pending-purchase projection failed", exc_info=True)
     from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
+    campaign_state = {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None
+    if campaign_state is not None:
+        campaign_state['purchaseReady'] = bool(_configured_psemine_receiver_wallet(camp))
     return jsonify({
         "success": True,
         "user": {
@@ -9184,7 +9198,7 @@ def mine_state():
         },
         "tools": tools,
         "pendingPurchases": pending_purchases,
-        "campaign": {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None,
+        "campaign": campaign_state,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},
         # (Frontend rebuild) server-anchored clock: the UI interpolates between

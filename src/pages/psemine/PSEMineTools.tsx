@@ -214,7 +214,9 @@ export const PSEMineTools: React.FC = () => {
     }
   };
 
-  const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
+  const receiverWalletReady = campaign?.purchaseReady === true;
+  const purchaseOpen = receiverWalletReady && campaign?.purchaseEnabled !== false && campaign?.status === 'active';
+  const walletSetupRequired = campaign?.status === 'active' && campaign?.purchaseEnabled !== false && !receiverWalletReady;
   // Every ownership the backend reports is listed: filtering to "operating"
   // statuses hid settling/ended tools and under-reported equipment (merged from
   // remote, which found the same defect).
@@ -328,7 +330,7 @@ export const PSEMineTools: React.FC = () => {
           <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
           <div className="pse-marketplace-hero-actions">
             <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
-            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
+            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
           </div>
         </div>
         <div className="pse-marketplace-hero-object" aria-hidden="true">
@@ -395,7 +397,13 @@ export const PSEMineTools: React.FC = () => {
         </PseNotice>
       )}
 
-      {!purchaseOpen && (
+      {walletSetupRequired && (
+        <PseNotice tone="attention" title="Purchases temporarily disabled">
+          Tool purchases are disabled until a super-admin configures and confirms the campaign receiving wallet. No payment can be started or accepted before this setup is complete.
+        </PseNotice>
+      )}
+
+      {!purchaseOpen && !walletSetupRequired && (
         <PseNotice tone="attention" title="Purchases closed">
           The campaign status is {campaign?.status || 'scheduled'}. Nothing can be bought until the campaign is
           active again; existing equipment keeps its state and accrual rules.
@@ -462,13 +470,13 @@ export const PSEMineTools: React.FC = () => {
                         ? 'Limit reached'
                         : purchaseOpen
                           ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
-                          : 'Campaign purchases closed'}
+                          : walletSetupRequired ? 'Receiving wallet setup pending' : 'Campaign purchases closed'}
                     </span>
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
                       <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'Buy this tool' : 'Purchases closed'}
+                        {purchaseOpen ? 'Buy this tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>

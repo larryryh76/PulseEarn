@@ -404,10 +404,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
-            // Preserve all valid roles — admin, moderator, user
+            // Preserve the privileged role variants used by backend and ops routes.
+            const normalized_role = String(data.role || '').trim().toLowerCase().replace(/-/g, '_');
             const resolvedRole: UserData['role'] =
-              data.role === 'admin' ? 'admin' :
-              data.role === 'moderator' ? 'moderator' : 'user';
+              normalized_role === 'admin' ? 'admin' :
+              normalized_role === 'super_admin' ? 'super_admin' :
+              normalized_role === 'moderator' ? 'moderator' : 'user';
             const resolvedData: UserData = {
               ...data,
               role: resolvedRole,

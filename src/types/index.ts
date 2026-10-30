@@ -282,7 +282,7 @@ export interface UserData {
   level: number;
   lastRewardDate?: Timestamp;
   createdAt: Timestamp;
-  role: 'admin' | 'moderator' | 'user';
+  role: 'admin' | 'super_admin' | 'moderator' | 'user';
   isBanned?: boolean;
   isFlagged?: boolean;
   flagReason?: string;

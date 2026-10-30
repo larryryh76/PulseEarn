@@ -780,7 +780,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     }
     setStep('verifying');
     try {
-      // 1. BIND THE PAYER — server-side, against this account and this quote,
+      // 1. VERIFY / SWITCH NETWORK before creating a purchase intent.
+      // A failed switch must not leave a bound, unpaid pending purchase.
+      const chainOk = await ensurePaymentChain(quote.chainId || 56);
+      if (!chainOk) {
+        setSubmissionState('NOT_SUBMITTED');
+        setStep('pay');
+        toast.error(`Could not verify ${networkName}. Approve the network switch in your wallet and try again.`);
+        return;
+      }
+
+      // 2. BIND THE PAYER — server-side, against this account and this quote,
       //    BEFORE any signature exists.
       let payer = boundPayer;
       let intentId = purchaseId;
@@ -813,15 +823,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         return;
       }
 
-      // 3. NETWORK ASSERTION — fail-closed, through the ACTIVE provider.
-      const chainOk = await ensurePaymentChain(quote.chainId || 56);
-      if (!chainOk) {
-        setStep('pay');
-        toast.error(`Switch your wallet to ${networkName} before paying.`);
-        return;
-      }
-
-      // 4. to + value come VERBATIM from the server quote; from is the BOUND payer.
+      // 3. to + value come VERBATIM from the server quote; from is the BOUND payer.
       const wei = quote.bnbAmountWei;
       if (!wei || !/^[0-9]+$/.test(String(wei))) {
         throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');
@@ -1154,11 +1156,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseNotice>
           )}
 
-          {connectedWallet && wrongChain && (
+          {connectedWallet && (wrongChain || chainUnknown) && (
             <PseNotice tone="attention">
-              Wrong network — this payment must be sent on {networkName} (chain {requiredChainId}); your wallet is on
-              chain {walletChainId}, and a transaction signed elsewhere can never be verified.{' '}
-              <button type="button" className="pse-link" onClick={() => void switchChain()}>Switch to BNB Smart Chain</button>
+              {chainUnknown
+                ? `The wallet is connected, but its network has not been reported. Ask the wallet to switch to ${networkName} (chain ${requiredChainId}); the app will re-read the network before enabling payment.`
+                : `Wrong network — this payment must be sent on ${networkName} (chain ${requiredChainId}); your wallet is on chain ${walletChainId}, and a transaction signed elsewhere can never be verified.`}{' '}
+              <button type="button" className="pse-link" onClick={() => void switchChain()}>
+                {chainUnknown ? 'Read / switch to BNB Smart Chain' : 'Switch to BNB Smart Chain'}
+              </button>
             </PseNotice>
           )}
 

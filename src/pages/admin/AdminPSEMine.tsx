@@ -224,28 +224,36 @@ export const AdminPSEMine: React.FC = () => {
     setReceiverWalletInput(configured);
   }, [campaign?.receiverWalletAddress]);
 
-  /** Require a second, typed confirmation before changing where future purchases are paid. */
+  // Existing campaign documents may still contain the former bootstrap value.
+  // A fresh super-admin save must explicitly attest to the destination once.
+  const receiverNeedsConfirmation = campaign?.receiverWalletConfigured !== true
+    || !campaign?.receiverWalletConfiguredAt || !campaign?.receiverWalletConfiguredBy;
+
+  /** Require a second, typed confirmation before changing or reconfirming the receiver. */
   const saveReceiverWallet = () => {
     const address = receiverWalletInput.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
       return;
     }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase()) {
-      toast('This is already the configured receiving address.');
+    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
+      toast('This receiving address is already confirmed by an administrator.');
       return;
     }
     if (!walletAcknowledged) {
       toast.error('Confirm that you have verified ownership and network before saving.');
       return;
     }
+    const reconfirming = receiverNeedsConfirmation && address.toLowerCase() === receiverWalletCurrent.toLowerCase();
     setConfirm({
-      title: 'Change tool purchase receiving wallet?',
-      consequence: `New PSEmine tool purchase quotes will direct BNB to the new address. Existing quotes retain their original destination. Verify the entire address independently before proceeding. Current: ${receiverWalletCurrent || 'not reported'}. New: ${address}.`,
+      title: reconfirming ? 'Confirm the campaign receiving wallet?' : 'Change tool purchase receiving wallet?',
+      consequence: reconfirming
+        ? `This campaign may still contain an old bootstrap address. Confirm that this exact address is the intended wallet you control or are authorised to receive funds at. New purchase quotes remain blocked until this confirmation is saved.`
+        : `New PSEmine tool purchase quotes will direct BNB to the new address. Existing quotes retain their original destination. Verify the entire address independently before proceeding. Current: ${receiverWalletCurrent || 'not reported'}. New: ${address}.`,
       affected: 'psemine_campaigns/active_campaign.receiverWalletAddress',
-      confirmLabel: 'Change receiving wallet',
+      confirmLabel: reconfirming ? 'Confirm receiving wallet' : 'Change receiving wallet',
       danger: true,
-      requireText: 'CHANGE WALLET',
+      requireText: reconfirming ? 'CONFIRM WALLET' : 'CHANGE WALLET',
       run: async () => { await commitReceiverWalletChange(address); },
     });
   };
@@ -256,8 +264,8 @@ export const AdminPSEMine: React.FC = () => {
       toast.error('Enter a valid, non-zero BNB Smart Chain wallet address.');
       return;
     }
-    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase()) {
-      toast('This is already the configured receiving address.');
+    if (address.toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation) {
+      toast('This receiving address is already confirmed by an administrator.');
       return;
     }
     if (!walletAcknowledged) {
@@ -279,7 +287,7 @@ export const AdminPSEMine: React.FC = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Receiving wallet update failed.');
-      toast.success('PSEmine receiving wallet updated for new quotes.');
+      toast.success(receiverNeedsConfirmation ? 'PSEmine receiving wallet confirmed. New quotes are now enabled.' : 'PSEmine receiving wallet updated for new quotes.');
       setReceiverWalletCurrent(address);
       setReceiverWalletInput(address);
       setWalletAcknowledged(false);
@@ -496,7 +504,7 @@ export const AdminPSEMine: React.FC = () => {
           <div className="pse-ops-wallet-shortcut-copy">
             <span className="pse-ops-kpi-label">Tool purchase receiving wallet</span>
             <code>{receiverWalletCurrent || 'Receiving wallet not reported'}</code>
-            <small>BNB Smart Chain · new quotes use this destination</small>
+            <small>{receiverNeedsConfirmation ? 'Admin confirmation required · purchases remain blocked' : 'BNB Smart Chain · new quotes use this destination'}</small>
           </div>
           <PseButton size="sm" variant="secondary" onClick={() => setActiveSection('settings')}>Configure wallet</PseButton>
         </section>
@@ -971,9 +979,14 @@ export const AdminPSEMine: React.FC = () => {
                 <span className="pse-ops-config-badge">Sensitive setting</span>
               </div>
               <div className="pse-ops-current-destination">
-                <span>Currently configured</span>
+                <span>{receiverNeedsConfirmation ? 'Saved address · admin confirmation required' : 'Admin-confirmed receiving wallet'}</span>
                 <code>{receiverWalletCurrent || 'Not reported by campaign API'}</code>
               </div>
+              {receiverNeedsConfirmation && (
+                <PseNotice tone="attention">
+                  Purchases are currently blocked. Re-enter or confirm this exact address below to prove it is the intended BNB Smart Chain destination.
+                </PseNotice>
+              )}
               <PseField label="New receiving wallet address" htmlFor="pse-receiver-wallet">
                 <PseInput id="pse-receiver-wallet" value={receiverWalletInput}
                   onChange={e => { setReceiverWalletInput(e.target.value); setWalletAcknowledged(false); }}
@@ -984,9 +997,9 @@ export const AdminPSEMine: React.FC = () => {
                 <span>I have independently verified this destination address and confirmed that I control or am authorised to receive funds there on BNB Smart Chain.</span>
               </label>
               <div className="pse-ops-wallet-actions">
-                <PseButton disabled={walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase()}
+                <PseButton disabled={walletSaveBusy || !walletAcknowledged || !/^0x[a-fA-F0-9]{40}$/.test(receiverWalletInput.trim()) || (receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() && !receiverNeedsConfirmation)}
                   busy={walletSaveBusy} onClick={() => void saveReceiverWallet()}>
-                  {walletSaveBusy ? 'Saving destination…' : 'Save receiving wallet'}
+                  {walletSaveBusy ? 'Saving destination…' : receiverNeedsConfirmation && receiverWalletInput.trim().toLowerCase() === receiverWalletCurrent.toLowerCase() ? 'Confirm receiving wallet' : 'Save receiving wallet'}
                 </PseButton>
                 <PseButton variant="secondary" disabled={walletSaveBusy} onClick={() => { setReceiverWalletInput(receiverWalletCurrent); setWalletAcknowledged(false); }}>Reset</PseButton>
               </div>

@@ -37,6 +37,11 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
         self.assertIn("if not is_admin(uid)", wallet_action)
 
+    def test_wallet_save_bootstraps_missing_campaign_before_updating_receiver(self):
+        self.assertIn("if not camp_snap.exists and action == 'set_receiver_wallet':", self.route)
+        self.assertIn("psemine_ensure_canonical_data(db)", self.route)
+        self.assertIn("receiverWalletConfiguredBy", self.route)
+
     def test_platform_admin_role_is_authorized_by_backend_admin_gate(self):
         self.assertIn("return is_admin(uid)", API_SOURCE)
         self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
@@ -108,6 +113,13 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("QUOTE_NETWORK_MISMATCH", route)
         self.assertIn("exact_wei != quoted_wei", route)
         self.assertIn("INVALID_QUOTE_AMOUNT", route)
+
+    def test_admin_money_totals_require_canonical_on_chain_receipts(self):
+        overview_start = API_SOURCE.index("def get_admin_mine_overview():")
+        overview_end = API_SOURCE.index("\\n@app.route(", overview_start)
+        overview = API_SOURCE[overview_start:overview_end]
+        self.assertIn("verificationSource', '==', 'bsc_rpc_receipt'", overview)
+        self.assertIn("_is_canonical_verified_psemine_payment(_payment)", overview)
 
     def test_payout_requests_lock_bnb_amount_and_admin_checks_confirmations(self):
         route_start = API_SOURCE.index("def mine_create_withdrawal():")

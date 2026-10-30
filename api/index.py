@@ -7637,6 +7637,7 @@ def admin_psemine_overview():
     # failed attempts, withdrawals and mining rewards are never income.
     # With no verified receipt records the correct lifetime total is £0.00.
     tool_income_gbp = 0.0
+    income_complete = True
     try:
         verified_income_snaps = (
             db.collection('psemine_payments')
@@ -7664,6 +7665,7 @@ def admin_psemine_overview():
             # integrity issue; do not publish a partial lifetime total.
             if gbp_amount is None:
                 tool_income_gbp = None
+                income_complete = False
                 logging.error(
                     '[PSEmine Admin] verified payment %s has no GBP purchase price',
                     payment_snap.id,
@@ -7674,6 +7676,7 @@ def admin_psemine_overview():
             tool_income_gbp = round(tool_income_gbp, 2)
     except Exception:
         tool_income_gbp = None
+        income_complete = False
         logging.exception('[PSEmine Admin] verified tool income aggregation failed')
 
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
@@ -7687,6 +7690,7 @@ def admin_psemine_overview():
             "activeToolOwnerships": ownership_count,
             "activeMiningSessions": sessions_count,
             "totalToolIncomeGbp": tool_income_gbp,
+            "toolIncomeComplete": income_complete,
             "pendingWithdrawalsCount": len(pending_withdrawals),
             "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
         }

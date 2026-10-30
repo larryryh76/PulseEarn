@@ -9279,6 +9279,37 @@ def mine_create_purchase():
     q = q_snap.to_dict() or {}
     if q.get('userId') != uid:
         return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote terms do not match this account."}), 403
+
+    # A quote can become stale if an administrator changes the receiving wallet
+    # after it was issued. Before the user creates an intent (and before they
+    # send anything), require the quote to match the currently configured
+    # destination. Once an intent exists, verification keeps its immutable quote
+    # destination so a later admin change cannot redirect an in-flight payment.
+    configured_receiver = _configured_psemine_receiver_wallet(camp)
+    quoted_receiver = q.get('receiverWallet')
+    if not configured_receiver:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                        "message": "Purchases are disabled until the campaign receiving wallet is configured."}), 503
+    if not _is_valid_psemine_receiver_wallet(quoted_receiver):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER",
+                        "message": "This quote has no valid receiving wallet. Request a new quote."}), 409
+    if quoted_receiver.lower() != configured_receiver.lower():
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_CHANGED",
+                        "message": "The campaign receiving wallet changed after this quote. Request a fresh quote before paying."}), 409
+    if q.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH",
+                        "message": "This quote is not for BNB Smart Chain. Request a fresh quote."}), 409
+    try:
+        quoted_wei = int(str(q.get('bnbAmountWei') or '0'))
+        quoted_bnb = Decimal(str(q.get('bnbAmount')))
+        if quoted_wei <= 0 or quoted_bnb <= 0:
+            raise ValueError("non-positive quote")
+        exact_wei = int((quoted_bnb * Decimal('1000000000000000000')).to_integral_value())
+        if exact_wei != quoted_wei:
+            raise ValueError("quote BNB and wei disagree")
+    except Exception:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_AMOUNT",
+                        "message": "The saved quote amount is inconsistent. Request a fresh quote."}), 409
     try:
         exp = datetime.fromisoformat(str(q.get('expiresAt')).replace('Z', '+00:00'))
         if exp.tzinfo is None: exp = exp.replace(tzinfo=timezone.utc)

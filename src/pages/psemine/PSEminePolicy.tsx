@@ -105,8 +105,8 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'what-it-is',
         h: 'What PSEmine is',
         p: [
-          'PSEmine sells a recorded right to campaign capacity for the duration of a single campaign. A unit has a fixed price, a fixed GBP-per-hour campaign accounting rate, and an ownership limit; eligible capacity accrues to the account under the published operating rules, and settled earnings may be requested for payout in BNB after the campaign ends.',
-          'PSEmine provides campaign capacity through its managed service. A unit represents access to the published hourly capacity for the campaign; it is not ownership of an ASIC or rented blockchain hashpower. The GBP/hour rate is the campaign accounting rate used to record eligible earnings under the published operating cycle. At campaign end, recorded eligible earnings are settled in GBP and paid in BNB to your registered payout wallet after review.',
+          'PSEmine sells a recorded right to campaign capacity for the duration of a single campaign. A unit has a fixed price, a fixed GBP-per-hour campaign accounting rate, and an ownership limit; eligible capacity accrues to the account under the published operating rules. At campaign end, settled earnings become payable through the payout-request process and approved requests are paid in BNB.',
+          'PSEmine provides campaign capacity through its managed service. A unit represents access to the published hourly capacity for the campaign; it is not ownership of an ASIC or rented blockchain hashpower. The GBP/hour rate is the campaign accounting rate used to record eligible earnings under the published operating cycle. At campaign end, recorded eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
         ],
         list: [
           'Units are sold at the published price list, each with a fixed capacity per hour and a per-account ownership limit.',
@@ -412,7 +412,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'product',
         h: 'What PSEmine is',
         p: [
-          "PSEmine sells a unit with published hourly campaign capacity for one campaign. Capacity accrues only while the campaign is live and the unit is operating. After the campaign ends, eligible recorded earnings are settled in GBP and paid in BNB to the registered payout wallet following review.",
+          "PSEmine sells a unit with published hourly campaign capacity for one campaign. Capacity accrues only while the campaign is live and the unit is operating. After the campaign ends, eligible recorded earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.",
           "The campaign window, unit price, hourly capacity and ownership cap are published before purchase. These figures show the hourly capacity used to calculate campaign earnings under the published operating rules.",
         ],
       },
@@ -439,7 +439,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
           'A paused campaign accrues nothing for anyone for the duration of the pause; the record of when mining was actually live is kept server-side.',
           'Session units (Starter, Builder and Advanced) mine in fixed sessions and stop between them until restarted, and nothing accrues during a restart delay. Elite units run continuously while the campaign is active.',
           'Referral capacity is added when a referral reaches qualification, and accrues while you hold at least one unit actually operating.',
-          'At campaign end, settlement finalises the eligible earnings recorded for your account. The payout then passes review and is sent in BNB to your registered wallet.',
+          'At campaign end, settlement finalises the eligible earnings recorded for your account. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
         ],
       },
       {

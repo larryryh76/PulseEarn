@@ -8595,6 +8595,17 @@ def verify_psemine_tool_purchase():
         transaction = db.transaction()
         commit_purchase_activation(transaction)
 
+        if recovery_authorized and recovery_case_id:
+            try:
+                db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                    'status': 'resolved',
+                    'resolvedAt': now_iso,
+                    'resolvedBy': 'system:verified_purchase_activation',
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                })
+            except Exception:
+                logging.warning('[PSEmine] recovery case activation closure failed', exc_info=True)
+
         # 7. Canonical referral qualification (single backend-authoritative path).
         try:
             _pse_engine.settle_referral_on_activation(db, uid, purchase_id)

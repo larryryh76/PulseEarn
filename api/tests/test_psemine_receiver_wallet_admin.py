@@ -183,10 +183,16 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)
-        self.assertIn("activeSection === 'settings'", ADMIN_SOURCE)
+        self.assertIn('id="ops-settings"', ADMIN_SOURCE)
+        self.assertIn("receiverWalletConfig?.paymentChainId", ADMIN_SOURCE)
         self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
         self.assertIn("walletAcknowledged", ADMIN_SOURCE)
         self.assertIn("new quotes only", ADMIN_SOURCE)
+
+    def test_single_admin_console_renders_every_register(self):
+        for section in ("campaign", "lifecycle", "payments", "tools", "purchases", "payouts", "audit", "settings"):
+            self.assertIn(f'id="ops-{section}"', ADMIN_SOURCE)
+        self.assertEqual(ADMIN_SOURCE.count("{true && ("), 8)
 
     def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)

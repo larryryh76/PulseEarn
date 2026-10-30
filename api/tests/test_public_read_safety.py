@@ -503,7 +503,16 @@ class TestNoReadPathInitializesCanonicalData(unittest.TestCase):
             (rule, node.name) for rule, _methods, node in self._routes()
             if self._calls_in(node, "psemine_ensure_canonical_data")
         ]
-        self.assertEqual([("/api/psemine/setup", "psemine_setup")], callers)
+        self.assertEqual(
+            [("/api/psemine/setup", "psemine_setup"),
+             ("/api/admin/mine/campaign/action", "admin_campaign_action")],
+            callers,
+        )
+        action = next(node for rule, _methods, node in self._routes()
+                      if rule == "/api/admin/mine/campaign/action")
+        body = ast.get_source_segment(self.source, action)
+        self.assertIn("is_admin", body)
+        self.assertIn("action == 'set_receiver_wallet'", body)
 
     def test_setup_route_is_admin_gated_and_never_get(self):
         for rule, methods, node in self._routes():

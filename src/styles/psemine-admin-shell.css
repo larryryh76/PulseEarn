@@ -164,3 +164,260 @@
   .pse-admin-operations .pse-ops-tab,
   .pse-admin-operations .pse-ops-subtab { flex: 0 0 auto; }
 }
+
+
+/* PSEmine unified admin v2 — one complete command centre, every register visible. */
+.pse-ops-frame {
+  --ops-bg: #080b13;
+  --ops-line: rgba(166,177,211,.14);
+  --ops-text: #f4f6ff;
+  --ops-muted: #aab4ca;
+  --ops-dim: #75819a;
+  --ops-violet: #928cff;
+  --ops-cyan: #54d9ee;
+  background: #080b13;
+  color: var(--ops-text);
+}
+.pse-ops-rail {
+  flex-basis: 252px;
+  width: 252px;
+  padding: 22px 13px 16px;
+  background: #0b101b;
+  border-right-color: rgba(166,177,211,.12);
+}
+.pse-ops-brand { padding-bottom: 19px; }
+.pse-ops-rail-label { padding-top: 20px; }
+.pse-ops-local-nav { gap: 4px; }
+.pse-ops-local-nav a {
+  min-height: 45px;
+  border-radius: 9px;
+  font-size: 11px;
+  letter-spacing: .01em;
+}
+.pse-ops-local-nav a:hover,
+.pse-ops-local-nav a:focus-visible {
+  background: rgba(146,140,255,.09);
+  border-color: rgba(146,140,255,.2);
+}
+.pse-ops-local-nav a:focus-visible { outline: 2px solid var(--ops-violet); outline-offset: 2px; }
+.pse-ops-topbar {
+  min-height: 62px;
+  padding-inline: clamp(18px,2.5vw,34px);
+  background: rgba(8,11,19,.96);
+  border-bottom-color: var(--ops-line);
+}
+.pse-ops-content {
+  padding: clamp(18px,2.2vw,30px) clamp(14px,2.4vw,34px) 72px;
+}
+.pse-ops-content-inner { max-width: 1680px; }
+.pse-admin-operations .pse-page-head { margin-bottom: 18px; }
+.pse-admin-operations .pse-page-title {
+  font-size: clamp(25px,2.8vw,34px);
+  letter-spacing: -.045em;
+}
+.pse-admin-operations .pse-ops-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 176px;
+  padding: clamp(22px,3vw,36px);
+  border: 1px solid rgba(146,140,255,.22);
+  border-radius: 17px;
+  background: linear-gradient(115deg,#171d32 0%,#101728 52%,#0d1422 100%);
+  box-shadow: none;
+}
+.pse-admin-operations .pse-ops-hero h2 {
+  max-width: 22ch;
+  margin: 13px 0 12px;
+  font-size: clamp(27px,3.6vw,42px);
+  line-height: 1.04;
+  letter-spacing: -.055em;
+}
+.pse-admin-operations .pse-ops-hero h2 em {
+  color: #aaa6ff;
+  font-style: normal;
+}
+.pse-admin-operations .pse-ops-hero-mark {
+  flex: 0 0 132px;
+  min-height: 132px;
+  border: 1px solid rgba(146,140,255,.24);
+  border-radius: 15px;
+  background: rgba(8,11,19,.45);
+}
+.pse-admin-operations .pse-ops-kpis {
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.pse-admin-operations .pse-ops-kpi {
+  min-height: 126px;
+  padding: 17px;
+  border: 1px solid var(--ops-line);
+  border-radius: 13px;
+  background: #0e1522;
+  box-shadow: none;
+}
+.pse-admin-operations .pse-ops-kpi-primary {
+  border-color: rgba(146,140,255,.26);
+  background: #14172a;
+}
+.pse-admin-operations .pse-ops-kpi-label {
+  color: #aab4ca;
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.pse-admin-operations .pse-ops-kpi strong {
+  display: block;
+  margin: 12px 0 7px;
+  color: #f6f7ff;
+  font-size: clamp(21px,2vw,28px);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.pse-admin-operations .pse-ops-kpi small { color: #8793ab; line-height: 1.45; }
+.pse-admin-operations .pse-ops-wallet-shortcut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  margin: 12px 0 18px;
+  border: 1px solid rgba(84,217,238,.18);
+  border-radius: 13px;
+  background: #0c1721;
+}
+.pse-admin-operations .pse-ops-wallet-shortcut-copy { display: grid; gap: 7px; min-width: 0; }
+.pse-admin-operations .pse-ops-wallet-shortcut code { overflow-wrap: anywhere; color: #d7e7f5; font-size: 12px; }
+.pse-admin-operations .pse-ops-wallet-shortcut small { color: #9baac0; }
+.pse-admin-operations .pse-ops-register-nav {
+  position: sticky;
+  top: 62px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 22px;
+  padding: 7px;
+  border: 1px solid var(--ops-line);
+  border-radius: 12px;
+  background: rgba(10,15,25,.97);
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+}
+.pse-admin-operations .pse-ops-tabs {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.pse-admin-operations .pse-ops-tab {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #aab4ca;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pse-admin-operations .pse-ops-tab.is-active {
+  border-color: rgba(146,140,255,.25);
+  background: rgba(146,140,255,.14);
+  color: #f4f2ff;
+  box-shadow: none;
+}
+.pse-admin-operations .pse-ops-asof {
+  flex: none;
+  color: #78859d;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.pse-admin-operations > .pse-page > .pse-section,
+.pse-admin-operations .pse-section,
+.pse-admin-operations .pse-block {
+  border-color: var(--ops-line);
+  border-radius: 13px;
+  background: #0d1420;
+  box-shadow: none;
+}
+.pse-admin-operations .pse-section { margin: 0 0 18px; }
+.pse-admin-operations .pse-section > header { border-bottom-color: var(--ops-line); }
+.pse-admin-operations .pse-facts { gap: 9px; }
+.pse-admin-operations .pse-fact {
+  min-width: 0;
+  border: 1px solid rgba(166,177,211,.1);
+  border-radius: 10px;
+  background: #101a29;
+}
+.pse-admin-operations .pse-fact :is(strong,span,small) { overflow-wrap: anywhere; }
+.pse-admin-operations .pse-ops-details {
+  margin-top: 14px;
+  border-top: 1px solid var(--ops-line);
+}
+.pse-admin-operations .pse-ops-details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: #c3c8dc;
+  cursor: pointer;
+}
+.pse-admin-operations .pse-ledger-wrap { max-width: 100%; overflow-x: auto; }
+.pse-admin-operations .pse-ledger { min-width: 720px; }
+.pse-admin-operations :is(input,select,textarea) {
+  min-height: 44px;
+  border-color: rgba(166,177,211,.2);
+  background: #080e18;
+  color: #f4f6ff;
+}
+.pse-admin-operations :is(button,a,input,select,summary):focus-visible {
+  outline: 2px solid #aaa6ff;
+  outline-offset: 3px;
+}
+.pse-admin-operations .pse-btn { min-height: 44px; }
+.pse-admin-operations [id^="ops-"] { scroll-margin-top: 132px; }
+@media(max-width:1200px) {
+  .pse-admin-operations .pse-ops-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:900px) {
+  .pse-ops-rail { flex-basis: 210px; width: 210px; }
+  .pse-admin-operations .pse-ops-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .pse-admin-operations .pse-ops-register-nav { align-items: flex-start; flex-direction: column; }
+  .pse-admin-operations .pse-ops-asof { padding: 0 5px 3px; }
+}
+@media(max-width:760px) {
+  .pse-ops-frame { padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .pse-ops-topbar { min-height: 56px; }
+  .pse-ops-content { padding: 13px 12px 42px; }
+  .pse-ops-mobile-dock {
+    grid-template-columns: repeat(5,minmax(0,1fr));
+    padding: 7px 5px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(8,12,21,.98);
+  }
+  .pse-ops-mobile-dock a { min-height: 48px; font-size: 8px; }
+  .pse-admin-operations .pse-ops-hero { min-height: auto; padding: 19px; }
+  .pse-admin-operations .pse-ops-hero-mark { flex-basis: 88px; min-height: 88px; }
+  .pse-admin-operations .pse-ops-hero-mark strong { font-size: 25px; }
+  .pse-admin-operations .pse-ops-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .pse-admin-operations .pse-ops-kpi { min-height: 112px; padding: 13px; }
+  .pse-admin-operations .pse-ops-kpi strong { font-size: 21px; }
+  .pse-admin-operations .pse-ops-wallet-shortcut { align-items: flex-start; flex-direction: column; }
+  .pse-admin-operations .pse-ops-wallet-shortcut .pse-btn { width: 100%; }
+  .pse-admin-operations .pse-ops-register-nav { position: static; }
+  .pse-admin-operations .pse-ops-tabs { flex-wrap: nowrap; width: 100%; overflow-x: auto; padding-bottom: 3px; }
+  .pse-admin-operations .pse-ops-tab { flex: 0 0 auto; min-height: 44px; }
+}
+@media(max-width:420px) {
+  .pse-admin-operations .pse-ops-hero { align-items: flex-start; }
+  .pse-admin-operations .pse-ops-hero-mark { flex-basis: 72px; min-height: 72px; }
+  .pse-admin-operations .pse-ops-hero-mark small { font-size: 7px; }
+  .pse-admin-operations .pse-ops-kpi { padding: 11px; }
+  .pse-admin-operations .pse-ops-kpi-label { font-size: 9px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-ops-frame * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}

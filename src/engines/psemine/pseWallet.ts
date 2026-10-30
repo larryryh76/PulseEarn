@@ -339,10 +339,31 @@ export const requestAccounts = async (provider: PseEip1193Provider): Promise<str
   return Array.isArray(accounts) ? accounts.map(normalizeAddress) : [];
 };
 
+/**
+ * Normalise chain identifiers returned by injected wallets and WalletConnect.
+ * EIP-1193 specifies a hex quantity, but mobile bridges may expose decimal
+ * numbers/strings or CAIP-2 ("eip155:56"). Never parse decimal "56" as hex 86.
+ */
+export const parseChainId = (value: unknown): number | null => {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  if (typeof value === 'bigint') {
+    const n = Number(value);
+    return Number.isSafeInteger(n) && n >= 0 ? n : null;
+  }
+  if (typeof value !== 'string') return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const caip = raw.match(/^eip155:(\\d+)$/i);
+  const candidate = caip?.[1] ?? raw;
+  const parsed = /^0x[0-9a-f]+$/i.test(candidate)
+    ? Number.parseInt(candidate.slice(2), 16)
+    : /^\\d+$/.test(candidate) ? Number.parseInt(candidate, 10) : NaN;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
 export const getChainId = async (provider: PseEip1193Provider): Promise<number | null> => {
   try {
-    const hex = (await provider.request({ method: 'eth_chainId' })) as string;
-    return typeof hex === 'string' ? parseInt(hex, 16) : null;
+    return parseChainId(await provider.request({ method: 'eth_chainId' }));
   } catch {
     return null;
   }

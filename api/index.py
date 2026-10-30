@@ -6569,7 +6569,7 @@ def _configured_psemine_receiver_wallet(campaign):
     address = campaign.get('receiverWalletAddress')
     # Older campaign documents may contain the former bootstrap address. A
     # syntactically valid value is NOT enough: require a fresh explicit
-    # super-admin confirmation marker before allowing any new payment quote.
+    # explicit admin confirmation marker before allowing any new payment quote.
     if campaign.get('receiverWalletConfigured') is not True:
         return None
     if not campaign.get('receiverWalletConfiguredAt') or not campaign.get('receiverWalletConfiguredBy'):
@@ -8812,8 +8812,10 @@ def get_admin_mine_overview():
     verified_bnb_total = Decimal('0')
     verified_payment_count = 0
     try:
-        for _payment_snap in db.collection('psemine_payments').where('status', '==', 'confirmed').get():
+        for _payment_snap in db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').stream():
             _payment = _payment_snap.to_dict() or {}
+            if not _is_canonical_verified_psemine_payment(_payment):
+                continue
             _amount = _payment.get('paidBnbAmount') or _payment.get('amountBnb')
             if _amount is None:
                 continue
@@ -9784,7 +9786,7 @@ def admin_mine_payment_recovery_resolve(recovery_id):
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
-    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+    if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
     data = request.get_json() or {}
     import psemine_engine as _pse_engine
     result = _pse_engine.admin_resolve_payment_recovery(
@@ -9802,7 +9804,7 @@ def admin_mine_deprecate_tool(tool_id):
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
-    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+    if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
     data = request.get_json() or {}
     import psemine_engine as _pse_engine
     result = _pse_engine.admin_deprecate_tool(db, tool_id, uid, reason=(data.get('reason') or '').strip())

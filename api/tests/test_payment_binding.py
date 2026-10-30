@@ -275,6 +275,34 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         finally:
             psemine_engine.firestore_server_ts = _orig_ts
 
+    def test_admin_cannot_attach_recovery_to_an_already_activated_purchase(self):
+        db = tpc.FakeDB()
+        _orig_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        tx_hash = "0x" + "12" * 32
+        try:
+            db.collection("psemine_purchases").document("purchase_user1").set({
+                "id": "purchase_user1",
+                "userId": "user1",
+                "quoteId": "quote_user1",
+                "transactionHash": tx_hash,
+                "status": "activated",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=tx_hash, quote_id="quote_user1",
+                purchase_id="purchase_user1", reason="DUPLICATE_REVIEW_TEST",
+            )
+            result = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase_user1",
+            )
+            self.assertFalse(result.get("ok"))
+            self.assertEqual("PURCHASE_ALREADY_ACTIVATED", result.get("error"))
+            purchase = db.collection("psemine_purchases").document("purchase_user1").get().to_dict()
+            self.assertEqual("activated", purchase["status"])
+        finally:
+            psemine_engine.firestore_server_ts = _orig_ts
+
     def test_admin_cannot_attach_another_users_purchase(self):
         db = tpc.FakeDB()
         _orig_ts = psemine_engine.firestore_server_ts

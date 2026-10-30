@@ -225,7 +225,7 @@ CAMPAIGN_DOC = {
     "paymentAsset": "BNB",
     "paymentNetwork": "BNB Smart Chain",
     "paymentChainId": 56,
-    "receiverWalletAddress": "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33",
+    "receiverWalletAddress": "0x2222222222222222222222222222222222222222",
     "purchaseEnabled": True,
     "miningEnabled": True,
     "referralEnabled": True,

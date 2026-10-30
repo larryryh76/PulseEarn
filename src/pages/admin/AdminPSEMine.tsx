@@ -502,7 +502,7 @@ export const AdminPSEMine: React.FC = () => {
         <section className="pse-ops-kpis" aria-label="Campaign key performance indicators">
           <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Accrued liability</span><strong>{numOrDash(stat('totalAccruedLiabilityGBP'), gbp)}</strong><small>Earned balances recorded by backend</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Active miners</span><strong>{numOrDash(stat('activeMiners'))}</strong><small>{numOrDash(stat('totalMiners'))} total registered accounts</small></article>
-          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Total tool income</span><strong>{numOrDash(mineOverview.totalToolIncomeGbp, gbp)}</strong><small>Real on-chain confirmed tool payments only</small></article>
+          <article className="pse-ops-kpi pse-ops-kpi-primary"><span className="pse-ops-kpi-label">Total tool income</span><strong>{numOrDash(mineOverview.totalToolIncomeGbp, gbp)}</strong><small>{mineOverview.toolIncomeComplete === false ? 'Reconciliation incomplete · total withheld' : 'Real on-chain confirmed tool payments only'}</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Verified activations</span><strong>{numOrDash(stat('toolsSold'))}</strong><small>Backend-reported activated purchases</small></article>
           <article className="pse-ops-kpi"><span className="pse-ops-kpi-label">Needs investigation</span><strong>{numOrDash(stat('openRecoveryCases'))}</strong><small>Open payment-recovery cases</small></article>
         </section>

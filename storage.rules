@@ -17,6 +17,8 @@ service firebase.storage {
         getUserData().role == 'ADMIN' ||
         getUserData().role == 'super_admin' ||
         getUserData().role == 'SUPER_ADMIN' ||
+        getUserData().role == 'super-admin' ||
+        getUserData().role == 'SUPER-ADMIN' ||
         getUserData().isRoot == true
       );
     }

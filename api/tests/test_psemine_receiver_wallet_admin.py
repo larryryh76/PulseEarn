@@ -117,7 +117,9 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("where('status', '==', 'manual_review').get()", API_SOURCE)
         self.assertIn("const pendingNeedsReview = pendingPurchase?.status === 'manual_review'", TOOLS_SOURCE)
         self.assertIn("Payment under manual review", TOOLS_SOURCE)
+        self.assertIn("Open payment recovery", TOOLS_SOURCE)
         self.assertIn("Do not send another payment", TOOLS_SOURCE)
+        self.assertIn("'confirming', 'manual_review']", API_SOURCE)
 
     def test_tool_specs_are_campaign_operating_rules_not_fake_hardware_metrics(self):
         self.assertNotIn("hashRateClass", TOOLS_SOURCE)

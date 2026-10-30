@@ -681,12 +681,8 @@ def is_admin(uid):
     return role in {'admin', 'super_admin'} or d.get('isRoot') is True
 
 def is_super_admin(uid):
-    """Only the explicitly privileged super-admin/root may set the payment receiver."""
-    d = _request_user_doc(uid)
-    if not d:
-        return False
-    role = str(d.get('role') or '').strip().lower().replace('-', '_')
-    return role == 'super_admin' or d.get('isRoot') is True
+    """Backward-compatible alias: PSEmine is operated by the platform admin role."""
+    return is_admin(uid)
 
 def has_psemine_access(uid):
     """B5: backend PSEmine entitlement check — THE authoritative source is the
@@ -7669,7 +7665,7 @@ def admin_psemine_overview():
         "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
         # Return the effective backend permissions so the console never guesses
         # whether a cached client profile can perform a protected operation.
-        "canConfigureReceiverWallet": is_super_admin(request.user["uid"]),
+        "canConfigureReceiverWallet": is_admin(request.user["uid"]),
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
@@ -8866,9 +8862,9 @@ def admin_campaign_action():
         }), 400
 
     if action == 'set_receiver_wallet':
-        if not is_super_admin(uid):
-            return jsonify({"success": False, "error": "SUPER_ADMIN_REQUIRED",
-                            "message": "Only a super-admin can configure the campaign receiving wallet."}), 403
+        if not is_admin(uid):
+            return jsonify({"success": False, "error": "ADMIN_REQUIRED",
+                            "message": "An authenticated platform admin is required to configure the campaign receiving wallet."}), 403
         # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
         raw_address = data.get('receiverWalletAddress')
         if not isinstance(raw_address, str):

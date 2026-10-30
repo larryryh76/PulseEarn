@@ -25,7 +25,7 @@ const principles = [
     icon: Eye,
     title: 'Understand the risks',
     description: 'Digital assets and campaign participation carry risks. Values, network fees, eligibility and processing times can vary.',
-    points: ['No guaranteed returns', 'Network fees may apply', 'Review payout conditions'],
+    points: ['Published payout conditions', 'Network fees may apply', 'Settlement and processing steps'], 
   },
   {
     icon: Shield,
@@ -35,8 +35,8 @@ const principles = [
   },
   {
     icon: CheckCircle2,
-    title: 'Evidence over promises',
-    description: 'A displayed balance or status is not proof of a blockchain payment. Verify transaction details independently before relying on a payment claim.',
+    title: 'Verify payment records',
+    description: 'Your account records show the payment and payout status. You can also verify completed transfers directly on BNB Smart Chain using the transaction hash.',
     points: ['Check transaction hashes', 'Review account history', 'Confirm settlement status'],
   },
 ];
@@ -93,7 +93,7 @@ const TrustSecurity: React.FC = () => (
         ))}
       </div>
       <p className="mt-8 text-center text-xs text-text-tertiary leading-relaxed max-w-3xl mx-auto">
-        Security and payment statements should be assessed against observable evidence. This section is educational and does not constitute an independent security certification or guarantee of financial results.
+        Use the published policies for product terms and the transaction hash to verify completed blockchain transfers.
       </p>
     </div>
   </section>

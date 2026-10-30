@@ -105,8 +105,8 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'what-it-is',
         h: 'What PSEmine is',
         p: [
-          'PSEmine sells a recorded right to campaign capacity for the duration of a single campaign. A unit has a fixed price, a fixed GBP-per-hour campaign accounting rate, and an ownership limit; eligible capacity accrues to the account under the published operating rules, and settled earnings may be requested for payout in BNB after the campaign ends.',
-          'A unit is a virtual campaign instrument, not physical mining hardware or rented blockchain hashpower. PSEmine does not allocate an ASIC to your account or claim that the displayed GBP/hour rate comes from proof-of-work rewards. The backend records eligible campaign accrual using the published rate and operating cycle. No earnings are guaranteed; review the campaign terms before buying.',
+          'PSEmine sells a recorded right to campaign capacity for the duration of a single campaign. A unit has a fixed price, a fixed GBP-per-hour campaign accounting rate, and an ownership limit; eligible capacity accrues to the account under the published operating rules. At campaign end, settled earnings become payable through the payout-request process and approved requests are paid in BNB.',
+          'PSEmine provides campaign capacity through its managed service. A unit represents access to the published hourly capacity for the campaign; it is not ownership of an ASIC or rented blockchain hashpower. The GBP/hour rate is the campaign accounting rate used to record eligible earnings under the published operating cycle. At campaign end, recorded eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
         ],
         list: [
           'Units are sold at the published price list, each with a fixed capacity per hour and a per-account ownership limit.',
@@ -246,7 +246,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'what-you-buy',
         h: 'What you are buying',
         p: [
-          'You are buying a recorded right to a mining unit\u2019s hourly capacity for the duration of the current campaign, subject to the ownership limit for that tier. You are not buying hardware, and you are not buying a share, an interest or a claim on the campaign\u2019s revenue.',
+          'You are buying access to a mining unit\u2019s published hourly campaign capacity for the duration of the current campaign, subject to the ownership limit for that tier. The unit is a campaign-capacity product rather than an ownership share in the campaign operator.',
           `Current tiers and prices: ${TOOL_LIST}.`,
         ],
       },
@@ -335,7 +335,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'review',
         h: 'Review, and why a payout can be held',
         p: [
-          'A payout can be held for review where a figure needs reconciling, where a purchase was underpaid or mismatched, where referral abuse is suspected, or where an account is restricted. A held payout is a delay, not a forfeiture, and the reason is recorded against the payout.',
+          'A payout is reviewed against the account and payment records before it is sent. If a figure needs reconciling, a purchase payment does not match its quote, referral activity needs checking, or an account is restricted, the payout is placed on hold while the issue is reviewed. The reason and status are recorded on the payout.',
         ],
       },
       {
@@ -412,24 +412,24 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'product',
         h: 'What PSEmine is',
         p: [
-          "PSEmine sells a unit with published hourly campaign capacity for one campaign. Capacity accrues only while the campaign is live and the unit is operating. After settlement, eligible balances are paid in BNB.",
-          "The campaign window, unit price, hourly capacity and ownership cap are published before purchase. These figures describe capacity, not a promised return.",
+          "PSEmine sells a unit with published hourly campaign capacity for one campaign. Capacity accrues only while the campaign is live and the unit is operating. After the campaign ends, eligible recorded earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.",
+          "The campaign window, unit price, hourly capacity and ownership cap are published before purchase. These figures show the hourly capacity used to calculate campaign earnings under the published operating rules.",
         ],
       },
       {
         id: 'campaign-based',
         h: 'How campaign earnings accrue and settle',
         p: [
-          "Capacity accrues only while the campaign is live and the unit is operating. Settlement finalises the recorded accrual for the campaign window; payouts are calculated from that settled amount.",
-          "Capacity is not a guaranteed return or forecast. Pauses, session schedules, operating time and settlement can make the final amount lower than a full-window estimate. Published campaign and unit figures are fixed for the campaign.",
+          "Eligible campaign earnings accrue while the campaign is live and the unit is operating. At the end of the campaign, settlement finalises the recorded amount and the payout is calculated from that settled balance.",
+          "Published capacity is the hourly accounting rate used to calculate eligible campaign earnings. Your final settled amount reflects actual operating time, campaign pauses and session schedules. Campaign and unit figures remain fixed for the campaign.",
         ],
       },
       {
         id: 'purchase',
         h: 'A purchase is a payment, made once',
         p: [
-          "A unit is a one-off purchase at the published price, paid in BNB. Confirmed blockchain payments cannot be recalled by PSEmine. The purchase grants the unit’s recorded capacity for the campaign window; it is not a claim on campaign revenue or a guaranteed return.",
-          "A change of mind or an outcome below expectations does not by itself create a refund entitlement. This does not limit rights under applicable consumer law.",
+          "A unit is a one-off purchase at the published price, paid in BNB. Confirmed blockchain payments cannot be recalled by PSEmine. The purchase gives your account the unit’s published hourly capacity for the campaign window. Eligible earnings are calculated from actual operating time and settled at the end of the campaign.",
+          "Once a purchase is confirmed on-chain, it is final. If a payment is made in error and the unit is not activated, the purchase is reviewed and any approved return is sent to the originating wallet. Your rights under applicable consumer law remain unchanged.",
         ],
       },
       {
@@ -439,7 +439,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
           'A paused campaign accrues nothing for anyone for the duration of the pause; the record of when mining was actually live is kept server-side.',
           'Session units (Starter, Builder and Advanced) mine in fixed sessions and stop between them until restarted, and nothing accrues during a restart delay. Elite units run continuously while the campaign is active.',
           'Referral capacity is added when a referral reaches qualification, and accrues while you hold at least one unit actually operating.',
-          'Accrual becomes payable once settlement finalises it, and each payout then passes review before it is sent — so a payout can take time to reach the wallet.',
+          'At campaign end, settlement finalises the eligible earnings recorded for your account. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
         ],
       },
       {
@@ -462,7 +462,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'not-advice',
         h: 'Not advice',
         p: [
-          'Nothing in PSEmine is financial, investment, tax or legal advice, and the product does not assess whether a campaign is suitable for you. Read this disclosure together with the Campaign Terms, the Purchase Terms and the Payout Policy, and take independent advice where you need it.',
+          'PSEmine provides campaign access and operational records; it does not provide financial, investment, tax or legal advice or assess personal suitability. Read this disclosure together with the Campaign Terms, Purchase Terms and Payout Policy, and seek independent advice where appropriate.',
         ],
       },
     ],

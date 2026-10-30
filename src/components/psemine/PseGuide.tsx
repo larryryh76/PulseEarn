@@ -230,9 +230,9 @@ const SECTIONS: GuideSection[] = [
       </PseFacts>
     ),
     details: [
-      'Starter, Builder and Advanced stop earning when their 24-hour session ends. You then have a 6-hour grace window to request free manual maintenance; this is not extra earning time.',
-      'After you request maintenance, the next session is scheduled 10 minutes later. No rewards accrue during this restart delay.',
-      'If the 6-hour window passes, the tool remains paused until you maintain it. It does not restart by itself.',
+      'Starter, Builder and Advanced complete a 24-hour operating session. Use the following 6-hour maintenance window to request a free manual restart; earnings accrue during active operating sessions.',
+      'After maintenance is requested, the next session starts after a 10-minute restart delay. The next 24-hour earning session begins when the tool is active again.',
+      'If the 6-hour maintenance window passes, the tool stays paused until you request maintenance. You can restart it from the tools page.',
       'Elite operates continuously while the campaign is active and does not use this manual maintenance cycle. Live states and countdowns come from your account records.',
     ],
     action: { to: '/mine/tools', label: 'Manage owned units' },
@@ -243,7 +243,7 @@ const SECTIONS: GuideSection[] = [
     title: 'Settlement, payouts and the payout wallet',
     tag: 'Payouts',
     keywords: 'settlement wallet payout bnb bep20 review withdrawal address',
-    summary: 'Accrual becomes payable when settlement finalises it. Payouts are made in BNB to the payout wallet recorded on your account.',
+    summary: 'At campaign end, eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.',
     visual: (
       <ol className="pse-chain">
         {[

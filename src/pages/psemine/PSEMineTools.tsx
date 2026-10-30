@@ -300,7 +300,7 @@ export const PSEMineTools: React.FC = () => {
           <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
           <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
         </PseFacts>
-        <p>The 6-hour window is not extra earning time. Maintenance does not create a reward. Elite operates continuously while the campaign is active. The GBP/hour figure is a campaign accounting rate; earnings are not guaranteed.</p>
+        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
       </PseNotice>
 
       <PseStatBar cols={4}>
@@ -372,7 +372,7 @@ export const PSEMineTools: React.FC = () => {
           <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
           <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
         </PseFacts>
-        <p>The 6-hour window is not extra earning time. Maintenance does not create a reward. Elite operates continuously while the campaign is active. The GBP/hour figure is a campaign accounting rate; earnings are not guaranteed.</p>
+        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
       </PseNotice>
 
       <PseStatBar cols={4}>

@@ -197,6 +197,20 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("Operations command centre", ADMIN_SOURCE)
         self.assertIn("all visible on one page", ADMIN_SOURCE)
 
+    def test_legacy_payment_shaped_rows_are_excluded_from_live_ledger(self):
+        self.assertIn("def _is_canonical_verified_psemine_payment(row):", API_SOURCE)
+        helper_start = API_SOURCE.index("def _is_canonical_verified_psemine_payment(row):")
+        helper_end = API_SOURCE.index("@app.route('/api/admin/psemine/overview'", helper_start)
+        helper = API_SOURCE[helper_start:helper_end]
+        for evidence in ("verificationSource", "bsc_rpc_receipt", "chain_id == PSEMINE_BSC_CHAIN_ID",
+                         "valid_hash", "valid_destination", "block_number > 0",
+                         "confirmations > 0", "paid_wei > 0", "price_gbp > 0"):
+            self.assertIn(evidence, helper)
+        payments_start = API_SOURCE.index("@app.route('/api/admin/psemine/payments'")
+        payments_end = API_SOURCE.index("@app.route(", payments_start + 1)
+        self.assertIn("_is_canonical_verified_psemine_payment(row)", API_SOURCE[payments_start:payments_end])
+        self.assertIn("_is_canonical_verified_psemine_payment(payment_row)", API_SOURCE)
+
     def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)
         self.assertIn("distinct from payout destinations", ADMIN_SOURCE)

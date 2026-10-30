@@ -32,6 +32,10 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("if not is_admin(uid)", self.route)
         self.assertIn("if action == 'set_receiver_wallet':", self.route)
 
+    def test_super_admin_role_is_authorized_by_backend_admin_gate(self):
+        self.assertIn("role in {'admin', 'super_admin'}", API_SOURCE)
+        self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
+
     def test_wallet_address_is_validated_and_zero_address_rejected(self):
         wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
         self.assertIn("len(receiver_address) != 42", wallet_action)

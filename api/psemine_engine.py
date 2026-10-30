@@ -1472,6 +1472,9 @@ def create_payout_request(db, uid, amount_gbp, source="user", payout_quote=None)
     if amount_minor < PAYOUT_MIN_GBP_MINOR:
         return {"ok": False, "error": "BELOW_MINIMUM", "message": "Minimum payout is £10.00."}
 
+    if payout_quote is None:
+        return {"ok": False, "error": "INVALID_PAYOUT_QUOTE",
+                "message": "A locked BNB payout quote is required before creating a withdrawal."}
     payout_fields = {}
     if payout_quote is not None:
         try:

@@ -7101,6 +7101,11 @@ def psemine_create_order():
             return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
                             "message": "Tool purchases are disabled until a super-admin configures the campaign receiving wallet."}), 503
 
+        legacy_review_orders = db.collection('psemine_orders').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+        if legacy_review_orders:
+            return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                            "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved."}), 409
+
         order_ref = db.collection('psemine_orders').document()
         order_payload = {
             'id': order_ref.id,

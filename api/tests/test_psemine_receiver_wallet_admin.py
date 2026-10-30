@@ -12,6 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 API_SOURCE = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
 ADMIN_SOURCE = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text(encoding="utf-8")
+ENGINE_SOURCE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
 
 
 class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
@@ -70,6 +71,29 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("QUOTE_NETWORK_MISMATCH", route)
         self.assertIn("exact_wei != quoted_wei", route)
         self.assertIn("INVALID_QUOTE_AMOUNT", route)
+
+    def test_payout_requests_lock_bnb_amount_and_admin_checks_confirmations(self):
+        route_start = API_SOURCE.index("def mine_create_withdrawal():")
+        route_end = API_SOURCE.index("\n@app.route(", route_start)
+        route = API_SOURCE[route_start:route_end]
+        self.assertIn("fetch_psemine_bnb_gbp_quote()", route)
+        self.assertIn("expectedAmountWei", route)
+        self.assertIn("payout_quote=payout_quote", route)
+        engine_start = ENGINE_SOURCE.index("def create_payout_request(")
+        engine_end = ENGINE_SOURCE.index("\ndef create_payment_recovery", engine_start)
+        engine = ENGINE_SOURCE[engine_start:engine_end]
+        self.assertIn('"expectedAmountWei": str(amount_wei)', engine)
+        self.assertIn('"destinationWallet": u.get("payoutWallet")', engine)
+        self.assertIn("exact_wei != amount_wei", engine)
+        payout_start = API_SOURCE.index("def admin_psemine_review_withdrawal(")
+        payout_end = API_SOURCE.index("\n@app.route(", payout_start)
+        payout = API_SOURCE[payout_start:payout_end]
+        self.assertIn("PAYOUT_INSUFFICIENT_CONFIRMATIONS", payout)
+        self.assertIn("PAYOUT_AMOUNT_MISMATCH", payout)
+        self.assertIn("payout_block", payout)
+        self.assertIn("txn.set(_tx_doc", payout)
+        self.assertIn("No locked BNB quote", ADMIN_SOURCE)
+        self.assertIn("amountBnb.toFixed(8)", ADMIN_SOURCE)
 
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)

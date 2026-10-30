@@ -8415,19 +8415,29 @@ def verify_psemine_tool_purchase():
             and os.environ.get('NODE_ENV', 'production') != 'production'
         )
         if not allow_skip:
-            # Persist evidence for administrator review. Never auto-assign, never refund.
+            # Preserve an admin-attached recovery while confirmations propagate;
+            # re-opening it here would make an expired quote impossible to retry.
             try:
-                _pse_engine.create_payment_recovery(db, uid,
-                    tx_hash=tx_hash,
-                    quote_id=quote_id,
-                    purchase_id=purchase_id,
-                    sender=expected_sender,
-                    recipient=expected_destination,
-                    observed_wei=None,
-                    chain_id=PSEMINE_BSC_CHAIN_ID,
-                    block_number=receipt_block,
-                    reason=err_code or 'VERIFICATION_FAILED',
-                    extra={'message': err_msg})
+                if recovery_authorized and recovery_case_id:
+                    db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                        'lastVerificationError': err_code or 'VERIFICATION_FAILED',
+                        'lastVerificationMessage': err_msg,
+                        'lastVerificationBlock': receipt_block,
+                        'lastVerificationAt': firestore.SERVER_TIMESTAMP,
+                        'updatedAt': firestore.SERVER_TIMESTAMP,
+                    })
+                else:
+                    _pse_engine.create_payment_recovery(db, uid,
+                        tx_hash=tx_hash,
+                        quote_id=quote_id,
+                        purchase_id=purchase_id,
+                        sender=expected_sender,
+                        recipient=expected_destination,
+                        observed_wei=None,
+                        chain_id=PSEMINE_BSC_CHAIN_ID,
+                        block_number=receipt_block,
+                        reason=err_code or 'VERIFICATION_FAILED',
+                        extra={'message': err_msg})
             except Exception:
                 logging.warning('[PSEmine] recovery record failed', exc_info=True)
             return jsonify({

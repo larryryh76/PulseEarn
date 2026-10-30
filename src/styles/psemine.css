@@ -727,7 +727,8 @@
 }
 
 .pse-notice-title { display: block; min-width: 0; color: var(--pse-ink); font-weight: 600; }
-.pse-notice > span:last-child { display: block; min-width: 0; }
+.pse-notice-content { display: block; min-width: 0; width: 100%; }
+.pse-notice-content > * { max-width: 100%; }
 .pse-notice p { margin: 0; }
 .pse-notice .pse-facts { width: 100%; min-width: 0; }
 @media (max-width: 620px) {

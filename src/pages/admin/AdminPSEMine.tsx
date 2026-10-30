@@ -871,13 +871,20 @@ export const AdminPSEMine: React.FC = () => {
                   const view = payoutStatusView(status);
                   const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
                     : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
+                  const amountBnb = w.amountBnb !== undefined && w.amountBnb !== null && Number.isFinite(Number(w.amountBnb))
+                    ? Number(w.amountBnb) : null;
                   const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
                   const requester = String(w.userId || w.uid || '');
                   return (
                     <PseRow key={id}>
                       <PseCell>{w.createdAt ? fmtDateTime(w.createdAt as string) : '—'}</PseCell>
                       <PseCell>{view.label}</PseCell>
-                      <PseCell numeric>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</PseCell>
+                      <PseCell numeric>
+                        <div>{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</div>
+                        <div className="text-xs text-white/55">
+                          {amountBnb !== null ? `${amountBnb.toFixed(8)} BNB · locked` : 'No locked BNB quote'}
+                        </div>
+                      </PseCell>
                       <PseCell mono>{dest ? shortAddr(dest) : '—'}</PseCell>
                       <PseCell mono>{requester ? shortAddr(requester) : '—'}</PseCell>
                       <PseCell>

@@ -366,7 +366,7 @@ export const PSEMineTools: React.FC = () => {
 
       <PseNotice tone="attention" title="Your tool cycle, at a glance">
         <p>PSEmine units are virtual campaign-capacity tools, not physical mining rigs. Starter, Builder and Advanced follow this cycle:</p>
-        <PseFacts cols={4}>
+        <PseFacts cols={2}>
           <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
           <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
           <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />

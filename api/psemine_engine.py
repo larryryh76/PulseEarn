@@ -1689,6 +1689,31 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         return {"ok": False, "error": "NOT_FOUND"}
     if action not in ("mark_reviewed", "attach_to_purchase", "reject"):
         return {"ok": False, "error": "INVALID_ACTION"}
+    recovery = snap.to_dict() or {}
+    if action == "attach_to_purchase":
+        if not purchase_id:
+            return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
+        if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
+            return {"ok": False, "error": "PURCHASE_MISMATCH"}
+        purchase_ref = db.collection("psemine_purchases").document(purchase_id)
+        purchase_snap = purchase_ref.get()
+        if not purchase_snap.exists:
+            return {"ok": False, "error": "NOT_FOUND"}
+        purchase = purchase_snap.to_dict() or {}
+        if purchase.get("userId") != recovery.get("userId"):
+            return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
+        if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
+            return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
+        if str(purchase.get("transactionHash") or recovery.get("txHash") or "").lower() != str(recovery.get("txHash") or "").lower():
+            return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
+        purchase_ref.update({
+            "status": "manual_review",
+            "transactionHash": str(recovery.get("txHash") or "").lower(),
+            "recoveryCaseId": recovery_id,
+            "reviewReason": recovery.get("reason") or "PAYMENT_RECOVERY_ATTACHED",
+            "statusMessage": "Payment recovery attached by an administrator. Retry on-chain verification.",
+            "updatedAt": firestore_server_ts(),
+        })
     ref.update({
         "status": {"mark_reviewed": "reviewed", "attach_to_purchase": "attached", "reject": "rejected"}[action],
         "attachedPurchaseId": purchase_id if action == "attach_to_purchase" else None,

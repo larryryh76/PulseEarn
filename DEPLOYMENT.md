@@ -41,12 +41,14 @@ from any temp directory.
   (see `api/tests/test_taskroot_imports.py`).
 - Firebase Admin initializes lazily per request; `api/services/provider_cache.py`
   intentionally does NOT force-warm at import (boot-order safety).
-- `PSEMINE_PAYMENT_ADDRESS` is the bootstrap/migration fallback, not the live
-  admin setting. New PSEmine tool-purchase quotes use
-  `psemine_campaigns/active_campaign.receiverWalletAddress`; super-admins can
-  change that destination in **PSEmine Operations → Configuration**. The change
-  applies only to new quotes; previously issued quotes keep their recorded
-  destination and amount. Do not store private keys or seed phrases here.
+- PSEmine has ONE receiving destination: the explicitly configured
+  `psemine_campaigns/active_campaign.receiverWalletAddress`, changed by a
+  super-admin in **PSEmine Operations → Configuration**. There is no code,
+  environment-variable, frontend, or bootstrap fallback wallet. If the value
+  is missing or invalid, both checkout APIs refuse to create quotes. Previously
+  issued server quotes retain their immutable destination and amount; never
+  rewrite a quote after a user may have paid. Do not store private keys or seed
+  phrases here.
 
 ## Firebase infrastructure (Firestore + Storage)
 

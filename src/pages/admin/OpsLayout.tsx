@@ -74,13 +74,12 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  const isAdmin = React.useMemo(() => {
-    return userData?.role === 'admin';
-  }, [userData]);
+  const role = String(userData?.role || '').trim().toLowerCase().replace(/-/g, '_');
+  const isAdmin = React.useMemo(() => role === 'admin' || role === 'super_admin', [role]);
 
   const isModerator = React.useMemo(() => {
-    return isAdmin || userData?.role === 'moderator' || userData?.isRoot === true;
-  }, [userData, isAdmin]);
+    return isAdmin || role === 'moderator' || userData?.isRoot === true;
+  }, [userData, isAdmin, role]);
 
   if (loading || !isInitialized) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">

@@ -353,11 +353,11 @@ export const parseChainId = (value: unknown): number | null => {
   if (typeof value !== 'string') return null;
   const raw = value.trim();
   if (!raw) return null;
-  const caip = raw.match(/^eip155:(\\d+)$/i);
+  const caip = raw.match(/^eip155:(\d+)$/i);
   const candidate = caip?.[1] ?? raw;
   const parsed = /^0x[0-9a-f]+$/i.test(candidate)
     ? Number.parseInt(candidate.slice(2), 16)
-    : /^\\d+$/.test(candidate) ? Number.parseInt(candidate, 10) : NaN;
+    : /^\d+$/.test(candidate) ? Number.parseInt(candidate, 10) : NaN;
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 };
 

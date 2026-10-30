@@ -61,6 +61,16 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
         self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
 
+    def test_purchase_intent_rejects_stale_receiver_and_inconsistent_amount(self):
+        start = API_SOURCE.index("def mine_create_purchase():")
+        end = API_SOURCE.index("\n@app.route(", start)
+        route = API_SOURCE[start:end]
+        self.assertIn("_configured_psemine_receiver_wallet(camp)", route)
+        self.assertIn("RECEIVER_WALLET_CHANGED", route)
+        self.assertIn("QUOTE_NETWORK_MISMATCH", route)
+        self.assertIn("exact_wei != quoted_wei", route)
+        self.assertIn("INVALID_QUOTE_AMOUNT", route)
+
     def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
         self.assertIn("{ id: 'settings', label: 'Configuration' }", ADMIN_SOURCE)
         self.assertIn("activeSection === 'settings'", ADMIN_SOURCE)

@@ -415,6 +415,56 @@ export class PSEMineEngine {
     } as PSEMinePurchase;
   }
 
+  /** Persist an ambiguous wallet submission on the backend, shared by all signed-in devices. */
+  public static async markPurchaseSubmissionUncertain(purchaseId: string): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to recover this purchase.');
+    const res = await fetch('/api/mine/purchases/mark-uncertain', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/mark-uncertain', res.status, data));
+    }
+    return true;
+  }
+
+  /** Attach a known wallet transaction hash to its immutable server purchase intent. */
+  public static async reportPurchaseSubmission(
+    purchaseId: string, transactionHash: string, senderWallet: string,
+  ): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to record this transaction.');
+    const res = await fetch('/api/mine/purchases/report-submission', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId, transactionHash, senderWallet }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/report-submission', res.status, data));
+    }
+    return true;
+  }
+
+  /** Release a server-side uncertain lock only after explicit user attestation and no known hash. */
+  public static async confirmNoPurchaseBroadcast(purchaseId: string): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to resolve this purchase.');
+    const res = await fetch('/api/mine/purchases/resolve-no-broadcast', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId, confirmedNoTransaction: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/resolve-no-broadcast', res.status, data));
+    }
+    return true;
+  }
+
   /**
    * Authoritative Tool Purchase Activation & Capacity Recalculation via Secure Backend API.
    *

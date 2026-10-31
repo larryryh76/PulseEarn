@@ -154,6 +154,7 @@ async function doInitWalletConnect(): Promise<boolean> {
     const appKit = createAppKit({
       adapters: [adapter as never],
       networks: [bsc],
+      defaultNetwork: bsc,
       projectId: WALLETCONNECT_PROJECT_ID,
       metadata,
       features: { analytics: false },
@@ -456,6 +457,23 @@ export const ensureChain = async (
   const expectedHex = `0x${expectedChainId.toString(16)}`;
   const current = await getChainId(provider);
   if (current === expectedChainId) return true;
+
+  // WalletConnect sessions are chain-scoped (CAIP-10 accounts such as
+  // eip155:56:0x...). Some mobile wallet bridges do not implement the
+  // injected-wallet wallet_switchEthereumChain RPC. If eth_chainId is
+  // temporarily unavailable but the approved WalletConnect session itself
+  // explicitly contains the requested chain, trust that session binding
+  // instead of sending an unsupported network-switch RPC to the wallet.
+  // Never use this fallback when the provider reports a different chain.
+  if (current === null) {
+    const session = (provider as WcUniversalProviderLike).session;
+    const accounts = session?.namespaces?.eip155?.accounts ?? [];
+    const sessionMatchesExpected = accounts.some(account => {
+      const match = account.match(/^eip155:(\\d+):0x[a-f0-9]{40}$/i);
+      return Boolean(match && Number.parseInt(match[1], 10) === expectedChainId);
+    });
+    if (sessionMatchesExpected) return true;
+  }
 
   try {
     await provider.request({

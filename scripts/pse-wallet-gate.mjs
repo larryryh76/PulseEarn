@@ -294,6 +294,39 @@ const run = async () => {
   }));
   step('post-rejection-state', { ...after, pass: after.sendAttempts === 1 });
 
+  // WalletConnect UniversalProvider supports a second CAIP-2 chain argument.
+  // Force BSC explicitly so a restored/default chain cannot route a payment
+  // request to another chain's RPC provider (which can surface as "unknown method").
+  const walletConnectRoute = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    let requestedChain = null;
+    let sendCount = 0;
+    const provider = {
+      request: async (args, chain) => {
+        if (args.method === 'eth_sendTransaction') {
+          requestedChain = chain ?? null;
+          sendCount += 1;
+          const e = new Error('user rejected transaction'); e.code = 4001; throw e;
+        }
+        return null;
+      },
+    };
+    let rejected = false;
+    try {
+      await m.sendPaymentTransaction(provider, {
+        from: '0x1111111111111111111111111111111111111111',
+        to: '0x2222222222222222222222222222222222222222',
+        value: '10000000000000000',
+      }, 'walletConnect');
+    } catch (e) { rejected = m.isWalletRejection(e); }
+    return { requestedChain, sendCount, rejected };
+  });
+  step('walletconnect-payment-explicit-bsc-route', {
+    ...walletConnectRoute,
+    pass: walletConnectRoute.requestedChain === 'eip155:56'
+      && walletConnectRoute.sendCount === 1 && walletConnectRoute.rejected === true,
+  });
+
   // 7. Event registration contract: all three listeners, removable.
   const events = await page.evaluate(async () => {
     const m = await import('/__pseWallet.mjs');
@@ -386,7 +419,7 @@ const run = async () => {
             if (send === 'reject') { const e = new Error('user rejected transaction'); e.code = 4001; throw e; }
             if (send === 'unsupported') { const e = new Error('Method not found'); e.code = 4200; throw e; }
             // Ambiguous: a send was requested and no hash came back.
-            const e = new Error('provider connection lost'); e.code = -32000; throw e;
+            const e = new Error('provider connection lost for ' + FROM); e.code = -32000; throw e;
           }
           if (method === 'eth_getTransactionByHash') return TX_RESPONSE;
           if (capability === 'minimal') {
@@ -418,10 +451,12 @@ const run = async () => {
       };
       let outcome = null;
       let hash = null;
+      let diagnostic = null;
       try {
         hash = await m.sendPaymentTransaction(provider, { from: FROM, to: receiver, value: VALUE });
         outcome = 'HASH_RETURNED';
       } catch (e) {
+        diagnostic = e && typeof e.diagnostic === 'string' ? e.diagnostic : null;
         outcome = m.isSubmissionUncertain(e) ? 'PAYMENT_SUBMISSION_UNCERTAIN'
           : m.isWalletRejection(e) ? 'USER_REJECTED'
           : (e && e.code === 'PAYMENT_METHOD_UNSUPPORTED') ? 'UNSUPPORTED_METHOD'
@@ -437,6 +472,7 @@ const run = async () => {
       return {
         outcome,
         hash,
+        diagnostic,
         sendAttempts: sendCalls.length,
         pathUsed,
         lastSendParams: sent || null,
@@ -474,17 +510,28 @@ const run = async () => {
     minimalProviderDirect: b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.pathUsed === 'raw-minimal',
     ambiguousSubmissionLocked: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1,
     userRejectionNotRetried: b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1,
-    unsupportedMethodClassified: unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1,
+    unsupportedMethodClassified: unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
+      && String(unsupported.diagnostic || '').includes('eth_sendTransaction | code: 4200 | Method not found'),
+    ambiguousDiagnosticPreservedAndRedacted: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN'
+      && String(b.ambiguousSend.diagnostic || '').includes('code: -32000')
+      && String(b.ambiguousSend.diagnostic || '').includes('[address]')
+      && !String(b.ambiguousSend.diagnostic || '').includes(b.from),
     exactApprovalParameters: directParamsExact,
     atMostOneSendPerCall: oneSendEach,
     observed: { outcomes: [...cases.map(c => c.outcome), unsupported.outcome], sends: [...cases.map(c => c.sendAttempts), unsupported.sendAttempts] },
     pass: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.sendAttempts === 1
       && b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1
       && b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1
+      && unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
+      && String(unsupported.diagnostic || '').includes('code: 4200')
+      && String(b.ambiguousSend.diagnostic || '').includes('code: -32000')
+      && String(b.ambiguousSend.diagnostic || '').includes('[address]')
+      && !String(b.ambiguousSend.diagnostic || '').includes(b.from)
       && b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.sendAttempts === 1
       && b.fallbackAlsoAmbiguous.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.fallbackAlsoAmbiguous.sendAttempts === 1
       && unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
-      && directParamsExact && oneSendEach,
+      && directParamsExact && oneSendEach && walletConnectRoute.requestedChain === 'eip155:56'
+      && walletConnectRoute.sendCount === 1 && walletConnectRoute.rejected === true,
   });
 
   // 10. PURCHASE-FLOW ORDER (source order of the real handler): bind the payer

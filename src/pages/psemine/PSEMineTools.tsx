@@ -661,7 +661,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // Fetch a quote on open — unless a live/submitted intent is being resumed
   // (re-quoting there would re-price and re-bind an existing purchase).
   useEffect(() => {
-    if (uncertainRecovery || (resume && resume.kind !== 'expired')) return;
+    if (uncertainRecovery || confirmedNoTransaction || (resume && resume.kind !== 'expired')) return;
     let cancelled = false;
     setQuoteLoading(true);
     resetBinding();
@@ -670,7 +670,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setQuoteLoading(false); });
     return () => { cancelled = true; clearQuote(); };
-  }, [tool.id, requestQuote, clearQuote, resetBinding, resume, uncertainRecovery]);
+  }, [tool.id, requestQuote, clearQuote, resetBinding, resume, uncertainRecovery, confirmedNoTransaction]);
 
   // The amounts the user sees. A live resume ALWAYS uses its own quote, never a
   // freshly fetched one, so the binding can never drift to another quote.

@@ -9485,16 +9485,19 @@ def mine_create_purchase():
     # a later create call must never be able to move it to another wallet — that
     # binding is what the on-chain sender is compared against at verification.
     # The decision itself is a pure, unit-tested function.
-    blocking_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', 'in', ['manual_review', 'submission_uncertain', 'transaction_submitted', 'confirming']).get()
+    manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+    if manual_review_rows:
+        return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                        "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved.",
+                        "purchaseId": manual_review_rows[0].id}), 409
+
+    blocking_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', 'in', ['submission_uncertain', 'transaction_submitted', 'confirming']).get()
     if blocking_rows:
         blocked = blocking_rows[0].to_dict() or {}
         blocked_status = blocked.get('status')
-        message = ("A previous payment is under manual review. Do not pay again until the case is resolved."
-                   if blocked_status == 'manual_review' else
-                   "A previous payment may already have been submitted. Its server-side recovery record must be reconciled before another payment can be started.")
         return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
-                        "message": message, "purchaseId": blocking_rows[0].id,
-                        "status": blocked_status}), 409
+                        "message": "A previous payment may already have been submitted. Its server-side recovery record must be reconciled before another payment can be started.",
+                        "purchaseId": blocking_rows[0].id, "status": blocked_status}), 409
 
     existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
     for e in existing:

@@ -1403,7 +1403,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       {!showingRecovery && step === 'verifying' && (
         <PseSection title="Verifying on BNB Smart Chain">
           <p className="pse-prose" role="status" aria-live="polite">
-            Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
+            Confirming sender, recipient, amount and network confirmations. You may minimize this panel, but do not start another payment.
           </p>
           <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
         </PseSection>

@@ -606,13 +606,15 @@ export const PAYMENT_SUBMISSION_UNCERTAIN = 'PAYMENT_SUBMISSION_UNCERTAIN';
 export class PsePaymentSubmissionUncertainError extends Error {
   readonly code = PAYMENT_SUBMISSION_UNCERTAIN;
   readonly submissionState: PsePaymentSubmissionState = 'UNKNOWN_SUBMISSION_STATE';
+  readonly diagnostic?: string;
 
-  constructor() {
+  constructor(diagnostic?: string) {
     super(
       'The wallet did not report whether the payment was broadcast. ' +
       'No second attempt was made — check your wallet activity before retrying.',
     );
     this.name = 'PsePaymentSubmissionUncertainError';
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -689,6 +691,18 @@ const isTxHash = (value: unknown): value is string =>
  * A returned hash always ends the flow: the backend is the only verifier of
  * recipient/sender/amount/chain/confirmations.
  */
+const walletRpcDiagnostic = (error: unknown, method: string): string => {
+  const value = typeof error === 'object' && error !== null
+    ? error as { code?: string | number; message?: string; shortMessage?: string; data?: { message?: string } }
+    : {};
+  const code = value.code === undefined ? 'none' : String(value.code);
+  const message = String(value.shortMessage || value.message || value.data?.message || 'No wallet error message returned')
+    .replace(/0x[a-f0-9]{40}/gi, '[address]')
+    .replace(/\\s+/g, ' ')
+    .slice(0, 180);
+  return `${method} | code: ${code} | ${message}`;
+};
+
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
@@ -704,7 +718,7 @@ export const sendPaymentTransaction = async (
       method: 'eth_sendTransaction',
       params: [{ from: tx.from, to: tx.to, value: tx.value }],
     });
-    if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError();
+    if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError('eth_sendTransaction | wallet returned no valid transaction hash');
     return hash;
   } catch (e) {
     if (isWalletRejection(e)) throw e;
@@ -714,13 +728,16 @@ export const sendPaymentTransaction = async (
       if (err.code === 4200 || err.code === -32601 || err.code === '4200' ||
           err.code === '-32601' || /unknown method|unsupported method|method not found/.test(msg)) {
         const unsupported = new Error('This wallet connection does not support the standard transaction request.');
-        (unsupported as Error & { code?: string }).code = 'PAYMENT_METHOD_UNSUPPORTED';
+        (unsupported as Error & { code?: string; diagnostic?: string }).code = 'PAYMENT_METHOD_UNSUPPORTED';
+        (unsupported as Error & { diagnostic?: string }).diagnostic = walletRpcDiagnostic(e, 'eth_sendTransaction');
         throw unsupported;
       }
     }
     if (isSubmissionUncertain(e)) throw e;
     // Once the standard submission request is invoked, any generic failure
-    // could have happened after broadcast. Never issue another request.
-    throw new PsePaymentSubmissionUncertainError();
+    // could have happened after broadcast. Never issue another request. Preserve
+    // a safe, redacted provider diagnostic so support can identify the exact
+    // wallet RPC rejection instead of guessing from a generic uncertain state.
+    throw new PsePaymentSubmissionUncertainError(walletRpcDiagnostic(e, 'eth_sendTransaction'));
   }
 };

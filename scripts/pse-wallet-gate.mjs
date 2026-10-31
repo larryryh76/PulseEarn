@@ -386,7 +386,7 @@ const run = async () => {
             if (send === 'reject') { const e = new Error('user rejected transaction'); e.code = 4001; throw e; }
             if (send === 'unsupported') { const e = new Error('Method not found'); e.code = 4200; throw e; }
             // Ambiguous: a send was requested and no hash came back.
-            const e = new Error('provider connection lost'); e.code = -32000; throw e;
+            const e = new Error('provider connection lost for ' + FROM); e.code = -32000; throw e;
           }
           if (method === 'eth_getTransactionByHash') return TX_RESPONSE;
           if (capability === 'minimal') {
@@ -418,10 +418,12 @@ const run = async () => {
       };
       let outcome = null;
       let hash = null;
+      let diagnostic = null;
       try {
         hash = await m.sendPaymentTransaction(provider, { from: FROM, to: receiver, value: VALUE });
         outcome = 'HASH_RETURNED';
       } catch (e) {
+        diagnostic = e && typeof e.diagnostic === 'string' ? e.diagnostic : null;
         outcome = m.isSubmissionUncertain(e) ? 'PAYMENT_SUBMISSION_UNCERTAIN'
           : m.isWalletRejection(e) ? 'USER_REJECTED'
           : (e && e.code === 'PAYMENT_METHOD_UNSUPPORTED') ? 'UNSUPPORTED_METHOD'
@@ -437,6 +439,7 @@ const run = async () => {
       return {
         outcome,
         hash,
+        diagnostic,
         sendAttempts: sendCalls.length,
         pathUsed,
         lastSendParams: sent || null,
@@ -474,7 +477,12 @@ const run = async () => {
     minimalProviderDirect: b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.pathUsed === 'raw-minimal',
     ambiguousSubmissionLocked: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1,
     userRejectionNotRetried: b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1,
-    unsupportedMethodClassified: unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1,
+    unsupportedMethodClassified: unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
+      && String(unsupported.diagnostic || '').includes('eth_sendTransaction | code: 4200 | Method not found'),
+    ambiguousDiagnosticPreservedAndRedacted: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN'
+      && String(b.ambiguousSend.diagnostic || '').includes('code: -32000')
+      && String(b.ambiguousSend.diagnostic || '').includes('[address]')
+      && !String(b.ambiguousSend.diagnostic || '').includes(b.from),
     exactApprovalParameters: directParamsExact,
     atMostOneSendPerCall: oneSendEach,
     observed: { outcomes: [...cases.map(c => c.outcome), unsupported.outcome], sends: [...cases.map(c => c.sendAttempts), unsupported.sendAttempts] },

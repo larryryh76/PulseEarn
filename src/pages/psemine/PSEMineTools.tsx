@@ -265,7 +265,7 @@ export const PSEMineTools: React.FC = () => {
     if (rows.length === 0) return null;
     const rank = (p: PsePendingPurchase) => {
       const needsReview = p.status === 'manual_review';
-      const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming';
+      const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming' || p.status === 'submission_uncertain';
       const parsed = p.expiresAt ? Date.parse(p.expiresAt) : NaN;
       return { needsReview, inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
     };
@@ -278,7 +278,7 @@ export const PSEMineTools: React.FC = () => {
     })[0];
   }, [state?.pendingPurchases]);
   const pendingNeedsReview = pendingPurchase?.status === 'manual_review';
-  const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming';
+  const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming' || pendingPurchase?.status === 'submission_uncertain';
   const pendingQuoteLive = Boolean(
     pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
   );

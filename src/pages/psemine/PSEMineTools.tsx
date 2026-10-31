@@ -863,6 +863,16 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           value: String(wei),
         });
       } catch (sendErr) {
+        if (typeof sendErr === 'object' && sendErr !== null &&
+            (sendErr as { code?: string }).code === 'PAYMENT_METHOD_UNSUPPORTED') {
+          setSubmissionState('NOT_SUBMITTED');
+          setResult({
+            ok: false,
+            message: 'This wallet connection rejected the standard transaction request before submission. No payment was sent. Reconnect using another WalletConnect wallet or a supported wallet browser, then request a fresh quote.',
+          });
+          setStep('result');
+          return;
+        }
         if (isSubmissionUncertain(sendErr)) {
           // Lock the purchase on the backend, not just this browser. This keeps
           // another device from creating a second payment while the first

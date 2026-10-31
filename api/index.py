@@ -9550,6 +9550,13 @@ def mine_create_purchase():
         'activatedAt': None,
     }
     db.collection('psemine_purchases').document(purchase_id).set(payload)
+    mine_notify(uid,
+        notif_id=f"notif_purchase_started_{purchase_id}",
+        type='purchase',
+        title=f"{tool_cfg['name']} purchase ready",
+        message=f"Your {tool_cfg['name']} purchase is awaiting wallet approval. Quoted amount: {q.get('bnbAmount')} BNB on BNB Smart Chain. No payment is confirmed yet.",
+        related={'source': 'mine_create_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'status': 'awaiting_payment'},
+    )
     # The stored payload carries firestore.SERVER_TIMESTAMP for createdAt — a
     # Firestore Sentinel that is valid for the WRITE but not JSON-serializable
     # for the RESPONSE (jsonify raises TypeError: Sentinel). Respond with a
@@ -9593,6 +9600,13 @@ def mine_mark_purchase_uncertain():
         'statusMessage': 'Wallet submission outcome is unknown. Do not send another payment until reconciled.',
         'updatedAt': firestore.SERVER_TIMESTAMP,
     })
+    mine_notify(uid,
+        notif_id=f"notif_purchase_uncertain_{purchase_id}",
+        type='purchase',
+        title='Payment needs your attention',
+        message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
+        related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+    )
     return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
 
 
@@ -9639,6 +9653,13 @@ def mine_report_purchase_submission():
         'statusMessage': 'Transaction hash recorded. Waiting for on-chain verification.',
         'updatedAt': firestore.SERVER_TIMESTAMP,
     })
+    mine_notify(uid,
+        notif_id=f"notif_purchase_submitted_{purchase_id}",
+        type='purchase',
+        title='Payment submitted — verification pending',
+        message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
+        related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': 'transaction_submitted'},
+    )
     return jsonify({"success": True, "purchaseId": purchase_id,
                     "status": "transaction_submitted", "transactionHash": tx_hash})
 

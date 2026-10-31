@@ -624,6 +624,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     if (resume || !pending || pending.toolId !== tool.id) return;
+    if (pending.status === 'submission_uncertain') {
+      setPurchaseId(pending.purchaseId);
+      setBoundPayer(pending.paymentWallet || null);
+      setSubmissionState('UNKNOWN_SUBMISSION_STATE');
+      setUncertainRecovery(true);
+      setResult({
+        ok: false, uncertain: true, hash: pending.transactionHash || undefined,
+        message: 'A previous wallet submission is still being reconciled. This lock is stored on your account, so do not start another payment.',
+      });
+      setStep('result');
+      return;
+    }
     if (pending.status && pending.status !== 'awaiting_payment') {
       setResume({ kind: 'submitted', purchase: pending });
       setSubmissionState('CONFIRMING');

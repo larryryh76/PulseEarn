@@ -178,7 +178,30 @@ const run = async () => {
   });
   step('ensureChain-correct-chain56', { pass: chainOk === true });
 
-  // 3a. An unreadable chain can be recovered through an explicit wallet switch.
+  // 3a. A WalletConnect session explicitly scoped to BSC is authoritative
+  // when a mobile bridge temporarily rejects eth_chainId. Do not send the
+  // injected-only wallet_switchEthereumChain RPC in that case.
+  const wcSessionChain = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    const calls = [];
+    const provider = {
+      session: { namespaces: { eip155: { accounts: ['eip155:56:0x1111111111111111111111111111111111111111'] } } },
+      request: async ({ method }) => {
+        calls.push(method);
+        if (method === 'eth_chainId') throw new Error('unknown method');
+        if (method === 'wallet_switchEthereumChain') { const e = new Error('unknown method'); e.code = 4200; throw e; }
+        return null;
+      },
+    };
+    const ok = await m.ensureChain(provider, 56);
+    return { ok, calls };
+  });
+  step('ensureChain-walletconnect-session-chain-fallback', {
+    ...wcSessionChain,
+    pass: wcSessionChain.ok === true && wcSessionChain.calls.filter(x => x === 'wallet_switchEthereumChain').length === 0,
+  });
+
+  // 3b. An unreadable chain can be recovered through an explicit wallet switch.
   const unreadableRecovered = await page.evaluate(async () => {
     const m = await import('/__pseWallet.mjs');
     let readable = false;

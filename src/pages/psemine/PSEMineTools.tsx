@@ -604,19 +604,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     } catch { return false; }
   });
   const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   // The purchase review is a true modal layer, not a full-page detour. Keep the
   // underlying console from scrolling and return keyboard focus to its opener.
   useEffect(() => {
+    if (minimized) return;
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = 'hidden';
     dialogRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && step !== 'verifying') {
+      if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        if (step === 'verifying') setMinimized(true);
+        else onClose();
         return;
       }
       if (event.key === 'Tab') {
@@ -645,7 +648,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       window.removeEventListener('keydown', onKeyDown);
       previousFocus?.focus?.();
     };
-  }, [onClose, step]);
+  }, [onClose, step, minimized]);
 
   /** Forget the local binding (expired quote, wallet disconnect, restart). */
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
@@ -1134,6 +1137,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const continuous = dutyOf(tool) === 'continuous';
 
   return (
+    <>
+    {minimized ? (
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ position: 'fixed', zIndex: 1201, left: 12, right: 12, bottom: 'max(12px, env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', border: '1px solid rgba(129, 156, 210, .28)', borderRadius: 16, background: '#080e1b', color: '#e8eefc', boxShadow: '0 16px 50px rgba(0,0,0,.5)' }}
+      >
+        <span style={{ fontSize: 13, lineHeight: 1.4 }}>{step === 'verifying' ? 'Payment is still processing. Keep this page open and do not pay again.' : 'Your purchase needs attention. Review its current status.'}</span>
+        <button type="button" onClick={() => setMinimized(false)} style={{ flexShrink: 0, borderRadius: 10, padding: '9px 12px', background: '#23365b', color: '#fff', fontSize: 13, fontWeight: 600 }}>Return</button>
+      </div>
+    ) : (
     <div
       role="presentation"
       style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))', background: 'rgba(3, 7, 18, .82)', backdropFilter: 'blur(12px)' }}
@@ -1149,7 +1163,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     <PsePage
       title={`Purchase ${tool.name}`}
       objective={`${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
-      actions={<PseButton variant="secondary" size="sm" onClick={onClose} disabled={step === 'verifying' && !showingRecovery}>Close</PseButton>}
+      actions={<PseButton variant="secondary" size="sm" onClick={() => step === 'verifying' ? setMinimized(true) : onClose()}>{step === 'verifying' ? 'Minimize' : 'Close'}</PseButton>}
     >
       <ol className="pse-steps" aria-label="Purchase progress">
         {STEP_ORDER.map((s, i) => (
@@ -1481,6 +1495,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     </PsePage>
       </div>
     </div>
+    )}
+    </>
   );
 };
 

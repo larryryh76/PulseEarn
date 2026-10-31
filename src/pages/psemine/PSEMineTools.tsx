@@ -10,6 +10,7 @@ import {
   resolvePaymentPayer,
 } from '../../engines/psemine/pseWallet';
 import { type PsePendingPurchase, type PseStateTool } from '../../engines/psemine/pseMineApi';
+import { formatWalletDiagnostics, recordWalletStage } from '../../engines/psemine/pseWalletTrace';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
@@ -568,7 +569,7 @@ export const PSEMineTools: React.FC = () => {
  * ═══════════════════════════════════════════════════════════════════════ */
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, pending, onClose }) => {
   const {
-    connectedWallet, walletChainId, walletTransport, pseUser,
+    connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
     sendPayment, ensurePaymentChain, refreshWalletChain,
   } = usePSEMine();
@@ -802,11 +803,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     setStep('verifying');
+    recordWalletStage('payment_flow_started');
     try {
       // 1. VERIFY / SWITCH NETWORK before creating a purchase intent.
       // A failed switch must not leave a bound, unpaid pending purchase.
       const chainOk = await ensurePaymentChain(quote.chainId || 56);
       if (!chainOk) {
+        recordWalletStage('payment_chain_not_ready', String(quote.chainId || 56));
         setSubmissionState('NOT_SUBMITTED');
         setStep('pay');
         toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
@@ -855,6 +858,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       }
 
       // 5. EXACTLY ONE broadcast attempt.
+      recordWalletStage('payment_send_started');
       setSubmissionState('SUBMISSION_IN_PROGRESS');
       let txHash: string;
       try {
@@ -931,6 +935,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         throw sendErr;
       }
       if (!txHash) throw new Error('Transaction was not submitted.');
+      recordWalletStage('payment_hash_returned');
       setSubmissionState('SUBMITTED');
       // Store the hash on the backend before verification so a refresh or
       // another device can resume the exact same on-chain transfer.
@@ -970,10 +975,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
       if (/user rejected|user denied|4001/i.test(msg)) {
+        recordWalletStage('payment_cancelled_in_wallet');
         setSubmissionState('NOT_SUBMITTED');
         setStep('pay');
         toast('Payment cancelled in your wallet.');
       } else {
+        // The raw provider/RPC message can embed endpoints; keep only the stage.
+        recordWalletStage('payment_flow_failed');
         setResult({ ok: false, message: msg });
         setStep('result');
       }
@@ -1332,9 +1340,24 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         >
           <p className="pse-prose pse-prose--ink">{result.message}</p>
           {result.diagnostic && (
-            <p className="pse-block-meta" role="note">
-              Wallet diagnostic: <code>{result.diagnostic}</code>
-            </p>
+            <PseNotice tone="attention" title="Technical diagnostic">
+              <code>{result.diagnostic}</code>
+              {walletCorrelationId && (
+                <p className="mt-2">Correlation ID <code>{walletCorrelationId}</code></p>
+              )}
+              <div className="mt-3">
+                <PseButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void copyText(formatWalletDiagnostics()).then(ok => {
+                    if (ok) toast.success('Wallet diagnostics copied.');
+                    else toast.error('Could not copy diagnostics. Open the browser console and copy the [pseWallet] lines.');
+                  })}
+                >
+                  Copy wallet diagnostics
+                </PseButton>
+              </div>
+            </PseNotice>
           )}
           {result.hash && (
             <p className="text-sm">
@@ -1396,7 +1419,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 const WalletConnectStep: React.FC = () => {
   const {
     injectedWallets, walletConnectAvailable, connectWallet,
-    connectWalletConnectTransport, isConnectingWallet,
+    connectWalletConnectTransport, cancelWalletConnectTransport,
+    isConnectingWallet, walletRecoveryState, walletCorrelationId,
   } = usePSEMine();
 
   return (
@@ -1423,8 +1447,46 @@ const WalletConnectStep: React.FC = () => {
       {isConnectingWallet && (
         <PseNotice title="Waiting for wallet approval">
           Your wallet may open as a separate app. Choose it and approve the connection there, then return to this PSEmine tab.
-          Keep this tab open; PSEmine will confirm the session when your wallet returns.
+          Keep this tab open; PSEmine confirms the session when your wallet returns. If the wallet app was cancelled,
+          stop waiting below — nothing has been sent.
+          <div className="mt-3 flex flex-wrap gap-2">
+            <PseButton variant="secondary" size="sm" onClick={() => void cancelWalletConnectTransport()}>
+              Cancel wallet connection
+            </PseButton>
+          </div>
         </PseNotice>
+      )}
+
+      {walletRecoveryState === 'interrupted' && (
+        <PseNotice tone="attention" title="Wallet connection was interrupted">
+          The previous attempt ended when the browser restarted before PSEmine could save the wallet approval. No
+          payment was submitted. Approve the connection once more to finish.
+          <div className="mt-3 flex flex-wrap gap-2">
+            <PseButton size="sm" onClick={() => void connectWalletConnectTransport(true)} disabled={isConnectingWallet}>
+              Reconnect wallet
+            </PseButton>
+          </div>
+        </PseNotice>
+      )}
+
+      {walletCorrelationId && (
+        <details className="pse-block-note mt-3">
+          <summary>Wallet diagnostics</summary>
+          <p className="pse-prose--sm">
+            Correlation ID <code>{walletCorrelationId}</code>. Safe to share: addresses are shortened and session
+            secrets are removed.
+          </p>
+          <PseButton
+            variant="secondary"
+            size="sm"
+            onClick={() => void copyText(formatWalletDiagnostics()).then(ok => {
+              if (ok) toast.success('Wallet diagnostics copied.');
+              else toast.error('Could not copy diagnostics. Open the browser console and copy the [pseWallet] lines.');
+            })}
+          >
+            Copy wallet diagnostics
+          </PseButton>
+        </details>
       )}
 
       {!walletConnectAvailable && injectedWallets.length === 0 && (

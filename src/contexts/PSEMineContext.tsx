@@ -31,6 +31,7 @@ import {
   type PseWalletTransport,
   type PseInjectedWallet,
   PseWalletConnectError,
+  cancelWalletConnect,
   clearWalletConnectHandoff,
   connectWalletConnectProvider,
   connectWithProvider,
@@ -38,10 +39,12 @@ import {
   disconnectWalletConnect,
   discoverInjectedWallets,
   ensureChain,
-  hasPendingWalletConnectHandoff,
+  isHandoffFromPreviousDocument,
   isWalletConnectConfigured,
   isWalletRejection,
+  readWalletConnectHandoff,
   restoreWalletConnectSession,
+  shouldResumeWalletConnectHandoff,
   getChainId,
   parseChainId,
   sendPaymentTransaction,
@@ -49,6 +52,13 @@ import {
   subscribeWalletEvents,
   walletConnectChainId,
 } from '../engines/psemine/pseWallet';
+import {
+  beginWalletTrace,
+  ensureWalletTrace,
+  getWalletCorrelationId,
+  recordWalletDocumentBoot,
+  recordWalletStage,
+} from '../engines/psemine/pseWalletTrace';
 import toast from 'react-hot-toast';
 import { nowMs } from '../components/psemine/pseCore';
 
@@ -95,8 +105,13 @@ interface PSEMineContextType {
   /** Discoverable injected wallets (EIP-6963) + whether WalletConnect is offered. */
   injectedWallets: PseInjectedWallet[];
   walletConnectAvailable: boolean;
+  /** 'interrupted' = a previous document's handoff ended before its approval could be saved. */
+  walletRecoveryState: 'none' | 'resuming' | 'interrupted';
+  /** Correlation id of the current wallet attempt (safe to show in support reports). */
+  walletCorrelationId: string | null;
   connectWallet: (walletId?: string) => Promise<string | null>;
-  connectWalletConnectTransport: () => Promise<string | null>;
+  connectWalletConnectTransport: (resume?: boolean) => Promise<string | null>;
+  cancelWalletConnectTransport: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   /** Sends the payment through the active provider; resolves with the tx hash. */
   sendPayment: (tx: { from: string; to: string; value: string }) => Promise<string>;
@@ -181,6 +196,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
   const [injectedWallets, setInjectedWallets] = useState<PseInjectedWallet[]>([]);
   const [walletConnectAvailable, setWalletConnectAvailable] = useState<boolean>(isWalletConnectConfigured());
+  const [walletRecoveryState, setWalletRecoveryState] = useState<'none' | 'resuming' | 'interrupted'>('none');
+  const [walletCorrelationId, setWalletCorrelationId] = useState<string | null>(() => getWalletCorrelationId());
 
   const animFrameRef = useRef<number | null>(null);
   // The live EIP-1193 provider for the active connection. Held in a ref so the
@@ -188,6 +205,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const providerRef = useRef<PseEip1193Provider | null>(null);
   const transportRef = useRef<PseWalletTransport | null>(null);
   const walletNameRef = useRef<string | null>(null);
+  // One WalletConnect attempt at a time: double taps and boot-restore must not
+  // create competing pairings or let an old attempt clear the new one's state.
+  const connectingRef = useRef<boolean>(false);
+  const connectAttemptRef = useRef<number>(0);
   // READ, never depended on: the PulseEarn username is only used to label the
   // zeroed PSEmine user document when it is first created. Making it a listener
   // dependency re-subscribed every PSEmine listener on any profile rename.
@@ -505,6 +526,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     persistWallet(connection.address, connection.transport, connection.walletName);
     walletNameRef.current = connection.walletName;
     subscribeActiveProvider(connection);
+    recordWalletStage('wallet_adopted', `transport=${connection.transport}`);
     return connection.address;
   }, [subscribeActiveProvider, persistWallet]);
 
@@ -543,45 +565,84 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [adoptConnection, currentUser]);
 
-  const connectWalletConnectTransport = useCallback(async (): Promise<string | null> => {
+  const connectWalletConnectTransport = useCallback(async (resume = false): Promise<string | null> => {
     if (!isWalletConnectConfigured()) {
       toast.error('WalletConnect is not configured for this deployment.');
       return null;
     }
+    // A second tap (or a boot restore racing the button) must not create a
+    // competing pairing. The disabled button is UI; this is the guarantee.
+    if (connectingRef.current) return null;
+    connectingRef.current = true;
+    const attempt = ++connectAttemptRef.current;
     // Clear the disconnect tombstone before the wallet-app handoff: the OS may
     // reload this page before the original connect promise can finish.
     try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
+    if (resume) ensureWalletTrace('walletconnect', readWalletConnectHandoff()?.id);
+    else beginWalletTrace('walletconnect');
+    recordWalletStage('connect_requested', resume ? 'resume' : 'fresh');
+    setWalletCorrelationId(getWalletCorrelationId());
+    setWalletRecoveryState(resume ? 'resuming' : 'none');
     setIsConnectingWallet(true);
     try {
-      const provider = await connectWalletConnect();
+      const provider = await connectWalletConnect({ resume });
+      // A cancelled or superseded attempt must not adopt a session that arrived
+      // after the user stopped waiting (or started a newer attempt).
+      if (connectAttemptRef.current !== attempt) return null;
       // The SESSION is the source of truth for the address and chain: a
       // UniversalProvider answers eth_accounts for its mutable default chain, so
       // eth_requestAccounts can look empty even with BSC approved.
       const connection = await connectWalletConnectProvider(provider);
+      if (connectAttemptRef.current !== attempt) return null;
       if (!connection) {
+        recordWalletStage('connect_failed', 'no BSC account in session');
         toast.error('The wallet approved no account on BNB Smart Chain. Reopen the wallet picker and approve the session.');
         return null;
       }
       const address = adoptConnection(connection);
-      clearWalletConnectHandoff();
+      setWalletRecoveryState('none');
+      recordWalletStage('wallet_connected');
       if (currentUser) void PSEMineEngine.setConnectedWallet(address);
       toast.success(`Connected: ${address.slice(0, 6)}…${address.slice(-4)}`, { icon: '🔗' });
       return address;
     } catch (e) {
-      if (isWalletRejection(e)) {
+      if (e instanceof PseWalletConnectError && e.code === 'CANCELLED') {
+        recordWalletStage('connect_cancelled');
+        toast('Wallet connection cancelled.', { icon: '✋' });
+      } else if (isWalletRejection(e)) {
+        recordWalletStage('connect_rejected_in_wallet');
         toast('Connection cancelled in your wallet.', { icon: '🖐️' });
       } else if (e instanceof PseWalletConnectError) {
+        recordWalletStage('connect_failed', e.code);
         console.error(`[PSEMineContext] WalletConnect failed (${e.code}):`, e.diagnostic || e.message);
         toast.error(e.message);
       } else {
+        recordWalletStage('connect_failed', 'unexpected error');
         console.error('[PSEMineContext] WalletConnect error:', e);
         toast.error('Could not complete the wallet connection. Please retry.');
       }
       return null;
     } finally {
-      setIsConnectingWallet(false);
+      // Only the newest attempt may clear the connecting state; an older waiter
+      // that finally unwinds must not re-enable the UI during a new attempt.
+      if (connectAttemptRef.current === attempt) {
+        connectingRef.current = false;
+        setIsConnectingWallet(false);
+      }
     }
   }, [adoptConnection, currentUser]);
+
+  /**
+   * Stops a pending WalletConnect attempt. Without this the UI stayed disabled
+   * for the full 5-minute relay window after a wallet-side cancellation.
+   */
+  const cancelWalletConnectTransport = useCallback(async (): Promise<void> => {
+    connectAttemptRef.current += 1;
+    connectingRef.current = false;
+    await cancelWalletConnect();
+    setWalletRecoveryState('none');
+    setIsConnectingWallet(false);
+  }, []);
 
   /**
    * Connection entry point. With a walletId, connects that specific EIP-6963
@@ -612,14 +673,22 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWalletTransport(null);
     setWalletName(null);
     clearWalletConnectHandoff();
+    recordWalletStage('wallet_disconnected');
+    setWalletRecoveryState('none');
     toast('Wallet disconnected', { icon: '🔌' });
   }, [persistWallet]);
 
   /** Fail-closed chain assertion through the ACTIVE provider (either transport). */
   const ensurePaymentChain = useCallback(async (chainId: number): Promise<boolean> => {
     const provider = providerRef.current;
-    if (!provider) return false;
-    return ensureChain(provider, chainId, transportRef.current ?? 'injected');
+    if (!provider) {
+      recordWalletStage('chain_verification_failed', 'no active provider');
+      return false;
+    }
+    recordWalletStage('chain_verification_started', String(chainId));
+    const ok = await ensureChain(provider, chainId, transportRef.current ?? 'injected');
+    recordWalletStage(ok ? 'chain_verified' : 'chain_verification_failed', String(chainId));
+    return ok;
   }, []);
 
   /** Sends the payment through the active provider; returns the tx hash only. */
@@ -641,6 +710,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // no stored session exists is nothing done (explicit connect as before).
   useEffect(() => {
     let cancelled = false;
+    recordWalletDocumentBoot();
+    const handoff = readWalletConnectHandoff();
+    if (handoff) {
+      // Keep the SAME correlation id across the reload so support sees one
+      // attempt, including the document_boot that interrupted it.
+      ensureWalletTrace('walletconnect', handoff.id);
+      setWalletCorrelationId(getWalletCorrelationId());
+      recordWalletStage('handoff_found', `resumeAttempts=${handoff.resumeAttempts}`);
+    }
     // An explicit disconnect is sticky across reloads. Reown may still have a
     // persisted pairing; do not silently adopt it against the user's choice.
     if (localStorage.getItem('psemine_wallet_user_disconnected') === '1') {
@@ -651,79 +729,103 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return () => { cancelled = true; };
     }
     const raw = localStorage.getItem('psemine_connected_wallet');
+    let stored: { address?: string; transport?: PseWalletTransport; walletName?: string } | null = null;
+    try { stored = raw ? JSON.parse(raw) : null; } catch { stored = null; }
+    const wantsWalletConnect = stored?.transport === 'walletConnect' || Boolean(handoff);
+
     // A first-time WalletConnect handoff returns by RELOADING this page, before
-    // the original connect can persist a local marker. Only a recent, explicit
-    // pairing marker may trigger that restore: an ordinary visit must never load
-    // the WalletConnect SDK, hold the UI in "connecting" for seconds, or surface
-    // an SDK failure the user did not ask for.
-    if (!raw) {
-      if (isWalletConnectConfigured() && hasPendingWalletConnectHandoff()) {
-        setWalletConnectAvailable(true);
-        setIsConnectingWallet(true);
-        void restoreWalletConnectSession().then(async provider => {
-          if (cancelled || !provider) return;
-          const connection = await connectWalletConnectProvider(provider);
-          if (cancelled || !connection) return;
-          adoptConnection(connection);
-          clearWalletConnectHandoff();
-          if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
-        }).catch(() => { /* no approved session yet — explicit connect remains */ })
-          .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
-      }
-      return () => { cancelled = true; };
-    }
-    try {
-      const stored = JSON.parse(raw) as { address?: string; transport?: PseWalletTransport; walletName?: string };
-      if (!stored?.address) return;
-      if (stored.transport === 'walletConnect') {
-        setWalletConnectAvailable(isWalletConnectConfigured());
-        if (!isWalletConnectConfigured()) return;
-        setIsConnectingWallet(true);
-        void restoreWalletConnectSession().then(async provider => {
-          if (cancelled || !provider) return; // no session yet — explicit connect still works
+    // the original connect can persist its wallet record. Only a recent pairing
+    // marker may trigger that restore: an ordinary visit must never load the
+    // WalletConnect SDK, hold the UI in "connecting" for seconds, or surface an
+    // SDK failure the user did not ask for.
+    if (wantsWalletConnect && isWalletConnectConfigured()) {
+      setWalletConnectAvailable(true);
+      setIsConnectingWallet(true);
+      void (async () => {
+        // If settlement completed before the reload, AppKit restores it from
+        // storage during init; give a reloaded handoff a little longer because
+        // the relay may still be reconnecting on a mobile network.
+        const bootAttempt = connectAttemptRef.current;
+        const provider = await restoreWalletConnectSession(handoff ? 12_000 : 7_000);
+        // An explicit Cancel during the boot restore must stop recovery: the
+        // cancellation bumps the attempt, and the user's choice wins.
+        if (cancelled || connectAttemptRef.current !== bootAttempt) return;
+        if (provider) {
           const connection = await connectWalletConnectProvider(
             provider,
-            stored.walletName || 'WalletConnect wallet',
+            stored?.walletName || 'WalletConnect wallet',
           );
           if (cancelled || !connection) return;
           adoptConnection(connection);
-          clearWalletConnectHandoff();
+          if (handoff) clearWalletConnectHandoff(handoff.id);
+          recordWalletStage('boot_session_adopted');
+          setWalletRecoveryState('none');
           if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
-        }).catch((error) => {
-          // A session the wallet has expired or revoked must not be retried on
-          // every visit. Drop the remembered wallet; explicit connect still works.
-          if (error instanceof PseWalletConnectError &&
-              (error.code === 'SESSION_EXPIRED' || error.code === 'SESSION_UNSUPPORTED')) {
-            persistWallet(null);
-          }
-        })
-          .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
-        return;
-      }
-      // Restore the SAME authorised wallet, not blindly window.ethereum.
-      // EIP-6963 browsers can expose several independent providers; the default
-      // provider may be a different wallet and cannot report this payer's chain.
-      void discoverInjectedWallets().then(async wallets => {
-        const wanted = stored.address!.toLowerCase();
-        for (const wallet of wallets) {
-          const accounts = await silentInjectedAccounts(wallet.provider);
-          const matched = accounts.find(account => account.toLowerCase() === wanted);
-          if (!matched) continue;
-          const chainId = await getChainId(wallet.provider);
-          if (cancelled) return;
-          adoptConnection({
-            transport: 'injected',
-            provider: wallet.provider,
-            address: matched.toLowerCase(),
-            chainId,
-            walletName: wallet.name || stored.walletName || 'Browser wallet',
-          });
           return;
         }
-      }).catch(() => { /* restore is best-effort; explicit connect remains */ });
-    } catch {
-      /* malformed stored state — ignore; explicit connect still works */
+
+        // No session in storage. A handoff that began in a PREVIOUS document
+        // cannot settle its original pairing: WalletConnect keeps the pending
+        // session only in memory, so the approval was lost with the old page.
+        // Only a fresh pairing can finish it; never pretend it connected.
+        if (handoff && isHandoffFromPreviousDocument(handoff)) {
+          const decision = shouldResumeWalletConnectHandoff(handoff);
+          recordWalletStage('handoff_interrupted', `decision=${decision}`);
+          if (decision === 'resume') {
+            setWalletRecoveryState('resuming');
+            toast(
+              'The wallet connection was interrupted when the browser restarted. No payment was submitted. Approve the connection once more to finish.',
+              { icon: '🔁', duration: 9000 },
+            );
+            const resumeAttempt = connectAttemptRef.current;
+            const address = await connectWalletConnectTransport(true);
+            // Do not resurrect the interrupted notice after an explicit Cancel;
+            // cancellation is itself a successful exit from recovery.
+            if (!cancelled && !address && connectAttemptRef.current === resumeAttempt) {
+              setWalletRecoveryState('interrupted');
+            }
+            return;
+          }
+          setWalletRecoveryState('interrupted');
+        }
+      })().catch((error) => {
+        // A session the wallet has expired or revoked must not be retried on
+        // every visit. Drop the remembered wallet; explicit connect still works.
+        recordWalletStage(
+          'boot_restore_failed',
+          error instanceof PseWalletConnectError ? error.code : 'unexpected error',
+        );
+        if (error instanceof PseWalletConnectError &&
+            (error.code === 'SESSION_EXPIRED' || error.code === 'SESSION_UNSUPPORTED')) {
+          persistWallet(null);
+        }
+      })
+        .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
+      return () => { cancelled = true; };
     }
+
+    if (!stored?.address) return () => { cancelled = true; };
+    // Restore the SAME authorised wallet, not blindly window.ethereum.
+    // EIP-6963 browsers can expose several independent providers; the default
+    // provider may be a different wallet and cannot report this payer's chain.
+    void discoverInjectedWallets().then(async wallets => {
+      const wanted = stored.address!.toLowerCase();
+      for (const wallet of wallets) {
+        const accounts = await silentInjectedAccounts(wallet.provider);
+        const matched = accounts.find(account => account.toLowerCase() === wanted);
+        if (!matched) continue;
+        const chainId = await getChainId(wallet.provider);
+        if (cancelled) return;
+        adoptConnection({
+          transport: 'injected',
+          provider: wallet.provider,
+          address: matched.toLowerCase(),
+          chainId,
+          walletName: wallet.name || stored.walletName || 'Browser wallet',
+        });
+        return;
+      }
+    }).catch(() => { /* restore is best-effort; explicit connect remains */ });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -773,6 +875,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet);
+      recordWalletStage('purchase_intent_bound');
       // The intent is now a PENDING purchase: the console resumes it from
       // /api/mine/state's pendingPurchases projection, so refresh immediately
       // rather than waiting for the tick.
@@ -807,7 +910,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      recordWalletStage('backend_verification_started');
       const result = await PSEMineEngine.activateToolPurchase(purchaseId, txHash, senderWallet);
+      recordWalletStage(
+        result.success ? 'backend_verification_succeeded' : 'backend_verification_failed',
+        result.success ? undefined : (result.code || result.error),
+      );
 
       if (result.success) {
         toast.success('Payment verified — tool deployed!', { icon: '⛏️', duration: 6000 });
@@ -821,6 +929,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       return { success: result.success, error: result.error, code: result.code };
     } catch (e: unknown) {
+      recordWalletStage('backend_verification_failed', 'request error');
       console.error('[PSEMineContext] submitPurchaseTx error:', e);
       const errMsg = e instanceof Error ? e.message : 'Purchase processing error';
       return { success: false, error: errMsg };
@@ -953,8 +1062,11 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         walletChainId,
         injectedWallets,
         walletConnectAvailable,
+        walletRecoveryState,
+        walletCorrelationId,
         connectWallet,
         connectWalletConnectTransport,
+        cancelWalletConnectTransport,
         disconnectWallet,
         sendPayment,
         ensurePaymentChain,

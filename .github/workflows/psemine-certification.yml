@@ -60,5 +60,8 @@ jobs:
       - name: Wallet session validity, BSC routing and recovery regression
         run: bun scripts/pse-wallet-recovery-check.mjs
 
+      - name: Wallet handoff reload recovery and diagnostics regression
+        run: bun scripts/pse-wallet-handoff-check.mjs
+
       - name: Mobile/desktop console rendering smoke tests
         run: bun scripts/pse-console-check.mjs

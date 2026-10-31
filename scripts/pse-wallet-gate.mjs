@@ -193,7 +193,7 @@ const run = async () => {
         return null;
       },
     };
-    const ok = await m.ensureChain(provider, 56);
+    const ok = await m.ensureChain(provider, 56, 'walletConnect');
     return { ok, calls };
   });
   step('ensureChain-walletconnect-session-chain-fallback', {

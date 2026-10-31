@@ -5,7 +5,7 @@
  * against stub EIP-1193 providers. No network, no SDK, no funds:
  *   • WalletConnect session validity (expired / unsupported chain / valid)
  *   • The session — not eth_requestAccounts — is the connection authority
- *   • Chain-scoped WalletConnect RPC (CAIP-2 eip155:56 on switch + send)
+ *   • Session-scoped WalletConnect chain validation + CAIP-2 eip155:56 on send
  *   • Exactly one broadcast attempt, with existing double-send protection
  *   • Local pre-dispatch session errors are NOT reported as uncertain broadcasts
  *   • Stale asset/chunk failures are classified separately from configuration
@@ -170,7 +170,7 @@ check('connect:chain-read-live', connection?.chainId === 56);
 check('connect:transport', connection?.transport === 'walletConnect');
 check('connect:no-eth-request-accounts', sessionProvider.calls.every(c => c.method !== 'eth_requestAccounts'));
 const connectSwitch = sessionProvider.calls.find(c => c.method === 'wallet_switchEthereumChain');
-check('connect:sets-bsc-local-default', connectSwitch?.chain === 'eip155:56');
+check('connect:does-not-send-injected-switch-rpc', connectSwitch === undefined);
 
 const expiredProvider = makeProvider(() => null);
 expiredProvider.session = session([bnAccount(56)], Math.floor(NOW / 1000) - 1);

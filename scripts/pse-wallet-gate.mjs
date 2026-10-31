@@ -429,6 +429,7 @@ const run = async () => {
     // A minimal dapp browser: the send request is never reached via ethers.
     out.preBroadcastFallback = await runCase({ capability: 'minimal', send: 'hash' });
     out.fallbackAlsoAmbiguous = await runCase({ capability: 'minimal', send: 'ambiguous' });
+    out.unsupported = await runCase({ capability: 'minimal', send: 'unsupported' });
     out.hash = HASH;
     out.value = VALUE;
     out.from = FROM;
@@ -444,7 +445,7 @@ const run = async () => {
       && String(sent.to).toLowerCase() === RECEIVER && String(sent.value) === b.value
       && Object.keys(sent).sort().join(',') === 'from,to,value';
   });
-  const unsupported = await runCase({ capability: 'minimal', send: 'unsupported' });
+  const unsupported = b.unsupported;
   step('wallet-agnostic-direct-submission', {
     fullProviderDirect: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.pathUsed === 'raw-minimal',
     minimalProviderDirect: b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.pathUsed === 'raw-minimal',

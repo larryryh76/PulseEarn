@@ -161,16 +161,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [pseUser, setPseUser] = useState<PSEMineUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [liveAccruedGBP, setLiveAccruedGBP] = useState<number>(0);
-  const [connectedWallet, setConnectedWallet] = useState<string | null>(() => {
-    try {
-      const raw = localStorage.getItem('psemine_connected_wallet');
-      if (!raw) return null;
-      const stored = JSON.parse(raw) as { address?: string };
-      return stored?.address ?? null;
-    } catch {
-      return null;
-    }
-  });
+  // Never render a remembered address as an active connection. A wallet is
+  // connected only after its provider/session has been revalidated on this load.
+  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
   const [isConnectingWallet, setIsConnectingWallet] = useState<boolean>(false);
   const [ownerships, setOwnerships] = useState<PSEMineToolOwnership[]>([]);
   const [purchases, setPurchases] = useState<PSEMinePurchase[]>([]);
@@ -302,12 +295,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (snap.exists()) {
             const data = snap.data() as PSEMineUser;
             setPseUser(data);
-            if (data.connectedWallet) {
-              // Backend record is authoritative for the last used wallet; the
-              // local per-account record stays in sync but never overrides a
-              // newer local connection.
-              setConnectedWallet(prev => prev || data.connectedWallet);
-            }
+            // connectedWallet on the profile is a historical/last-used address,
+            // not proof of a live provider approval. Never restore connection
+            // state from Firestore; the wallet provider must prove it below.
           }
           setLoading(false);
         }, (err) => {
@@ -446,13 +436,16 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const persistWallet = useCallback((address: string | null, transport?: PseWalletTransport | null, name?: string | null) => {
     try {
       if (address) {
-        // Per-account record: { address, transport, walletName }. A different
-        // signed-in account must never inherit another account's wallet.
+        // An explicit new connection opts back in to session restoration.
+        localStorage.removeItem('psemine_wallet_user_disconnected');
         localStorage.setItem('psemine_connected_wallet', JSON.stringify({
           address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
         }));
       } else {
         localStorage.removeItem('psemine_connected_wallet');
+        // This tombstone prevents Reown's persisted session or the last
+        // server-side wallet label from silently reconnecting after disconnect.
+        localStorage.setItem('psemine_wallet_user_disconnected', '1');
       }
     } catch {
       /* storage unavailable — best effort */
@@ -512,6 +505,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [subscribeActiveProvider, persistWallet]);
 
   const connectInjectedWallet = useCallback(async (wallet?: PseInjectedWallet): Promise<string | null> => {
+    // A fresh user action explicitly opts into a new wallet session, including
+    // the case where the wallet app redirects/reloads this page mid-approval.
+    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
     setIsConnectingWallet(true);
     try {
       const connection = await connectWithProvider(
@@ -548,6 +544,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast.error('WalletConnect is not configured for this deployment.');
       return null;
     }
+    // Clear the disconnect tombstone before the wallet-app handoff: the OS may
+    // reload this page before the original connect promise can finish.
+    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
     setIsConnectingWallet(true);
     try {
       const provider = await connectWalletConnect();
@@ -632,6 +631,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // no stored session exists is nothing done (explicit connect as before).
   useEffect(() => {
     let cancelled = false;
+    // An explicit disconnect is sticky across reloads. Reown may still have a
+    // persisted pairing; do not silently adopt it against the user's choice.
+    if (localStorage.getItem('psemine_wallet_user_disconnected') === '1') {
+      setConnectedWallet(null);
+      setWalletTransport(null);
+      setWalletName(null);
+      setWalletChainId(null);
+      return () => { cancelled = true; };
+    }
     const raw = localStorage.getItem('psemine_connected_wallet');
     // First-time WalletConnect handoff can return by reloading this page before
     // connectWalletConnectTransport() gets a chance to persist the local marker.
@@ -640,13 +648,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!raw) {
       if (isWalletConnectConfigured()) {
         setWalletConnectAvailable(true);
+        setIsConnectingWallet(true);
         void restoreWalletConnectSession().then(async provider => {
           if (cancelled || !provider) return;
           const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
           if (cancelled || !connection) return;
           adoptConnection(connection);
           if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
-        }).catch(() => { /* no approved session yet — explicit connect remains */ });
+        }).catch(() => { /* no approved session yet — explicit connect remains */ })
+          .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
       }
       return () => { cancelled = true; };
     }
@@ -656,6 +666,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (stored.transport === 'walletConnect') {
         setWalletConnectAvailable(isWalletConnectConfigured());
         if (!isWalletConnectConfigured()) return;
+        setIsConnectingWallet(true);
         void restoreWalletConnectSession().then(provider => {
           if (cancelled || !provider) return; // no session yet — explicit connect still works
           return connectWithProvider(provider, 'walletConnect', stored.walletName || 'WalletConnect wallet')
@@ -664,7 +675,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
               adoptConnection(connection);
               if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
             });
-        }).catch(() => { /* restore is best-effort; explicit connect remains */ });
+        }).catch(() => { /* restore is best-effort; explicit connect remains */ })
+          .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
         return;
       }
       // Restore the SAME authorised wallet, not blindly window.ethereum.

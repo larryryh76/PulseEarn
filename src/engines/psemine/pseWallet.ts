@@ -29,7 +29,7 @@
 
 /** Minimal EIP-1193 surface this app needs — injected and WalletConnect both conform. */
 export interface PseEip1193Provider {
-  request<T = unknown>(args: { method: string; params?: unknown[] | object }): Promise<T>;
+  request<T = unknown>(args: { method: string; params?: unknown[] | object }, chain?: string): Promise<T>;
   on?(event: string, listener: (...args: never[]) => void): void;
   removeListener?(event: string, listener: (...args: never[]) => void): void;
 }
@@ -606,13 +606,15 @@ export const PAYMENT_SUBMISSION_UNCERTAIN = 'PAYMENT_SUBMISSION_UNCERTAIN';
 export class PsePaymentSubmissionUncertainError extends Error {
   readonly code = PAYMENT_SUBMISSION_UNCERTAIN;
   readonly submissionState: PsePaymentSubmissionState = 'UNKNOWN_SUBMISSION_STATE';
+  readonly diagnostic?: string;
 
-  constructor() {
+  constructor(diagnostic?: string) {
     super(
       'The wallet did not report whether the payment was broadcast. ' +
       'No second attempt was made — check your wallet activity before retrying.',
     );
     this.name = 'PsePaymentSubmissionUncertainError';
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -689,9 +691,22 @@ const isTxHash = (value: unknown): value is string =>
  * A returned hash always ends the flow: the backend is the only verifier of
  * recipient/sender/amount/chain/confirmations.
  */
+const walletRpcDiagnostic = (error: unknown, method: string): string => {
+  const value = typeof error === 'object' && error !== null
+    ? error as { code?: string | number; message?: string; shortMessage?: string; data?: { message?: string } }
+    : {};
+  const code = value.code === undefined ? 'none' : String(value.code);
+  const message = String(value.shortMessage || value.message || value.data?.message || 'No wallet error message returned')
+    .replace(/0x[a-f0-9]{40}/gi, '[address]')
+    .replace(/\s+/g, ' ')
+    .slice(0, 180);
+  return `${method} | code: ${code} | ${message}`;
+};
+
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
+  transport: PseWalletTransport = 'injected',
 ): Promise<string> => {
   if (!provider || typeof provider.request !== 'function') {
     throw new Error('The active wallet provider is unavailable. Reconnect your wallet.');
@@ -700,11 +715,19 @@ export const sendPaymentTransaction = async (
     // Use the wallet-standard EIP-1193 call directly. ethers BrowserProvider
     // performs several optional node RPC probes before presenting approval;
     // some mobile wallet bridges reject those probes as unknown methods.
-    const hash = await provider.request<string>({
+    const request = {
       method: 'eth_sendTransaction',
       params: [{ from: tx.from, to: tx.to, value: tx.value }],
-    });
-    if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError();
+    };
+    // WalletConnect's UniversalProvider accepts an explicit CAIP-2 chain as
+    // its second request argument. Do not rely on its mutable/default chain:
+    // mobile handoffs can restore a session whose default is not the campaign
+    // chain even though the approved session contains eip155:56. Injected
+    // EIP-1193 providers keep the standard one-argument request shape.
+    const hash = transport === 'walletConnect'
+      ? await provider.request<string>(request, 'eip155:56')
+      : await provider.request<string>(request);
+    if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError('eth_sendTransaction | wallet returned no valid transaction hash');
     return hash;
   } catch (e) {
     if (isWalletRejection(e)) throw e;
@@ -714,13 +737,16 @@ export const sendPaymentTransaction = async (
       if (err.code === 4200 || err.code === -32601 || err.code === '4200' ||
           err.code === '-32601' || /unknown method|unsupported method|method not found/.test(msg)) {
         const unsupported = new Error('This wallet connection does not support the standard transaction request.');
-        (unsupported as Error & { code?: string }).code = 'PAYMENT_METHOD_UNSUPPORTED';
+        (unsupported as Error & { code?: string; diagnostic?: string }).code = 'PAYMENT_METHOD_UNSUPPORTED';
+        (unsupported as Error & { diagnostic?: string }).diagnostic = walletRpcDiagnostic(e, 'eth_sendTransaction');
         throw unsupported;
       }
     }
     if (isSubmissionUncertain(e)) throw e;
     // Once the standard submission request is invoked, any generic failure
-    // could have happened after broadcast. Never issue another request.
-    throw new PsePaymentSubmissionUncertainError();
+    // could have happened after broadcast. Never issue another request. Preserve
+    // a safe, redacted provider diagnostic so support can identify the exact
+    // wallet RPC rejection instead of guessing from a generic uncertain state.
+    throw new PsePaymentSubmissionUncertainError(walletRpcDiagnostic(e, 'eth_sendTransaction'));
   }
 };

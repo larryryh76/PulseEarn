@@ -644,18 +644,6 @@ const isTxHash = (value: unknown): value is string =>
   typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
 
 /**
- * Every EIP-1193 / EIP-5792 method that can put a transaction on chain. Listed
- * explicitly rather than pattern-matched: the set decides whether a fallback is
- * allowed, so it must be auditable at a glance.
- */
-const BROADCAST_METHODS = new Set([
-  'eth_sendtransaction',
-  'eth_sendrawtransaction',
-  'wallet_sendtransaction',
-  'wallet_sendcalls',
-]);
-
-/**
  * Sends the payment transaction — AT MOST ONE broadcast attempt per call.
  *
  * THE RULE
@@ -687,49 +675,34 @@ export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
 ): Promise<string> => {
-  let sendRequested = false;
-  const tracked: PseEip1193Provider = {
-    request: <T = unknown>(args: { method: string; params?: unknown[] | object }) => {
-      // ANY broadcast-capable method counts, not just the one ethers happens to
-      // use today: the fallback decision must never be defeated by a wallet or
-      // SDK that submits through a different method name.
-      if (BROADCAST_METHODS.has(String(args.method).toLowerCase())) sendRequested = true;
-      return provider.request<T>(args);
-    },
-  };
-  if (provider.on) tracked.on = provider.on.bind(provider);
-  if (provider.removeListener) tracked.removeListener = provider.removeListener.bind(provider);
-
-  try {
-    const { BrowserProvider } = await import('ethers');
-    // EIP-1193 providers conform to ethers' Eip1193RequestFn; the structural cast
-    // keeps this module free of a static ethers type dependency.
-    const web3Provider = new BrowserProvider(tracked as unknown as ConstructorParameters<typeof BrowserProvider>[0]);
-    const signer = await web3Provider.getSigner();
-    const response = await signer.sendTransaction({ from: tx.from, to: tx.to, value: tx.value });
-    if (!isTxHash(response?.hash)) throw new PsePaymentSubmissionUncertainError();
-    return response.hash;
-  } catch (e) {
-    if (isWalletRejection(e)) throw e; // 4001 — the user said no; nothing was sent
-    if (isSubmissionUncertain(e)) throw e;
-    // Only a PROVEN pre-broadcast failure may fall through to the raw attempt.
-    if (sendRequested) throw new PsePaymentSubmissionUncertainError();
+  if (!provider || typeof provider.request !== 'function') {
+    throw new Error('The active wallet provider is unavailable. Reconnect your wallet.');
   }
-
-  // The wallet cannot build a transaction through ethers (nothing was sent), so
-  // broadcast once through the one method every conforming wallet implements.
   try {
-    const hash = await provider.request({
+    // Use the wallet-standard EIP-1193 call directly. ethers BrowserProvider
+    // performs several optional node RPC probes before presenting approval;
+    // some mobile wallet bridges reject those probes as unknown methods.
+    const hash = await provider.request<string>({
       method: 'eth_sendTransaction',
       params: [{ from: tx.from, to: tx.to, value: tx.value }],
     });
     if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError();
     return hash;
   } catch (e) {
-    if (isWalletRejection(e)) throw e; // 4001 — the user said no; nothing was sent
+    if (isWalletRejection(e)) throw e;
+    if (typeof e === 'object' && e !== null) {
+      const err = e as { code?: number | string; message?: string; shortMessage?: string };
+      const msg = [err.message, err.shortMessage].filter(Boolean).join(' ').toLowerCase();
+      if (err.code === 4200 || err.code === -32601 || err.code === '4200' ||
+          err.code === '-32601' || /unknown method|unsupported method|method not found/.test(msg)) {
+        const unsupported = new Error('This wallet connection does not support the standard transaction request.');
+        (unsupported as Error & { code?: string }).code = 'PAYMENT_METHOD_UNSUPPORTED';
+        throw unsupported;
+      }
+    }
     if (isSubmissionUncertain(e)) throw e;
-    // A send was attempted and no hash came back: the broadcast status is
-    // unknown. STOP — do not retry, do not fall back, do not guess.
+    // Once the standard submission request is invoked, any generic failure
+    // could have happened after broadcast. Never issue another request.
     throw new PsePaymentSubmissionUncertainError();
   }
 };

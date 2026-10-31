@@ -152,7 +152,7 @@ const OwnedToolRow: React.FC<{
             </button>
           </div>
         )}
-        {tool.lastAccruedAt && <p className="pse-owned-tool-updated">Last accrual checkpoint: {new Date(tool.lastAccruedAt).toLocaleString()}</p>}
+        {tool.lastAccruedAt && <p className="pse-owned-tool-updated">Last accrual checkpoint: {new Date(tool.lastAccruedAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</p>}
       </div>
     </li>
   );
@@ -203,7 +203,7 @@ export const PSEMineTools: React.FC = () => {
       const result = await PSEMineEngine.maintainTool(ownershipId);
       if (result.success) {
         toast.success(result.resumesAt
-          ? `Maintenance accepted. Next session scheduled for ${new Date(result.resumesAt).toLocaleTimeString()}.`
+          ? `Maintenance accepted. Next session scheduled for ${new Date(result.resumesAt).toLocaleTimeString('en-GB', { timeZone: 'Europe/London' })}.`
           : 'Maintenance accepted. Syncing the tool’s next state.');
         await refresh();
       } else {

@@ -50,14 +50,101 @@ export interface PseChainInfo {
 }
 
 const BSC_MAINNET_HEX = '0x38';
+/** BNB Smart Chain mainnet — the only chain PSEmine quotes, pays and verifies on. */
+export const PSE_BSC_CHAIN_ID = 56;
+export const PSE_BSC_CAIP2 = 'eip155:56';
 const EIP6963_ANNOUNCE = 'eip6963:announceProvider';
 const EIP6963_REQUEST = 'eip6963:requestProvider';
+
+/* ─── WalletConnect handoff marker ───
+ * A WalletConnect approval on a phone leaves this tab: the wallet app approves
+ * and the OS reloads the page, so the original connect() promise dies with the
+ * old document. The reloaded page needs a durable, short-lived marker to know
+ * it should adopt the approved session. It is written only when the user
+ * actually starts a pairing and cleared on success / explicit disconnect, so an
+ * ordinary page load never initialises a wallet SDK the user is not using.
+ */
+const WC_HANDOFF_KEY = 'psemine_wc_handoff';
+const WC_HANDOFF_TTL_MS = 15 * 60 * 1000;
+
+export const markWalletConnectHandoff = (now = Date.now()): void => {
+  try { localStorage.setItem(WC_HANDOFF_KEY, String(now)); } catch { /* storage unavailable */ }
+};
+
+export const clearWalletConnectHandoff = (): void => {
+  try { localStorage.removeItem(WC_HANDOFF_KEY); } catch { /* storage unavailable */ }
+};
+
+/** True only for a recent, user-initiated WalletConnect pairing. */
+export const hasPendingWalletConnectHandoff = (now = Date.now()): boolean => {
+  try {
+    const startedAt = Number(localStorage.getItem(WC_HANDOFF_KEY) || 0);
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return false;
+    if (now - startedAt > WC_HANDOFF_TTL_MS) {
+      localStorage.removeItem(WC_HANDOFF_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/* ─── WalletConnect session validity ─── */
+
+/** The subset of a WalletConnect session PSEmine is allowed to trust. */
+export interface PseWalletSessionLike {
+  expiry?: number;
+  namespaces?: { eip155?: { accounts?: string[] } } | null;
+}
+
+export type PseWalletSessionState = 'valid' | 'expired' | 'unsupported' | 'missing';
+
+const CAIP10_EIP155 = /^eip155:(\d+):(0x[a-f0-9]{40})$/i;
+
+/** Approved accounts on the campaign chain, lowercased and deduplicated. */
+export const walletConnectSessionAccounts = (
+  session: PseWalletSessionLike | null | undefined,
+  chainId = PSE_BSC_CHAIN_ID,
+): string[] => {
+  const found = new Set<string>();
+  for (const account of session?.namespaces?.eip155?.accounts ?? []) {
+    const match = String(account).match(CAIP10_EIP155);
+    if (!match || Number.parseInt(match[1], 10) !== chainId) continue;
+    found.add(match[2].toLowerCase());
+  }
+  return [...found];
+};
+
+/**
+ * A persisted WalletConnect session is NOT proof of a usable connection. It has
+ * to exist, be unexpired, and include the campaign chain. A stale, expired,
+ * revoked or foreign-chain pairing must never be shown as connected — sign-out
+ * of the relay or expiry of a session cannot be allowed to look like a wallet.
+ */
+export const inspectWalletConnectSession = (
+  session: PseWalletSessionLike | null | undefined,
+  nowMs = Date.now(),
+): PseWalletSessionState => {
+  const approved = session?.namespaces?.eip155?.accounts ?? [];
+  if (!approved.some(account => CAIP10_EIP155.test(String(account)))) return 'missing';
+  const expiry = Number(session?.expiry);
+  if (Number.isFinite(expiry) && expiry > 0 && expiry * 1000 <= nowMs) return 'expired';
+  return walletConnectSessionAccounts(session).length > 0 ? 'valid' : 'unsupported';
+};
+
+/** BSC chain id from an approved session (null when BSC is not approved). */
+export const walletConnectSessionChainId = (
+  session: PseWalletSessionLike | null | undefined,
+): number | null => (walletConnectSessionAccounts(session).length > 0 ? PSE_BSC_CHAIN_ID : null);
 
 /* ─── WalletConnect (lazy: the SDK lives in its own chunk) ─── */
 
 /** Minimal AppKit surface this module uses (structural, SDK-version agnostic). */
 interface WcAppKitLike {
   open(): void | Promise<void>;
+  /** Resolves once AppKit's controllers and stored connection are ready. */
+  ready?(): Promise<void>;
   disconnect(): void | Promise<void>;
   getAddress(chainNamespace?: string): string | undefined;
   getIsConnectedState(): boolean;
@@ -67,11 +154,7 @@ interface WcAppKitLike {
 
 /** The adapter exposes Reown's UniversalProvider after a WalletConnect session is approved. */
 interface WcUniversalProviderLike extends PseEip1193Provider {
-  session?: {
-    namespaces?: {
-      eip155?: { accounts?: string[] };
-    };
-  } | null;
+  session?: PseWalletSessionLike | null;
 }
 
 /** Minimal Ethers-adapter surface: the WalletConnect universal provider. */
@@ -79,12 +162,24 @@ interface WcAdapterLike {
   getWalletConnectProvider(): unknown;
 }
 
+export type PseWalletConnectErrorCode =
+  | 'NOT_CONFIGURED'
+  | 'INITIALIZATION_FAILED'
+  | 'CHUNK_LOAD_FAILED'
+  | 'MODAL_OPEN_FAILED'
+  | 'SESSION_TIMEOUT'
+  | 'SESSION_EXPIRED'
+  | 'SESSION_UNSUPPORTED';
+
 export class PseWalletConnectError extends Error {
-  readonly code: 'NOT_CONFIGURED' | 'INITIALIZATION_FAILED' | 'MODAL_OPEN_FAILED' | 'SESSION_TIMEOUT';
-  constructor(code: PseWalletConnectError['code'], message: string) {
+  readonly code: PseWalletConnectErrorCode;
+  /** Safe, redacted provider diagnostic for developers/support — never shown raw. */
+  readonly diagnostic?: string;
+  constructor(code: PseWalletConnectErrorCode, message: string, diagnostic?: string) {
     super(message);
     this.name = 'PseWalletConnectError';
     this.code = code;
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -94,32 +189,98 @@ const wcState: {
   adapter: WcAdapterLike | null;
   openModal: (() => void) | null;
   disconnect: (() => Promise<void>) | null;
-} = { available: false, appKit: null, adapter: null, openModal: null, disconnect: null };
+  /** Why the last initialisation failed (typed, not a generic message). */
+  lastError: PseWalletConnectError | null;
+  /** Why the last session wait ended without a provider: expired / foreign chain. */
+  lastSessionProblem: 'expired' | 'unsupported' | null;
+} = {
+  available: false, appKit: null, adapter: null, openModal: null, disconnect: null,
+  lastError: null, lastSessionProblem: null,
+};
 
 /** In-flight initialisation guard (also makes a failed init retryable). */
 let wcInitPromise: Promise<boolean> | null = null;
+
+/** Safe diagnostic text: provider messages only, addresses redacted, bounded. */
+const redactedMessage = (error: unknown, fallback = 'No error message returned'): string => {
+  const value = typeof error === 'object' && error !== null
+    ? error as { code?: string | number; message?: string; shortMessage?: string; data?: { message?: string } }
+    : {};
+  return String(value.shortMessage || value.message || value.data?.message || fallback)
+    .replace(/0x[a-f0-9]{40}/gi, '[address]')
+    .replace(/\s+/g, ' ')
+    .slice(0, 180);
+};
 
 export const WALLETCONNECT_PROJECT_ID = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined)?.trim() || '';
 
 export const isWalletConnectConfigured = (): boolean => WALLETCONNECT_PROJECT_ID.length > 0;
 
 /**
+ * A lazy SDK chunk can legitimately fail to load: a tab opened before a deploy
+ * requests hashed chunks that no longer exist, or a mobile network drops the
+ * fetch. That is an ASSET problem, not a wallet configuration problem, and it is
+ * recoverable by loading the current document/asset map — so it gets its own
+ * error code and its own recovery instead of being reported as a bad project id.
+ */
+export const isChunkLoadError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|chunkloaderror|loading chunk [\w.-]+ failed/i.test(message);
+};
+
+const RELOAD_GUARD_KEY = 'psemine_asset_reload_at';
+
+/** Reloads once (60 s guard) so this tab picks up the live deployment's assets. */
+export const reloadOnceForStaleAssets = (now = Date.now()): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
+    if (Number.isFinite(last) && last > 0 && now - last < 60_000) return false;
+    sessionStorage.setItem(RELOAD_GUARD_KEY, String(now));
+  } catch {
+    return false;
+  }
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('_pse_reload', String(now));
+    window.location.replace(url.toString());
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** One retry covers the transient half of lazy-chunk failures. */
+async function importWalletConnectSdk() {
+  const load = () => Promise.all([
+    import('@reown/appkit/react'),
+    import('@reown/appkit-adapter-ethers'),
+    import('@reown/appkit/networks'),
+  ]);
+  try {
+    return await load();
+  } catch (first) {
+    if (!isChunkLoadError(first)) throw first;
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return load();
+  }
+}
+
+/**
  * Initialises AppKit + the Ethers adapter on first use. Called lazily from
  * connectWalletConnect()/restoreWalletConnectSession() so the WalletConnect
  * bundle is only fetched when a WalletConnect session is actually needed.
  *
- * A failed initialisation (offline, bad project id) is retryable: the guard
- * promise clears on failure so the next user action re-attempts instead of
- * permanently latching the transport off.
+ * A failed initialisation is retryable: the guard promise clears on failure so
+ * the next user action re-attempts instead of permanently latching the
+ * transport off. The typed reason is kept in wcState.lastError so the caller can
+ * report chunk-load, configuration and SDK failures distinctly.
  */
 function initWalletConnect(): Promise<boolean> {
   if (wcState.available && wcState.appKit) return Promise.resolve(true);
   if (!wcInitPromise) {
     wcInitPromise = doInitWalletConnect()
       .then(ready => {
-        // doInitWalletConnect deliberately converts SDK/import failures to
-        // false; clear the cached promise here too, otherwise one transient
-        // failure permanently disables WalletConnect until a full reload.
         if (!ready) wcInitPromise = null;
         return ready;
       })
@@ -137,9 +298,7 @@ async function doInitWalletConnect(): Promise<boolean> {
 
   try {
     // Dynamic imports keep the AppKit/WalletConnect SDK out of the main chunk.
-    const { createAppKit } = await import('@reown/appkit/react');
-    const { EthersAdapter } = await import('@reown/appkit-adapter-ethers');
-    const { bsc } = await import('@reown/appkit/networks');
+    const [{ createAppKit }, { EthersAdapter }, { bsc }] = await importWalletConnectSdk();
 
     const metadata = {
       name: 'PSEmine',
@@ -160,18 +319,43 @@ async function doInitWalletConnect(): Promise<boolean> {
       features: { analytics: false },
     }) as unknown as WcAppKitLike;
 
+    // AppKit builds its controller tree asynchronously. Give it a bounded head
+    // start so the wallet selector is not opened mid-initialisation; a slow or
+    // blocked Reown config endpoint must not make WalletConnect unusable, so a
+    // timeout or rejection is logged and the modal still opens.
+    if (typeof appKit.ready === 'function') {
+      try {
+        await Promise.race([
+          appKit.ready(),
+          new Promise<void>(resolve => setTimeout(resolve, 8_000)),
+        ]);
+      } catch (error) {
+        console.warn('[pseWallet] WalletConnect ready() rejected — continuing:', error);
+      }
+    }
+
     wcState.available = true;
     wcState.appKit = appKit;
     wcState.adapter = adapter;
+    wcState.lastError = null;
     wcState.openModal = () => { void appKit.open(); };
     wcState.disconnect = async () => {
       try { await appKit.disconnect(); } catch { /* already disconnected */ }
     };
     return true;
   } catch (e) {
-    // AppKit failed to initialise — degrade to injected-only rather than
-    // blocking wallet connection entirely.
-    console.warn('[pseWallet] WalletConnect unavailable:', e);
+    // AppKit/its chunk failed to initialise. Keep the original error in the
+    // console, expose a typed reason, and never blame the user's configuration
+    // for what is usually a stale tab or a dropped chunk fetch.
+    const chunk = isChunkLoadError(e);
+    wcState.lastError = new PseWalletConnectError(
+      chunk ? 'CHUNK_LOAD_FAILED' : 'INITIALIZATION_FAILED',
+      chunk
+        ? 'PSEmine was updated while this page was open. Reload the page to connect a wallet.'
+        : 'Wallet connection could not initialize on this page. Reload the page and try again.',
+      redactedMessage(e),
+    );
+    console.error('[pseWallet] WalletConnect unavailable:', e);
     return false;
   }
 }
@@ -202,17 +386,21 @@ async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip11
       const universal = adapter.getWalletConnectProvider() as WcUniversalProviderLike | null;
       if (!universal || typeof universal.request !== 'function') return null;
 
-      // UniversalProvider's approved session is the strongest signal that the
-      // wallet handoff completed. Read its CAIP-10 accounts first; some mobile
-      // wallet bridges briefly return an empty eth_accounts during rehydration.
-      const sessionAccounts = universal.session?.namespaces?.eip155?.accounts ?? [];
-      const sessionHasAccount = sessionAccounts.some(account =>
-        /^eip155:\d+:0x[a-f0-9]{40}$/i.test(account),
-      );
-      if (sessionHasAccount) return universal;
+      // An approved session is the strongest signal that the handoff completed,
+      // but only a session that EXISTS, is UNEXPIRED and is scoped to BSC may be
+      // adopted. The relay can still hold an expired pairing in storage after a
+      // wallet revoked it; treating that as connected would bind payments to a
+      // wallet that cannot sign them.
+      const sessionState = inspectWalletConnectSession(universal.session);
+      if (sessionState === 'expired' || sessionState === 'unsupported') {
+        wcState.lastSessionProblem = sessionState;
+        return null;
+      }
+      if (sessionState === 'valid') return universal;
 
-      // Fall back to the standard EIP-1193 request. Do not accept an adapter
-      // instance merely because it exists: a live account is still required.
+      // No session in storage yet (normal before approval). Fall back to the
+      // standard EIP-1193 request; do not accept an adapter instance merely
+      // because it exists — a live account is still required.
       const accounts = await universal.request({ method: 'eth_accounts' }) as string[];
       return Array.isArray(accounts) && accounts.some(account => /^0x[a-f0-9]{40}$/i.test(account))
         ? universal
@@ -276,21 +464,37 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promi
     console.error('[pseWallet] WalletConnect initialization threw:', error);
   }
   if (!ready || !wcState.appKit || !wcState.openModal) {
-    throw new PseWalletConnectError(
+    const cause = wcState.lastError;
+    // A stale tab is the most common cause of a lazy-SDK failure. Replace the
+    // document once so it picks up the current deployment's asset map; the
+    // typed reason is still thrown and logged for diagnostics.
+    if (cause?.code === 'CHUNK_LOAD_FAILED') reloadOnceForStaleAssets();
+    throw cause ?? new PseWalletConnectError(
       'INITIALIZATION_FAILED',
-      'Wallet connection could not initialize. Please retry; if it continues, the site wallet configuration needs attention.',
+      'Wallet connection could not initialize on this page. Reload the page and try again.',
     );
   }
 
   // Adopt an existing approved session before opening a new pairing request.
   const restored = await waitForWalletConnectProvider(1_500);
-  if (restored) return restored;
+  if (restored) {
+    clearWalletConnectHandoff();
+    return restored;
+  }
+
+  // Record the handoff BEFORE opening the wallet selector: if the wallet app
+  // approves and the OS reloads this tab, the reloaded document uses this marker
+  // to silently adopt the approved session. It expires on its own (15 min) so a
+  // cancelled handoff can never cause an SDK load on a later visit.
+  markWalletConnectHandoff();
+  wcState.lastSessionProblem = null;
 
   // Open AppKit and await its result so modal/configuration failures are not
   // silently discarded. The provider poll remains active after this returns.
   try {
     await wcState.appKit.open();
   } catch (error) {
+    clearWalletConnectHandoff();
     console.error('[pseWallet] WalletConnect modal failed to open:', error);
     throw new PseWalletConnectError(
       'MODAL_OPEN_FAILED',
@@ -300,12 +504,76 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promi
 
   const provider = await waitForWalletConnectProvider(opts?.timeoutMs ?? 300_000);
   if (!provider) {
+    clearWalletConnectHandoff();
+    // Distinguish a session the wallet has rejected/expired or approved on the
+    // wrong chain from a handoff that simply was not completed.
+    if (wcState.lastSessionProblem === 'expired') {
+      throw new PseWalletConnectError(
+        'SESSION_EXPIRED',
+        'The saved wallet session has expired. Reconnect to approve a new one.',
+      );
+    }
+    if (wcState.lastSessionProblem === 'unsupported') {
+      throw new PseWalletConnectError(
+        'SESSION_UNSUPPORTED',
+        'This wallet session does not include BNB Smart Chain. Reconnect and approve BNB Smart Chain.',
+      );
+    }
     throw new PseWalletConnectError(
       'SESSION_TIMEOUT',
       'No wallet approval was received. Return to PSEmine and try connecting again.',
     );
   }
+  clearWalletConnectHandoff();
   return provider;
+};
+
+/**
+ * Turns an approved WalletConnect provider into a normalised connection.
+ *
+ * The session — not eth_requestAccounts — is the source of truth for the
+ * address: UniversalProvider answers eth_accounts for its mutable DEFAULT chain,
+ * so a session whose default chain drifted would otherwise look empty even
+ * though BSC is approved. The address must come from the approved
+ * eip155:56 account.
+ */
+export const connectWalletConnectProvider = async (
+  provider: PseEip1193Provider,
+  walletName = 'WalletConnect wallet',
+): Promise<PseWalletConnection | null> => {
+  const session = (provider as WcUniversalProviderLike).session;
+  const state = inspectWalletConnectSession(session);
+  if (state === 'expired') {
+    throw new PseWalletConnectError('SESSION_EXPIRED', 'The saved wallet session has expired. Reconnect to approve a new one.');
+  }
+  if (state === 'unsupported') {
+    throw new PseWalletConnectError(
+      'SESSION_UNSUPPORTED',
+      'This wallet session does not include BNB Smart Chain. Reconnect and approve BNB Smart Chain.',
+    );
+  }
+  if (state !== 'valid') return null;
+
+  // Make BSC the provider's local default chain. When eip155:56 is already in
+  // the approved session this is handled locally by UniversalProvider — no new
+  // pairing and no wallet prompt. Failures are non-fatal: the payment request
+  // itself is routed explicitly to eip155:56.
+  try {
+    await provider.request(
+      { method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_MAINNET_HEX }] },
+      PSE_BSC_CAIP2,
+    );
+  } catch { /* session remains chain-scoped; payment routes explicitly */ }
+
+  const address = walletConnectSessionAccounts(session)[0];
+  if (!address) return null;
+  return {
+    transport: 'walletConnect',
+    provider,
+    address,
+    chainId: (await getChainId(provider)) ?? PSE_BSC_CHAIN_ID,
+    walletName,
+  };
 };
 
 /**
@@ -321,7 +589,8 @@ export const restoreWalletConnectSession = async (timeoutMs = 7_000): Promise<Ps
 };
 
 export const disconnectWalletConnect = async (): Promise<void> => {
-  if (wcState.disconnect) await wcState.disconnect();
+  clearWalletConnectHandoff();
+  try { await wcState.disconnect?.(); } catch { /* already disconnected */ }
 };
 
 /* ─── Injected wallet discovery (EIP-6963 + window.ethereum fallback) ─── */
@@ -453,8 +722,16 @@ export const getChainId = async (provider: PseEip1193Provider): Promise<number |
 export const ensureChain = async (
   provider: PseEip1193Provider,
   expectedChainId: number,
+  transport: PseWalletTransport = 'injected',
 ): Promise<boolean> => {
   const expectedHex = `0x${expectedChainId.toString(16)}`;
+  // WalletConnect's UniversalProvider resolves a request against a mutable
+  // default chain unless a CAIP-2 chain is supplied. Network switching must be
+  // addressed to the campaign chain explicitly, otherwise the wallet receives a
+  // switch for whichever chain happened to be active when the session resumed.
+  const caipChain = transport === 'walletConnect' ? `eip155:${expectedChainId}` : undefined;
+  const request = <T>(args: { method: string; params?: unknown[] | object }) =>
+    caipChain ? provider.request<T>(args, caipChain) : provider.request<T>(args);
   const current = await getChainId(provider);
   if (current === expectedChainId) return true;
 
@@ -476,7 +753,7 @@ export const ensureChain = async (
   }
 
   try {
-    await provider.request({
+    await request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: expectedHex }],
     });
@@ -485,7 +762,7 @@ export const ensureChain = async (
     const code = typeof e === 'object' && e !== null ? (e as { code?: number }).code : undefined;
     if (code === 4902) {
       try {
-        await provider.request({
+        await request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId: BSC_MAINNET_HEX,
@@ -507,10 +784,16 @@ export const ensureChain = async (
   return rechecked === expectedChainId;
 };
 
+/** BSC chain id from a WalletConnect provider's approved session, if any. */
+export const walletConnectChainId = (provider: PseEip1193Provider): number | null =>
+  walletConnectSessionChainId((provider as WcUniversalProviderLike).session);
+
 /**
  * Connects through the given transport and returns a normalised connection.
  * For injected wallets the specific provider comes from the caller (the
- * chosen EIP-6963 wallet, or window.ethereum fallback).
+ * chosen EIP-6963 wallet, or window.ethereum fallback). WalletConnect callers
+ * must use connectWalletConnectProvider() instead: a UniversalProvider's
+ * eth_requestAccounts answers for its mutable default chain, not the session.
  */
 export const connectWithProvider = async (
   provider: PseEip1193Provider,
@@ -624,6 +907,39 @@ export const isSubmissionUncertain = (e: unknown): boolean =>
     (e as { code?: string }).code === PAYMENT_SUBMISSION_UNCERTAIN);
 
 /**
+ * The wallet session disappeared between the quote and the send: the relay has
+ * no matching key, its namespace is not configured, or the session record was
+ * deleted. These errors are raised LOCALLY by WalletConnect before any request
+ * reaches the wallet, so nothing can have been broadcast — a retry is safe and
+ * the purchase must not be locked as an uncertain submission.
+ */
+export const PAYMENT_SESSION_UNAVAILABLE = 'PAYMENT_SESSION_UNAVAILABLE';
+
+export const isPreDispatchWalletError = (error: unknown): boolean => {
+  const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+  const message = [
+    error instanceof Error ? error.message : String(error ?? ''),
+    cause instanceof Error ? cause.message : '',
+  ].join(' ');
+  return /no matching key|session topic doesn't exist|please call connect\(\) before request|not configured\. please call connect|record was recently deleted/i.test(message);
+};
+
+export class PsePaymentSessionUnavailableError extends Error {
+  readonly code = PAYMENT_SESSION_UNAVAILABLE;
+  readonly diagnostic?: string;
+  constructor(diagnostic?: string) {
+    super('The wallet session is no longer available, so nothing was sent. Reconnect your wallet before trying again.');
+    this.name = 'PsePaymentSessionUnavailableError';
+    this.diagnostic = diagnostic;
+  }
+}
+
+export const isSessionUnavailable = (e: unknown): boolean =>
+  e instanceof PsePaymentSessionUnavailableError ||
+  (typeof e === 'object' && e !== null &&
+    (e as { code?: string }).code === PAYMENT_SESSION_UNAVAILABLE);
+
+/**
  * Whether a payment in this state may be attempted again. Deliberately true
  * for NOT_SUBMITTED only — an unknown submission is resolved by the user
  * (wallet activity / explorer / support recovery), never by an automatic or
@@ -692,15 +1008,10 @@ const isTxHash = (value: unknown): value is string =>
  * recipient/sender/amount/chain/confirmations.
  */
 const walletRpcDiagnostic = (error: unknown, method: string): string => {
-  const value = typeof error === 'object' && error !== null
-    ? error as { code?: string | number; message?: string; shortMessage?: string; data?: { message?: string } }
-    : {};
-  const code = value.code === undefined ? 'none' : String(value.code);
-  const message = String(value.shortMessage || value.message || value.data?.message || 'No wallet error message returned')
-    .replace(/0x[a-f0-9]{40}/gi, '[address]')
-    .replace(/\s+/g, ' ')
-    .slice(0, 180);
-  return `${method} | code: ${code} | ${message}`;
+  const code = typeof error === 'object' && error !== null
+    ? (error as { code?: string | number }).code
+    : undefined;
+  return `${method} | code: ${code === undefined ? 'none' : String(code)} | ${redactedMessage(error)}`;
 };
 
 export const sendPaymentTransaction = async (
@@ -725,12 +1036,18 @@ export const sendPaymentTransaction = async (
     // chain even though the approved session contains eip155:56. Injected
     // EIP-1193 providers keep the standard one-argument request shape.
     const hash = transport === 'walletConnect'
-      ? await provider.request<string>(request, 'eip155:56')
+      ? await provider.request<string>(request, PSE_BSC_CAIP2)
       : await provider.request<string>(request);
     if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError('eth_sendTransaction | wallet returned no valid transaction hash');
     return hash;
   } catch (e) {
     if (isWalletRejection(e)) throw e;
+    if (isSessionUnavailable(e)) throw e;
+    if (isPreDispatchWalletError(e)) {
+      // Proven local failure before dispatch: nothing reached the wallet, so a
+      // later retry cannot double-pay. Do NOT mark the purchase uncertain.
+      throw new PsePaymentSessionUnavailableError(walletRpcDiagnostic(e, 'eth_sendTransaction'));
+    }
     if (typeof e === 'object' && e !== null) {
       const err = e as { code?: number | string; message?: string; shortMessage?: string };
       const msg = [err.message, err.shortMessage].filter(Boolean).join(' ').toLowerCase();

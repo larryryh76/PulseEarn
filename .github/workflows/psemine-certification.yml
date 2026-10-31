@@ -57,5 +57,8 @@ jobs:
       - name: Wallet payment, chain guard, cancellation and duplicate-send gate
         run: bun scripts/pse-wallet-gate.mjs
 
+      - name: Wallet session validity, BSC routing and recovery regression
+        run: bun scripts/pse-wallet-recovery-check.mjs
+
       - name: Mobile/desktop console rendering smoke tests
         run: bun scripts/pse-console-check.mjs

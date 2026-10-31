@@ -5,6 +5,7 @@ import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
   type PsePaymentSubmissionState,
   canRetryPayment,
+  isSessionUnavailable,
   isSubmissionUncertain,
   resolvePaymentPayer,
 } from '../../engines/psemine/pseWallet';
@@ -863,6 +864,21 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           value: String(wei),
         });
       } catch (sendErr) {
+        if (isSessionUnavailable(sendErr)) {
+          // WalletConnect raised this LOCALLY: the relay has no matching session,
+          // so no request reached the wallet and nothing could be broadcast. The
+          // purchase must stay retryable instead of being locked as uncertain.
+          setSubmissionState('NOT_SUBMITTED');
+          setResult({
+            ok: false,
+            message: 'Your wallet session ended before the payment was requested, so nothing was sent and nothing was locked. Reconnect your wallet and request a fresh quote.',
+            diagnostic: typeof sendErr === 'object' && sendErr !== null
+              ? (sendErr as { diagnostic?: string }).diagnostic
+              : undefined,
+          });
+          setStep('result');
+          return;
+        }
         if (typeof sendErr === 'object' && sendErr !== null &&
             (sendErr as { code?: string }).code === 'PAYMENT_METHOD_UNSUPPORTED') {
           setSubmissionState('NOT_SUBMITTED');
@@ -920,7 +936,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       // another device can resume the exact same on-chain transfer.
       try {
         await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
-      } catch (reportErr) {
+      } catch {
         // Fail closed against a second purchase if the hash write failed.
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
         setResult({

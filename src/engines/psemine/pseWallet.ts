@@ -29,7 +29,7 @@
 
 /** Minimal EIP-1193 surface this app needs — injected and WalletConnect both conform. */
 export interface PseEip1193Provider {
-  request<T = unknown>(args: { method: string; params?: unknown[] | object }): Promise<T>;
+  request<T = unknown>(args: { method: string; params?: unknown[] | object }, chain?: string): Promise<T>;
   on?(event: string, listener: (...args: never[]) => void): void;
   removeListener?(event: string, listener: (...args: never[]) => void): void;
 }
@@ -706,6 +706,7 @@ const walletRpcDiagnostic = (error: unknown, method: string): string => {
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
+  transport: PseWalletTransport = 'injected',
 ): Promise<string> => {
   if (!provider || typeof provider.request !== 'function') {
     throw new Error('The active wallet provider is unavailable. Reconnect your wallet.');
@@ -714,10 +715,18 @@ export const sendPaymentTransaction = async (
     // Use the wallet-standard EIP-1193 call directly. ethers BrowserProvider
     // performs several optional node RPC probes before presenting approval;
     // some mobile wallet bridges reject those probes as unknown methods.
-    const hash = await provider.request<string>({
+    const request = {
       method: 'eth_sendTransaction',
       params: [{ from: tx.from, to: tx.to, value: tx.value }],
-    });
+    };
+    // WalletConnect's UniversalProvider accepts an explicit CAIP-2 chain as
+    // its second request argument. Do not rely on its mutable/default chain:
+    // mobile handoffs can restore a session whose default is not the campaign
+    // chain even though the approved session contains eip155:56. Injected
+    // EIP-1193 providers keep the standard one-argument request shape.
+    const hash = transport === 'walletConnect'
+      ? await provider.request<string>(request, 'eip155:56')
+      : await provider.request<string>(request);
     if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError('eth_sendTransaction | wallet returned no valid transaction hash');
     return hash;
   } catch (e) {

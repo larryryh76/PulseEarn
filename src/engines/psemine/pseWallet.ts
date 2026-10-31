@@ -691,17 +691,11 @@ export const connectWalletConnectProvider = async (
   }
   if (state !== 'valid') return null;
 
-  // Make BSC the provider's local default chain. When eip155:56 is already in
-  // the approved session this is handled locally by UniversalProvider — no new
-  // pairing and no wallet prompt. Failures are non-fatal: the payment request
-  // itself is routed explicitly to eip155:56.
-  try {
-    await provider.request(
-      { method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_MAINNET_HEX }] },
-      PSE_BSC_CAIP2,
-    );
-  } catch { /* session remains chain-scoped; payment routes explicitly */ }
-
+  // Do not send wallet_switchEthereumChain through WalletConnect. The approved
+  // CAIP-10 session already proves BSC access, and every payment RPC is routed
+  // explicitly to eip155:56. A switch request is an injected-wallet convention
+  // that many mobile wallets do not implement over WalletConnect; sending it
+  // here can open the wallet app without ever presenting the payment approval.
   const address = walletConnectSessionAccounts(session)[0];
   if (!address) return null;
   // The approved CAIP-10 account is authoritative for WalletConnect. Its

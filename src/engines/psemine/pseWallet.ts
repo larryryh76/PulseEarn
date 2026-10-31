@@ -698,7 +698,7 @@ const walletRpcDiagnostic = (error: unknown, method: string): string => {
   const code = value.code === undefined ? 'none' : String(value.code);
   const message = String(value.shortMessage || value.message || value.data?.message || 'No wallet error message returned')
     .replace(/0x[a-f0-9]{40}/gi, '[address]')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .slice(0, 180);
   return `${method} | code: ${code} | ${message}`;
 };

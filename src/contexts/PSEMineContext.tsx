@@ -616,7 +616,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const sendPayment = useCallback(async (tx: { from: string; to: string; value: string }): Promise<string> => {
     const provider = providerRef.current;
     if (!provider) throw new Error('No wallet is connected.');
-    return sendPaymentTransaction(provider, tx);
+    return sendPaymentTransaction(provider, tx, transportRef.current ?? 'injected');
   }, []);
 
   // Silent re-connect on session start: previously-authorised injected

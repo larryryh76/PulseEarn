@@ -578,7 +578,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean; diagnostic?: string } | null>(null);
   // Payer binding + submission state. The purchase is bound to a wallet BEFORE
   // anything is signed, and the submission state decides whether a retry is even
   // permitted (never after UNKNOWN_SUBMISSION_STATE).
@@ -868,7 +868,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           setSubmissionState('NOT_SUBMITTED');
           setResult({
             ok: false,
-            message: 'This wallet connection rejected the standard transaction request before submission. No payment was sent. Reconnect using another WalletConnect wallet or a supported wallet browser, then request a fresh quote.',
+            message: 'This wallet rejected the transaction request before submission. No payment was sent. The diagnostic below identifies the exact RPC error. Reconnect and request a fresh quote before trying again.',
+            diagnostic: typeof sendErr === 'object' && sendErr !== null
+              ? (sendErr as { diagnostic?: string }).diagnostic
+              : undefined,
           });
           setStep('result');
           return;
@@ -902,6 +905,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             message: serverLocked
               ? 'We could not confirm whether your wallet submitted this payment. This purchase is now locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
               : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.',
+            diagnostic: typeof sendErr === 'object' && sendErr !== null
+              ? (sendErr as { diagnostic?: string }).diagnostic
+              : undefined,
           });
           setStep('result');
           return;
@@ -1309,6 +1315,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           }
         >
           <p className="pse-prose pse-prose--ink">{result.message}</p>
+          {result.diagnostic && (
+            <p className="pse-block-meta" role="note">
+              Wallet diagnostic: <code>{result.diagnostic}</code>
+            </p>
+          )}
           {result.hash && (
             <p className="text-sm">
               <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer" className="pse-link">

@@ -9627,7 +9627,7 @@ def mine_report_purchase_submission():
     if existing_hash and existing_hash != tx_hash:
         return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
                         "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
-    if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming', 'manual_review'):
+    if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
         return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE"}), 409
     ref.update({
         'transactionHash': tx_hash,

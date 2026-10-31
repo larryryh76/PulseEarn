@@ -327,15 +327,13 @@ export const PSEMineTools: React.FC = () => {
     );
   }
 
-  if (purchasing) {
-    const pending = pendingPurchase && pendingPurchase.toolId === purchasing.id ? pendingPurchase : null;
-    return <PurchaseFlow tool={purchasing} pending={pending} onClose={() => { setPurchasing(null); void refresh(); }} />;
-  }
-
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
   const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
 
+  const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
+
   return (
+    <>
     <PsePage
       title="Mining tools"
       objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
@@ -559,6 +557,14 @@ export const PSEMineTools: React.FC = () => {
         </aside>
       </div>
     </PsePage>
+    {purchasing && (
+      <PurchaseFlow
+        tool={purchasing}
+        pending={purchasePending}
+        onClose={() => { setPurchasing(null); void refresh(); }}
+      />
+    )}
+    </>
   );
 };
 

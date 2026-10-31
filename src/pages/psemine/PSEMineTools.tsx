@@ -588,6 +588,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
   const [resume, setResume] = useState<ResumeState | null>(null);
   const [rechecking, setRechecking] = useState(false);
+  const [uncertainRecovery, setUncertainRecovery] = useState(() => {
+    if (!pending) return false;
+    try {
+      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
+      return Boolean(saved?.purchaseId && saved.purchaseId === pending.purchaseId);
+    } catch { return false; }
+  });
+  const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
 
   /** Forget the local binding (expired quote, wallet disconnect, restart). */
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
@@ -598,6 +606,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // falls through to a fresh quote (the backend supersedes the dead intent and
   // keeps the old record as audit evidence).
   useEffect(() => {
+    if (uncertainRecovery && pending && pending.toolId === tool.id) {
+      setPurchaseId(pending.purchaseId);
+      setBoundPayer(pending.paymentWallet || null);
+      setSubmissionState('UNKNOWN_SUBMISSION_STATE');
+      setResult({ ok: false, uncertain: true, message: 'We could not confirm whether your wallet submitted this payment. Check the sending wallet before attempting another payment.' });
+      setStep('result');
+      return;
+    }
     if (resume || !pending || pending.toolId !== tool.id) return;
     if (pending.status && pending.status !== 'awaiting_payment') {
       setResume({ kind: 'submitted', purchase: pending });
@@ -631,12 +647,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     if (!live) setResume({ kind: 'expired', purchase: pending });
-  }, [resume, pending, tool.id, tool.version, tool.purchasePriceGBP, pseUser?.uid]);
+  }, [resume, pending, tool.id, tool.version, tool.purchasePriceGBP, pseUser?.uid, uncertainRecovery]);
 
   // Fetch a quote on open — unless a live/submitted intent is being resumed
   // (re-quoting there would re-price and re-bind an existing purchase).
   useEffect(() => {
-    if (resume && resume.kind !== 'expired') return;
+    if (uncertainRecovery || (resume && resume.kind !== 'expired')) return;
     let cancelled = false;
     setQuoteLoading(true);
     resetBinding();
@@ -645,7 +661,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setQuoteLoading(false); });
     return () => { cancelled = true; clearQuote(); };
-  }, [tool.id, requestQuote, clearQuote, resetBinding, resume]);
+  }, [tool.id, requestQuote, clearQuote, resetBinding, resume, uncertainRecovery]);
 
   // The amounts the user sees. A live resume ALWAYS uses its own quote, never a
   // freshly fetched one, so the binding can never drift to another quote.
@@ -828,10 +844,19 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       } catch (sendErr) {
         if (isSubmissionUncertain(sendErr)) {
           setSubmissionState('UNKNOWN_SUBMISSION_STATE');
+          try {
+            localStorage.setItem('psemine_uncertain_payment', JSON.stringify({
+              purchaseId: intentId, toolId: tool.id, payerWallet: payer,
+              receiverWallet: quote.receiverWallet, quotedBNBWei: String(quote.bnbAmountWei || ''),
+              createdAt: new Date().toISOString(),
+            }));
+          } catch { /* the live page still keeps the retry lock */ }
+          setUncertainRecovery(true);
+          setConfirmedNoTransaction(false);
           setResult({
             ok: false,
             uncertain: true,
-            message: 'PAYMENT_SUBMISSION_UNCERTAIN — your wallet did not report whether this payment was broadcast, so nothing was sent again. Check your wallet activity (or BscScan) for a pending transfer before doing anything else. If one exists, keep the wallet that sent it; support can reconcile it from the on-chain record.',
+            message: 'We could not confirm whether your wallet submitted this payment. Please check the sending wallet before trying again.',
           });
           setStep('result');
           return;
@@ -846,6 +871,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       const res = await submitPurchaseTx(intentId, txHash, payer);
       if (res.success) {
         setSubmissionState('VERIFIED');
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+        setUncertainRecovery(false);
         setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
       } else {
         const stillConfirming = res.code === 'INSUFFICIENT_CONFIRMATIONS';
@@ -879,6 +906,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       const res = await submitPurchaseTx(purchaseId, hash, boundPayer || connectedWallet || '');
       if (res.success) {
         setSubmissionState('VERIFIED');
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+        setUncertainRecovery(false);
         setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash });
         setStep('result');
       } else if (res.code === 'INSUFFICIENT_CONFIRMATIONS') {
@@ -919,6 +948,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   /** Restart from a fresh quote — the only route out of an uncertain or failed
    *  submission, and only ever at the user's explicit request. */
   const restartPurchase = () => {
+    if (uncertainRecovery && !confirmedNoTransaction) return;
+    try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+    setUncertainRecovery(false);
+    setConfirmedNoTransaction(false);
     setResult(null);
     resetBinding();
     setSubmissionState('NOT_SUBMITTED');
@@ -1203,11 +1236,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           )}
 
           {result.uncertain && (
-            <PseNotice tone="danger">
-              Nothing was sent twice. Check your wallet&apos;s activity (or the address on BscScan) for a pending
-              transfer. If one exists, do not send again — keep its hash and the wallet that sent it; support reconciles
-              it from the on-chain record. If none exists, start a new purchase below.
+            <PseNotice tone="attention" title="Check your wallet before retrying">
+              The wallet did not return a transaction result, so PSEmine cannot tell whether the transfer was submitted.
+              This does not mean the payment failed. Check the activity for the sending wallet
+              {boundPayer ? <> (<a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>)</> : ''}.
+              If a transfer appears, do not pay again. Keep its transaction hash and the sending wallet address so support
+              can reconcile that exact on-chain transfer. If no transfer appears, confirm below before requesting a new quote.
             </PseNotice>
+          )}
+          {result.uncertain && !confirmedNoTransaction && (
+            <PseButton variant="secondary" onClick={() => {
+              setConfirmedNoTransaction(true);
+              try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+              setUncertainRecovery(false);
+            }}>
+              I checked — no transaction is listed
+            </PseButton>
           )}
           {!result.ok && !result.recheckable && !result.uncertain && (
             <PseNotice tone="attention">
@@ -1230,10 +1274,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 {rechecking ? 'Checking…' : 'Check verification again'}
               </PseButton>
             )}
-            {!result.ok && !result.recheckable && (
-              <PseButton onClick={restartPurchase}>
-                {result.uncertain ? 'Start a new purchase' : 'Try again with a new quote'}
-              </PseButton>
+            {!result.ok && !result.recheckable && !result.uncertain && (
+              <PseButton onClick={restartPurchase}>Try again with a new quote</PseButton>
+            )}
+            {!result.ok && result.uncertain && confirmedNoTransaction && (
+              <PseButton onClick={restartPurchase}>Start a new purchase</PseButton>
             )}
           </div>
         </PseSection>

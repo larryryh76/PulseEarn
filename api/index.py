@@ -8338,6 +8338,13 @@ def verify_psemine_tool_purchase():
                 'statusMessage': 'Payment needs manual review. Do not send another payment.',
                 'updatedAt': firestore.SERVER_TIMESTAMP,
             })
+            mine_notify(uid,
+                notif_id=f"notif_purchase_review_{purchase_id}_{reason}",
+                type='purchase',
+                title='Payment recorded for manual review',
+                message='Your transaction was recorded, but it needs administrator review before any tool can activate. Do not send another payment. You can track the recovery from Tools.',
+                related={'source': 'verify_psemine_tool_purchase', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'recoveryCaseId': _rid, 'status': 'manual_review'},
+            )
             return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
                             "message": "This quote has expired. Your transaction has been recorded for admin review. Do not send another payment.",
                             "recoveryCaseId": _rid}), 409

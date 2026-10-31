@@ -489,6 +489,11 @@ const run = async () => {
     pass: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.sendAttempts === 1
       && b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1
       && b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1
+      && unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
+      && String(unsupported.diagnostic || '').includes('code: 4200')
+      && String(b.ambiguousSend.diagnostic || '').includes('code: -32000')
+      && String(b.ambiguousSend.diagnostic || '').includes('[address]')
+      && !String(b.ambiguousSend.diagnostic || '').includes(b.from)
       && b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.sendAttempts === 1
       && b.fallbackAlsoAmbiguous.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.fallbackAlsoAmbiguous.sendAttempts === 1
       && unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1

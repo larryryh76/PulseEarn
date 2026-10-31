@@ -282,7 +282,7 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promi
   }
 
   // Adopt an existing approved session before opening a new pairing request.
-  const restored = await waitForWalletConnectProvider(6_000);
+  const restored = await waitForWalletConnectProvider(1_500);
   if (restored) return restored;
 
   // Open AppKit and await its result so modal/configuration failures are not
@@ -312,7 +312,7 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promi
  * from storage WITHOUT opening the modal. Returns null when there is nothing
  * to restore within `timeoutMs` — that is not an error, just no session.
  */
-export const restoreWalletConnectSession = async (timeoutMs = 15_000): Promise<PseEip1193Provider | null> => {
+export const restoreWalletConnectSession = async (timeoutMs = 7_000): Promise<PseEip1193Provider | null> => {
   if (!isWalletConnectConfigured()) return null;
   const ready = await initWalletConnect();
   if (!ready) return null;

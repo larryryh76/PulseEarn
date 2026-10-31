@@ -857,6 +857,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         payer = bound.payerWallet;
         setPurchaseId(intentId);
         setBoundPayer(payer);
+        // The backend has persisted the purchase-ready notification; refresh
+        // the shared feed now so the shell badge updates without a page reload.
+        void refresh();
       }
 
       // 2. The wallet about to sign must still be the bound payer.
@@ -926,6 +929,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           try {
             await PSEMineEngine.markPurchaseSubmissionUncertain(intentId);
             serverLocked = true;
+            void refresh();
           } catch (lockErr) {
             toast.error(lockErr instanceof Error
               ? `Payment status could not be synced to the server: ${lockErr.message}`
@@ -966,6 +970,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       } catch {
         // Fail closed against a second purchase if the hash write failed.
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
+        void refresh();
         setResult({
           ok: false, uncertain: true, hash: txHash,
           message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash and use it for reconciliation.',
@@ -974,6 +979,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         setStep('result');
         return;
       }
+      // The submitted-hash notification and status are now persisted server-side.
+      void refresh();
 
       // 6. Backend verifies on-chain; activation is server-authoritative.
       setSubmissionState('CONFIRMING');

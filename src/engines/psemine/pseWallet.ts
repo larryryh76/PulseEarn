@@ -115,10 +115,19 @@ export const isWalletConnectConfigured = (): boolean => WALLETCONNECT_PROJECT_ID
 function initWalletConnect(): Promise<boolean> {
   if (wcState.available && wcState.appKit) return Promise.resolve(true);
   if (!wcInitPromise) {
-    wcInitPromise = doInitWalletConnect().catch(() => {
-      wcInitPromise = null; // allow a retry on the next attempt
-      return false;
-    });
+    wcInitPromise = doInitWalletConnect()
+      .then(ready => {
+        // doInitWalletConnect deliberately converts SDK/import failures to
+        // false; clear the cached promise here too, otherwise one transient
+        // failure permanently disables WalletConnect until a full reload.
+        if (!ready) wcInitPromise = null;
+        return ready;
+      })
+      .catch(error => {
+        wcInitPromise = null; // allow a retry on the next attempt
+        console.error('[pseWallet] WalletConnect initialization failed:', error);
+        return false;
+      });
   }
   return wcInitPromise;
 }

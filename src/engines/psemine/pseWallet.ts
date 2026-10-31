@@ -860,10 +860,10 @@ export const getChainId = async (provider: PseEip1193Provider): Promise<number |
 };
 
 /**
- * Ensures the wallet sits on the given chain before anything is signed.
- * Fail-closed: a refused/unverifiable switch returns false and the caller must
- * NOT proceed to eth_sendTransaction (the backend verifier only reads BSC, so
- * a transaction on any other chain could never be verified).
+ * Verifies the signing transport is authorised for the server-quoted chain.
+ * Injected wallets are switched and re-read live. WalletConnect uses the
+ * approved CAIP-10 session as its authority and routes the transaction with an
+ * explicit CAIP-2 chain; it must not rely on or mutate the provider's default.
  */
 export const ensureChain = async (
   provider: PseEip1193Provider,

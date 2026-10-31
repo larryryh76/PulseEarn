@@ -184,6 +184,28 @@ check('send:explicit-bsc-chain', calls[0]?.chain === 'eip155:56');
 check('send:stages-recorded', stages.includes('transaction_request_started') && stages.includes('hash_received'), { stages });
 check('send:no-amount-or-address-in-trace', !m.formatWalletDiagnostics().includes(TX.to) && !m.formatWalletDiagnostics().includes(TX.value));
 
+// ── 5. WalletConnect uses the approved CAIP-10 session, not mutable defaults ──
+let switchRequests = 0;
+const wcSessionProvider = {
+  session: { namespaces: { eip155: { accounts: [`eip155:56:${ADDRESS}`] } } },
+  request: async args => {
+    if (args.method === 'eth_chainId') return '0x1'; // stale mutable default after mobile handoff
+    if (args.method === 'wallet_switchEthereumChain') { switchRequests += 1; throw new Error('unsupported method'); }
+    return null;
+  },
+  on() {}, removeListener() {},
+};
+const wcChainOk = await m.ensureChain(wcSessionProvider, 56, 'walletConnect');
+check('walletconnect:approved-bsc-session-overrides-stale-default', wcChainOk === true);
+check('walletconnect:no-injected-chain-switch-rpc', switchRequests === 0, { switchRequests });
+const wcWrongSession = {
+  session: { namespaces: { eip155: { accounts: [`eip155:1:${ADDRESS}`] } } },
+  request: async args => args.method === 'eth_chainId' ? '0x1' : null,
+  on() {}, removeListener() {},
+};
+const wcWrongChain = await m.ensureChain(wcWrongSession, 56, 'walletConnect');
+check('walletconnect:unapproved-chain-fails-closed', wcWrongChain === false);
+
 const failing = { request: async () => { const error = new Error('No matching key. session topic doesn\'t exist'); throw error; }, on() {}, removeListener() {} };
 sessionStorage.clear();
 m.beginWalletTrace('send-predispatch');

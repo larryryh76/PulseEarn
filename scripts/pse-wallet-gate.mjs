@@ -8,17 +8,16 @@
  *   2. connectWithProvider() → eth_requestAccounts → address adoption.
  *   3. ensureChain() → fail-closed chain assertion (correct chain passes; a
  *      wrong chain with no switch support must return false and STOP).
- *   4. sendPaymentTransaction() → the exact eth_sendTransaction params the
- *      wallet would show (from/to/value); the stub REJECTS with 4001,
- *      mirroring the user cancelling at the approval screen. Nothing broadcasts.
+ *   4. sendPaymentTransaction() → one direct standard EIP-1193 eth_sendTransaction
+ *      request with exact from/to/value; the stub REJECTS with 4001. No optional
+ *      ethers node-RPC probes are required before the approval screen.
  *   5. Rejection classification: 4001 → user-cancel path, no fake success.
  *   6. Event registration: accountsChanged / chainChanged / disconnect.
  *   7. Payer binding: resolvePaymentPayer() refuses a wallet that is not the
  *      purchase's bound payer (WALLET_MISMATCH).
- *   8. Double-broadcast protection: AT MOST ONE eth_sendTransaction per call in
- *      every branch — hash returned, user rejection, ambiguous error (which
- *      stops as PAYMENT_SUBMISSION_UNCERTAIN) and the provably pre-broadcast
- *      fallback. The fallback never runs after a send error.
+ *   8. Wallet compatibility: direct submission works with full and minimal
+ *      EIP-1193 providers; unsupported methods are classified separately;
+ *      ambiguous submission never triggers a second broadcast.
  *   9. Purchase-flow ORDER: the payer intent is bound BEFORE the wallet signs
  *      (source order of the real Pay now handler).
  *
@@ -362,6 +361,7 @@ const run = async () => {
             provider.lastSendParams = (args.params || [])[0] || null;
             if (send === 'hash') return HASH;
             if (send === 'reject') { const e = new Error('user rejected transaction'); e.code = 4001; throw e; }
+            if (send === 'unsupported') { const e = new Error('Method not found'); e.code = 4200; throw e; }
             // Ambiguous: a send was requested and no hash came back.
             const e = new Error('provider connection lost'); e.code = -32000; throw e;
           }
@@ -400,7 +400,9 @@ const run = async () => {
         outcome = 'HASH_RETURNED';
       } catch (e) {
         outcome = m.isSubmissionUncertain(e) ? 'PAYMENT_SUBMISSION_UNCERTAIN'
-          : m.isWalletRejection(e) ? 'USER_REJECTED' : 'OTHER:' + String(e && e.message).slice(0, 60);
+          : m.isWalletRejection(e) ? 'USER_REJECTED'
+          : (e && e.code === 'PAYMENT_METHOD_UNSUPPORTED') ? 'UNSUPPORTED_METHOD'
+          : 'OTHER:' + String(e && e.message).slice(0, 60);
       }
       const sendCalls = calls.filter(c => c === 'eth_sendTransaction');
       const sent = provider.lastSendParams;
@@ -436,38 +438,29 @@ const run = async () => {
   const b = broadcast;
   const cases = [b.ethersPath, b.ambiguousSend, b.userRejected, b.preBroadcastFallback, b.fallbackAlsoAmbiguous];
   const oneSendEach = cases.every(c => c.sendAttempts <= 1);
-  const fb = b.preBroadcastFallback.lastSendParams;
-  const fallbackParamsExact = Boolean(fb)
-    && fb.from === b.from
-    && String(fb.to).toLowerCase() === RECEIVER
-    && String(fb.value) === b.value;
-  step('double-broadcast-protection', {
-    hashReturnedOnce: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.sendAttempts === 1,
-    ethersPathUsedWhenCapable: b.ethersPath.pathUsed === 'ethers-built',
-    ambiguousSendStops: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN'
-      && b.ambiguousSend.sendAttempts === 1 && b.ambiguousSend.pathUsed === 'ethers-built',
+  const directParamsExact = cases.every(c => {
+    const sent = c.lastSendParams;
+    return Boolean(sent) && sent.from === b.from
+      && String(sent.to).toLowerCase() === RECEIVER && String(sent.value) === b.value
+      && Object.keys(sent).sort().join(',') === 'from,to,value';
+  });
+  const unsupported = await runCase({ capability: 'minimal', send: 'unsupported' });
+  step('wallet-agnostic-direct-submission', {
+    fullProviderDirect: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.pathUsed === 'raw-minimal',
+    minimalProviderDirect: b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.pathUsed === 'raw-minimal',
+    ambiguousSubmissionLocked: b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1,
     userRejectionNotRetried: b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1,
-    preBroadcastFallbackOnly: b.preBroadcastFallback.outcome === 'HASH_RETURNED'
-      && b.preBroadcastFallback.sendAttempts === 1
-      && b.preBroadcastFallback.pathUsed === 'raw-minimal',
-    fallbackParamsExact,
-    fallbackAlsoAmbiguousStops: b.fallbackAlsoAmbiguous.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN'
-      && b.fallbackAlsoAmbiguous.sendAttempts === 1,
+    unsupportedMethodClassified: unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1,
+    exactApprovalParameters: directParamsExact,
     atMostOneSendPerCall: oneSendEach,
-    observed: {
-      outcomes: cases.map(c => c.outcome),
-      paths: cases.map(c => c.pathUsed),
-      sends: cases.map(c => c.sendAttempts),
-    },
+    observed: { outcomes: [...cases.map(c => c.outcome), unsupported.outcome], sends: [...cases.map(c => c.sendAttempts), unsupported.sendAttempts] },
     pass: b.ethersPath.outcome === 'HASH_RETURNED' && b.ethersPath.sendAttempts === 1
       && b.ambiguousSend.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.ambiguousSend.sendAttempts === 1
-      && b.ambiguousSend.hash === null
       && b.userRejected.outcome === 'USER_REJECTED' && b.userRejected.sendAttempts === 1
       && b.preBroadcastFallback.outcome === 'HASH_RETURNED' && b.preBroadcastFallback.sendAttempts === 1
-      && fallbackParamsExact
-      && b.fallbackAlsoAmbiguous.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN'
-      && b.fallbackAlsoAmbiguous.sendAttempts === 1
-      && oneSendEach,
+      && b.fallbackAlsoAmbiguous.outcome === 'PAYMENT_SUBMISSION_UNCERTAIN' && b.fallbackAlsoAmbiguous.sendAttempts === 1
+      && unsupported.outcome === 'UNSUPPORTED_METHOD' && unsupported.sendAttempts === 1
+      && directParamsExact && oneSendEach,
   });
 
   // 10. PURCHASE-FLOW ORDER (source order of the real handler): bind the payer

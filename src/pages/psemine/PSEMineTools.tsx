@@ -614,6 +614,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   }, [pending]);
 
   useEffect(() => {
+    if (confirmedNoTransaction) return;
     if (uncertainRecovery && pending && pending.toolId === tool.id) {
       setPurchaseId(pending.purchaseId);
       setBoundPayer(pending.paymentWallet || null);
@@ -655,7 +656,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     if (!live) setResume({ kind: 'expired', purchase: pending });
-  }, [resume, pending, tool.id, tool.version, tool.purchasePriceGBP, pseUser?.uid, uncertainRecovery]);
+  }, [resume, pending, tool.id, tool.version, tool.purchasePriceGBP, pseUser?.uid, uncertainRecovery, confirmedNoTransaction]);
 
   // Fetch a quote on open — unless a live/submitted intent is being resumed
   // (re-quoting there would re-price and re-bind an existing purchase).
@@ -959,7 +960,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     if (uncertainRecovery && !confirmedNoTransaction) return;
     try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
     setUncertainRecovery(false);
-    setConfirmedNoTransaction(false);
+    // Keep the user's explicit no-transaction confirmation active while the
+    // new quote is prepared, so the old pending intent is not auto-resumed.
+    setConfirmedNoTransaction(confirmedNoTransaction || uncertainRecovery);
     setResult(null);
     resetBinding();
     setSubmissionState('NOT_SUBMITTED');

@@ -606,6 +606,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // falls through to a fresh quote (the backend supersedes the dead intent and
   // keeps the old record as audit evidence).
   useEffect(() => {
+    if (!pending) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
+      if (saved?.purchaseId === pending.purchaseId) setUncertainRecovery(true);
+    } catch { /* malformed local marker is ignored */ }
+  }, [pending]);
+
+  useEffect(() => {
     if (uncertainRecovery && pending && pending.toolId === tool.id) {
       setPurchaseId(pending.purchaseId);
       setBoundPayer(pending.paymentWallet || null);
@@ -1315,7 +1323,12 @@ const WalletConnectStep: React.FC = () => {
         )}
       </div>
 
-      {isConnectingWallet && <PseNotice>Opening wallet selection — choose your installed wallet and approve the connection there…</PseNotice>}
+      {isConnectingWallet && (
+        <PseNotice title="Waiting for wallet approval">
+          Your wallet may open as a separate app. Choose it and approve the connection there, then return to this PSEmine tab.
+          Keep this tab open; PSEmine will confirm the session when your wallet returns.
+        </PseNotice>
+      )}
 
       {!walletConnectAvailable && injectedWallets.length === 0 && (
         <PseNotice tone="attention">

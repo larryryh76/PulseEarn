@@ -331,7 +331,7 @@ export const PSEMineDashboard: React.FC = () => {
               const exactBnb = bnbExactFromWei(p.quotedBNBWei, p.quotedBNBAmount ?? null);
               const quotedAmount = exactBnb !== '—' ? `${exactBnb} BNB` : null;
               const expires = p.expiresAt && Number.isFinite(Date.parse(p.expiresAt))
-                ? new Date(p.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
+                ? new Date(p.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }) : null;
               const needsReview = p.status === 'manual_review' || p.status === 'submission_uncertain';
               return (
                 <div key={p.purchaseId} className="rounded-xl border border-current/15 bg-black/10 p-3">

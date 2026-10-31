@@ -852,6 +852,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         });
       } catch (sendErr) {
         if (isSubmissionUncertain(sendErr)) {
+          // Lock the purchase on the backend, not just this browser. This keeps
+          // another device from creating a second payment while the first
+          // wallet handoff has an ambiguous outcome.
+          let serverLocked = false;
+          try {
+            await PSEMineEngine.markPurchaseSubmissionUncertain(intentId);
+            serverLocked = true;
+          } catch (lockErr) {
+            toast.error(lockErr instanceof Error
+              ? `Payment status could not be synced to the server: ${lockErr.message}`
+              : 'Payment status could not be synced to the server. Do not retry.');
+          }
           setSubmissionState('UNKNOWN_SUBMISSION_STATE');
           try {
             localStorage.setItem('psemine_uncertain_payment', JSON.stringify({
@@ -865,7 +877,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           setResult({
             ok: false,
             uncertain: true,
-            message: 'We could not confirm whether your wallet submitted this payment. Please check the sending wallet before trying again.',
+            message: serverLocked
+              ? 'We could not confirm whether your wallet submitted this payment. This purchase is now locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
+              : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.',
           });
           setStep('result');
           return;
@@ -874,6 +888,21 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       }
       if (!txHash) throw new Error('Transaction was not submitted.');
       setSubmissionState('SUBMITTED');
+      // Store the hash on the backend before verification so a refresh or
+      // another device can resume the exact same on-chain transfer.
+      try {
+        await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
+      } catch (reportErr) {
+        // Fail closed against a second purchase if the hash write failed.
+        await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
+        setResult({
+          ok: false, uncertain: true, hash: txHash,
+          message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash and use it for reconciliation.',
+        });
+        setUncertainRecovery(true);
+        setStep('result');
+        return;
+      }
 
       // 6. Backend verifies on-chain; activation is server-authoritative.
       setSubmissionState('CONFIRMING');
@@ -956,6 +985,26 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   /** Restart from a fresh quote — the only route out of an uncertain or failed
    *  submission, and only ever at the user's explicit request. */
+  const confirmNoBroadcast = async () => {
+    if (!purchaseId) {
+      toast.error('The original purchase could not be identified. Contact support before starting another payment.');
+      return;
+    }
+    setRechecking(true);
+    try {
+      await PSEMineEngine.confirmNoPurchaseBroadcast(purchaseId);
+      setConfirmedNoTransaction(true);
+      try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+      setUncertainRecovery(false);
+      await refresh();
+      toast.success('The previous purchase was closed. You can request a fresh quote.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'The server could not close the previous purchase. Do not retry yet.');
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   const restartPurchase = () => {
     if (uncertainRecovery && !confirmedNoTransaction) return;
     try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
@@ -1256,12 +1305,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseNotice>
           )}
           {result.uncertain && !confirmedNoTransaction && (
-            <PseButton variant="secondary" onClick={() => {
-              setConfirmedNoTransaction(true);
-              try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
-              setUncertainRecovery(false);
-            }}>
-              I checked — no transaction is listed
+            <PseButton variant="secondary" onClick={() => void confirmNoBroadcast()} disabled={rechecking}>
+              {rechecking ? 'Checking with server…' : 'I checked — no transaction is listed'}
             </PseButton>
           )}
           {!result.ok && !result.recheckable && !result.uncertain && (

@@ -30,6 +30,7 @@ import {
   type PseWalletConnection,
   type PseWalletTransport,
   type PseInjectedWallet,
+  PseWalletConnectError,
   connectWithProvider,
   connectWalletConnect,
   disconnectWalletConnect,
@@ -550,12 +551,11 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsConnectingWallet(true);
     try {
       const provider = await connectWalletConnect();
-      if (!provider) {
-        toast('WalletConnect session was not completed.', { icon: '⏳' });
+      const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
+      if (!connection) {
+        toast.error('The wallet approved no account. Reopen the wallet picker and approve an account.');
         return null;
       }
-      const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
-      if (!connection) return null;
       const address = adoptConnection(connection);
       if (currentUser) void PSEMineEngine.setConnectedWallet(address);
       toast.success(`Connected: ${address.slice(0, 6)}…${address.slice(-4)}`, { icon: '🔗' });
@@ -565,7 +565,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toast('Connection cancelled in your wallet.', { icon: '🖐️' });
       } else {
         console.error('[PSEMineContext] WalletConnect error:', e);
-        toast.error('Could not complete the WalletConnect session.');
+        toast.error(e instanceof PseWalletConnectError
+          ? e.message
+          : 'Could not complete the wallet connection. Please retry.');
       }
       return null;
     } finally {

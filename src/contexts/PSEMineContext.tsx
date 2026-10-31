@@ -31,11 +31,14 @@ import {
   type PseWalletTransport,
   type PseInjectedWallet,
   PseWalletConnectError,
+  clearWalletConnectHandoff,
+  connectWalletConnectProvider,
   connectWithProvider,
   connectWalletConnect,
   disconnectWalletConnect,
   discoverInjectedWallets,
   ensureChain,
+  hasPendingWalletConnectHandoff,
   isWalletConnectConfigured,
   isWalletRejection,
   restoreWalletConnectSession,
@@ -44,6 +47,7 @@ import {
   sendPaymentTransaction,
   silentInjectedAccounts,
   subscribeWalletEvents,
+  walletConnectChainId,
 } from '../engines/psemine/pseWallet';
 import toast from 'react-hot-toast';
 import { nowMs } from '../components/psemine/pseCore';
@@ -550,23 +554,28 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsConnectingWallet(true);
     try {
       const provider = await connectWalletConnect();
-      const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
+      // The SESSION is the source of truth for the address and chain: a
+      // UniversalProvider answers eth_accounts for its mutable default chain, so
+      // eth_requestAccounts can look empty even with BSC approved.
+      const connection = await connectWalletConnectProvider(provider);
       if (!connection) {
-        toast.error('The wallet approved no account. Reopen the wallet picker and approve an account.');
+        toast.error('The wallet approved no account on BNB Smart Chain. Reopen the wallet picker and approve the session.');
         return null;
       }
       const address = adoptConnection(connection);
+      clearWalletConnectHandoff();
       if (currentUser) void PSEMineEngine.setConnectedWallet(address);
       toast.success(`Connected: ${address.slice(0, 6)}…${address.slice(-4)}`, { icon: '🔗' });
       return address;
     } catch (e) {
       if (isWalletRejection(e)) {
         toast('Connection cancelled in your wallet.', { icon: '🖐️' });
+      } else if (e instanceof PseWalletConnectError) {
+        console.error(`[PSEMineContext] WalletConnect failed (${e.code}):`, e.diagnostic || e.message);
+        toast.error(e.message);
       } else {
         console.error('[PSEMineContext] WalletConnect error:', e);
-        toast.error(e instanceof PseWalletConnectError
-          ? e.message
-          : 'Could not complete the wallet connection. Please retry.');
+        toast.error('Could not complete the wallet connection. Please retry.');
       }
       return null;
     } finally {
@@ -602,6 +611,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     transportRef.current = null;
     setWalletTransport(null);
     setWalletName(null);
+    clearWalletConnectHandoff();
     toast('Wallet disconnected', { icon: '🔌' });
   }, [persistWallet]);
 
@@ -609,7 +619,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const ensurePaymentChain = useCallback(async (chainId: number): Promise<boolean> => {
     const provider = providerRef.current;
     if (!provider) return false;
-    return ensureChain(provider, chainId);
+    return ensureChain(provider, chainId, transportRef.current ?? 'injected');
   }, []);
 
   /** Sends the payment through the active provider; returns the tx hash only. */
@@ -641,19 +651,21 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return () => { cancelled = true; };
     }
     const raw = localStorage.getItem('psemine_connected_wallet');
-    // First-time WalletConnect handoff can return by reloading this page before
-    // connectWalletConnectTransport() gets a chance to persist the local marker.
-    // Reown keeps the approved session in its own storage, so attempt a silent
-    // restore even when PSEmine has no local wallet record yet.
+    // A first-time WalletConnect handoff returns by RELOADING this page, before
+    // the original connect can persist a local marker. Only a recent, explicit
+    // pairing marker may trigger that restore: an ordinary visit must never load
+    // the WalletConnect SDK, hold the UI in "connecting" for seconds, or surface
+    // an SDK failure the user did not ask for.
     if (!raw) {
-      if (isWalletConnectConfigured()) {
+      if (isWalletConnectConfigured() && hasPendingWalletConnectHandoff()) {
         setWalletConnectAvailable(true);
         setIsConnectingWallet(true);
         void restoreWalletConnectSession().then(async provider => {
           if (cancelled || !provider) return;
-          const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
+          const connection = await connectWalletConnectProvider(provider);
           if (cancelled || !connection) return;
           adoptConnection(connection);
+          clearWalletConnectHandoff();
           if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
         }).catch(() => { /* no approved session yet — explicit connect remains */ })
           .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
@@ -667,15 +679,24 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setWalletConnectAvailable(isWalletConnectConfigured());
         if (!isWalletConnectConfigured()) return;
         setIsConnectingWallet(true);
-        void restoreWalletConnectSession().then(provider => {
+        void restoreWalletConnectSession().then(async provider => {
           if (cancelled || !provider) return; // no session yet — explicit connect still works
-          return connectWithProvider(provider, 'walletConnect', stored.walletName || 'WalletConnect wallet')
-            .then(connection => {
-              if (cancelled || !connection) return;
-              adoptConnection(connection);
-              if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
-            });
-        }).catch(() => { /* restore is best-effort; explicit connect remains */ })
+          const connection = await connectWalletConnectProvider(
+            provider,
+            stored.walletName || 'WalletConnect wallet',
+          );
+          if (cancelled || !connection) return;
+          adoptConnection(connection);
+          clearWalletConnectHandoff();
+          if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
+        }).catch((error) => {
+          // A session the wallet has expired or revoked must not be retried on
+          // every visit. Drop the remembered wallet; explicit connect still works.
+          if (error instanceof PseWalletConnectError &&
+              (error.code === 'SESSION_EXPIRED' || error.code === 'SESSION_UNSUPPORTED')) {
+            persistWallet(null);
+          }
+        })
           .finally(() => { if (!cancelled) setIsConnectingWallet(false); });
         return;
       }
@@ -903,16 +924,19 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const refreshWalletChain = useCallback(async (): Promise<number | null> => {
     const provider = providerRef.current;
     if (!provider) return null;
-    try {
-      const hex = (await provider.request({ method: 'eth_chainId' })) as string;
-      const n = typeof hex === 'string' ? Number.parseInt(hex, hex.startsWith('0x') ? 16 : 10) : NaN;
-      const value = Number.isFinite(n) ? n : null;
-      setWalletChainId(value);
-      return value;
-    } catch {
-      setWalletChainId(null);
-      return null;
+    // WalletConnect's eth_chainId is synthesized from the provider's mutable
+    // default chain, so the approved session's BSC account is the authority when
+    // one exists. Injected providers are always read live.
+    if (transportRef.current === 'walletConnect') {
+      const sessionChain = walletConnectChainId(provider);
+      if (sessionChain !== null) {
+        setWalletChainId(sessionChain);
+        return sessionChain;
+      }
     }
+    const value = await getChainId(provider);
+    setWalletChainId(value);
+    return value;
   }, []);
 
   return (

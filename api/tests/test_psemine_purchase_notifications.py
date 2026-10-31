@@ -42,6 +42,12 @@ class TestPSEMinePurchaseNotifications(unittest.TestCase):
         self.assertGreater(notice, write)
         self.assertIn("tool is not active yet", body[notice:notice + 900])
 
+    def test_expired_submitted_payment_notifies_manual_review(self):
+        body = handler("verify_psemine_tool_purchase")
+        notice = body.index("notif_purchase_review_")
+        self.assertIn("status': 'manual_review'", body[max(0, notice - 1000):notice + 100])
+        self.assertIn("Do not send another payment", body[notice:notice + 900])
+
     def test_activation_notification_remains_after_verified_transaction_commit(self):
         body = handler("verify_psemine_tool_purchase")
         commit = body.index("commit_purchase_activation(transaction)")

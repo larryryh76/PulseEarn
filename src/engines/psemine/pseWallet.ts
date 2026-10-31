@@ -65,9 +65,27 @@ interface WcAppKitLike {
   subscribeState(cb: (s: { open?: boolean; loading?: boolean; activeChain?: string }) => void): () => void;
 }
 
+/** The adapter exposes Reown's UniversalProvider after a WalletConnect session is approved. */
+interface WcUniversalProviderLike extends PseEip1193Provider {
+  session?: {
+    namespaces?: {
+      eip155?: { accounts?: string[] };
+    };
+  } | null;
+}
+
 /** Minimal Ethers-adapter surface: the WalletConnect universal provider. */
 interface WcAdapterLike {
   getWalletConnectProvider(): unknown;
+}
+
+export class PseWalletConnectError extends Error {
+  readonly code: 'NOT_CONFIGURED' | 'INITIALIZATION_FAILED' | 'MODAL_OPEN_FAILED' | 'SESSION_TIMEOUT';
+  constructor(code: PseWalletConnectError['code'], message: string) {
+    super(message);
+    this.name = 'PseWalletConnectError';
+    this.code = code;
+  }
 }
 
 const wcState: {
@@ -171,12 +189,26 @@ async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip11
 
   const grabProvider = async (): Promise<PseEip1193Provider | null> => {
     try {
-      const universal = adapter.getWalletConnectProvider() as PseEip1193Provider | null;
+      const universal = adapter.getWalletConnectProvider() as WcUniversalProviderLike | null;
       if (!universal || typeof universal.request !== 'function') return null;
-      const accounts = (await universal.request({ method: 'eth_accounts' })) as string[];
-      return accounts && accounts.length > 0 ? universal : null;
+
+      // UniversalProvider's approved session is the strongest signal that the
+      // wallet handoff completed. Read its CAIP-10 accounts first; some mobile
+      // wallet bridges briefly return an empty eth_accounts during rehydration.
+      const sessionAccounts = universal.session?.namespaces?.eip155?.accounts ?? [];
+      const sessionHasAccount = sessionAccounts.some(account =>
+        /^eip155:\d+:0x[a-f0-9]{40}$/i.test(account),
+      );
+      if (sessionHasAccount) return universal;
+
+      // Fall back to the standard EIP-1193 request. Do not accept an adapter
+      // instance merely because it exists: a live account is still required.
+      const accounts = await universal.request({ method: 'eth_accounts' }) as string[];
+      return Array.isArray(accounts) && accounts.some(account => /^0x[a-f0-9]{40}$/i.test(account))
+        ? universal
+        : null;
     } catch {
-      /* provider present but not usable yet */
+      // A provider can exist before its session is approved/rehydrated.
       return null;
     }
   };
@@ -222,17 +254,48 @@ async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip11
  * and the reloaded page must silently re-adopt the approved session. Only when
  * no session exists is the modal opened and the wait begins.
  */
-export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promise<PseEip1193Provider | null> => {
-  const ready = await initWalletConnect();
-  if (!ready || !wcState.openModal) return null;
+export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promise<PseEip1193Provider> => {
+  if (!isWalletConnectConfigured()) {
+    throw new PseWalletConnectError('NOT_CONFIGURED', 'WalletConnect is not configured for this deployment.');
+  }
 
-  const restored = await waitForWalletConnectProvider(3_000);
+  let ready = false;
+  try {
+    ready = await initWalletConnect();
+  } catch (error) {
+    console.error('[pseWallet] WalletConnect initialization threw:', error);
+  }
+  if (!ready || !wcState.appKit || !wcState.openModal) {
+    throw new PseWalletConnectError(
+      'INITIALIZATION_FAILED',
+      'Wallet connection could not initialize. Please retry; if it continues, the site wallet configuration needs attention.',
+    );
+  }
+
+  // Adopt an existing approved session before opening a new pairing request.
+  const restored = await waitForWalletConnectProvider(6_000);
   if (restored) return restored;
 
-  // Fresh connect: open the modal and wait while the user completes the
-  // handoff (QR on desktop, deep link to the wallet app on mobile).
-  wcState.openModal();
-  return waitForWalletConnectProvider(opts?.timeoutMs ?? 300_000);
+  // Open AppKit and await its result so modal/configuration failures are not
+  // silently discarded. The provider poll remains active after this returns.
+  try {
+    await wcState.appKit.open();
+  } catch (error) {
+    console.error('[pseWallet] WalletConnect modal failed to open:', error);
+    throw new PseWalletConnectError(
+      'MODAL_OPEN_FAILED',
+      'Wallet selection could not be opened. Check the connection and try again.',
+    );
+  }
+
+  const provider = await waitForWalletConnectProvider(opts?.timeoutMs ?? 300_000);
+  if (!provider) {
+    throw new PseWalletConnectError(
+      'SESSION_TIMEOUT',
+      'No wallet approval was received. Return to PSEmine and try connecting again.',
+    );
+  }
+  return provider;
 };
 
 /**
@@ -240,7 +303,7 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promi
  * from storage WITHOUT opening the modal. Returns null when there is nothing
  * to restore within `timeoutMs` — that is not an error, just no session.
  */
-export const restoreWalletConnectSession = async (timeoutMs = 8_000): Promise<PseEip1193Provider | null> => {
+export const restoreWalletConnectSession = async (timeoutMs = 15_000): Promise<PseEip1193Provider | null> => {
   if (!isWalletConnectConfigured()) return null;
   const ready = await initWalletConnect();
   if (!ready) return null;

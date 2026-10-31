@@ -5,7 +5,7 @@ import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateP
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  campaignStatusView, gbp, gbpHour, purchaseStatusView, shortAddr, timeAgo, toDateSafe,
+  bnbExactFromWei, campaignStatusView, gbp, gbpHour, purchaseStatusView, shortAddr, timeAgo, toDateSafe,
   useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
@@ -328,8 +328,8 @@ export const PSEMineDashboard: React.FC = () => {
           <div className="space-y-3">
             {pendingPurchases.map(p => {
               const status = purchaseStatusView(p.status);
-              const quotedAmount = typeof p.quotedBNBAmount === 'number' && Number.isFinite(p.quotedBNBAmount)
-                ? `${p.quotedBNBAmount.toFixed(8)} BNB` : null;
+              const exactBnb = bnbExactFromWei(p.quotedBNBWei, p.quotedBNBAmount ?? null);
+              const quotedAmount = exactBnb !== '—' ? `${exactBnb} BNB` : null;
               const expires = p.expiresAt && Number.isFinite(Date.parse(p.expiresAt))
                 ? new Date(p.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : null;
               const needsReview = p.status === 'manual_review' || p.status === 'submission_uncertain';

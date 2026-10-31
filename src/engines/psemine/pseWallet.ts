@@ -469,7 +469,7 @@ export const ensureChain = async (
     const session = (provider as WcUniversalProviderLike).session;
     const accounts = session?.namespaces?.eip155?.accounts ?? [];
     const sessionMatchesExpected = accounts.some(account => {
-      const match = account.match(/^eip155:(\\d+):0x[a-f0-9]{40}$/i);
+      const match = account.match(/^eip155:(\d+):0x[a-f0-9]{40}$/i);
       return Boolean(match && Number.parseInt(match[1], 10) === expectedChainId);
     });
     if (sessionMatchesExpected) return true;

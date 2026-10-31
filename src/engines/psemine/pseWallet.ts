@@ -644,18 +644,6 @@ const isTxHash = (value: unknown): value is string =>
   typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
 
 /**
- * Every EIP-1193 / EIP-5792 method that can put a transaction on chain. Listed
- * explicitly rather than pattern-matched: the set decides whether a fallback is
- * allowed, so it must be auditable at a glance.
- */
-const BROADCAST_METHODS = new Set([
-  'eth_sendtransaction',
-  'eth_sendrawtransaction',
-  'wallet_sendtransaction',
-  'wallet_sendcalls',
-]);
-
-/**
  * Sends the payment transaction — AT MOST ONE broadcast attempt per call.
  *
  * THE RULE

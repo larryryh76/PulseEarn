@@ -54,6 +54,47 @@ def provider_api_base(env: Mapping[str, str] | None = None) -> str:
     return base
 
 
+def verify_merchant_account(api_key, api_base=None, http_get=None):
+    """Validate the merchant API key and return enabled merchant payment currencies."""
+    key = str(api_key or "").strip()
+    if not key:
+        raise PaymentPayloadError("NOWPayments API key is missing")
+    if http_get is None:
+        import requests
+        http_get = requests.get
+    base = str(api_base or "https://api.nowpayments.io/v1").strip().rstrip("/")
+    parsed = urlparse(base)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise PaymentPayloadError("NOWPayments API base must use HTTPS")
+    response = http_get(f"{base}/merchant/coins", headers={"x-api-key": key}, timeout=5)
+    if not getattr(response, "ok", False):
+        raise PaymentPayloadError("NOWPayments merchant authentication failed")
+    try:
+        payload = response.json()
+    except Exception as exc:
+        raise PaymentPayloadError("NOWPayments merchant currencies response was invalid") from exc
+    values = payload if isinstance(payload, list) else []
+    if isinstance(payload, dict):
+        for field in ("result", "coins", "currencies"):
+            if isinstance(payload.get(field), list):
+                values = payload[field]
+                break
+    currencies = set()
+    for item in values:
+        if isinstance(item, str):
+            code = item
+        elif isinstance(item, dict):
+            code = item.get("code") or item.get("currency") or item.get("ticker") or item.get("symbol")
+        else:
+            code = None
+        normalized = str(code or "").strip().lower()
+        if re.fullmatch(r"[a-z0-9]{2,24}", normalized):
+            currencies.add(normalized)
+    if not currencies:
+        raise PaymentPayloadError("No merchant payment currencies are enabled in NOWPayments")
+    return sorted(currencies)
+
+
 def build_invoice_payload(
     *,
     order_id: str,

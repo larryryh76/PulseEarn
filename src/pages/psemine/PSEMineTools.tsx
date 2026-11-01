@@ -273,7 +273,7 @@ export const PSEMineTools: React.FC = () => {
           <p>Choose a tool, review its fixed price and capacity, then continue to secure hosted checkout. Your equipment activates only after the provider confirms your payment.</p>
           <div className="pse-marketplace-hero-actions">
             <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
-            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
+            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
           </div>
         </div>
         <div className="pse-marketplace-hero-object" aria-hidden="true">
@@ -392,13 +392,13 @@ export const PSEMineTools: React.FC = () => {
                         ? 'Limit reached'
                         : purchaseOpen
                           ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
-                          : walletSetupRequired ? 'Receiving wallet setup pending' : 'Campaign purchases closed'}
+                          : 'Campaign purchases closed'}
                     </span>
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
                       <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'Buy this tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
+                        {purchaseOpen ? 'Buy this tool' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>
@@ -446,7 +446,7 @@ export const PSEMineTools: React.FC = () => {
 
           <section className="pse-marketplace-how" aria-labelledby="pse-how-title">
             <p className="pse-marketplace-kicker">Purchase protocol</p>
-            <h2 id="pse-how-title">From quote to activation</h2>
+            <h2 id="pse-how-title">From checkout to activation</h2>
             <ol className="pse-marketplace-steps">
               <li><span>01</span><div><strong>Create your order</strong><p>The server fixes the tool price and creates a unique order reference.</p></div></li>
               <li><span>02</span><div><strong>Choose how to pay</strong><p>Select an available cryptocurrency and network on the hosted checkout page.</p></div></li>
@@ -467,8 +467,8 @@ export const PSEMineTools: React.FC = () => {
 };
 
 /* ── Purchase flow (logic preserved; presentation minimal) ──────────────
- * ORDER IS THE POINT: quote → bind payer → chain assertion → sign → submit
- * hash. Refresh recovery resumes an existing intent with its ORIGINAL quote
+ * ORDER IS THE POINT: server order → hosted invoice → signed provider notification
+ * → provider API reconciliation → atomic tool activation.
  * and payer instead of creating a second one.
  * ═══════════════════════════════════════════════════════════════════════ */
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void }> = ({ tool, onClose }) => {

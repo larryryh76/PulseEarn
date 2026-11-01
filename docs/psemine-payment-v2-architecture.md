@@ -40,7 +40,7 @@ References:
 - Keep the provider's payment-covering/underpayment tolerance at 0% unless the business explicitly approves a tolerance; otherwise a slightly underpaid invoice may be marked finished by provider policy.
 - If the merchant does not configure a receiving wallet for a coin paid by the customer, NOWPayments documents that it may convert the funds and send them to the first wallet in the merchant wallet list. Configure this deliberately; do not assume every customer asset settles to the same address without checking the merchant settings.
 - Set Vercel server-only environment variables: `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, optional `NOWPAYMENTS_API_BASE`, `NOWPAYMENTS_PRICE_CURRENCY=gbp`, and `NOWPAYMENTS_IPN_CALLBACK_URL`.
-- Set GitHub Actions secret `PSEMINE_PAYMENT_CRON_SECRET` and matching Vercel environment variable `PSEMINE_PAYMENT_CRON_SECRET` for scheduled reconciliation.
+- Optional reliability backup: set GitHub Actions secret `PSEMINE_PAYMENT_CRON_SECRET` and the matching Vercel environment variable to enable the 5-minute scheduled reconciler. Without it, signed events are still reconciled when the customer returns and the order-status page is checked.
 
 ## Canonical order data
 
@@ -86,7 +86,7 @@ Only `paid` can activate a tool. Partial, mismatched, refunded, late, or unknown
 2. Configure merchant payout wallet and customer coin settings in NOWPayments.
 3. Add server-only secrets to Vercel and the matching reconciliation secret to GitHub Actions.
 4. Test sandbox invoices, currency availability and webhook delivery.
-5. Test duplicate, invalid-signature, late, underpaid, refunded and wrong-order callbacks.
+5. Optionally configure the scheduled reconciler secret; test duplicate, invalid-signature, late, underpaid, refunded and wrong-order callbacks.
 6. Test multiple Firebase accounts in one browser and multiple devices.
 7. Run full API, TypeScript, payment adapter and authenticated user-journey tests.
 8. Enable purchases only after a real low-value production payment and reconciliation succeeds.

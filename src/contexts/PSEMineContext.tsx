@@ -855,8 +855,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }).catch(() => { /* restore is best-effort; explicit connect remains */ });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser?.uid]);
 
   // 5. Quote Generation
   const requestQuote = useCallback(async (toolId: PSEToolTierId): Promise<PSEMineQuote | null> => {

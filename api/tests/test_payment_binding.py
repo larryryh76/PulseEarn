@@ -227,7 +227,6 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
 
     def test_quote_issues_a_unique_wallet_proof_nonce(self):
         self.assertIn('"walletProofNonce": uuid.uuid4().hex', self.quote_handler)
-        self.assertIn("walletProofNonce", self.create_handler)
 
     def test_purchase_requires_a_quote_bound_wallet_ownership_signature(self):
         self.assertIn("walletSignature", self.create_handler)

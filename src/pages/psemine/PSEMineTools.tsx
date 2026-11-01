@@ -836,7 +836,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   /**
    * Proceeds to the wallet-signed payment.
-   * ORDER IS THE POINT: quote → BIND PAYER → chain assertion → sign → submit hash.
+   * ORDER IS THE POINT: quote → prove wallet ownership → bind payer → chain assertion → send BNB → verify receipt.
    */
   const payNow = async () => {
     if (!quote) return;

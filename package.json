@@ -19,7 +19,7 @@
     "probe:route": "bun scripts/pse-probe.mjs",
     "metrics:db": "bun scripts/pse-db-metrics.mjs",
     "firebase:check": "bun scripts/check-firebase-infra.mjs",
-    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs",
+    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs && bun scripts/pse-wallet-user-isolation-check.mjs",
     "verify:wallet-recovery": "bun scripts/pse-wallet-recovery-check.mjs && bun scripts/pse-wallet-handoff-check.mjs"
   },
   "dependencies": {

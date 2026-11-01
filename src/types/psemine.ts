@@ -148,7 +148,6 @@ export interface PSEMinePurchase {
 
 export type PSEMineReferralStage =
   | 'registered'
-  | 'wallet_connected'
   | 'tool_purchased'
   | 'mining_active'
   | 'qualified'

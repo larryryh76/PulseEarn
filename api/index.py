@@ -6785,7 +6785,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
     """Verify BSC transaction on-chain via JSON-RPC.
     Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
+    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
 
     try:
@@ -7015,6 +7015,7 @@ def psemine_get_tools():
 @require_db
 def psemine_create_order():
     """Create locked BNB purchase quote for a PSEmine mining tool."""
+    return jsonify({"success": False, "error": "LEGACY_PAYMENT_DISABLED", "message": "This legacy purchase route is retired. Start a direct BNB purchase from the PSEmine Tools page."}), 410
     try:
         db = get_db()
         # (Phase 3A) This handler no longer bootstraps canonical data: creation
@@ -7158,6 +7159,7 @@ def psemine_create_order():
 @require_db
 def psemine_verify_payment():
     """Verify BSC transaction on-chain and trigger ownership, session, referral, and notification pipeline."""
+    return jsonify({"success": False, "error": "LEGACY_PAYMENT_DISABLED", "message": "This legacy payment verifier is retired. Use the current purchase flow."}), 410
     db = get_db()
     uid = request.user['uid']
     data = request.json or {}
@@ -7911,7 +7913,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
         try:
             import json as _json
-            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.bnbchain.org')
             def _rpc(method, params):
                 body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
                 request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')

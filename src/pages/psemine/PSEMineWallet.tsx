@@ -672,25 +672,4 @@ const HistoryGlyph: React.FC = () => (
   </svg>
 );
 
-const ConnectGlyph: React.FC = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-    <path d="M8.4 5.2H5.9A1.9 1.9 0 0 0 4 7.1v5.8a1.9 1.9 0 0 0 1.9 1.9h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <path d="M11.6 6.9 14.7 10l-3.1 3.1M8.2 10h6.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const DisconnectGlyph: React.FC = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-    <path d="M11.6 5.2h2.5A1.9 1.9 0 0 1 16 7.1v5.8a1.9 1.9 0 0 1-1.9 1.9h-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <path d="M8.4 6.9 5.3 10l3.1 3.1M11.8 10H5.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const NetworkGlyph: React.FC = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-    <circle cx="10" cy="10" r="6.4" stroke="currentColor" strokeWidth="1.3" />
-    <path d="M3.8 10h12.4M10 3.6c1.7 1.7 2.6 4 2.6 6.4s-.9 4.7-2.6 6.4c-1.7-1.7-2.6-4-2.6-6.4s.9-4.7 2.6-6.4Z" stroke="currentColor" strokeWidth="1.2" />
-  </svg>
-);
-
 export default PSEMineWallet;

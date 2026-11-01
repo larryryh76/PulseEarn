@@ -96,8 +96,13 @@ export {
 /** The subset of a WalletConnect session PSEmine is allowed to trust. */
 export interface PseWalletSessionLike {
   expiry?: number;
-  namespaces?: { eip155?: { accounts?: string[] } } | null;
+  namespaces?: { eip155?: { accounts?: string[]; methods?: string[] } } | null;
 }
+
+/** A BSC account alone is not enough: the approved WC namespace must permit payment signing. */
+export const walletConnectSessionCanSendTransactions = (
+  session: PseWalletSessionLike | null | undefined,
+): boolean => (session?.namespaces?.eip155?.methods ?? []).includes('eth_sendTransaction');
 
 export type PseWalletSessionState = 'valid' | 'expired' | 'unsupported' | 'missing';
 
@@ -476,6 +481,16 @@ async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip11
         return null;
       }
       const sessionState = inspectWalletConnectSession(universal.session);
+      if (sessionState === 'valid' && !walletConnectSessionCanSendTransactions(universal.session)) {
+        // Old WalletConnect pairings may contain a BSC account but omit the
+        // transaction method. They look connected, then the wallet rejects the
+        // payment with "unknown method requested". Retire that unusable pairing
+        // before opening a fresh proposal that includes eth_sendTransaction.
+        wcState.lastSessionProblem = 'unsupported';
+        report('session_payment_method_missing', 'eth_sendTransaction');
+        void Promise.resolve(appKit.disconnect()).catch(() => undefined);
+        return null;
+      }
       if (sessionState === 'expired' || sessionState === 'unsupported') {
         wcState.lastSessionProblem = sessionState;
         report(`session_${sessionState}`);

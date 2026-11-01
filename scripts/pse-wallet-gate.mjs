@@ -201,6 +201,23 @@ const run = async () => {
     pass: wcSessionChain.ok === true && wcSessionChain.calls.filter(x => x === 'wallet_switchEthereumChain').length === 0,
   });
 
+  // A restored BSC session must explicitly approve transaction submission.
+  const paymentMethodCapability = await page.evaluate(async () => {
+    const m = await import('/__pseWallet.mjs');
+    const account = 'eip155:56:0x1111111111111111111111111111111111111111';
+    const stale = { namespaces: { eip155: { accounts: [account], methods: ['personal_sign', 'eth_chainId'] } } };
+    const ready = { namespaces: { eip155: { accounts: [account], methods: ['personal_sign', 'eth_chainId', 'eth_sendTransaction'] } } };
+    return {
+      staleRejected: m.walletConnectSessionCanSendTransactions(stale) === false,
+      approvedAccepted: m.walletConnectSessionCanSendTransactions(ready) === true,
+      missingMethodsRejected: m.walletConnectSessionCanSendTransactions({ namespaces: { eip155: { accounts: [account] } } }) === false,
+    };
+  });
+  step('walletconnect-session-requires-payment-method', {
+    ...paymentMethodCapability,
+    pass: paymentMethodCapability.staleRejected && paymentMethodCapability.approvedAccepted && paymentMethodCapability.missingMethodsRejected,
+  });
+
   // 3b. An unreadable chain can be recovered through an explicit wallet switch.
   const unreadableRecovered = await page.evaluate(async () => {
     const m = await import('/__pseWallet.mjs');

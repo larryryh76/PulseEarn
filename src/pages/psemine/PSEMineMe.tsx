@@ -4,7 +4,7 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
-import { campaignStatusView, shortAddr, timeAgo } from '../../components/psemine/pseCore';
+import { campaignStatusView, timeAgo } from '../../components/psemine/pseCore';
 import {
   PseButton, PseEmptyNote, PseFact, PseFacts, PseField, PseInput, PseNotice,
   PsePage, PseSection, PseSkeleton, PseSplit, PseStack, PseStatus,
@@ -35,7 +35,6 @@ export const PSEMineMe: React.FC = () => {
   const [pwError, setPwError] = useState<string | null>(null);
 
   const payoutWallet = state?.user?.payoutWallet ?? null;
-  const connectedWallet = state?.user?.connectedWallet ?? null;
   const isPasswordAccount = (currentUser?.providerData || []).some(p => p.providerId === 'password');
 
   const handleLogout = async () => {
@@ -188,8 +187,8 @@ export const PSEMineMe: React.FC = () => {
                 label="Connected wallet"
                 value={walletsPending
                   ? <PseSkeleton width="9ch" height="0.875rem" />
-                  : connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}
-                text={!walletsPending && !connectedWallet}
+                  : 'Not required for hosted checkout'}
+                text={!walletsPending}
               />
               <PseFact
                 label="Payout wallet"

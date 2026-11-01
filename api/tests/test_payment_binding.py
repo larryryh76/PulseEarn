@@ -223,6 +223,11 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.source = tfg._read(tfg.INDEX_SRC)
         self.verify_handler = tfg._handler_body(self.source, "verify_psemine_tool_purchase")
         self.create_handler = tfg._handler_body(self.source, "mine_create_purchase")
+        self.quote_handler = tfg._handler_body(self.source, "generate_psemine_tool_quote")
+
+    def test_quote_issues_a_unique_wallet_proof_nonce(self):
+        self.assertIn('"walletProofNonce": uuid.uuid4().hex', self.quote_handler)
+        self.assertIn("walletProofNonce", self.create_handler)
 
     def test_purchase_requires_a_quote_bound_wallet_ownership_signature(self):
         self.assertIn("walletSignature", self.create_handler)

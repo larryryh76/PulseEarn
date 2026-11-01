@@ -459,23 +459,29 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // payment success — the backend owns verification.
 
   const persistWallet = useCallback((address: string | null, transport?: PseWalletTransport | null, name?: string | null) => {
+    // Wallet sessions belong to one authenticated PulseEarn account. A single
+    // origin-wide key let account B inherit account A's last wallet after sign-in.
+    const uid = currentUser?.uid;
+    if (!uid) return;
+    const walletKey = `psemine_connected_wallet:${uid}`;
+    const disconnectedKey = `psemine_wallet_user_disconnected:${uid}`;
     try {
+      // Never migrate/read the old origin-wide key: it has no account binding.
+      localStorage.removeItem('psemine_connected_wallet');
+      localStorage.removeItem('psemine_wallet_user_disconnected');
       if (address) {
-        // An explicit new connection opts back in to session restoration.
-        localStorage.removeItem('psemine_wallet_user_disconnected');
-        localStorage.setItem('psemine_connected_wallet', JSON.stringify({
-          address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
+        localStorage.removeItem(disconnectedKey);
+        localStorage.setItem(walletKey, JSON.stringify({
+          uid, address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
         }));
       } else {
-        localStorage.removeItem('psemine_connected_wallet');
-        // This tombstone prevents Reown's persisted session or the last
-        // server-side wallet label from silently reconnecting after disconnect.
-        localStorage.setItem('psemine_wallet_user_disconnected', '1');
+        localStorage.removeItem(walletKey);
+        localStorage.setItem(disconnectedKey, '1');
       }
     } catch {
       /* storage unavailable — best effort */
     }
-  }, []);
+  }, [currentUser]);
 
   const subscribeActiveProvider = useCallback((connection: PseWalletConnection) => {
     providerRef.current = connection.provider;
@@ -724,16 +730,24 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     // An explicit disconnect is sticky across reloads. Reown may still have a
     // persisted pairing; do not silently adopt it against the user's choice.
-    if (localStorage.getItem('psemine_wallet_user_disconnected') === '1') {
+    const walletUid = currentUser?.uid;
+    if (!walletUid) return () => { cancelled = true; };
+    const walletKey = `psemine_connected_wallet:${walletUid}`;
+    const disconnectedKey = `psemine_wallet_user_disconnected:${walletUid}`;
+    // Drop unscoped legacy values; they cannot safely identify the Firebase account.
+    localStorage.removeItem('psemine_connected_wallet');
+    localStorage.removeItem('psemine_wallet_user_disconnected');
+    if (localStorage.getItem(disconnectedKey) === '1') {
       setConnectedWallet(null);
       setWalletTransport(null);
       setWalletName(null);
       setWalletChainId(null);
       return () => { cancelled = true; };
     }
-    const raw = localStorage.getItem('psemine_connected_wallet');
-    let stored: { address?: string; transport?: PseWalletTransport; walletName?: string } | null = null;
+    const raw = localStorage.getItem(walletKey);
+    let stored: { uid?: string; address?: string; transport?: PseWalletTransport; walletName?: string } | null = null;
     try { stored = raw ? JSON.parse(raw) : null; } catch { stored = null; }
+    if (stored?.uid !== walletUid) stored = null;
     const wantsWalletConnect = stored?.transport === 'walletConnect' || Boolean(handoff);
 
     // A first-time WalletConnect handoff returns by RELOADING this page, before

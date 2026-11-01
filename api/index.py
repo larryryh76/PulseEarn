@@ -8840,7 +8840,7 @@ def admin_campaign_action():
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
-    if not camp_snap.exists and action == 'set_receiver_wallet':
+    if not camp_snap.exists and action in ('set_receiver_wallet', 'set_purchase_enabled'):
         # Wallet configuration must work on a fresh install too. This is an
         # explicit authenticated admin write path; the public GET endpoints
         # remain read-only and never bootstrap campaign data.

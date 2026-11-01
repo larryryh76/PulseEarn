@@ -8757,7 +8757,7 @@ def mine_payment_v2_create_invoice():
     now = datetime.now(timezone.utc)
     for active_row in active_rows:
         active = active_row.to_dict() or {}
-        if active.get("toolId") != tool_id or active.get("status") not in ("creating", "pending", "confirming", "underpaid"):
+        if active.get("toolId") != tool_id or active.get("status") not in ("creating", "pending", "reconciliation_pending", "confirming", "underpaid"):
             continue
         try:
             active_expiry = datetime.fromisoformat(str(active.get("expiresAt") or "").replace("Z", "+00:00"))
@@ -8773,7 +8773,7 @@ def mine_payment_v2_create_invoice():
                 "priceAmount": active.get("priceAmount"),
                 "priceCurrency": active.get("priceCurrency"),
                 "expiresAt": active.get("expiresAt"),
-                "existing": True,
+                "existing": True, "status": active.get("status"),
             })
 
     # Never accept a client price, currency, receiver, account id, or payment status.

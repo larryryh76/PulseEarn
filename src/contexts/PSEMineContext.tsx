@@ -539,7 +539,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const connectInjectedWallet = useCallback(async (wallet?: PseInjectedWallet): Promise<string | null> => {
     // A fresh user action explicitly opts into a new wallet session, including
     // the case where the wallet app redirects/reloads this page mid-approval.
-    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
+    try { if (currentUser?.uid) localStorage.removeItem(`psemine_wallet_user_disconnected:${currentUser.uid}`); } catch { /* storage unavailable */ }
     setIsConnectingWallet(true);
     try {
       const connection = await connectWithProvider(
@@ -583,7 +583,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const attempt = ++connectAttemptRef.current;
     // Clear the disconnect tombstone before the wallet-app handoff: the OS may
     // reload this page before the original connect promise can finish.
-    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
+    try { if (currentUser?.uid) localStorage.removeItem(`psemine_wallet_user_disconnected:${currentUser.uid}`); } catch { /* storage unavailable */ }
     if (resume) ensureWalletTrace('walletconnect', readWalletConnectHandoff()?.id);
     else beginWalletTrace('walletconnect');
     recordWalletStage('connect_requested', resume ? 'resume' : 'fresh');

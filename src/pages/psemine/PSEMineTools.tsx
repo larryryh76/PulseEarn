@@ -492,7 +492,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
       setCheckoutUrl(invoice.checkoutUrl);
       setPriceAmount(invoice.priceAmount);
       setPriceCurrency(invoice.priceCurrency.toUpperCase());
-      setStatus('pending');
+      setStatus(invoice.status || 'pending');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Secure checkout could not be started.');
       setStatus('failed');
@@ -578,7 +578,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
             {error && status !== 'failed' && <PseNotice tone="attention" title="Status refresh issue">{error}</PseNotice>}
             {creating && <PseLoading label="Preparing your secure checkout…" />}
             <div className="flex flex-wrap gap-2">
-              {checkoutUrl && !['paid', 'review', 'expired', 'failed', 'refunded'].includes(status) && (
+              {checkoutUrl && !['paid', 'review', 'reconciliation_pending', 'confirming', 'expired', 'failed', 'refunded'].includes(status) && (
                 <PseButton onClick={openCheckout}>Continue to secure checkout</PseButton>
               )}
               {orderId && !['paid', 'review'].includes(status) && (

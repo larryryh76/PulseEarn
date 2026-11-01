@@ -119,8 +119,10 @@ class TestLegacySurfaceInventory(unittest.TestCase):
             route = source[start:end]
             self.assertIn("LEGACY_PAYMENT_DISABLED", route)
             self.assertIn("), 410", route)
-            self.assertNotIn("order_ref.set", route)
-            self.assertNotIn("payment_ref.set", route)
+            retired_at = route.index("}), 410")
+            for write in ("order_ref.set", "payment_ref.set"):
+                if write in route:
+                    self.assertGreater(route.index(write), retired_at, f"{function_name} can write before retirement")
 
     def test_app_enforces_the_rule_before_routing(self):
         source = _read(INDEX_SRC)

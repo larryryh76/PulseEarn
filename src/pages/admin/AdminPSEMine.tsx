@@ -154,6 +154,36 @@ export const AdminPSEMine: React.FC = () => {
     });
   }, [orders, orderQuery, payments]);
 
+  const toggleHostedPurchases = async () => {
+    if (!isAdmin) { toast.error('Platform admin permission is required.'); return; }
+    const enabled = config?.purchaseEnabled !== true;
+    if (enabled && !config?.paymentProviderConfigured) {
+      toast.error('Configure NOWPayments server credentials before enabling purchases.');
+      return;
+    }
+    if (enabled && campaign?.status !== 'active') {
+      toast.error('Purchases can only be enabled while the campaign is active.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await request('/api/admin/mine/campaign/action', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'set_purchase_enabled', enabled,
+          reason: 'PSEmine hosted checkout admin control',
+        }),
+      });
+      toast.success(enabled ? 'Hosted crypto purchases enabled.' : 'New tool purchases disabled. Existing invoices can still settle.');
+      await load(true);
+      await refreshCampaign();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Purchase gate could not be updated.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const runCampaignAction = async (action: string) => {
     if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }
     let startAt: string | undefined;
@@ -284,6 +314,19 @@ export const AdminPSEMine: React.FC = () => {
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Checkout mode</div>
                 <div className="mt-1 text-sm text-white">No wallet connection required</div>
               </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+              <div>
+                <div className="text-xs font-medium text-white">New tool purchases</div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {config?.purchaseEnabled ? 'Enabled for new hosted invoices.' : 'Disabled. Existing invoices can still complete.'}
+                </div>
+              </div>
+              <button type="button" onClick={() => void toggleHostedPurchases()}
+                disabled={!isAdmin || busy || (!config?.purchaseEnabled && !config?.paymentProviderConfigured) || (!config?.purchaseEnabled && campaign?.status !== 'active')}
+                className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:opacity-40">
+                {busy ? 'Saving…' : config?.purchaseEnabled ? 'Disable purchases' : 'Enable purchases'}
+              </button>
             </div>
             {!config?.paymentProviderConfigured && (
               <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs leading-5 text-amber-100">

@@ -8239,9 +8239,8 @@ def mine_state():
     # closed the checkout tab before the status modal completed.
     payment_orders = []
     try:
-        order_snaps = list(db.collection("psemine_payment_orders_v2").where("userId", "==", uid).get())
-        order_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get("createdAt") or ""), reverse=True)
-        for order_snap in order_snaps[:10]:
+        order_snaps = db.collection("psemine_payment_orders_v2").where("userId", "==", uid).order_by("createdAt", direction="DESCENDING").limit(10).get()
+        for order_snap in order_snaps:
             order = order_snap.to_dict() or {}
             status = str(order.get("status") or "")
             payment_id = str(order.get("providerPaymentId") or "")
@@ -8913,6 +8912,7 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
 
     get_deps()
     if requests is None:
+        order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
         return {"ok": False, "retry": True, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}
     api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
     try:
@@ -8922,7 +8922,9 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
             headers={"x-api-key": api_key}, timeout=4,
         )
         if not provider_response.ok:
-            return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
+            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
+            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
+        return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
         payment = provider_response.json() or {}
     except Exception:
         logging.exception("[PSEmine Payment v2] provider status fetch failed")
@@ -9003,6 +9005,7 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
     result = _pse_engine.settle_provider_purchase(db, uid, str(order_id), payment)
     if not result.get("ok"):
         if result.get("error") == "SETTLEMENT_TRANSACTION_FAILED":
+            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
             return {"ok": False, "retry": True, "error": result["error"]}
         order_ref.update({
             "status": "review", "reviewReason": result.get("error") or "SETTLEMENT_REJECTED",

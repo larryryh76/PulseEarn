@@ -59,27 +59,21 @@ class TestPublicCampaignProjection(unittest.TestCase):
         view = psemine_public.public_campaign_view(camp)
         self.assertEqual(set(psemine_public.PUBLIC_CAMPAIGN_FIELDS), set(view))
 
-    def test_receiver_wallet_is_intentionally_public(self):
-        """Payers must see the receiving address before they sign in."""
-        self.assertIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
-        self.assertIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELD_NOTES)
+    def test_receiver_wallet_is_not_part_of_the_public_contract(self):
+        """Hosted checkout does not expose a campaign receiver address."""
+        self.assertNotIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
+        self.assertNotIn("paymentChainId", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
 
-    def test_purchase_ready_requires_explicit_valid_super_admin_confirmation(self):
-        configured = {
-            "receiverWalletAddress": "0x" + "1" * 40,
-            "receiverWalletConfigured": True,
-            "receiverWalletConfiguredAt": "2026-10-30T00:00:00+00:00",
-            "receiverWalletConfiguredBy": "super-admin-uid",
-        }
+    def test_purchase_ready_requires_active_campaign_and_admin_gate(self):
+        configured = {"status": "active", "purchaseEnabled": True}
         self.assertTrue(psemine_public.campaign_purchase_ready(configured))
         self.assertTrue(psemine_public.public_campaign_view(configured)["purchaseReady"])
 
         for patch in (
-            {"receiverWalletConfigured": False},
-            {"receiverWalletConfiguredAt": None},
-            {"receiverWalletConfiguredBy": ""},
-            {"receiverWalletAddress": "not-an-address"},
-            {"receiverWalletAddress": "0x" + "0" * 40},
+            {"purchaseEnabled": False},
+            {"purchaseEnabled": None},
+            {"status": "paused"},
+            {"status": "scheduled"},
         ):
             candidate = {**configured, **patch}
             self.assertFalse(psemine_public.campaign_purchase_ready(candidate), patch)

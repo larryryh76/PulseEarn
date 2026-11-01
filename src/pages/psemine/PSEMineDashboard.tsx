@@ -76,6 +76,10 @@ export const PSEMineDashboard: React.FC = () => {
     ? user.qualifiedReferralsCount
     : null;
   const ownedCount = ownedTools.length;
+  const paymentOrders = state?.paymentOrders ?? [];
+  const pendingPaymentOrder = paymentOrders.find(order =>
+    ['creating', 'pending', 'reconciliation_pending', 'confirming', 'underpaid', 'review'].includes(order.status)
+  ) ?? null;
   const activeCount = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
   const payoutWallet = user?.payoutWallet ?? null;
   const pendingPayout = withdrawals.some(w => ['pending', 'under_review', 'processing'].includes(String(w.status)));
@@ -185,7 +189,26 @@ export const PSEMineDashboard: React.FC = () => {
               ))}
             </dl>
 
-            <div className="pse-dash-grid">
+            {pendingPaymentOrder && (
+        <PseNotice tone={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'warning' : 'info'}
+          title={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'Payment needs review' : 'Checkout in progress'}>
+          <p>
+            {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review'
+              ? 'A payment needs administrator reconciliation. Do not send another payment.'
+              : pendingPaymentOrder.status === 'reconciliation_pending' || pendingPaymentOrder.status === 'confirming'
+                ? 'Your payment has been received and is being verified. Tool activation follows provider confirmation.'
+                : pendingPaymentOrder.status === 'underpaid'
+                  ? 'The invoice reports an incomplete payment. Open the same tool checkout to review its current status.'
+                  : 'You have a secure checkout waiting for this tool. You can resume it without creating a second order.'}
+          </p>
+          <Link className="pse-inline-link" to="/mine/tools">
+            {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'View tools and status' : 'Resume checkout'}
+            <span aria-hidden="true"> →</span>
+          </Link>
+        </PseNotice>
+      )}
+
+      <div className="pse-dash-grid">
               <div className="pse-dash-col">
                 <section className="pse-block" aria-busy="true">
                   <div className="pse-block-head">

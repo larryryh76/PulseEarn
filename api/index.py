@@ -6785,7 +6785,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
     """Verify BSC transaction on-chain via JSON-RPC.
     Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
+    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
 
     try:
@@ -7911,7 +7911,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
         try:
             import json as _json
-            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.bnbchain.org')
             def _rpc(method, params):
                 body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
                 request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')

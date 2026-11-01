@@ -8860,7 +8860,11 @@ def mine_payment_v2_get_order(order_id):
 
     # A signed IPN is queued by the webhook. The user's own status poll can
     # reconcile immediately; a scheduled worker covers users who close checkout.
-    if order.get("providerPaymentId") and order.get("status") in ("reconciliation_pending", "confirming", "underpaid"):
+    last_check = order.get("lastReconciledAt")
+    reconcile_due = True
+    if isinstance(last_check, datetime) and order.get("status") != "reconciliation_pending":
+        reconcile_due = (datetime.now(timezone.utc) - last_check).total_seconds() >= 20
+    if order.get("providerPaymentId") and reconcile_due and order.get("status") in ("reconciliation_pending", "pending", "confirming", "underpaid"):
         try:
             reconcile_nowpayments_order(db, snap.id, str(order["providerPaymentId"]))
             snap = order_ref.get()

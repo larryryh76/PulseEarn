@@ -9532,9 +9532,9 @@ def mine_create_purchase():
         return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
 
     # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
-    # The binding is written here, before the wallet is asked to sign anything;
-    # a later create call must never be able to move it to another wallet — that
-    # binding is what the on-chain sender is compared against at verification.
+    # The quote-bound EIP-191 proof was verified above. Persist this immutable
+    # payer binding before the value-transfer request; later create calls may
+    # never move it to another wallet, and on-chain sender checks use this value.
     # The decision itself is a pure, unit-tested function.
     manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
     if manual_review_rows:

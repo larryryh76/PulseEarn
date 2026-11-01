@@ -7902,7 +7902,7 @@ def admin_campaign_action():
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
-    if not camp_snap.exists and action in ('set_receiver_wallet', 'set_purchase_enabled'):
+    if not camp_snap.exists and action == 'set_purchase_enabled':
         # Wallet configuration must work on a fresh install too. This is an
         # explicit authenticated admin write path; the public GET endpoints
         # remain read-only and never bootstrap campaign data.
@@ -7964,49 +7964,8 @@ def admin_campaign_action():
                         "paymentProvider": "nowpayments", "timestamp": now_iso})
 
     if action == 'set_receiver_wallet':
-        if not is_admin(uid):
-            return jsonify({"success": False, "error": "ADMIN_REQUIRED",
-                            "message": "An authenticated platform admin is required to configure the campaign receiving wallet."}), 403
-        # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
-        raw_address = data.get('receiverWalletAddress')
-        if not isinstance(raw_address, str):
-            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "A valid BNB Smart Chain receiving address is required."}), 400
-        receiver_address = raw_address.strip()
-        if (len(receiver_address) != 42 or not receiver_address.startswith('0x') or
-                any(char not in '0123456789abcdefABCDEF' for char in receiver_address[2:]) or
-                receiver_address.lower() == '0x' + ('0' * 40)):
-            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
-        previous_address = str(camp_before.get('receiverWalletAddress') or '')
-        already_confirmed = (
-            camp_before.get('receiverWalletConfigured') is True
-            and bool(camp_before.get('receiverWalletConfiguredAt'))
-            and bool(camp_before.get('receiverWalletConfiguredBy'))
-        )
-        if previous_address.lower() == receiver_address.lower() and already_confirmed:
-            return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
-        now_iso = datetime.now(timezone.utc).isoformat()
-        camp_ref.update({
-            "receiverWalletAddress": receiver_address,
-            "receiverWalletConfigured": True,
-            "receiverWalletConfiguredAt": now_iso,
-            "receiverWalletConfiguredBy": uid,
-            "updatedAt": now_iso,
-        })
-        db.collection('admin_audit_logs').add({
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "adminId": uid,
-            "action": "PSEMINE_RECEIVER_WALLET_UPDATED",
-            "targetEntity": "psemine_campaigns/active_campaign",
-            "metadata": {
-                "reason": str(reason)[:240],
-                "previousReceiverWalletAddress": previous_address,
-                "newReceiverWalletAddress": receiver_address,
-                "appliesTo": "new_quotes_only",
-                "existingQuotesPreserved": True,
-            }
-        })
-        return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
-                        "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
+        return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
+                        "message": "Campaign receiver wallets are no longer configured in PulseEarn. Configure the merchant payout wallet in the hosted payment provider."}), 410
 
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance

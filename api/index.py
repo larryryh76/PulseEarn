@@ -8759,15 +8759,25 @@ def mine_payment_v2_create_invoice():
     now = datetime.now(timezone.utc)
     for active_row in active_rows:
         active = active_row.to_dict() or {}
-        if active.get("toolId") != tool_id or active.get("status") not in ("creating", "pending", "reconciliation_pending", "confirming", "underpaid"):
+        if active.get("toolId") != tool_id:
             continue
+        if active.get("status") == "review" or active.get("reviewRequired") is True:
+            return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                            "message": "A previous payment for this tool needs administrator reconciliation. Do not pay again.",
+                            "orderId": active_row.id}), 409
+        if active.get("status") not in ("creating", "pending", "reconciliation_pending", "confirming", "underpaid"):
+            continue
+        has_provider_payment = bool(str(active.get("providerPaymentId") or "").strip())
         try:
             active_expiry = datetime.fromisoformat(str(active.get("expiresAt") or "").replace("Z", "+00:00"))
             if active_expiry.tzinfo is None:
                 active_expiry = active_expiry.replace(tzinfo=timezone.utc)
         except Exception:
-            continue
-        if active_expiry > now and active.get("checkoutUrl"):
+            active_expiry = None
+        # A payment ID means funds may already be moving; never create a second
+        # invoice while its provider status is being reconciled, even after the
+        # local invoice expiry.
+        if (has_provider_payment or (active_expiry and active_expiry > now)) and active.get("checkoutUrl"):
             return jsonify({
                 "success": True, "orderId": active_row.id,
                 "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
@@ -8777,6 +8787,13 @@ def mine_payment_v2_create_invoice():
                 "expiresAt": active.get("expiresAt"),
                 "existing": True, "status": active.get("status"),
             })
+
+    user_snap = db.collection("psemine_users").document(uid).get()
+    user_data = user_snap.to_dict() or {} if user_snap.exists else {}
+    ownership_counts = dict(user_data.get("toolOwnershipCounts") or {})
+    if int(ownership_counts.get(tool_id, 0) or 0) >= int(tool.get("max_per_user") or 0):
+        return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED",
+                        "message": f"Maximum ownership reached for {tool['name']}."}), 409
 
     # Never accept a client price, currency, receiver, account id, or payment status.
     price_minor = int(tool["price_minor_units"])

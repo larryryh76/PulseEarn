@@ -538,7 +538,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   const statusText: Record<string, string> = {
     creating: 'Preparing secure checkout',
     pending: 'Waiting for payment',
-    confirming: 'Confirming on the blockchain',
+    reconciliation_pending: 'Verifying payment with the provider',
+    confirming: 'Confirming payment',
     paid: 'Payment confirmed',
     underpaid: 'Payment amount needs review',
     expired: 'Checkout expired',

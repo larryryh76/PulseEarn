@@ -10058,39 +10058,145 @@ def mine_payment_v2_create_invoice():
 @verify_token
 @require_psemine_access
 def mine_payment_v2_get_order(order_id):
-    """Return only the authenticated owner's payment status and safe checkout fields."""
+    """Return the authenticated owner's order; reconcile any signed provider event first."""
     db = get_db()
     if not db:
         return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    snap = db.collection("psemine_payment_orders_v2").document(str(order_id)).get()
+    order_ref = db.collection("psemine_payment_orders_v2").document(str(order_id))
+    snap = order_ref.get()
     if not snap.exists:
         return jsonify({"success": False, "error": "PAYMENT_ORDER_NOT_FOUND"}), 404
     order = snap.to_dict() or {}
     if order.get("userId") != request.user["uid"]:
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    # A signed IPN is queued by the webhook. The user's own status poll can
+    # reconcile immediately; a scheduled worker covers users who close checkout.
+    if order.get("providerPaymentId") and order.get("status") in ("reconciliation_pending", "confirming", "underpaid"):
+        try:
+            reconcile_nowpayments_order(db, snap.id, str(order["providerPaymentId"]))
+            snap = order_ref.get()
+            order = snap.to_dict() or order
+        except Exception:
+            logging.exception("[PSEmine Payment v2] on-demand order reconciliation failed")
+
     return jsonify({
         "success": True, "orderId": snap.id, "status": order.get("status"),
         "toolId": order.get("toolId"), "toolName": order.get("toolName"),
         "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
         "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),
-        "updatedAt": order.get("updatedAt"),
+        "updatedAt": order.get("updatedAt"), "reviewRequired": order.get("reviewRequired") is True,
     })
+
+
+def reconcile_nowpayments_order(db, order_id, payment_id):
+    """Fetch and verify one provider payment, then settle it exactly once."""
+    from psemine_payments_v2 import normalize_provider_status, provider_api_base
+    order_ref = db.collection("psemine_payment_orders_v2").document(str(order_id))
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return {"ok": False, "error": "PAYMENT_ORDER_NOT_FOUND"}
+    order = order_snap.to_dict() or {}
+    if order.get("provider") != "nowpayments":
+        return {"ok": False, "error": "PAYMENT_PROVIDER_MISMATCH"}
+    if order.get("status") == "paid" and order.get("reviewRequired") is not True:
+        return {"ok": True, "status": "paid", "alreadySettled": True}
+
+    get_deps()
+    if requests is None:
+        return {"ok": False, "retry": True, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}
+    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+    try:
+        base = provider_api_base()
+        provider_response = requests.get(
+            f"{base}/payment/{urllib.parse.quote(str(payment_id), safe='')}",
+            headers={"x-api-key": api_key}, timeout=4,
+        )
+        if not provider_response.ok:
+            return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
+        payment = provider_response.json() or {}
+    except Exception:
+        logging.exception("[PSEmine Payment v2] provider status fetch failed")
+        return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
+
+    if payment.get("payment_id") is not None and str(payment.get("payment_id")) != str(payment_id):
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_PAYMENT_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return {"ok": False, "error": "PROVIDER_PAYMENT_ID_MISMATCH"}
+    if payment.get("invoice_id") is not None and str(payment.get("invoice_id")) != str(order.get("providerInvoiceId") or ""):
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_INVOICE_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return {"ok": False, "error": "PROVIDER_INVOICE_ID_MISMATCH"}
+    if str(payment.get("order_id") or "") != str(order_id):
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_ORDER_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return {"ok": False, "error": "PROVIDER_ORDER_ID_MISMATCH"}
+
+    try:
+        amount_matches = Decimal(str(payment.get("price_amount"))) == Decimal(str(order.get("priceAmount")))
+    except Exception:
+        amount_matches = False
+    currency_matches = str(payment.get("price_currency") or "").lower() == str(order.get("priceCurrency") or "").lower()
+    if not amount_matches or not currency_matches:
+        order_ref.update({
+            "status": "review", "reviewReason": "PROVIDER_PRICE_MISMATCH",
+            "providerPaymentId": str(payment_id), "providerStatus": payment.get("payment_status"),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return {"ok": False, "error": "PROVIDER_PRICE_MISMATCH"}
+
+    provider_status = str(payment.get("payment_status") or "").lower()
+    local_status = normalize_provider_status(provider_status)
+    if local_status != "paid":
+        if order.get("status") == "paid":
+            order_ref.update({
+                "providerStatus": provider_status, "reviewRequired": True,
+                "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            })
+            return {"ok": True, "status": "paid", "reviewRequired": True}
+        order_ref.update({
+            "status": local_status, "providerPaymentId": str(payment_id),
+            "providerStatus": provider_status, "lastReconciledAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return {"ok": True, "status": local_status}
+
+    uid = str(order.get("userId") or "")
+    if not uid:
+        return {"ok": False, "error": "PAYMENT_ORDER_OWNER_MISSING"}
+    import psemine_engine as _pse_engine
+    result = _pse_engine.settle_provider_purchase(db, uid, str(order_id), payment)
+    if not result.get("ok"):
+        if result.get("error") == "SETTLEMENT_TRANSACTION_FAILED":
+            return {"ok": False, "retry": True, "error": result["error"]}
+        order_ref.update({
+            "status": "review", "reviewReason": result.get("error") or "SETTLEMENT_REJECTED",
+            "providerPaymentId": str(payment_id), "providerStatus": provider_status,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return {"ok": False, "error": result.get("error") or "SETTLEMENT_REJECTED"}
+    if not result.get("already_settled"):
+        mine_notify(uid, notif_id=f"notif_purchase_{order_id}", type="purchase",
+                    title="Tool purchase confirmed",
+                    message="Your crypto payment was confirmed and your PSEmine tool is now active.",
+                    related={"source": "nowpayments", "purchaseId": order_id,
+                             "toolId": result.get("toolId"), "providerPaymentId": str(payment_id)})
+        mine_record_activity(uid, _type="purchase", title="PSEmine tool activated",
+                             description="Hosted crypto payment confirmed.",
+                             metadata={"purchaseId": order_id, "provider": "nowpayments",
+                                       "providerPaymentId": str(payment_id)})
+    return {"ok": True, "status": "paid", "purchaseId": order_id}
 
 
 @app.route('/api/mine/payments/v2/nowpayments/ipn', methods=['POST'])
 def mine_payment_v2_nowpayments_ipn():
-    """Verify signed provider IPN, reconcile with provider API, then settle once."""
-    from psemine_payments_v2 import (
-        normalize_provider_status, provider_api_base, verify_ipn_signature,
-    )
+    """Verify the IPN signature, persist a reconciliation job, and ACK quickly."""
+    from psemine_payments_v2 import verify_ipn_signature
     db = get_db()
     if not db:
         return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    get_deps()
-    if requests is None:
-        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}), 503
     secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
     payload = request.get_json(silent=True)
     signature = request.headers.get("x-nowpayments-sig")
     if not isinstance(payload, dict) or not verify_ipn_signature(payload, signature, secret):
@@ -10113,91 +10219,70 @@ def mine_payment_v2_nowpayments_ipn():
                           "updatedAt": firestore.SERVER_TIMESTAMP})
         return jsonify({"success": False, "error": "INVOICE_ID_MISMATCH"}), 409
 
-    try:
-        base = provider_api_base()
-        provider_response = requests.get(
-            f"{base}/payment/{urllib.parse.quote(payment_id, safe='')}",
-            headers={"x-api-key": api_key}, timeout=15,
-        )
-        if not provider_response.ok:
-            logging.error("[PSEmine Payment v2] provider reconciliation unavailable: %s",
-                          provider_response.status_code)
-            return jsonify({"success": False, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}), 503
-        payment = provider_response.json() or {}
-    except Exception:
-        logging.exception("[PSEmine Payment v2] provider reconciliation request failed")
-        return jsonify({"success": False, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}), 503
-
-    # IPN is only a wake-up signal. The provider's authenticated payment record
-    # must match our immutable server order before any local status can advance.
-    if payment.get("payment_id") is not None and str(payment.get("payment_id")) != payment_id:
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_PAYMENT_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "PROVIDER_PAYMENT_ID_MISMATCH"}), 409
-    if payment.get("invoice_id") is not None and str(payment.get("invoice_id")) != str(order.get("providerInvoiceId") or ""):
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_INVOICE_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "PROVIDER_INVOICE_ID_MISMATCH"}), 409
-    if str(payment.get("order_id") or "") != order_id:
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_ORDER_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "PROVIDER_ORDER_ID_MISMATCH"}), 409
-    try:
-        expected_amount = Decimal(str(order.get("priceAmount")))
-        observed_amount = Decimal(str(payment.get("price_amount")))
-        amount_matches = expected_amount == observed_amount
-    except Exception:
-        amount_matches = False
-    currency_matches = str(payment.get("price_currency") or "").lower() == str(order.get("priceCurrency") or "").lower()
-    if not amount_matches or not currency_matches:
+    existing_payment_id = str(order.get("providerPaymentId") or "")
+    if existing_payment_id and existing_payment_id != payment_id:
         order_ref.update({
-            "status": "review", "reviewReason": "PROVIDER_PRICE_MISMATCH",
-            "providerPaymentId": payment_id, "providerStatus": payment.get("payment_status"),
+            "status": "review", "reviewRequired": True,
+            "reviewReason": "MULTIPLE_PROVIDER_PAYMENTS_FOR_ORDER",
+            "additionalProviderPaymentIds": firestore.ArrayUnion([payment_id]),
             "updatedAt": firestore.SERVER_TIMESTAMP,
         })
-        return jsonify({"success": False, "error": "PROVIDER_PRICE_MISMATCH"}), 409
-
-    provider_status = str(payment.get("payment_status") or "").lower()
-    local_status = normalize_provider_status(provider_status)
-    if local_status != "paid":
-        # Never silently downgrade a previously settled order if a later
-        # provider event reports a refund or conflicting terminal state. Keep
-        # revenue evidence intact and raise a reconciliation flag for admin.
-        if order.get("status") == "paid":
+        return jsonify({"success": True, "status": "review", "reviewRequired": True})
+    if order.get("status") == "paid":
+        # A late non-finished notification must never downgrade a settled order.
+        if str(payload.get("payment_status") or "").lower() != "finished":
             order_ref.update({
-                "providerStatus": provider_status, "reviewRequired": True,
-                "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
-                "updatedAt": firestore.SERVER_TIMESTAMP,
+                "reviewRequired": True, "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
+                "providerStatus": payload.get("payment_status"), "updatedAt": firestore.SERVER_TIMESTAMP,
             })
-            return jsonify({"success": True, "status": "paid", "reviewRequired": True})
-        order_ref.update({
-            "status": local_status, "providerPaymentId": payment_id,
-            "providerStatus": provider_status, "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return jsonify({"success": True, "status": local_status})
+        return jsonify({"success": True, "status": "paid"})
 
-    uid = str(order.get("userId") or "")
-    if not uid:
-        return jsonify({"success": False, "error": "PAYMENT_ORDER_OWNER_MISSING"}), 409
-    import psemine_engine as _pse_engine
-    result = _pse_engine.settle_provider_purchase(db, uid, order_id, payment)
-    if not result.get("ok"):
-        if result.get("error") == "SETTLEMENT_TRANSACTION_FAILED":
-            return jsonify({"success": False, "error": result["error"]}), 503
-        order_ref.update({
-            "status": "review", "reviewReason": result.get("error") or "SETTLEMENT_REJECTED",
-            "providerPaymentId": payment_id, "providerStatus": provider_status,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return jsonify({"success": True, "status": "review"})
-    if not result.get("already_settled"):
-        mine_notify(uid, notif_id=f"notif_purchase_{order_id}", type="purchase",
-                    title="Tool purchase confirmed",
-                    message="Your crypto payment was confirmed and your PSEmine tool is now active.",
-                    related={"source": "nowpayments", "purchaseId": order_id,
-                             "toolId": result.get("toolId"), "providerPaymentId": payment_id})
-        mine_record_activity(uid, _type="purchase", title="PSEmine tool activated",
-                             description="Hosted crypto payment confirmed.",
-                             metadata={"purchaseId": order_id, "provider": "nowpayments",
-                                       "providerPaymentId": payment_id})
-    return jsonify({"success": True, "status": "paid", "purchaseId": order_id})
+    event_id = hashlib.sha256(f"{payment_id}:{payload.get('payment_status')}:{payload.get('updated_at')}".encode()).hexdigest()
+    db.collection("psemine_payment_ipn_events_v2").document(event_id).set({
+        "id": event_id, "orderId": order_id, "providerPaymentId": payment_id,
+        "providerStatus": str(payload.get("payment_status") or "").lower(),
+        "payload": payload, "receivedAt": datetime.now(timezone.utc).isoformat(),
+        "createdAtServer": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
+    order_ref.update({
+        "status": "reconciliation_pending", "providerPaymentId": payment_id,
+        "ipnStatus": str(payload.get("payment_status") or "").lower(),
+        "lastIpnReceivedAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
+    })
+    # NOWPayments requires the callback endpoint to acknowledge quickly. The
+    # status endpoint and scheduled reconciler perform the provider API fetch.
+    return jsonify({"success": True, "status": "reconciliation_pending"})
+
+
+@app.route('/api/mine/payments/v2/reconcile', methods=['POST'])
+def mine_payment_v2_reconcile_cron():
+    """Scheduled background reconciler. Secret is shared with the GitHub Action."""
+    configured = str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()
+    provided = str(request.headers.get("x-psemine-payment-cron-secret") or "").strip()
+    if not configured or not provided or not hmac.compare_digest(configured, provided):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    snaps = db.collection("psemine_payment_orders_v2").stream()
+    processed = 0
+    paid = 0
+    retried = 0
+    for snap in snaps:
+        if processed >= 25:
+            break
+        row = snap.to_dict() or {}
+        if row.get("provider") != "nowpayments" or row.get("status") not in ("reconciliation_pending", "confirming", "underpaid"):
+            continue
+        payment_id = str(row.get("providerPaymentId") or "")
+        if not payment_id:
+            continue
+        processed += 1
+        result = reconcile_nowpayments_order(db, snap.id, payment_id)
+        if result.get("status") == "paid":
+            paid += 1
+        if result.get("retry"):
+            retried += 1
+    return jsonify({"success": True, "processed": processed, "paid": paid, "retryable": retried})
+
+

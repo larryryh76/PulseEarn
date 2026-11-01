@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
-import { type PsePendingPurchase, type PseStateTool, createHostedPaymentInvoice, fetchHostedPaymentStatus } from '../../engines/psemine/pseMineApi';
+import { type PseStateTool, createHostedPaymentInvoice, fetchHostedPaymentStatus } from '../../engines/psemine/pseMineApi';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
 import { PSEMineToolDefinition, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
@@ -180,18 +180,8 @@ export const PSEMineTools: React.FC = () => {
     }
   };
 
-  const receiverAddress = String(campaign?.receiverWalletAddress || '').trim();
-  // The context is backed by the live campaign document. Mirror the backend's
-  // strict confirmation predicate for display; the quote/intent APIs enforce it again.
-  const receiverWalletReady = campaign?.purchaseReady === true || (
-    campaign?.receiverWalletConfigured === true
-    && Boolean(campaign?.receiverWalletConfiguredAt)
-    && Boolean(campaign?.receiverWalletConfiguredBy)
-    && /^0x[a-fA-F0-9]{40}$/.test(receiverAddress)
-    && !/^0x0{40}$/i.test(receiverAddress)
-  );
-  const purchaseOpen = receiverWalletReady && campaign?.purchaseEnabled !== false && campaign?.status === 'active';
-  const walletSetupRequired = campaign?.status === 'active' && campaign?.purchaseEnabled !== false && !receiverWalletReady;
+  // Hosted crypto checkout does not require a campaign receiving wallet.
+  const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
   // Every ownership the backend reports is listed: filtering to "operating"
   // statuses hid settling/ended tools and under-reported equipment (merged from
   // remote, which found the same defect).
@@ -223,33 +213,7 @@ export const PSEMineTools: React.FC = () => {
     0,
   );
 
-  // ══ Refresh recovery: which pending purchase deserves the top notice ══════
-  //   1. an IN-FLIGHT submission (transaction_submitted / confirming);
-  //   2. otherwise the newest quote window (a live one is resumable as-is).
-  const pendingPurchase = useMemo(() => {
-    const rows = state?.pendingPurchases || [];
-    if (rows.length === 0) return null;
-    const rank = (p: PsePendingPurchase) => {
-      const needsReview = p.status === 'manual_review';
-      const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming' || p.status === 'submission_uncertain';
-      const parsed = p.expiresAt ? Date.parse(p.expiresAt) : NaN;
-      return { needsReview, inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
-    };
-    return [...rows].sort((a, b) => {
-      const ra = rank(a);
-      const rb = rank(b);
-      if (ra.needsReview !== rb.needsReview) return ra.needsReview ? -1 : 1;
-      if (ra.inFlight !== rb.inFlight) return ra.inFlight ? -1 : 1;
-      return rb.exp - ra.exp;
-    })[0];
-  }, [state?.pendingPurchases]);
-  const pendingNeedsReview = pendingPurchase?.status === 'manual_review';
-  const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming' || pendingPurchase?.status === 'submission_uncertain';
-  const pendingQuoteLive = Boolean(
-    pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
-  );
-
-  const toolsObjective = 'The catalogue of virtual campaign-capacity units. Each has a fixed GBP price and accounting rate; purchases are quoted and paid in BNB from your own wallet.';
+  const toolsObjective = 'Fixed-price campaign-capacity units. Pay through secure hosted crypto checkout using an asset and network you choose.';
 
   /* THE CATALOGUE IS PUBLIC; THE ACCOUNT'S SLOTS ARE NOT. The price list is a
      static definition, so it renders immediately and honestly — only the
@@ -294,20 +258,19 @@ export const PSEMineTools: React.FC = () => {
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
   const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
 
-  const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
 
   return (
     <>
     <PsePage
       title="Mining tools"
-      objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
+      objective="Fixed-price campaign units. Choose a supported cryptocurrency and network at secure checkout."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
       <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
         <div className="pse-marketplace-hero-copy">
           <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE CAMPAIGN UNITS</span>
           <h2 id="pse-marketplace-hero-title">Build your <em>campaign setup.</em></h2>
-          <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
+          <p>Choose a tool, review its fixed price and capacity, then continue to secure hosted checkout. Your equipment activates only after the provider confirms your payment.</p>
           <div className="pse-marketplace-hero-actions">
             <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
             <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
@@ -361,34 +324,6 @@ export const PSEMineTools: React.FC = () => {
           note={`${referralQualified} qualified · total ${totalCapacityLabel}`}
         />
       </PseStatBar>
-
-      {pendingPurchase && (
-        <PseNotice tone="attention" title={pendingNeedsReview ? "Payment under manual review" : "Purchase in progress"}>
-          {pendingNeedsReview
-            ? `Your payment for ${pendingPurchase.toolName || pendingPurchase.toolId} has been recorded for admin review. Do not send another payment. Wait for the recovery case to be resolved.`
-            : pendingInFlight
-              ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
-              : pendingQuoteLive
-                ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
-                : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}
-          <button
-            type="button"
-            className="pse-link"
-            onClick={() => {
-              const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
-              if (def) setPurchasing(def);
-            }}
-          >
-            {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
-          </button>
-        </PseNotice>
-      )}
-
-      {walletSetupRequired && (
-        <PseNotice tone="attention" title="Purchases temporarily disabled">
-          Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet. No payment can be started or accepted before this setup is complete.
-        </PseNotice>
-      )}
 
       {!purchaseOpen && !walletSetupRequired && (
         <PseNotice tone="attention" title="Purchases closed">
@@ -513,9 +448,9 @@ export const PSEMineTools: React.FC = () => {
             <p className="pse-marketplace-kicker">Purchase protocol</p>
             <h2 id="pse-how-title">From quote to activation</h2>
             <ol className="pse-marketplace-steps">
-              <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Approve in your wallet</strong><p>You review and sign the payment yourself. PSEmine never sends funds automatically.</p></div></li>
-              <li><span>03</span><div><strong>Wait for verification</strong><p>The backend checks payer, recipient, amount and chain confirmations before activation.</p></div></li>
+              <li><span>01</span><div><strong>Create your order</strong><p>The server fixes the tool price and creates a unique order reference.</p></div></li>
+              <li><span>02</span><div><strong>Choose how to pay</strong><p>Select an available cryptocurrency and network on the hosted checkout page.</p></div></li>
+              <li><span>03</span><div><strong>Automatic verification</strong><p>PulseEarn reconciles the signed provider notification and payment record before activation.</p></div></li>
             </ol>
           </section>
         </aside>
@@ -524,7 +459,6 @@ export const PSEMineTools: React.FC = () => {
     {purchasing && (
       <PurchaseFlow
         tool={purchasing}
-        pending={purchasePending}
         onClose={() => { setPurchasing(null); void refresh(); }}
       />
     )}
@@ -537,7 +471,7 @@ export const PSEMineTools: React.FC = () => {
  * hash. Refresh recovery resumes an existing intent with its ORIGINAL quote
  * and payer instead of creating a second one.
  * ═══════════════════════════════════════════════════════════════════════ */
-const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, onClose }) => {
+const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void }> = ({ tool, onClose }) => {
   const { refresh } = usePseState();
   const [creating, setCreating] = useState(true);
   const [checking, setChecking] = useState(false);

@@ -1823,7 +1823,7 @@ def settle_provider_purchase(db, uid, order_id, provider_payment):
         user = user_snap.to_dict() or {}
         camp = camp_snap.to_dict() or {}
         campaign_status = str(camp.get("status") or "").lower()
-        if campaign_status != "active" or camp.get("purchaseEnabled") is False:
+        if campaign_status != "active":
             return {"ok": False, "error": "PURCHASES_DISABLED"}
 
         tool_id = str(order.get("toolId") or "")

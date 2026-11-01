@@ -98,6 +98,7 @@ class TestPSEminePaymentsV2Adapter(unittest.TestCase):
             "NOWPAYMENTS_API_KEY": "api",
             "NOWPAYMENTS_IPN_SECRET": "ipn",
             "NOWPAYMENTS_IPN_CALLBACK_URL": "https://pulseearn.online/ipn",
+            "PSEMINE_PAYMENT_CRON_SECRET": "cron",
         }))
         with self.assertRaises(PaymentConfigurationError):
             provider_api_base({"NOWPAYMENTS_API_BASE": "http://localhost"})

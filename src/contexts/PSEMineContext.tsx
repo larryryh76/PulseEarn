@@ -924,14 +924,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveQuote(null);
   }, []);
 
-  // 6. PAYER BINDING — the wallet is committed to the quote BEFORE it signs.
-  //
-  // The intent used to be created after the wallet returned a hash, which meant
-  // a mid-flow wallet change silently became the payer of a purchase that was
-  // quoted for another wallet. Binding first (server-side, against the
-  // authenticated account) is what makes the on-chain sender check in
-  // /api/mine/tools/verify-purchase meaningful: paymentWallet is fixed before
-  // any signature exists, and no later request may rewrite it.
+  // 6. WALLET OWNERSHIP PROOF + PAYER BINDING.
+  // The wallet signs a quote-specific, non-spending EIP-191 message first.
+  // The backend recovers the signer and binds that address to this Firebase
+  // account and quote before any BNB transaction can be requested.
   const bindPurchaseIntent = useCallback(async (quote: PSEMineQuote): Promise<{
     success: boolean; purchaseId?: string; payerWallet?: string; error?: string;
   }> => {
@@ -943,7 +939,39 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
-      const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet);
+      if (!quote.walletProofNonce) {
+        return { success: false, error: 'This quote predates wallet ownership verification. Refresh the quote before paying.' };
+      }
+      const provider = providerRef.current;
+      if (!provider) {
+        return { success: false, error: 'Reconnect your wallet before verifying ownership.' };
+      }
+      const accounts = await provider.request({ method: 'eth_accounts' });
+      const activeAddress = Array.isArray(accounts) ? String(accounts[0] || '').toLowerCase() : '';
+      if (activeAddress !== connectedWallet.toLowerCase()) {
+        return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
+      }
+      const proofMessage = [
+        'PulseEarn PSEmine Wallet Ownership Verification',
+        'Sign this message to prove you control the payer wallet for this purchase.',
+        'This signature does not send funds or approve a token transfer.',
+        `Account UID: ${currentUser.uid}`,
+        `Quote ID: ${quote.quoteId}`,
+        `Wallet: ${connectedWallet.toLowerCase()}`,
+        `Chain ID: ${quote.chainId}`,
+        `Nonce: ${quote.walletProofNonce}`,
+        `Expires At: ${quote.expiresAt}`,
+      ].join('\\n');
+      const encodedMessage = '0x' + Array.from(new TextEncoder().encode(proofMessage))
+        .map(byte => byte.toString(16).padStart(2, '0')).join('');
+      const walletSignature = await provider.request({
+        method: 'personal_sign',
+        params: [encodedMessage, connectedWallet],
+      });
+      if (typeof walletSignature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(walletSignature)) {
+        return { success: false, error: 'The wallet did not return a valid ownership signature. No payment was sent.' };
+      }
+      const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet, walletSignature);
       recordWalletStage('purchase_intent_bound');
       // The intent is now a PENDING purchase: the console resumes it from
       // /api/mine/state's pendingPurchases projection, so refresh immediately
@@ -956,9 +984,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     } catch (e: unknown) {
       console.error('[PSEMineContext] bindPurchaseIntent error:', e);
+      const code = Number((e as { code?: number | string } | null)?.code);
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Could not bind this purchase to your wallet.',
+        error: code === 4001
+          ? 'Wallet ownership signature was cancelled. No payment was sent.'
+          : e instanceof Error ? e.message : 'Could not verify ownership of this wallet.',
       };
     }
   }, [currentUser, connectedWallet, bumpStateEpoch]);

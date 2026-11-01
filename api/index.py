@@ -7791,6 +7791,7 @@ def admin_psemine_payments():
             "priceMinor": amount_minor, "priceAmount": row.get("priceAmount"),
             "priceCurrency": row.get("priceCurrency"), "actualPaidAmount": row.get("actualPaidAmount"),
             "actualPaidCurrency": row.get("actualPaidCurrency"), "status": "paid",
+            "providerStatus": row.get("providerStatus"), "reviewRequired": row.get("reviewRequired") is True,
             "confirmedAt": row.get("settledAt"), "settledAt": row.get("settledAt"),
         })
     return jsonify({"success": True, "payments": payments})

@@ -10012,6 +10012,31 @@ def mine_payment_v2_create_invoice():
         return jsonify({"success": False, "error": "PURCHASES_DISABLED",
                         "message": "Tool purchases are currently closed."}), 403
 
+    # Reuse an unexpired invoice for this account/tool. This prevents rapid
+    # repeated taps from generating several independently payable invoices.
+    active_rows = db.collection("psemine_payment_orders_v2").where("userId", "==", uid).limit(25).get()
+    now = datetime.now(timezone.utc)
+    for active_row in active_rows:
+        active = active_row.to_dict() or {}
+        if active.get("toolId") != tool_id or active.get("status") not in ("creating", "pending", "confirming", "underpaid"):
+            continue
+        try:
+            active_expiry = datetime.fromisoformat(str(active.get("expiresAt") or "").replace("Z", "+00:00"))
+            if active_expiry.tzinfo is None:
+                active_expiry = active_expiry.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        if active_expiry > now and active.get("checkoutUrl"):
+            return jsonify({
+                "success": True, "orderId": active_row.id,
+                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
+                "toolName": active.get("toolName") or tool["name"],
+                "priceAmount": active.get("priceAmount"),
+                "priceCurrency": active.get("priceCurrency"),
+                "expiresAt": active.get("expiresAt"),
+                "existing": True,
+            })
+
     # Never accept a client price, currency, receiver, account id, or payment status.
     price_minor = int(tool["price_minor_units"])
     price_amount = format(Decimal(price_minor) / Decimal(100), ".2f")

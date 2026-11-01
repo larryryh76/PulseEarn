@@ -295,3 +295,50 @@ export async function fetchPublicCampaign(): Promise<PsePublicCampaign> {
   }
   return data.campaign ?? {};
 }
+
+/* ── Hosted crypto checkout v2 ───────────────────────────────────────── */
+
+export interface PseHostedPaymentOrder {
+  success: boolean;
+  orderId: string;
+  checkoutUrl: string;
+  provider: string;
+  toolName: string;
+  priceAmount: string;
+  priceCurrency: string;
+  expiresAt: string;
+}
+
+export interface PseHostedPaymentStatus {
+  success: boolean;
+  orderId: string;
+  status: 'creating' | 'pending' | 'confirming' | 'paid' | 'underpaid' | 'expired' | 'failed' | 'refunded' | 'review';
+  toolId?: string;
+  toolName?: string;
+  priceAmount?: string;
+  priceCurrency?: string;
+  checkoutUrl?: string;
+  expiresAt?: string;
+}
+
+export async function createHostedPaymentInvoice(toolId: string): Promise<PseHostedPaymentOrder> {
+  const data = await requestJson<PseHostedPaymentOrder>('/api/mine/payments/v2/invoices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ toolId }),
+  });
+  if (!data?.success || !data.orderId || !data.checkoutUrl) {
+    throw pseDataError('POST /api/mine/payments/v2/invoices');
+  }
+  return data;
+}
+
+export async function fetchHostedPaymentStatus(orderId: string): Promise<PseHostedPaymentStatus> {
+  const data = await requestJson<PseHostedPaymentStatus>(
+    `/api/mine/payments/v2/orders/${encodeURIComponent(orderId)}`,
+  );
+  if (!data?.success || !data.orderId || !data.status) {
+    throw pseDataError('GET /api/mine/payments/v2/orders/:orderId');
+  }
+  return data;
+}

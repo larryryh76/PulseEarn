@@ -75,7 +75,7 @@ def verify_merchant_account(api_key, api_base=None, http_get=None):
         raise PaymentPayloadError("NOWPayments merchant currencies response was invalid") from exc
     values = payload if isinstance(payload, list) else []
     if isinstance(payload, dict):
-        for field in ("result", "coins", "currencies"):
+        for field in ("result", "coins", "currencies", "data"):
             if isinstance(payload.get(field), list):
                 values = payload[field]
                 break

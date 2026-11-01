@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d19"><title>PSEmine Testnet Payment Sandbox</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#080d19;color:#edf3ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(ellipse at 50% 0,#172b50 0,transparent 55%),#080d19}.card{width:min(100%,560px);border:1px solid #263a5e;background:#0d1628;border-radius:22px;padding:24px;box-shadow:0 24px 80px #0008}h1{font-size:25px;margin:0 0 8px}.muted{color:#a8b8d3;line-height:1.55}.tag{display:inline-block;border:1px solid #47689c;border-radius:99px;padding:5px 10px;color:#a9caff;font-size:12px;margin-bottom:14px}.field{margin:18px 0}.field label{display:block;font-size:13px;color:#b8c8e0;margin-bottom:8px}input{width:100%;padding:14px;border:1px solid #344b70;border-radius:12px;background:#080f1d;color:white;font-size:16px}button{width:100%;padding:15px;border:0;border-radius:12px;background:#3478f6;color:white;font-weight:700;font-size:15px;margin-top:10px}button:disabled{opacity:.45}.secondary{background:#1c2b45}.info{padding:13px;border:1px solid #2c4164;border-radius:12px;margin:14px 0;overflow-wrap:anywhere;font-size:13px}.warn{border-color:#8a6328;background:#38280d55;color:#ffe0a3}.status{min-height:45px;white-space:pre-wrap;overflow-wrap:anywhere;color:#bcd2f7;font-size:13px;margin-top:16px}.small{font-size:12px;color:#8fa4c4}.link{color:#8bb8ff}
+</style></head>
+<body><main class="card">
+<div class="tag">ISOLATED SANDBOX · BSC TESTNET ONLY</div>
+<h1>PSEmine wallet payment test</h1>
+<p class="muted">Use this page to test MetaMask connection and transaction approval on BNB Smart Chain Testnet. This is not a purchase and does not activate a PSEmine tool.</p>
+<div class="info warn"><strong>Test funds only.</strong> This page is hard-locked to chain ID 97. It cannot submit a transaction on BSC Mainnet (56). Never enter a recovery phrase or private key.</div>
+<div class="info"><div class="small">TEST RECEIVER</div><strong id="receiver">0xff84ec8c2d88cb40b94bfc8f04c4ea1293912c58</strong><div class="small" style="margin-top:8px">Network: BNB Smart Chain Testnet · Chain ID 97 · Asset: tBNB</div></div>
+<div class="field"><label for="amount">Test amount (maximum 0.01 tBNB)</label><input id="amount" type="number" min="0.000001" max="0.01" step="0.000001" value="0.0001"></div>
+<button id="connect">Connect MetaMask</button>
+<button id="send" class="secondary" disabled>Send test transaction</button>
+<div id="status" class="status" role="status" aria-live="polite">Wallet not connected. Connect MetaMask to begin.</div>
+<p class="small">Transactions are broadcast directly to BSC Testnet and are not written to PulseEarn production payment records, revenue, or ownership ledgers.</p>
+</main>
+<script>
+(() => {
+const CHAIN='0x61', RECEIVER='0xff84ec8c2d88cb40b94bfc8f04c4ea1293912c58';
+const RPC='https://data-seed-prebsc-1-s1.bnbchain.org:8545';
+const EXPLORER='https://testnet.bscscan.com/tx/';
+let provider=null, account=null;
+const status=document.getElementById('status'), connect=document.getElementById('connect'), send=document.getElementById('send');
+const say=(s)=>status.textContent=s;
+function toWei(v){const p=String(v).trim().split('.');if(!/^\d+$/.test(p[0])||(p[1]||'').length>18||!/^(\d*)$/.test(p[1]||''))throw Error('Enter a valid decimal tBNB amount.');return BigInt(p[0])*10n**18n+BigInt(((p[1]||'')+'0'.repeat(18)).slice(0,18)||'0');}
+async function ensureTestnet(){
+ let chain=await provider.request({method:'eth_chainId'});
+ if(chain.toLowerCase()===CHAIN)return;
+ try{await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN}]});}
+ catch(e){if(e.code!==4902)throw e;await provider.request({method:'wallet_addEthereumChain',params:[{chainId:CHAIN,chainName:'BNB Smart Chain Testnet',nativeCurrency:{name:'tBNB',symbol:'tBNB',decimals:18},rpcUrls:[RPC],blockExplorerUrls:['https://testnet.bscscan.com']} ]});}
+ chain=await provider.request({method:'eth_chainId'});
+ if(chain.toLowerCase()!==CHAIN)throw Error('Wrong network. Select BSC Testnet (97) in MetaMask.');
+}
+connect.onclick=async()=>{
+ try{
+ if(!window.ethereum)throw Error('No injected wallet found. Open this page inside MetaMask mobile browser, or use a browser with MetaMask installed.');
+ provider=window.ethereum;
+ const accounts=await provider.request({method:'eth_requestAccounts'});
+ if(!accounts||!accounts.length)throw Error('Wallet connection was not approved.');
+ account=accounts[0];await ensureTestnet();
+ const bal=BigInt(await provider.request({method:'eth_getBalance',params:[account,'latest']}));
+ say('Connected: '+account+'\nNetwork: BSC Testnet (97)\nBalance: '+(Number(bal)/1e18).toFixed(6)+' tBNB');
+ send.disabled=false;
+ }catch(e){say('Connection failed: '+(e.message||String(e)));send.disabled=true;}
+};
+send.onclick=async()=>{
+ try{
+ if(!provider||!account)throw Error('Connect your wallet first.');
+ await ensureTestnet();
+ const value=toWei(document.getElementById('amount').value);
+ if(value<=0n||value>10n**16n)throw Error('Amount must be greater than zero and no more than 0.01 tBNB.');
+ const bal=BigInt(await provider.request({method:'eth_getBalance',params:[account,'latest']}));
+ if(bal<value)throw Error('Insufficient tBNB for this amount plus network gas.');
+ send.disabled=true;say('Waiting for MetaMask transaction approval… Check the wallet popup.');
+ const hash=await provider.request({method:'eth_sendTransaction',params:[{from:account,to:RECEIVER,value:'0x'+value.toString(16)}]});
+ say('Transaction submitted.\nHash: '+hash+'\nExplorer: '+EXPLORER+hash+'\nThis is a testnet transfer only. No production purchase or tool activation occurred.');
+ const a=document.createElement('a');a.href=EXPLORER+hash;a.target='_blank';a.rel='noopener';a.className='link';a.textContent='Open transaction on BSC Testnet Explorer';status.appendChild(document.createElement('br'));status.appendChild(a);
+ }catch(e){say('Transaction not completed: '+(e.message||String(e)));}finally{send.disabled=!account;}
+};
+if(window.ethereum){provider=window.ethereum;provider.on?.('accountsChanged',a=>{account=a?.[0]||null;send.disabled=!account;say(account?'Wallet account changed: '+account:'Wallet disconnected.');});provider.on?.('chainChanged',()=>{send.disabled=true;say('Network changed. Reconnect and confirm BSC Testnet (97).');account=null;});}
+})();
+</script></body></html>

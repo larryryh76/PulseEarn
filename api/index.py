@@ -8290,6 +8290,9 @@ def verify_psemine_tool_purchase():
     purchase = purchase_snap.to_dict() or {}
     if purchase.get('userId') != uid:
         return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
+    if purchase.get('walletProofVerified') is not True:
+        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
+                        "message": "This purchase has no verified wallet-ownership proof. Request a fresh quote and sign the free ownership message before paying."}), 409
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
@@ -9505,6 +9508,17 @@ def mine_create_purchase():
     except Exception:
         return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
 
+    wallet_signature = (data.get('walletSignature') or '').strip()
+    try:
+        from psemine_wallet_proof import verify_psemine_wallet_proof
+        wallet_proof_valid = verify_psemine_wallet_proof(uid, q, payment_wallet, wallet_signature)
+    except Exception:
+        logging.exception('[PSEmine] wallet ownership proof verification failed')
+        wallet_proof_valid = False
+    if not wallet_proof_valid:
+        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
+                        "message": "Sign the free wallet-ownership message in your connected wallet before creating this purchase. No funds are transferred by that signature."}), 403
+
     tool_id = q.get('toolId')
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
     if not tool_cfg:
@@ -9544,6 +9558,12 @@ def mine_create_purchase():
             stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
         )
         if action == 'reuse':
+            if stored.get('walletProofVerified') is not True:
+                db.collection('psemine_purchases').document(e.id).update({
+                    'walletProofVerified': True,
+                    'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+                })
+                stored['walletProofVerified'] = True
             return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
         if action == 'rebind_forbidden':
             return jsonify({
@@ -9575,6 +9595,8 @@ def mine_create_purchase():
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
+        'walletProofVerified': True,
+        'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
         'transactionHash': None,
         'network': 'BNB Smart Chain',
         'chainId': PSEMINE_BSC_CHAIN_ID,

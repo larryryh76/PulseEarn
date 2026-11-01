@@ -199,14 +199,19 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
     def setUp(self):
         self.source = _read(INDEX_SRC)
 
-    def test_legacy_receiver_and_chain_fields_are_not_public(self):
-        self.assertNotIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
-        self.assertNotIn("paymentChainId", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
-        self.assertNotIn("paymentNetwork", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
+    def test_chain_id_is_published_under_its_real_name(self):
+        self.assertEqual("paymentChainId", psemine_public.CAMPAIGN_CHAIN_ID_FIELD)
+        self.assertIn(psemine_public.CAMPAIGN_CHAIN_ID_FIELD, psemine_public.PUBLIC_CAMPAIGN_FIELDS)
+        self.assertNotIn("paymentNetworkId", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
+        self.assertNotIn("paymentNetworkId", self.source)
 
-    def test_hosted_purchase_gate_is_admin_controlled(self):
-        self.assertIn("if action == 'set_purchase_enabled':", self.source)
-        self.assertIn('"purchaseEnabled": enabled', self.source)
+    def test_the_writer_still_produces_that_name(self):
+        """If the document writer is renamed, this allow-list must move with it."""
+        self.assertRegex(
+            self.source,
+            r"['\"]paymentChainId['\"]\s*:\s*PSEMINE_BSC_CHAIN_ID",
+            "the campaign document no longer writes paymentChainId",
+        )
 
     def test_real_operational_fields_are_classified_private(self):
         for name in (
@@ -224,6 +229,9 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
             "type": "genesis", "status": "active",
             "startAt": "2026-01-01T00:00:00+00:00", "endAt": "2026-04-01T00:00:00+00:00",
             "durationDays": 90, "currencyDisplay": "GBP",
+            "paymentNetwork": "BNB Smart Chain", "paymentChainId": 56,
+            "paymentAsset": "BNB",
+            "receiverWalletAddress": "0x2222222222222222222222222222222222222222",
             "walletChangeDeadline": "2026-03-29T00:00:00+00:00",
             "purchaseEnabled": True, "miningEnabled": True, "referralEnabled": True,
             "totalCapacitiesRegisteredGBPPerHour": 42.5, "totalAccruedLiabilityGBP": 912.75,
@@ -234,11 +242,13 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
         }
         view = psemine_public.public_campaign_view(camp)
         expected = [f for f in psemine_public.PUBLIC_CAMPAIGN_FIELDS if f in camp]
-        expected.append("purchaseReady")  # derived from active status + admin purchase gate, never trusted from stored input
+        expected.append("purchaseReady")  # derived from private confirmation fields, never stored in the public doc
         self.assertEqual(expected, list(view))
-        self.assertTrue(view["purchaseReady"])
+        self.assertFalse(view["purchaseReady"])
         for private in psemine_public.PRIVATE_CAMPAIGN_FIELDS:
             self.assertNotIn(private, view)
+        # The chain id survives — the regression this replaced.
+        self.assertEqual(56, view["paymentChainId"])
 
 
 class TestCampaignReadIsScopedToTheProduct(unittest.TestCase):

@@ -26,6 +26,7 @@ assert.match(engine, /psemine_provider_redemptions/);
 assert.match(adapter, /hashlib\.sha512/);
 assert.match(adapter, /hmac\.compare_digest/);
 assert.match(adapter, /def normalize_provider_status/);
+assert.match(adapter, /def verify_merchant_account/);
 assert.match(api, /psemine_payment_orders_v2/);
 assert.match(admin, /paymentProviderConfigured/);
 assert.doesNotMatch(admin, /Purchase receiving wallet|saveWallet|receiverWalletAddress/);

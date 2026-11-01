@@ -7698,7 +7698,8 @@ def admin_psemine_overview():
         "paymentProvider": "nowpayments",
         "paymentProviderConfigured": provider_configured,
         "priceCurrency": str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").upper(),
-        "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is not False,
+        "purchaseEnabled": campaign_data.get("purchaseEnabled") is True,
+        "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
@@ -8864,6 +8865,42 @@ def admin_campaign_action():
             "message": "Archived campaign cannot be transitioned."
         }), 400
 
+    if action == 'set_purchase_enabled':
+        enabled = data.get('enabled')
+        if not isinstance(enabled, bool):
+            return jsonify({"success": False, "error": "INVALID_PURCHASE_GATE",
+                            "message": "Provide enabled as true or false."}), 400
+        if enabled:
+            callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
+                               "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn").strip()
+            provider_ready = bool(
+                str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+                and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+                and callback_url.startswith("https://")
+            )
+            if not provider_ready:
+                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
+                                "message": "Configure the hosted payment provider server credentials before enabling purchases."}), 409
+            if current_status != 'active':
+                return jsonify({"success": False, "error": "CAMPAIGN_NOT_ACTIVE",
+                                "message": "Purchases can only be enabled while the campaign is active."}), 409
+        now_iso = datetime.now(timezone.utc).isoformat()
+        camp_ref.update({
+            "purchaseEnabled": enabled,
+            "purchasePaymentProvider": "nowpayments",
+            "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
+            "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),
+            "updatedAt": now_iso,
+        })
+        db.collection('admin_audit_logs').add({
+            "timestamp": firestore.SERVER_TIMESTAMP, "adminId": uid,
+            "action": "PSEMINE_HOSTED_PURCHASES_ENABLED" if enabled else "PSEMINE_HOSTED_PURCHASES_DISABLED",
+            "targetEntity": "psemine_campaigns/active_campaign",
+            "metadata": {"reason": str(reason)[:240], "provider": "nowpayments", "enabled": enabled},
+        })
+        return jsonify({"success": True, "action": action, "purchaseEnabled": enabled,
+                        "paymentProvider": "nowpayments", "timestamp": now_iso})
+
     if action == 'set_receiver_wallet':
         if not is_admin(uid):
             return jsonify({"success": False, "error": "ADMIN_REQUIRED",
@@ -9952,7 +9989,7 @@ def mine_payment_v2_create_invoice():
 
     import psemine_engine as _pse_engine
     campaign, effective, _ = _pse_engine.campaign_lifecycle_state(db)
-    if effective != "active" or campaign.get("purchaseEnabled") is False:
+    if effective != "active" or campaign.get("purchaseEnabled") is not True:
         return jsonify({"success": False, "error": "PURCHASES_DISABLED",
                         "message": "Tool purchases are currently closed."}), 403
 

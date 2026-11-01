@@ -8803,7 +8803,7 @@ def mine_payment_v2_create_invoice():
     price_currency = str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").strip().lower()
     order_id = "pse_" + uuid.uuid4().hex
     now = datetime.now(timezone.utc)
-    expires = now + timedelta(minutes=30)
+    expires = now + timedelta(minutes=60)
     order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
     order_ref.set({
         "id": order_id, "userId": uid, "toolId": tool_id,
@@ -8876,6 +8876,19 @@ def mine_payment_v2_get_order(order_id):
     order = snap.to_dict() or {}
     if order.get("userId") != request.user["uid"]:
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    # Mark an unpaid invoice expired only when no provider payment ID exists.
+    # If a payment ID exists, funds may already be in flight and must reconcile.
+    if order.get("status") == "pending" and not order.get("providerPaymentId"):
+        try:
+            expiry = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > expiry:
+                order_ref.update({"status": "expired", "updatedAt": firestore.SERVER_TIMESTAMP})
+                order["status"] = "expired"
+        except Exception:
+            pass
 
     # A signed IPN is queued by the webhook. The user's own status poll can
     # reconcile immediately; a scheduled worker covers users who close checkout.

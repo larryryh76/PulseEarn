@@ -8265,7 +8265,9 @@ def mine_state():
                         status = "expired"
                 except Exception:
                     pass
-            if status not in ("paid", "failed", "expired", "refunded"):
+            if status not in ("paid", "failed", "expired", "refunded") or order.get("reviewRequired") is True:
+                if order.get("reviewRequired") is True and status == "paid":
+                    status = "review"
                 payment_orders.append({
                     "orderId": order_snap.id, "toolId": order.get("toolId"),
                     "toolName": order.get("toolName"), "status": status,
@@ -8867,7 +8869,7 @@ def mine_payment_v2_get_order(order_id):
             logging.exception("[PSEmine Payment v2] on-demand order reconciliation failed")
 
     return jsonify({
-        "success": True, "orderId": snap.id, "status": order.get("status"),
+        "success": True, "orderId": snap.id, "status": "review" if order.get("reviewRequired") is True else order.get("status"),
         "toolId": order.get("toolId"), "toolName": order.get("toolName"),
         "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
         "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),

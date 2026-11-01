@@ -98,7 +98,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         h: 'Your account',
         p: [
           'You need one PSEmine account to hold mining units, and you must be able to enter into a binding agreement where you live. One person, one account.',
-          'You are responsible for what happens under your account, including keeping your credentials and your wallet secure. PSEmine will never ask you for a private key or a seed phrase, and will never ask you to send funds anywhere other than the address printed on a live quote for a purchase you started yourself.',
+          'You are responsible for your account credentials and personal wallet security. PSEmine never asks for a private key or seed phrase. Only pay through the hosted invoice created for your account order.',
         ],
       },
       {
@@ -285,7 +285,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'refunds',
         h: 'Refunds',
         p: [
-          'A completed purchase is a completed on-chain transaction, so it is not reversible by the product. Where a payment was made in error and is not activated, the purchase is reviewed and any return is sent to the wallet the funds came from. Nothing in this section affects rights you have under applicable consumer law.',
+          'A completed crypto transfer is generally irreversible. Where a payment was made in error and the unit is not activated, the order is reviewed and any approved return is processed through the provider or originating payment route where supported. Nothing in this section affects rights you have under applicable consumer law.',
         ],
       },
     ],
@@ -335,7 +335,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'review',
         h: 'Review, and why a payout can be held',
         p: [
-          'A payout is reviewed against the account and payment records before it is sent. If a figure needs reconciling, a purchase payment does not match its quote, referral activity needs checking, or an account is restricted, the payout is placed on hold while the issue is reviewed. The reason and status are recorded on the payout.',
+          'A payout is reviewed against the account and payment records before it is sent. If a figure needs reconciling, a hosted provider payment needs review, referral activity needs checking, or an account is restricted, the payout is placed on hold while the issue is reviewed. The reason and status are recorded on the payout.',
         ],
       },
       {

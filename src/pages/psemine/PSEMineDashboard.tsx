@@ -191,18 +191,18 @@ export const PSEMineDashboard: React.FC = () => {
 
             {pendingPaymentOrder && (
         <PseNotice tone={Boolean(pendingPaymentOrder.reviewReason) || pendingPaymentOrder.status === 'manual_review' ? 'attention' : 'info'}
-          title={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'Payment needs review' : 'Checkout in progress'}>
+          title={Boolean(pendingPaymentOrder.reviewReason) || pendingPaymentOrder.status === 'manual_review' ? 'Payment needs review' : 'Purchase in progress'}>
           <p>
-            {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review'
+            {Boolean(pendingPaymentOrder.reviewReason) || pendingPaymentOrder.status === 'manual_review'
               ? 'A payment needs administrator reconciliation. Do not send another payment.'
               : pendingPaymentOrder.status === 'transaction_submitted' || pendingPaymentOrder.status === 'confirming'
                 ? "We are checking your BNB Smart Chain transaction and confirmations. Please do not send another payment while this check is pending."
                 : pendingPaymentOrder.status === 'underpaid'
-                  ? 'The invoice reports an incomplete payment. Open the same tool checkout to review its current status.'
+                  ? 'The transaction amount was not fully verified. Open the same purchase to review its status; do not send another payment.'
                   : 'You have a purchase waiting for payment. Resume the same purchase to avoid creating a duplicate order.'}
           </p>
           <Link className="pse-inline-link" to="/mine/tools">
-            {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'View tools and status' : 'Resume checkout'}
+            {Boolean(pendingPaymentOrder.reviewReason) || pendingPaymentOrder.status === 'manual_review' ? 'View tools and status' : 'Resume checkout'}
             <span aria-hidden="true"> →</span>
           </Link>
         </PseNotice>

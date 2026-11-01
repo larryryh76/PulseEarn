@@ -174,6 +174,13 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // PSEmine console already spends on `/api/mine/state`.
   const currentUserUid = currentUser?.uid;
   const currentUserEmail = currentUser?.email ?? undefined;
+  // Wallet approval belongs to one authenticated PulseEarn identity. Never reuse
+  // a provider or browser-storage record after the Firebase UID changes.
+  const walletOwnerUidRef = useRef<string | null>(null);
+  const previousWalletUidRef = useRef<string | null>(null);
+  const walletStorageKey = (uid: string) => `psemine_connected_wallet:${uid}`;
+  const walletDisconnectKey = (uid: string) => `psemine_wallet_user_disconnected:${uid}`;
+  const walletHandoffOwnerKey = 'psemine_wc_handoff_owner_uid';
   const [stateEpoch, setStateEpoch] = useState(0);
   const bumpStateEpoch = useCallback(() => setStateEpoch(e => e + 1), []);
   const [campaign, setCampaign] = useState<PSEMineCampaign | null>(null);
@@ -459,25 +466,32 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // payment success — the backend owns verification.
 
   const persistWallet = useCallback((address: string | null, transport?: PseWalletTransport | null, name?: string | null) => {
+    const uid = currentUserUid;
+    if (!uid) return;
     try {
+      const storedKey = walletStorageKey(uid);
+      const disconnectedKey = walletDisconnectKey(uid);
       if (address) {
-        // An explicit new connection opts back in to session restoration.
-        localStorage.removeItem('psemine_wallet_user_disconnected');
-        localStorage.setItem('psemine_connected_wallet', JSON.stringify({
-          address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
+        localStorage.removeItem(disconnectedKey);
+        localStorage.setItem(storedKey, JSON.stringify({
+          uid, address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
         }));
+        localStorage.setItem(walletHandoffOwnerKey, uid);
       } else {
-        localStorage.removeItem('psemine_connected_wallet');
-        // This tombstone prevents Reown's persisted session or the last
-        // server-side wallet label from silently reconnecting after disconnect.
-        localStorage.setItem('psemine_wallet_user_disconnected', '1');
+        localStorage.removeItem(storedKey);
+        localStorage.setItem(disconnectedKey, '1');
+        if (localStorage.getItem(walletHandoffOwnerKey) === uid) {
+          localStorage.removeItem(walletHandoffOwnerKey);
+          clearWalletConnectHandoff();
+        }
       }
     } catch {
       /* storage unavailable — best effort */
     }
-  }, []);
+  }, [currentUserUid]);
 
   const subscribeActiveProvider = useCallback((connection: PseWalletConnection) => {
+    if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) return;
     providerRef.current = connection.provider;
     transportRef.current = connection.transport;
     setWalletTransport(connection.transport);
@@ -485,6 +499,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWalletChainId(typeof connection.chainId === 'number' ? connection.chainId : null);
     return subscribeWalletEvents(connection.provider, {
       onAccountsChanged: (accounts) => {
+        if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) return;
         if (!accounts || accounts.length === 0) {
           // Wallet locked/disconnected: clear local session; backend payout
           // destination is untouched (it is set explicitly on the wallet page).
@@ -503,12 +518,14 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       },
       onChainChanged: (chainIdHex) => {
+        if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) return;
         // State refresh: the purchase UI reads walletChainId for its state-aware
         // network warning. Payment itself stays gated by ensurePaymentChain();
         // a chain change alone never activates or cancels a purchase.
         setWalletChainId(parseChainId(chainIdHex));
       },
       onDisconnect: () => {
+        if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) return;
         setConnectedWallet(null);
         persistWallet(null);
         providerRef.current = null;
@@ -519,21 +536,23 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setWalletChainId(null);
       },
     });
-  }, [currentUser, persistWallet]);
+  }, [currentUserUid, currentUser, persistWallet]);
 
   const adoptConnection = useCallback((connection: PseWalletConnection): string => {
+    if (!currentUserUid) throw new Error('Sign in before connecting a payment wallet.');
+    walletOwnerUidRef.current = currentUserUid;
     setConnectedWallet(connection.address);
     persistWallet(connection.address, connection.transport, connection.walletName);
     walletNameRef.current = connection.walletName;
     subscribeActiveProvider(connection);
     recordWalletStage('wallet_adopted', `transport=${connection.transport}`);
     return connection.address;
-  }, [subscribeActiveProvider, persistWallet]);
+  }, [currentUserUid, subscribeActiveProvider, persistWallet]);
 
   const connectInjectedWallet = useCallback(async (wallet?: PseInjectedWallet): Promise<string | null> => {
-    // A fresh user action explicitly opts into a new wallet session, including
-    // the case where the wallet app redirects/reloads this page mid-approval.
-    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
+    if (!currentUserUid) { toast.error('Sign in before connecting a wallet.'); return null; }
+    // A fresh user action explicitly opts into a new wallet session.
+    try { localStorage.removeItem(walletDisconnectKey(currentUserUid)); } catch { /* storage unavailable */ }
     setIsConnectingWallet(true);
     try {
       const connection = await connectWithProvider(
@@ -563,9 +582,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setIsConnectingWallet(false);
     }
-  }, [adoptConnection, currentUser]);
+  }, [currentUserUid, adoptConnection, currentUser]);
 
   const connectWalletConnectTransport = useCallback(async (resume = false): Promise<string | null> => {
+    if (!currentUserUid) { toast.error('Sign in before connecting a wallet.'); return null; }
     if (!isWalletConnectConfigured()) {
       toast.error('WalletConnect is not configured for this deployment.');
       return null;
@@ -577,7 +597,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const attempt = ++connectAttemptRef.current;
     // Clear the disconnect tombstone before the wallet-app handoff: the OS may
     // reload this page before the original connect promise can finish.
-    try { localStorage.removeItem('psemine_wallet_user_disconnected'); } catch { /* storage unavailable */ }
+    try {
+      localStorage.removeItem(walletDisconnectKey(currentUserUid));
+      localStorage.setItem(walletHandoffOwnerKey, currentUserUid);
+    } catch { /* storage unavailable */ }
     if (resume) ensureWalletTrace('walletconnect', readWalletConnectHandoff()?.id);
     else beginWalletTrace('walletconnect');
     recordWalletStage('connect_requested', resume ? 'resume' : 'fresh');
@@ -633,7 +656,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsConnectingWallet(false);
       }
     }
-  }, [adoptConnection, currentUser]);
+  }, [currentUserUid, adoptConnection, currentUser]);
 
   /**
    * Stops a pending WalletConnect attempt. Without this the UI stayed disabled
@@ -654,6 +677,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * callers may still `await connectWallet()` with no argument.
    */
   const connectWallet = useCallback(async (walletId?: string): Promise<string | null> => {
+    if (!currentUserUid) { toast.error('Sign in before connecting a wallet.'); return null; }
     if (walletId) {
       const wallet = injectedWallets.find(w => w.id === walletId);
       if (!wallet) return null;
@@ -663,7 +687,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (walletConnectAvailable) return connectWalletConnectTransport();
     toast.error('No wallet available. Install a Web3 wallet or open this page in your wallet\'s browser.');
     return null;
-  }, [injectedWallets, walletConnectAvailable, connectInjectedWallet, connectWalletConnectTransport]);
+  }, [currentUserUid, injectedWallets, walletConnectAvailable, connectInjectedWallet, connectWalletConnectTransport]);
 
   const disconnectWallet = useCallback(async (): Promise<void> => {
     if (transportRef.current === 'walletConnect') {
@@ -683,6 +707,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   /** Fail-closed chain assertion through the ACTIVE provider (either transport). */
   const ensurePaymentChain = useCallback(async (chainId: number): Promise<boolean> => {
+    if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) return false;
     const provider = providerRef.current;
     if (!provider) {
       recordWalletStage('chain_verification_failed', 'no active provider');
@@ -692,19 +717,18 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const ok = await ensureChain(provider, chainId, transportRef.current ?? 'injected');
     recordWalletStage(ok ? 'chain_verified' : 'chain_verification_failed', String(chainId));
     return ok;
-  }, []);
+  }, [currentUserUid]);
 
   /** Sends the payment through the active provider; returns the tx hash only. */
   const sendPayment = useCallback(async (tx: { from: string; to: string; value: string }): Promise<string> => {
+    if (!currentUserUid || walletOwnerUidRef.current !== currentUserUid) throw new Error('Reconnect your wallet for this account before paying.');
     const provider = providerRef.current;
     if (!provider) throw new Error('No wallet is connected.');
     return sendPaymentTransaction(provider, tx, transportRef.current ?? 'injected');
-  }, []);
+  }, [currentUserUid]);
 
-  // Silent re-connect on session start: previously-authorised injected
-  // accounts re-adopt automatically; per-account persistence means account B
-  // never inherits account A's wallet. The stored key holds both address and
-  // transport.
+  // Restore only a wallet record explicitly stored for this Firebase UID. A
+  // wallet from another signed-in account is never eligible for adoption.
   //
   // WalletConnect restore (mobile return path): when the wallet app approves
   // the session it deep-links back and the OS reloads this page — the original
@@ -713,8 +737,27 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // no stored session exists is nothing done (explicit connect as before).
   useEffect(() => {
     let cancelled = false;
+    if (!currentUserUid) {
+      setConnectedWallet(null); setWalletTransport(null); setWalletName(null); setWalletChainId(null);
+      providerRef.current = null; transportRef.current = null; walletOwnerUidRef.current = null;
+      return () => { cancelled = true; };
+    }
+    const previousUid = previousWalletUidRef.current;
+    if (previousUid && previousUid !== currentUserUid) {
+      // A Firebase account switch is a hard wallet-session boundary. Retire the
+      // old WalletConnect session before any new account can request a payment.
+      void disconnectWalletConnect().catch(() => undefined);
+      clearWalletConnectHandoff();
+      try { localStorage.removeItem(walletHandoffOwnerKey); } catch { /* best effort */ }
+      providerRef.current = null; transportRef.current = null; walletOwnerUidRef.current = null;
+      walletNameRef.current = null;
+      setConnectedWallet(null); setWalletTransport(null); setWalletName(null); setWalletChainId(null);
+      setActiveQuote(null);
+    }
+    previousWalletUidRef.current = currentUserUid;
     recordWalletDocumentBoot();
-    const handoff = readWalletConnectHandoff();
+    const handoffOwnerUid = (() => { try { return localStorage.getItem(walletHandoffOwnerKey); } catch { return null; } })();
+    const handoff = handoffOwnerUid === currentUserUid ? readWalletConnectHandoff() : null;
     if (handoff) {
       // Keep the SAME correlation id across the reload so support sees one
       // attempt, including the document_boot that interrupted it.
@@ -724,16 +767,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     // An explicit disconnect is sticky across reloads. Reown may still have a
     // persisted pairing; do not silently adopt it against the user's choice.
-    if (localStorage.getItem('psemine_wallet_user_disconnected') === '1') {
+    if (localStorage.getItem(walletDisconnectKey(currentUserUid)) === '1') {
       setConnectedWallet(null);
       setWalletTransport(null);
       setWalletName(null);
       setWalletChainId(null);
       return () => { cancelled = true; };
     }
-    const raw = localStorage.getItem('psemine_connected_wallet');
+    const raw = localStorage.getItem(walletStorageKey(currentUserUid));
     let stored: { address?: string; transport?: PseWalletTransport; walletName?: string } | null = null;
     try { stored = raw ? JSON.parse(raw) : null; } catch { stored = null; }
+    if (stored && (stored as { uid?: string }).uid !== currentUserUid) stored = null;
     const wantsWalletConnect = stored?.transport === 'walletConnect' || Boolean(handoff);
 
     // A first-time WalletConnect handoff returns by RELOADING this page, before
@@ -831,7 +875,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }).catch(() => { /* restore is best-effort; explicit connect remains */ });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUserUid]);
 
   // 5. Quote Generation
   const requestQuote = useCallback(async (toolId: PSEToolTierId): Promise<PSEMineQuote | null> => {
@@ -869,8 +913,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const bindPurchaseIntent = useCallback(async (quote: PSEMineQuote): Promise<{
     success: boolean; purchaseId?: string; payerWallet?: string; error?: string;
   }> => {
-    if (!currentUser) {
-      return { success: false, error: 'User not authenticated' };
+    if (!currentUser || !currentUserUid || walletOwnerUidRef.current !== currentUserUid) {
+      return { success: false, error: 'Reconnect your wallet after signing in to this account.' };
     }
     if (!connectedWallet || !/^0x[0-9a-fA-F]{40}$/.test(connectedWallet)) {
       return { success: false, error: 'Connect a valid BNB Smart Chain wallet before creating this purchase.' };
@@ -895,7 +939,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         error: e instanceof Error ? e.message : 'Could not bind this purchase to your wallet.',
       };
     }
-  }, [currentUser, connectedWallet, bumpStateEpoch]);
+  }, [currentUser, currentUserUid, connectedWallet, bumpStateEpoch]);
 
   // 7. Submit Purchase Transaction Hash (for an ALREADY BOUND purchase) —
   // the backend verifies sender/recipient/amount/chain/confirmations and is the

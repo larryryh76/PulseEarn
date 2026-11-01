@@ -691,20 +691,17 @@ export const connectWalletConnectProvider = async (
   }
   if (state !== 'valid') return null;
 
-  // Make BSC the provider's local default chain. When eip155:56 is already in
-  // the approved session this is handled locally by UniversalProvider — no new
-  // pairing and no wallet prompt. Failures are non-fatal: the payment request
-  // itself is routed explicitly to eip155:56.
-  try {
-    await provider.request(
-      { method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_MAINNET_HEX }] },
-      PSE_BSC_CAIP2,
-    );
-  } catch { /* session remains chain-scoped; payment routes explicitly */ }
-
+  // Do not send wallet_switchEthereumChain through WalletConnect. The approved
+  // CAIP-10 session already proves BSC access, and every payment RPC is routed
+  // explicitly to eip155:56. A switch request is an injected-wallet convention
+  // that many mobile wallets do not implement over WalletConnect; sending it
+  // here can open the wallet app without ever presenting the payment approval.
   const address = walletConnectSessionAccounts(session)[0];
   if (!address) return null;
-  const chainId = (await getChainId(provider)) ?? PSE_BSC_CHAIN_ID;
+  // The approved CAIP-10 account is authoritative for WalletConnect. Its
+  // eth_chainId can reflect a stale mutable default chain after an Android
+  // app handoff, even while eip155:56 is explicitly approved in the session.
+  const chainId = walletConnectChainId(provider) ?? (await getChainId(provider));
   recordWalletStage('account_resolved', `chain=${chainId}`);
   return {
     transport: 'walletConnect',
@@ -863,10 +860,10 @@ export const getChainId = async (provider: PseEip1193Provider): Promise<number |
 };
 
 /**
- * Ensures the wallet sits on the given chain before anything is signed.
- * Fail-closed: a refused/unverifiable switch returns false and the caller must
- * NOT proceed to eth_sendTransaction (the backend verifier only reads BSC, so
- * a transaction on any other chain could never be verified).
+ * Verifies the signing transport is authorised for the server-quoted chain.
+ * Injected wallets are switched and re-read live. WalletConnect uses the
+ * approved CAIP-10 session as its authority and routes the transaction with an
+ * explicit CAIP-2 chain; it must not rely on or mutate the provider's default.
  */
 export const ensureChain = async (
   provider: PseEip1193Provider,
@@ -881,30 +878,25 @@ export const ensureChain = async (
   const caipChain = transport === 'walletConnect' ? `eip155:${expectedChainId}` : undefined;
   const request = <T>(args: { method: string; params?: unknown[] | object }) =>
     caipChain ? provider.request<T>(args, caipChain) : provider.request<T>(args);
+  // WalletConnect's approved CAIP-10 namespace is the chain authority. The
+  // UniversalProvider's eth_chainId may report a stale mutable default after
+  // an Android wallet handoff; that does NOT mean the approved BSC session is
+  // on the wrong network. Payment submission below is explicitly routed to
+  // eip155:56. Do not send wallet_switchEthereumChain through WalletConnect:
+  // many mobile wallets do not implement that injected-provider RPC, and a
+  // failed switch prevented eth_sendTransaction from ever reaching approval.
+  if (transport === 'walletConnect') {
+    const session = (provider as WcUniversalProviderLike).session;
+    const sessionChain = walletConnectSessionChainId(session);
+    const approved = sessionChain === expectedChainId;
+    recordWalletStage(approved ? 'chain_verified_from_session' : 'chain_not_approved_in_session', String(expectedChainId));
+    return approved;
+  }
+
   const current = await getChainId(provider);
   if (current === expectedChainId) {
     recordWalletStage('chain_verified', String(expectedChainId));
     return true;
-  }
-
-  // WalletConnect sessions are chain-scoped (CAIP-10 accounts such as
-  // eip155:56:0x...). Some mobile wallet bridges do not implement the
-  // injected-wallet wallet_switchEthereumChain RPC. If eth_chainId is
-  // temporarily unavailable but the approved WalletConnect session itself
-  // explicitly contains the requested chain, trust that session binding
-  // instead of sending an unsupported network-switch RPC to the wallet.
-  // Never use this fallback when the provider reports a different chain.
-  if (current === null) {
-    const session = (provider as WcUniversalProviderLike).session;
-    const accounts = session?.namespaces?.eip155?.accounts ?? [];
-    const sessionMatchesExpected = accounts.some(account => {
-      const match = account.match(/^eip155:(\d+):0x[a-f0-9]{40}$/i);
-      return Boolean(match && Number.parseInt(match[1], 10) === expectedChainId);
-    });
-    if (sessionMatchesExpected) {
-      recordWalletStage('chain_verified_from_session', String(expectedChainId));
-      return true;
-    }
   }
 
   recordWalletStage('chain_switch_requested', `from=${current ?? 'unknown'} to=${expectedChainId}`);

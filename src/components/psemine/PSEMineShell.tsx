@@ -400,6 +400,7 @@ const CampaignBand: React.FC = () => {
  * than showing a placeholder.
  */
 const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const navigate = useNavigate();
   const { notifications, unreadNotifications, markNotificationRead, refreshFeed, feedErrors, refreshing } = usePseState();
   const [busy, setBusy] = React.useState(false);
   const shown = notifications.slice(0, 12);
@@ -474,10 +475,26 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   <span className="pse-sheet-row-meta">
                     <span>{timeAgo(n.createdAt)}</span>
                     {n.type && <span>{n.type}</span>}
-                    {!n.read && (
+                    {(['purchase', 'withdrawal', 'referral', 'campaign'] as string[]).includes(String(n.type || '')) && (
                       <button
                         type="button"
                         className="pse-meta-action ml-auto"
+                        onClick={() => {
+                          if (!n.read) void markNotificationRead(n.id);
+                          const destination = n.type === 'purchase' ? '/mine/tools'
+                            : n.type === 'withdrawal' ? '/mine/wallet'
+                              : n.type === 'referral' ? '/mine/referrals' : '/mine/dashboard';
+                          onClose();
+                          navigate(destination);
+                        }}
+                      >
+                        Open related page →
+                      </button>
+                    )}
+                    {!n.read && (
+                      <button
+                        type="button"
+                        className="pse-meta-action"
                         onClick={() => void markNotificationRead(n.id)}
                       >
                         Mark read

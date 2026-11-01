@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -152,7 +152,7 @@ const OwnedToolRow: React.FC<{
             </button>
           </div>
         )}
-        {tool.lastAccruedAt && <p className="pse-owned-tool-updated">Last accrual checkpoint: {new Date(tool.lastAccruedAt).toLocaleString()}</p>}
+        {tool.lastAccruedAt && <p className="pse-owned-tool-updated">Last accrual checkpoint: {new Date(tool.lastAccruedAt).toLocaleString('en-GB', { timeZone: 'Europe/London' })}</p>}
       </div>
     </li>
   );
@@ -203,7 +203,7 @@ export const PSEMineTools: React.FC = () => {
       const result = await PSEMineEngine.maintainTool(ownershipId);
       if (result.success) {
         toast.success(result.resumesAt
-          ? `Maintenance accepted. Next session scheduled for ${new Date(result.resumesAt).toLocaleTimeString()}.`
+          ? `Maintenance accepted. Next session scheduled for ${new Date(result.resumesAt).toLocaleTimeString('en-GB', { timeZone: 'Europe/London' })}.`
           : 'Maintenance accepted. Syncing the tool’s next state.');
         await refresh();
       } else {
@@ -327,15 +327,13 @@ export const PSEMineTools: React.FC = () => {
     );
   }
 
-  if (purchasing) {
-    const pending = pendingPurchase && pendingPurchase.toolId === purchasing.id ? pendingPurchase : null;
-    return <PurchaseFlow tool={purchasing} pending={pending} onClose={() => { setPurchasing(null); void refresh(); }} />;
-  }
-
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
   const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
 
+  const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
+
   return (
+    <>
     <PsePage
       title="Mining tools"
       objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
@@ -559,6 +557,14 @@ export const PSEMineTools: React.FC = () => {
         </aside>
       </div>
     </PsePage>
+    {purchasing && (
+      <PurchaseFlow
+        tool={purchasing}
+        pending={purchasePending}
+        onClose={() => { setPurchasing(null); void refresh(); }}
+      />
+    )}
+    </>
   );
 };
 
@@ -598,6 +604,51 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     } catch { return false; }
   });
   const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  // The purchase review is a true modal layer, not a full-page detour. Keep the
+  // underlying console from scrolling and return keyboard focus to its opener.
+  useEffect(() => {
+    if (minimized) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (step === 'verifying') setMinimized(true);
+        else onClose();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (!focusable?.length) {
+          event.preventDefault();
+          dialogRef.current?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [onClose, step, minimized]);
 
   /** Forget the local binding (expired quote, wallet disconnect, restart). */
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
@@ -835,6 +886,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         payer = bound.payerWallet;
         setPurchaseId(intentId);
         setBoundPayer(payer);
+        // The backend has persisted the purchase-ready notification; refresh
+        // the shared feed now so the shell badge updates without a page reload.
+        void refresh();
       }
 
       // 2. The wallet about to sign must still be the bound payer.
@@ -904,6 +958,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           try {
             await PSEMineEngine.markPurchaseSubmissionUncertain(intentId);
             serverLocked = true;
+            void refresh();
           } catch (lockErr) {
             toast.error(lockErr instanceof Error
               ? `Payment status could not be synced to the server: ${lockErr.message}`
@@ -944,6 +999,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       } catch {
         // Fail closed against a second purchase if the hash write failed.
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
+        void refresh();
         setResult({
           ok: false, uncertain: true, hash: txHash,
           message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash and use it for reconciliation.',
@@ -952,6 +1008,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         setStep('result');
         return;
       }
+      // The submitted-hash notification and status are now persisted server-side.
+      void refresh();
 
       // 6. Backend verifies on-chain; activation is server-authoritative.
       setSubmissionState('CONFIRMING');
@@ -1079,10 +1137,33 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const continuous = dutyOf(tool) === 'continuous';
 
   return (
+    <>
+    {minimized ? (
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ position: 'fixed', zIndex: 1201, left: 12, right: 12, bottom: 'max(12px, env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', border: '1px solid rgba(129, 156, 210, .28)', borderRadius: 16, background: '#080e1b', color: '#e8eefc', boxShadow: '0 16px 50px rgba(0,0,0,.5)' }}
+      >
+        <span style={{ fontSize: 13, lineHeight: 1.4 }}>{step === 'verifying' ? 'Payment is still processing. Keep this page open and do not pay again.' : 'Your purchase needs attention. Review its current status.'}</span>
+        <button type="button" onClick={() => setMinimized(false)} style={{ flexShrink: 0, borderRadius: 10, padding: '9px 12px', background: '#23365b', color: '#fff', fontSize: 13, fontWeight: 600 }}>Return</button>
+      </div>
+    ) : (
+    <div
+      role="presentation"
+      style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))', background: 'rgba(3, 7, 18, .82)', backdropFilter: 'blur(12px)' }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Purchase ${tool.name}`}
+        tabIndex={-1}
+        style={{ width: 'min(100%, 820px)', maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain', border: '1px solid rgba(129, 156, 210, .22)', borderRadius: 22, background: '#080e1b', boxShadow: '0 28px 100px rgba(0,0,0,.6)', outline: 'none' }}
+      >
     <PsePage
       title={`Purchase ${tool.name}`}
       objective={`${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
-      actions={<PseButton variant="secondary" size="sm" onClick={onClose} disabled={step === 'verifying' && !showingRecovery}>Close</PseButton>}
+      actions={<PseButton variant="secondary" size="sm" onClick={() => step === 'verifying' ? setMinimized(true) : onClose()}>{step === 'verifying' ? 'Minimize' : 'Close'}</PseButton>}
     >
       <ol className="pse-steps" aria-label="Purchase progress">
         {STEP_ORDER.map((s, i) => (
@@ -1322,7 +1403,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       {!showingRecovery && step === 'verifying' && (
         <PseSection title="Verifying on BNB Smart Chain">
           <p className="pse-prose" role="status" aria-live="polite">
-            Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
+            Confirming sender, recipient, amount and network confirmations. You may minimize this panel, but do not start another payment.
           </p>
           <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
         </PseSection>
@@ -1412,6 +1493,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         </PseSection>
       )}
     </PsePage>
+      </div>
+    </div>
+    )}
+    </>
   );
 };
 

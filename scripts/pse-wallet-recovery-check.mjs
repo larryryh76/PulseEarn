@@ -5,7 +5,7 @@
  * against stub EIP-1193 providers. No network, no SDK, no funds:
  *   • WalletConnect session validity (expired / unsupported chain / valid)
  *   • The session — not eth_requestAccounts — is the connection authority
- *   • Chain-scoped WalletConnect RPC (CAIP-2 eip155:56 on switch + send)
+ *   • Session-scoped WalletConnect chain validation + CAIP-2 eip155:56 on send
  *   • Exactly one broadcast attempt, with existing double-send protection
  *   • Local pre-dispatch session errors are NOT reported as uncertain broadcasts
  *   • Stale asset/chunk failures are classified separately from configuration
@@ -130,17 +130,15 @@ check('send:unsupported-method-distinct', methodError?.code === 'PAYMENT_METHOD_
 check('send:unsupported-method-has-diagnostic', typeof methodError?.diagnostic === 'string' && methodError.diagnostic.includes('eth_sendTransaction'));
 
 // ── 7. Chain assertion ─────────────────────────────────────────────────────
-let chain = 1;
-const switchProvider = makeProvider(({ method }) => {
-  if (method === 'eth_chainId') return `0x${chain.toString(16)}`;
-  if (method === 'wallet_switchEthereumChain') { chain = 56; return null; }
-  return null;
-});
-check('chain:walletconnect-switch-succeeds', (await m.ensureChain(switchProvider, 56, 'walletConnect')) === true);
-const switchCall = switchProvider.calls.find(c => c.method === 'wallet_switchEthereumChain');
-check('chain:walletconnect-switch-chain-context', switchCall?.chain === 'eip155:56');
+// WalletConnect's approved CAIP-10 session is authoritative after a mobile
+// handoff, even if eth_chainId exposes a stale mutable default. No switch RPC
+// should be sent through the WalletConnect transport.
+const sessionScoped = makeProvider(({ method }) => method === 'eth_chainId' ? '0x1' : null);
+sessionScoped.session = session([bnAccount(56)]);
+check('chain:walletconnect-approved-session-succeeds', (await m.ensureChain(sessionScoped, 56, 'walletConnect')) === true);
+check('chain:walletconnect-avoids-switch-rpc', !sessionScoped.calls.some(c => c.method === 'wallet_switchEthereumChain'));
 
-chain = 1;
+let chain = 1;
 const injectedSwitch = makeProvider(({ method }) => {
   if (method === 'eth_chainId') return `0x${chain.toString(16)}`;
   if (method === 'wallet_switchEthereumChain') { chain = 56; return null; }
@@ -155,7 +153,8 @@ const refusing = makeProvider(({ method }) => {
   if (method === 'wallet_switchEthereumChain') throw new Error('Wallet does not support switching');
   return null;
 });
-check('chain:refusal-fails-closed', (await m.ensureChain(refusing, 56, 'walletConnect')) === false);
+check('chain:walletconnect-without-approved-bsc-fails-closed', (await m.ensureChain(refusing, 56, 'walletConnect')) === false);
+check('chain:walletconnect-unapproved-does-not-switch', !refusing.calls.some(c => c.method === 'wallet_switchEthereumChain'));
 
 // ── 8. Connection comes from the approved session ──────────────────────────
 const sessionProvider = makeProvider(({ method }) => {
@@ -171,7 +170,7 @@ check('connect:chain-read-live', connection?.chainId === 56);
 check('connect:transport', connection?.transport === 'walletConnect');
 check('connect:no-eth-request-accounts', sessionProvider.calls.every(c => c.method !== 'eth_requestAccounts'));
 const connectSwitch = sessionProvider.calls.find(c => c.method === 'wallet_switchEthereumChain');
-check('connect:sets-bsc-local-default', connectSwitch?.chain === 'eip155:56');
+check('connect:does-not-send-injected-switch-rpc', connectSwitch === undefined);
 
 const expiredProvider = makeProvider(() => null);
 expiredProvider.session = session([bnAccount(56)], Math.floor(NOW / 1000) - 1);

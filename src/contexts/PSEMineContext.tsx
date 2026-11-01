@@ -43,6 +43,7 @@ import {
   isWalletConnectConfigured,
   isWalletRejection,
   readWalletConnectHandoff,
+  readAccountWalletSession,
   restoreWalletConnectSession,
   shouldResumeWalletConnectHandoff,
   getChainId,
@@ -606,13 +607,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       let expectedBoundWallet: string | null = null;
       if (!resume) {
         try {
-          const uid = currentUser?.uid;
-          const raw = uid ? localStorage.getItem(`psemine_connected_wallet:${uid}`) : null;
-          const saved = raw ? JSON.parse(raw) as { uid?: string; address?: string; transport?: PseWalletTransport } : null;
-          if (uid && saved?.uid === uid && saved.transport === 'walletConnect'
-              && typeof saved.address === 'string' && /^0x[0-9a-fA-F]{40}$/.test(saved.address)) {
-            expectedBoundWallet = saved.address.toLowerCase();
-          }
+          const saved = readAccountWalletSession(currentUser?.uid);
+          if (saved?.transport === 'walletConnect') expectedBoundWallet = saved.address;
         } catch { /* malformed local state is treated as no bound session */ }
         if (!expectedBoundWallet) await disconnectWalletConnect();
       }
@@ -804,10 +800,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setWalletChainId(null);
       return () => { cancelled = true; };
     }
-    const raw = localStorage.getItem(walletKey);
-    let stored: { uid?: string; address?: string; transport?: PseWalletTransport; walletName?: string } | null = null;
-    try { stored = raw ? JSON.parse(raw) : null; } catch { stored = null; }
-    if (stored?.uid !== walletUid) stored = null;
+    const stored = readAccountWalletSession(walletUid);
     const wantsWalletConnect = stored?.transport === 'walletConnect' || Boolean(handoff);
 
     // A first-time WalletConnect handoff returns by RELOADING this page, before

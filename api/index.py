@@ -7364,15 +7364,26 @@ def admin_psemine_overview():
         and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
         and callback_url.startswith("https://")
     )
+    provider_fingerprint = hashlib.sha256(
+        (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
+         str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" + callback_url).encode()
+    ).hexdigest()[:20]
+    provider_verified = bool(
+        provider_configured
+        and campaign_data.get("paymentProviderVerifiedAt")
+        and campaign_data.get("paymentProviderKeyFingerprint") == provider_fingerprint
+        and campaign_data.get("enabledPaymentCurrencies")
+    )
     admin_campaign_config = {
         "paymentProvider": "nowpayments",
         "paymentProviderConfigured": provider_configured,
+        "paymentProviderVerified": provider_verified,
         "scheduledReconciliationConfigured": bool(str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()),
         "enabledPaymentCurrencies": list(campaign_data.get("enabledPaymentCurrencies") or []),
         "paymentProviderVerifiedAt": campaign_data.get("paymentProviderVerifiedAt"),
         "priceCurrency": "GBP",
         "purchaseEnabled": campaign_data.get("purchaseEnabled") is True,
-        "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",
+        "purchaseReady": provider_verified and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
@@ -7967,6 +7978,12 @@ def admin_campaign_action():
             "purchasePaymentProvider": "nowpayments",
             "enabledPaymentCurrencies": enabled_currencies,
             "paymentProviderVerifiedAt": now_iso if enabled else camp_before.get("paymentProviderVerifiedAt"),
+            "paymentProviderKeyFingerprint": hashlib.sha256(
+                (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
+                 str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" +
+                 str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
+                     "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn")).encode()
+            ).hexdigest()[:20] if enabled else camp_before.get("paymentProviderKeyFingerprint"),
             "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
             "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),
             "updatedAt": now_iso,
@@ -8769,6 +8786,17 @@ def mine_payment_v2_create_invoice():
     if effective != "active" or campaign.get("purchaseEnabled") is not True:
         return jsonify({"success": False, "error": "PURCHASES_DISABLED",
                         "message": "Tool purchases are currently closed."}), 403
+    provider_fingerprint = hashlib.sha256(
+        (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
+         str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" + callback_url).encode()
+    ).hexdigest()[:20]
+    if (
+        not campaign.get("paymentProviderVerifiedAt")
+        or campaign.get("paymentProviderKeyFingerprint") != provider_fingerprint
+        or not campaign.get("enabledPaymentCurrencies")
+    ):
+        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_VERIFIED",
+                        "message": "The hosted payment provider must be verified by an administrator before checkout."}), 503
 
     # Reuse an unexpired invoice for this account/tool. This prevents rapid
     # repeated taps from generating several independently payable invoices.

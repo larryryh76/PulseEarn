@@ -42,7 +42,7 @@ jobs:
       - name: Install backend test dependencies
         run: pip install -r api/requirements.txt pytest
 
-      - name: Install Chromium for rendered wallet/UI tests
+      - name: Install Chromium for rendered UI tests
         run: npx playwright install --with-deps chromium
 
       - name: TypeScript and production build
@@ -51,17 +51,11 @@ jobs:
       - name: Backend unit and regression tests
         run: PYTHONPATH=api/tests python3 -m pytest api/tests -q
 
-      - name: Wallet rendering and injected-wallet discovery
-        run: bun scripts/pse-wallet-check.mjs
+      - name: Hosted crypto checkout, webhook, settlement and account-isolation gate
+        run: bun scripts/pse-payment-v2-check.mjs
 
-      - name: Wallet payment, chain guard, cancellation and duplicate-send gate
-        run: bun scripts/pse-wallet-gate.mjs
-
-      - name: Wallet session validity, BSC routing and recovery regression
-        run: bun scripts/pse-wallet-recovery-check.mjs
-
-      - name: Wallet handoff reload recovery and diagnostics regression
-        run: bun scripts/pse-wallet-handoff-check.mjs
+      - name: Payment adapter unit tests
+        run: python3 -m unittest api.tests.test_psemine_payments_v2 -v
 
       - name: Mobile/desktop console rendering smoke tests
         run: bun scripts/pse-console-check.mjs

@@ -37,6 +37,7 @@ References:
 - Generate an API key and IPN secret.
 - Configure the IPN callback URL as `https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn`.
 - Configure the enabled customer assets in the provider's coin settings.
+- Keep the provider's payment-covering/underpayment tolerance at 0% unless the business explicitly approves a tolerance; otherwise a slightly underpaid invoice may be marked finished by provider policy.
 - If the merchant does not configure a receiving wallet for a coin paid by the customer, NOWPayments documents that it may convert the funds and send them to the first wallet in the merchant wallet list. Configure this deliberately; do not assume every customer asset settles to the same address without checking the merchant settings.
 - Set Vercel server-only environment variables: `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, optional `NOWPAYMENTS_API_BASE`, `NOWPAYMENTS_PRICE_CURRENCY=gbp`, and `NOWPAYMENTS_IPN_CALLBACK_URL`.
 - Set GitHub Actions secret `PSEMINE_PAYMENT_CRON_SECRET` and matching Vercel environment variable `PSEMINE_PAYMENT_CRON_SECRET` for scheduled reconciliation.

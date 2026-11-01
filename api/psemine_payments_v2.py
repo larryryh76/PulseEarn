@@ -156,6 +156,10 @@ def invoice_response(invoice: Mapping[str, Any]) -> dict[str, str]:
     if not invoice_id or not invoice_url:
         raise PaymentPayloadError("Provider returned an incomplete invoice")
     parsed = urlparse(invoice_url)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise PaymentPayloadError("Provider returned an unsafe invoice URL")
+    host = (parsed.hostname or "").lower()
+    if (
+        parsed.scheme != "https" or not parsed.netloc
+        or not (host == "nowpayments.io" or host.endswith(".nowpayments.io"))
+    ):
+        raise PaymentPayloadError("Provider returned an untrusted invoice URL")
     return {"providerInvoiceId": invoice_id, "checkoutUrl": invoice_url}

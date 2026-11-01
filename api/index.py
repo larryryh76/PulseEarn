@@ -10008,7 +10008,7 @@ def mine_payment_v2_create_invoice():
 
     import psemine_engine as _pse_engine
     campaign, effective, _ = _pse_engine.campaign_lifecycle_state(db)
-    if effective != "active" or campaign.get("purchaseEnabled") is not True:
+    if effective != "active" or campaign.get("purchaseEnabled") is False:
         return jsonify({"success": False, "error": "PURCHASES_DISABLED",
                         "message": "Tool purchases are currently closed."}), 403
 

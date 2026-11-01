@@ -8229,6 +8229,7 @@ def generate_psemine_tool_quote():
 
     quote = {
         "quoteId": quote_id,
+        "walletProofNonce": uuid.uuid4().hex,
         "userId": uid,
         "toolId": tool_id,
         "toolVersion": tool_cfg['version'],

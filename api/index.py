@@ -7357,8 +7357,9 @@ def admin_psemine_overview():
 
     campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     campaign_data = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
+    public_base = str(os.environ.get("PUBLIC_BASE_URL") or "https://pulseearn.online").strip().rstrip("/")
     callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                       "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn").strip()
+                       f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
     provider_configured = bool(
         str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
         and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
@@ -7949,8 +7950,9 @@ def admin_campaign_action():
                             "message": "Provide enabled as true or false."}), 400
         enabled_currencies = list(camp_before.get("enabledPaymentCurrencies") or [])
         if enabled:
+            public_base = str(os.environ.get("PUBLIC_BASE_URL") or "https://pulseearn.online").strip().rstrip("/")
             callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                               "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn").strip()
+                               f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
             api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
             ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
             provider_ready = bool(api_key and ipn_secret and callback_url.startswith("https://"))
@@ -7981,8 +7983,7 @@ def admin_campaign_action():
             "paymentProviderKeyFingerprint": hashlib.sha256(
                 (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
                  str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" +
-                 str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                     "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn")).encode()
+                 callback_url).encode()
             ).hexdigest()[:20] if enabled else camp_before.get("paymentProviderKeyFingerprint"),
             "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
             "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),

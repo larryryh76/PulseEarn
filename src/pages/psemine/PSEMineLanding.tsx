@@ -57,7 +57,7 @@ import {
  *   02 the tool family  full-bleed equipment plate on one printed scale
  *   03 capacity ....... the capacity instrument right, the referral ladder left
  *   04 the campaign .... a full-width lifecycle rail on a day axis
- *   05 payment ......... the purchase console left, the quote terms right
+ *   05 payment ......... the hosted checkout left, payment terms right
  *   06 settlement ...... a full-width statement, then the payout terms sheet
  *   07 security ........ a full-width relationship map, then the reading columns
  *   08 questions ....... head left, the accordion right
@@ -171,7 +171,7 @@ const CAPACITY_STEPS: ReadonlyArray<PseChainStep> = [
   { id: 'payout', label: 'Paid in', value: 'BNB', note: 'Disbursed to the payout wallet' },
 ];
 
-/** The rules a quote carries. Product education, not a live quote. */
+/** The rules a hosted checkout carries. Product education, not a live invoice. */
 const QUOTE_RULES = [
   { term: 'Price', rule: 'Fixed in GBP before checkout, and it does not float with the market.' },
   { term: 'Amount', rule: 'The exact crypto amount is displayed by the provider for the selected asset and network.' },
@@ -629,7 +629,7 @@ const FaqItem: React.FC<{ q: string; a: React.ReactNode; index: number }> = ({ q
 /* ── The page ───────────────────────────────────────────────────────────── */
 
 export const PSEMineLanding: React.FC = () => {
-  usePseDocumentTitle('Campaign mining on BNB Smart Chain');
+  usePseDocumentTitle('Campaign mining and crypto checkout');
 
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -807,7 +807,7 @@ export const PSEMineLanding: React.FC = () => {
             </div>
             <div>
               <dt>Mining / settlement</dt>
-              <dd>SHA · GBP → BNB</dd>
+              <dd>SHA · GBP earnings · BNB payout</dd>
             </div>
           </dl>
         </Reveal>
@@ -872,7 +872,7 @@ export const PSEMineLanding: React.FC = () => {
                 kicker="How it works"
                 title="One chain, and four steps to enter it."
                 meta="4 stages"
-                lede="PSEmine runs on a single chain: units add capacity, capacity accrues through the campaign window, and settled earnings are paid out in BNB. Entering that chain is the four-step sequence below, and every step is written to your own account record."
+                lede="PSEmine is a managed mining campaign: units add capacity, capacity accrues through the campaign window, purchases use hosted crypto checkout, and settled earnings are paid out in BNB. Every step is written to your own account record."
               />
               <p className="pse-small pse-measure pse-split-aside">
                 A purchase begins with a server-priced order and a secure hosted invoice. You choose an available asset and network
@@ -1092,7 +1092,7 @@ export const PSEMineLanding: React.FC = () => {
         kicker="Security and transparency"
         title="What is fixed, and what you can check."
         meta={`${TRUST.length} properties`}
-        lede="PSEmine's SHA-mining campaign uses published unit terms, recorded GBP capacity and BNB payment flows. Check the records and rules before you participate."
+        lede="PSEmine's SHA-mining campaign uses published unit terms, recorded GBP capacity, hosted crypto checkout and BNB payouts. Check the records and rules before you participate."
       >
         <TrustMap items={TRUST} />
 

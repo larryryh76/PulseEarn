@@ -488,7 +488,7 @@ async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip11
         // before opening a fresh proposal that includes eth_sendTransaction.
         wcState.lastSessionProblem = 'unsupported';
         report('session_payment_method_missing', 'eth_sendTransaction');
-        void appKit.disconnect().catch(() => undefined);
+        void Promise.resolve(appKit.disconnect()).catch(() => undefined);
         return null;
       }
       if (sessionState === 'expired' || sessionState === 'unsupported') {

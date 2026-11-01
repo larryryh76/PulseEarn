@@ -234,7 +234,7 @@ class TestPublicCampaignFieldNames(unittest.TestCase):
         }
         view = psemine_public.public_campaign_view(camp)
         expected = [f for f in psemine_public.PUBLIC_CAMPAIGN_FIELDS if f in camp]
-        expected.append("purchaseReady")  # derived from private confirmation fields, never stored in the public doc
+        expected.append("purchaseReady")  # derived from active status + admin purchase gate, never trusted from stored input
         self.assertEqual(expected, list(view))
         self.assertTrue(view["purchaseReady"])
         for private in psemine_public.PRIVATE_CAMPAIGN_FIELDS:

@@ -9277,6 +9277,7 @@ def mine_state():
                 'toolName': pd.get('toolName'),
                 'status': pd.get('status'),
                 'quoteId': pd.get('quoteId'),
+                'walletProofNonce': pd.get('walletProofNonce'),
                 'paymentWallet': pd.get('paymentWallet'),
                 'receiverWallet': pd.get('receiverWallet'),
                 'quotedBNBAmount': pd.get('quotedBNBAmount'),

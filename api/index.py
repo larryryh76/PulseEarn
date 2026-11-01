@@ -8923,11 +8923,11 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
         )
         if not provider_response.ok:
             order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
+            return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
         payment = provider_response.json() or {}
     except Exception:
         logging.exception("[PSEmine Payment v2] provider status fetch failed")
+        order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
         return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
 
     if payment.get("payment_id") is not None and str(payment.get("payment_id")) != str(payment_id):

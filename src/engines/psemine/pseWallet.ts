@@ -745,6 +745,11 @@ export const restoreWalletConnectSession = async (timeoutMs = 7_000): Promise<Ps
 };
 
 export const disconnectWalletConnect = async (): Promise<void> => {
+  // Initialise AppKit before disconnecting so a persisted session from a prior
+  // browser/account can be explicitly cleared even after a full page reload.
+  if (!wcState.appKit && isWalletConnectConfigured()) {
+    try { await initWalletConnect(); } catch { /* best-effort stale-session cleanup */ }
+  }
   wcWaitToken += 1;
   wcState.cancelled = true;
   const handoff = readWalletConnectHandoff();

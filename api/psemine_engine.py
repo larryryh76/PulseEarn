@@ -1759,3 +1759,162 @@ def admin_deprecate_tool(db, tool_id, admin_uid, reason=""):
         "metadata": {"reason": reason},
     })
     return {"ok": True}
+
+
+# ----------------------------------------------------------------------------
+# Hosted provider purchase settlement (Payment v2)
+# ----------------------------------------------------------------------------
+
+def settle_provider_purchase(db, uid, order_id, provider_payment):
+    """Atomically activate one tool after the provider payment is independently verified.
+
+    The caller MUST verify the provider webhook signature and fetch the payment
+    from the provider API before calling this function. This function enforces
+    local order ownership, exact server-priced tool economics, campaign state,
+    provider-payment replay protection, ownership caps, and atomic fulfilment.
+    """
+    import hashlib as _hashlib
+    import psemine_core as _core
+
+    order_id = str(order_id or "").strip()
+    payment_id = str((provider_payment or {}).get("payment_id") or
+                     (provider_payment or {}).get("id") or "").strip()
+    if not order_id or not uid or not payment_id:
+        return {"ok": False, "error": "MISSING_SETTLEMENT_IDENTITY"}
+    if str((provider_payment or {}).get("payment_status") or "").lower() != "finished":
+        return {"ok": False, "error": "PROVIDER_PAYMENT_NOT_FINISHED"}
+
+    order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
+    purchase_ref = db.collection("psemine_purchases").document(order_id)
+    user_ref = db.collection("psemine_users").document(uid)
+    camp_ref = db.collection("psemine_campaigns").document(PSEMINE_CAMPAIGN_DOC_ID)
+    payment_key = _hashlib.sha256(payment_id.encode("utf-8")).hexdigest()
+    redeemed_ref = db.collection("psemine_provider_redemptions").document(payment_key)
+    migration_ref = db.collection("psemine_mining_ledger").document(f"migration_{uid}")
+
+    # Settle accrued time before changing the user's earning capacity.
+    accrual_checkpoint(db, uid)
+    now = utcnow()
+    now_iso = _iso(now)
+
+    def _txn(txn):
+        # Firestore requires every transaction read to precede the first write.
+        order_snap = order_ref.get(transaction=txn)
+        purchase_snap = purchase_ref.get(transaction=txn)
+        user_snap = user_ref.get(transaction=txn)
+        camp_snap = camp_ref.get(transaction=txn)
+        redeemed_snap = redeemed_ref.get(transaction=txn)
+        migration_snap = migration_ref.get(transaction=txn)
+
+        if not order_snap.exists:
+            return {"ok": False, "error": "PAYMENT_ORDER_NOT_FOUND"}
+        order = order_snap.to_dict() or {}
+        if order.get("userId") != uid:
+            return {"ok": False, "error": "FORBIDDEN"}
+        if order.get("status") == "paid" or purchase_snap.exists and (purchase_snap.to_dict() or {}).get("status") == "activated":
+            return {"ok": True, "already_settled": True, "purchaseId": order_id}
+        if order.get("status") not in ("pending", "confirming", "paid_pending_activation"):
+            return {"ok": False, "error": "PAYMENT_ORDER_NOT_SETTLEABLE"}
+        if redeemed_snap.exists:
+            return {"ok": False, "error": "PROVIDER_PAYMENT_ALREADY_REDEEMED"}
+        if not user_snap.exists or not camp_snap.exists:
+            return {"ok": False, "error": "PSEMINE_ACCOUNT_OR_CAMPAIGN_NOT_FOUND"}
+
+        user = user_snap.to_dict() or {}
+        camp = camp_snap.to_dict() or {}
+        campaign_status = str(camp.get("status") or "").lower()
+        if campaign_status != "active" or camp.get("purchaseEnabled") is False:
+            return {"ok": False, "error": "PURCHASES_DISABLED"}
+
+        tool_id = str(order.get("toolId") or "")
+        tool = _core.LOCKED_PSEMINE_TOOLS.get(tool_id)
+        if not tool:
+            return {"ok": False, "error": "INVALID_TOOL_TIER"}
+        price_minor = int(tool.get("price_minor_units") or 0)
+        if price_minor <= 0 or int(order.get("priceMinor") or 0) != price_minor:
+            return {"ok": False, "error": "ORDER_PRICE_MISMATCH"}
+
+        counts = dict(user.get("toolOwnershipCounts") or {})
+        if int(counts.get(tool_id, 0)) >= int(tool.get("max_per_user") or 0):
+            return {"ok": False, "error": "MAX_OWNERSHIP_REACHED"}
+        counts[tool_id] = int(counts.get(tool_id, 0)) + 1
+
+        qualified_referrals = int(user.get("qualifiedReferralsCount") or 0)
+        tool_capacity = _core.gbp_minor_to_major(_core.compute_tool_capacity_minor(counts))
+        referral_capacity = _core.gbp_minor_to_major(_core.compute_referral_capacity_minor(qualified_referrals))
+        total_capacity = _core.gbp_minor_to_major(_core.compute_total_capacity_minor(counts, qualified_referrals))
+        user_was_inactive = user.get("status") != "active"
+        ownership_id = f"own_{uid}_{order_id}"
+        provider_data = {
+            "provider": "nowpayments",
+            "providerPaymentId": payment_id,
+            "providerInvoiceId": str(order.get("providerInvoiceId") or ""),
+            "paymentAsset": str(provider_payment.get("pay_currency") or ""),
+            "paymentNetwork": str(provider_payment.get("network") or ""),
+            "actualPaidAmount": str(provider_payment.get("actually_paid") or ""),
+            "actualPaidCurrency": str(provider_payment.get("pay_currency") or ""),
+        }
+
+        # All writes below are one atomic settlement.
+        txn.set(redeemed_ref, {
+            "id": payment_key, "provider": "nowpayments",
+            "providerPaymentId": payment_id, "orderId": order_id,
+            "userId": uid, "redeemedAt": now_iso,
+        })
+        txn.set(purchase_ref, {
+            "id": order_id, "userId": uid, "toolId": tool_id,
+            "toolName": tool["name"], "status": "activated",
+            "paymentSource": "hosted_crypto", **provider_data,
+            "priceMinor": price_minor, "priceGBP": price_minor / 100.0,
+            "priceAmount": order.get("priceAmount"),
+            "priceCurrency": order.get("priceCurrency"),
+            "transactionHash": None, "paymentWallet": None,
+            "createdAt": order.get("createdAt"), "confirmedAt": now_iso,
+            "activatedAt": now_iso, "updatedAt": now_iso,
+        })
+        txn.set(db.collection("psemine_tool_ownership").document(ownership_id),
+                hydrate_ownership_for_activation(
+                    ownership_id, uid, tool_id,
+                    {"name": tool["name"], "version": tool.get("version", 1),
+                     "hourly_rate_minor": int(tool["hourly_rate_minor"]),
+                     "price_minor_units": price_minor},
+                    order_id, now,
+                ))
+        txn.set(user_ref, {
+            "id": uid, "uid": uid, "userId": uid, "status": "active",
+            "toolCapacityGBPPerHour": tool_capacity,
+            "referralCapacityGBPPerHour": referral_capacity,
+            "totalCapacityGBPPerHour": total_capacity,
+            "toolOwnershipCounts": counts,
+            "miningStartedAt": user.get("miningStartedAt") or now_iso,
+            "updatedAt": now_iso,
+        }, merge=True)
+        txn.update(order_ref, {
+            "status": "paid", "purchaseId": order_id,
+            "ownershipId": ownership_id, "providerPaymentId": payment_id,
+            **provider_data, "settledAt": now_iso, "updatedAt": now_iso,
+        })
+        txn.update(camp_ref, {
+            "totalToolRevenueMinor": (_firestore.Increment(price_minor) if _firestore else
+                                      int(camp.get("totalToolRevenueMinor") or 0) + price_minor),
+            "totalToolPurchasesCount": (_firestore.Increment(1) if _firestore else
+                                        int(camp.get("totalToolPurchasesCount") or 0) + 1),
+            "totalMinersCount": (_firestore.Increment(1) if _firestore and user_was_inactive else
+                                 int(camp.get("totalMinersCount") or 0) + (1 if user_was_inactive else 0)),
+            "updatedAt": now_iso,
+        })
+        return {"ok": True, "already_settled": False, "purchaseId": order_id,
+                "ownershipId": ownership_id, "toolId": tool_id}
+
+    try:
+        result = _run_transaction(db, _txn)
+    except Exception:
+        logging.exception("[PSEmine Payment v2] atomic provider settlement failed")
+        return {"ok": False, "error": "SETTLEMENT_TRANSACTION_FAILED"}
+
+    if result.get("ok") and not result.get("already_settled"):
+        try:
+            settle_referral_on_activation(db, uid, order_id)
+        except Exception:
+            logging.warning("[PSEmine Payment v2] referral qualification failed after settlement", exc_info=True)
+    return result

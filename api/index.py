@@ -7368,7 +7368,7 @@ def admin_psemine_overview():
         "paymentProvider": "nowpayments",
         "paymentProviderConfigured": provider_configured,
         "scheduledReconciliationConfigured": bool(str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()),
-        "priceCurrency": str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").upper(),
+        "priceCurrency": "GBP",
         "purchaseEnabled": campaign_data.get("purchaseEnabled") is True,
         "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",
         "canManageCampaign": is_admin(request.user["uid"]),
@@ -8800,7 +8800,7 @@ def mine_payment_v2_create_invoice():
     # Never accept a client price, currency, receiver, account id, or payment status.
     price_minor = int(tool["price_minor_units"])
     price_amount = format(Decimal(price_minor) / Decimal(100), ".2f")
-    price_currency = str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").strip().lower()
+    price_currency = "gbp"  # Tool prices and revenue accounting are canonically GBP.
     order_id = "pse_" + uuid.uuid4().hex
     now = datetime.now(timezone.utc)
     expires = now + timedelta(minutes=60)

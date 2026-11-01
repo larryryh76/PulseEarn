@@ -961,7 +961,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         `Chain ID: ${quote.chainId}`,
         `Nonce: ${quote.walletProofNonce}`,
         `Expires At: ${quote.expiresAt}`,
-      ].join('\\n');
+      ].join('\n');
       const encodedMessage = '0x' + Array.from(new TextEncoder().encode(proofMessage))
         .map(byte => byte.toString(16).padStart(2, '0')).join('');
       const walletSignature = await provider.request({

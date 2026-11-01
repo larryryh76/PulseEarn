@@ -8264,7 +8264,7 @@ def mine_state():
                     if expiry.tzinfo is None:
                         expiry = expiry.replace(tzinfo=timezone.utc)
                     if now > expiry:
-                        status = "expired"
+                        status = "reconciliation_pending" if now <= expiry + timedelta(minutes=15) else "expired"
                 except Exception:
                     pass
             if status not in ("paid", "failed", "expired", "refunded") or order.get("reviewRequired") is True:
@@ -8779,7 +8779,7 @@ def mine_payment_v2_create_invoice():
         # A payment ID means funds may already be moving; never create a second
         # invoice while its provider status is being reconciled, even after the
         # local invoice expiry.
-        if (has_provider_payment or (active_expiry and active_expiry > now)) and active.get("checkoutUrl"):
+        if has_provider_payment and active.get("checkoutUrl"):
             return jsonify({
                 "success": True, "orderId": active_row.id,
                 "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
@@ -8789,6 +8789,20 @@ def mine_payment_v2_create_invoice():
                 "expiresAt": active.get("expiresAt"),
                 "existing": True, "status": active.get("status"),
             })
+        if active_expiry and active_expiry > now and active.get("checkoutUrl"):
+            return jsonify({
+                "success": True, "orderId": active_row.id,
+                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
+                "toolName": active.get("toolName") or tool["name"],
+                "priceAmount": active.get("priceAmount"),
+                "priceCurrency": active.get("priceCurrency"),
+                "expiresAt": active.get("expiresAt"),
+                "existing": True, "status": active.get("status"),
+            })
+        if active_expiry and active_expiry <= now and now <= active_expiry + timedelta(minutes=15):
+            return jsonify({"success": False, "error": "PAYMENT_RECONCILIATION_PENDING",
+                            "message": "This invoice has expired. We are allowing time for any delayed provider notification. Do not pay again yet.",
+                            "orderId": active_row.id}), 409
 
     user_snap = db.collection("psemine_users").document(uid).get()
     user_data = user_snap.to_dict() or {} if user_snap.exists else {}
@@ -8885,8 +8899,11 @@ def mine_payment_v2_get_order(order_id):
             if expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > expiry:
-                order_ref.update({"status": "expired", "updatedAt": firestore.SERVER_TIMESTAMP})
-                order["status"] = "expired"
+                if datetime.now(timezone.utc) <= expiry + timedelta(minutes=15):
+                    order["status"] = "reconciliation_pending"
+                else:
+                    order_ref.update({"status": "expired", "updatedAt": firestore.SERVER_TIMESTAMP})
+                    order["status"] = "expired"
         except Exception:
             pass
 

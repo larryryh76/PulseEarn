@@ -9561,6 +9561,7 @@ def mine_create_purchase():
             if stored.get('walletProofVerified') is not True:
                 db.collection('psemine_purchases').document(e.id).update({
                     'walletProofVerified': True,
+                    'walletProofNonce': q.get('walletProofNonce'),
                     'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
                 })
                 stored['walletProofVerified'] = True
@@ -9596,6 +9597,7 @@ def mine_create_purchase():
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
         'walletProofVerified': True,
+        'walletProofNonce': q.get('walletProofNonce'),
         'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
         'transactionHash': None,
         'network': 'BNB Smart Chain',

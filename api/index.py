@@ -7368,6 +7368,8 @@ def admin_psemine_overview():
         "paymentProvider": "nowpayments",
         "paymentProviderConfigured": provider_configured,
         "scheduledReconciliationConfigured": bool(str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()),
+        "enabledPaymentCurrencies": list(campaign_data.get("enabledPaymentCurrencies") or []),
+        "paymentProviderVerifiedAt": campaign_data.get("paymentProviderVerifiedAt"),
         "priceCurrency": "GBP",
         "purchaseEnabled": campaign_data.get("purchaseEnabled") is True,
         "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",

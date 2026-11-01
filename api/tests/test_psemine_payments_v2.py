@@ -17,10 +17,33 @@ from psemine_payments_v2 import (
     nowpayments_configured,
     provider_api_base,
     verify_ipn_signature,
+    verify_merchant_account,
 )
 
 
 class TestPSEminePaymentsV2Adapter(unittest.TestCase):
+    def test_merchant_account_verification_requires_enabled_currencies(self):
+        class Response:
+            ok = True
+            def json(self):
+                return {"result": [{"code": "usdttrc20"}, {"currency": "bnb"}, "usdc"]}
+        currencies = verify_merchant_account("key", http_get=lambda *a, **k: Response())
+        self.assertEqual(["bnb", "usdc", "usdttrc20"], currencies)
+
+    def test_merchant_account_rejects_invalid_credentials_or_empty_coin_list(self):
+        class BadResponse:
+            ok = False
+            def json(self):
+                return {}
+        with self.assertRaises(PaymentPayloadError):
+            verify_merchant_account("bad", http_get=lambda *a, **k: BadResponse())
+        class EmptyResponse:
+            ok = True
+            def json(self):
+                return {"result": []}
+        with self.assertRaises(PaymentPayloadError):
+            verify_merchant_account("key", http_get=lambda *a, **k: EmptyResponse())
+
     def test_hosted_invoice_leaves_asset_selection_to_customer(self):
         payload = build_invoice_payload(
             order_id="pse-order-123",

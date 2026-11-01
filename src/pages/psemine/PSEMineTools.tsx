@@ -532,7 +532,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
 
   const openCheckout = () => {
     if (!checkoutUrl) return;
-    window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+    window.location.assign(checkoutUrl);
   };
 
   const statusText: Record<string, string> = {

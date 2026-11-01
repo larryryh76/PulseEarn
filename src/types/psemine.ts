@@ -55,6 +55,8 @@ export interface PSEMineCampaign {
   receiverWalletConfigured?: boolean;
   receiverWalletConfiguredAt?: string | null;
   receiverWalletConfiguredBy?: string | null;
+  /** Public projection of the admin-confirmed campaign purchase receiver. */
+  receiverWalletAddress?: string;
   walletChangeDeadline: string; // Cutoff before settlement
   purchaseEnabled: boolean;
   miningEnabled: boolean;

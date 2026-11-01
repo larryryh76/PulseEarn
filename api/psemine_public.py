@@ -28,7 +28,7 @@ Contract:
 PUBLIC_CAMPAIGN_FIELDS = (
     'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
     'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentChainId',
-    'receiverWalletAddress', 'purchaseEnabled', 'purchaseReady', 'miningEnabled', 'referralEnabled',
+    'purchaseEnabled', 'purchaseReady', 'miningEnabled', 'referralEnabled',
 )
 
 # The name the campaign document actually carries. It was previously listed here
@@ -41,7 +41,6 @@ CAMPAIGN_CHAIN_ID_FIELD = 'paymentChainId'
 # Fields that are deliberately part of the public contract, and why. Kept beside
 # the allow-list so a reviewer sees the intent without reading the purchase flow.
 PUBLIC_CAMPAIGN_FIELD_NOTES = {
-    'receiverWalletAddress': 'Payers must see the receiving address before signing in.',
     'purchaseReady': 'Derived readiness: a valid non-zero BNB Smart Chain receiver explicitly confirmed by a super-admin.',
 }
 
@@ -54,7 +53,7 @@ PUBLIC_CAMPAIGN_FIELD_NOTES = {
 PRIVATE_CAMPAIGN_FIELDS = (
     'totalCapacitiesRegisteredGBPPerHour', 'totalAccruedLiabilityGBP',
     'totalBNBCollected', 'totalMinersCount', 'walletChangeDeadline',
-    'receiverWalletConfigured', 'receiverWalletConfiguredAt', 'receiverWalletConfiguredBy',
+    'receiverWalletAddress', 'receiverWalletConfigured', 'receiverWalletConfiguredAt', 'receiverWalletConfiguredBy',
     'pauseWindows', 'shutdownState', 'createdAt', 'updatedAt',
 )
 
@@ -62,6 +61,8 @@ PRIVATE_CAMPAIGN_FIELDS = (
 def campaign_purchase_ready(camp):
     """True only for an explicitly confirmed, valid, non-zero campaign receiver."""
     if not isinstance(camp, dict):
+        return False
+    if camp.get('status') != 'active' or camp.get('purchaseEnabled') is not True:
         return False
     address = camp.get('receiverWalletAddress')
     if camp.get('receiverWalletConfigured') is not True:
@@ -83,8 +84,9 @@ def public_campaign_view(camp):
     """Project a campaign document down to the public allow-list.
 
     Returns None for a missing/empty document so callers can fall back to their
-    default public configuration. Readiness is derived and never trusts a stored
-    `purchaseReady` field or exposes the super-admin identity/timestamps.
+    default public configuration. Readiness is derived from active campaign,
+    enabled purchase gate and confirmed receiver; the receiver address itself is
+    exposed only through the authenticated PSEmine state endpoint.
     """
     if not camp:
         return None

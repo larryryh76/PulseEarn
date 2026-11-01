@@ -19,10 +19,11 @@ Contract:
   * Unknown and private fields are dropped silently — adding a field to the
     campaign document must never widen the public API (regression test:
     api/tests/test_public_payload.py).
-  * `receiverWalletAddress` is intentionally public: the purchase flow must show
-    payers the receiving address before they sign in.
-  * Enrolled users get the full document from the entitlement-gated
+  * `receiverWalletAddress` is private and is never exposed before sign-in.
+    The direct BNB purchase flow reads it only through the entitlement-gated
     `GET /api/mine/state`.
+  * The public `paymentChainId` identifies the supported network without
+    exposing the campaign's receiving destination.
 """
 
 PUBLIC_CAMPAIGN_FIELDS = (

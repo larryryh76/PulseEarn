@@ -190,7 +190,7 @@ export const PSEMineDashboard: React.FC = () => {
             </dl>
 
             {pendingPaymentOrder && (
-        <PseNotice tone={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'warning' : 'info'}
+        <PseNotice tone={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'attention' : 'info'}
           title={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'Payment needs review' : 'Checkout in progress'}>
           <p>
             {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review'

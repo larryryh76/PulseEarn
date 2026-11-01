@@ -60,12 +60,18 @@ class TestPublicCampaignProjection(unittest.TestCase):
         self.assertEqual(set(psemine_public.PUBLIC_CAMPAIGN_FIELDS), set(view))
 
     def test_receiver_wallet_is_not_part_of_the_public_contract(self):
-        """Hosted checkout does not expose a campaign receiver address."""
+        """The private receiver address stays hidden; public chain ID is explicit."""
         self.assertNotIn("receiverWalletAddress", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
-        self.assertNotIn("paymentChainId", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
+        self.assertIn("paymentChainId", psemine_public.PUBLIC_CAMPAIGN_FIELDS)
 
     def test_purchase_ready_requires_active_campaign_and_admin_gate(self):
-        configured = {"status": "active", "purchaseEnabled": True}
+        configured = {
+            "status": "active", "purchaseEnabled": True,
+            "receiverWalletConfigured": True,
+            "receiverWalletConfiguredAt": "2026-11-01T12:00:00+00:00",
+            "receiverWalletConfiguredBy": "admin-uid",
+            "receiverWalletAddress": "0x2222222222222222222222222222222222222222",
+        }
         self.assertTrue(psemine_public.campaign_purchase_ready(configured))
         self.assertTrue(psemine_public.public_campaign_view(configured)["purchaseReady"])
 

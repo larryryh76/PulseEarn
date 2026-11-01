@@ -142,6 +142,7 @@ export interface PSEMinePurchase {
   priceCurrency?: string;
   toolVersion?: number;
   quoteId?: string;
+  walletProofNonce?: string;
   quotedGBPAmount?: number;
   quotedBNBAmount?: number;
   exchangeRateBNBGBP?: number;

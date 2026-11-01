@@ -1811,9 +1811,23 @@ def settle_provider_purchase(db, uid, order_id, provider_payment):
         order = order_snap.to_dict() or {}
         if order.get("userId") != uid:
             return {"ok": False, "error": "FORBIDDEN"}
+        if order.get("provider") != "nowpayments":
+            return {"ok": False, "error": "PAYMENT_PROVIDER_MISMATCH"}
+        if order.get("providerPaymentId") and str(order.get("providerPaymentId")) != payment_id:
+            return {"ok": False, "error": "PROVIDER_PAYMENT_ID_MISMATCH"}
+        if str((provider_payment or {}).get("order_id") or "") != order_id:
+            return {"ok": False, "error": "PROVIDER_ORDER_ID_MISMATCH"}
+        if provider_payment.get("invoice_id") is not None and str(provider_payment.get("invoice_id")) != str(order.get("providerInvoiceId") or ""):
+            return {"ok": False, "error": "PROVIDER_INVOICE_ID_MISMATCH"}
+        try:
+            provider_price_matches = Decimal(str(provider_payment.get("price_amount"))) == Decimal(str(order.get("priceAmount")))
+        except Exception:
+            provider_price_matches = False
+        if not provider_price_matches or str(provider_payment.get("price_currency") or "").lower() != str(order.get("priceCurrency") or "").lower():
+            return {"ok": False, "error": "PROVIDER_PRICE_MISMATCH"}
         if order.get("status") == "paid" or purchase_snap.exists and (purchase_snap.to_dict() or {}).get("status") == "activated":
             return {"ok": True, "already_settled": True, "purchaseId": order_id}
-        if order.get("status") not in ("pending", "confirming", "underpaid", "paid_pending_activation"):
+        if order.get("status") not in ("pending", "reconciliation_pending", "confirming", "underpaid", "paid_pending_activation"):
             return {"ok": False, "error": "PAYMENT_ORDER_NOT_SETTLEABLE"}
         if redeemed_snap.exists:
             return {"ok": False, "error": "PROVIDER_PAYMENT_ALREADY_REDEEMED"}

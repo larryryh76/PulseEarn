@@ -4,3 +4,4 @@ flask-cors
 requests
 google-cloud-firestore
 google-auth
+eth-account>=0.13.7,<0.14

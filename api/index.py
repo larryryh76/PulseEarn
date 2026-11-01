@@ -9209,36 +9209,9 @@ def mine_state():
     )
     counts = u.get('toolOwnershipCounts') or {}
     qual = int(u.get('qualifiedReferralsCount') or 0)
-    # Pending purchases (awaiting_payment / transaction_submitted / confirming):
-    # the client uses this to RESUME an in-flight purchase after a refresh
-    # instead of creating a second intent. Read-only projection of the user's
-    # own records; amounts come verbatim from the stored quote.
-    pending_purchases = []
-    try:
-        pur_rows = db.collection('psemine_purchases').where('userId', '==', uid) \
-            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming', 'manual_review', 'submission_uncertain']).get()
-        for pr in pur_rows:
-            pd = pr.to_dict() or {}
-            pending_purchases.append({
-                'purchaseId': pr.id,
-                'toolId': pd.get('toolId'),
-                'toolName': pd.get('toolName'),
-                'status': pd.get('status'),
-                'quoteId': pd.get('quoteId'),
-                'paymentWallet': pd.get('paymentWallet'),
-                'receiverWallet': pd.get('receiverWallet'),
-                'quotedBNBAmount': pd.get('quotedBNBAmount'),
-                'quotedBNBWei': pd.get('quotedBNBWei'),
-                'chainId': pd.get('chainId'),
-                'expiresAt': pd.get('expiresAt'),
-                'transactionHash': pd.get('transactionHash'),
-            })
-    except Exception:
-        logging.warning("[PSEmine State] pending-purchase projection failed", exc_info=True)
     from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
-    campaign_state = {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None
-    if campaign_state is not None:
-        campaign_state['purchaseReady'] = bool(_configured_psemine_receiver_wallet(camp))
+    from psemine_public import public_campaign_view
+    campaign_state = public_campaign_view(camp) if camp else None
     return jsonify({
         "success": True,
         "user": {
@@ -9251,11 +9224,9 @@ def mine_state():
             "totalCapacityGBPPerHour": round(compute_total_capacity_minor(counts, qual) / 100.0, 2),
             "qualifiedReferralsCount": qual,
             "payoutWallet": u.get('payoutWallet'),
-            "connectedWallet": u.get('connectedWallet'),
             "status": u.get('status'),
         },
         "tools": tools,
-        "pendingPurchases": pending_purchases,
         "campaign": campaign_state,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},

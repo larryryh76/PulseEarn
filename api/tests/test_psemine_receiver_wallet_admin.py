@@ -35,7 +35,7 @@ class TestPSEMineHostedCheckoutMigration(unittest.TestCase):
         )
         for route in routes:
             start = API.index(f"@app.route('{route}'")
-            next_route = API.find("\\n@app.route(", start + 1)
+            next_route = API.find("\n@app.route(", start + 1)
             handler = API[start: next_route if next_route >= 0 else len(API)]
             self.assertIn('"error": "PAYMENT_FLOW_RETIRED"', handler, route)
             self.assertIn("}), 410", handler, route)
@@ -79,13 +79,13 @@ class TestPSEMineHostedCheckoutMigration(unittest.TestCase):
 
     def test_user_payout_pipeline_remains_separate_from_purchase_checkout(self):
         withdrawal_start = API.index("def mine_create_withdrawal():")
-        withdrawal_end = API.index("\\n@app.route(", withdrawal_start)
+        withdrawal_end = API.index("\n@app.route(", withdrawal_start)
         withdrawal = API[withdrawal_start:withdrawal_end]
         self.assertIn("fetch_psemine_bnb_gbp_quote()", withdrawal)
         self.assertIn("expectedAmountWei", withdrawal)
         self.assertIn('"amountBnb": payout_quote["amountBnb"]', withdrawal)
         review_start = API.index("def admin_psemine_review_withdrawal(")
-        review_end = API.index("\\n@app.route(", review_start)
+        review_end = API.index("\n@app.route(", review_start)
         review = API[review_start:review_end]
         self.assertIn("PAYOUT_INSUFFICIENT_CONFIRMATIONS", review)
         self.assertIn("PAYOUT_AMOUNT_MISMATCH", review)

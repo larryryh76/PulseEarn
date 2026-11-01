@@ -332,8 +332,8 @@ export const AdminPSEMine: React.FC = () => {
               <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs leading-5 text-amber-100">
                 <strong>Server configuration required.</strong> Add NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET as
                 server-only Vercel environment variables. Set NOWPAYMENTS_IPN_CALLBACK_URL to
-                https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn. Never paste provider secrets into this
-                dashboard or frontend configuration.
+                https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn, and set the same
+                PSEMINE_PAYMENT_CRON_SECRET in Vercel and GitHub Actions. Never paste secrets into this dashboard.
               </div>
             )}
             <p className="mt-3 text-xs leading-5 text-slate-500">

@@ -8892,20 +8892,19 @@ def admin_campaign_action():
     if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
 
     data = request.get_json() or {}
-    action = data.get('action') # 'pause', 'resume', 'schedule', 'settle', 'shutdown'
+    action = data.get('action') # 'set_purchase_enabled', 'pause', 'resume', 'schedule', 'settle', 'shutdown'
     reason = data.get('reason', 'Administrative decision')
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
-    if not camp_snap.exists and action == 'set_receiver_wallet':
-        # Wallet configuration must work on a fresh install too. This is an
-        # explicit authenticated admin write path; the public GET endpoints
-        # remain read-only and never bootstrap campaign data.
+    if not camp_snap.exists and action == 'set_purchase_enabled':
+        # Hosted purchase-gate configuration must work on a fresh install too.
+        # Public GET endpoints remain read-only and never bootstrap campaign data.
         try:
             psemine_ensure_canonical_data(db)
             camp_snap = camp_ref.get()
         except Exception:
-            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before receiver setup')
+            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before purchase-gate update')
     if not camp_snap.exists:
         return jsonify({
             "success": False,
@@ -8922,50 +8921,64 @@ def admin_campaign_action():
             "message": "Archived campaign cannot be transitioned."
         }), 400
 
-    if action == 'set_receiver_wallet':
-        if not is_admin(uid):
-            return jsonify({"success": False, "error": "ADMIN_REQUIRED",
-                            "message": "An authenticated platform admin is required to configure the campaign receiving wallet."}), 403
-        # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
-        raw_address = data.get('receiverWalletAddress')
-        if not isinstance(raw_address, str):
-            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "A valid BNB Smart Chain receiving address is required."}), 400
-        receiver_address = raw_address.strip()
-        if (len(receiver_address) != 42 or not receiver_address.startswith('0x') or
-                any(char not in '0123456789abcdefABCDEF' for char in receiver_address[2:]) or
-                receiver_address.lower() == '0x' + ('0' * 40)):
-            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
-        previous_address = str(camp_before.get('receiverWalletAddress') or '')
-        already_confirmed = (
-            camp_before.get('receiverWalletConfigured') is True
-            and bool(camp_before.get('receiverWalletConfiguredAt'))
-            and bool(camp_before.get('receiverWalletConfiguredBy'))
-        )
-        if previous_address.lower() == receiver_address.lower() and already_confirmed:
-            return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
+    if action == 'set_purchase_enabled':
+        enabled = data.get('enabled')
+        if not isinstance(enabled, bool):
+            return jsonify({"success": False, "error": "INVALID_PURCHASE_GATE",
+                            "message": "Provide enabled as true or false."}), 400
+        enabled_currencies = list(camp_before.get("enabledPaymentCurrencies") or [])
+        if enabled:
+            public_base = str(os.environ.get("PUBLIC_BASE_URL") or "https://pulseearn.online").strip().rstrip("/")
+            callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
+                               f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
+            api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+            ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+            provider_ready = bool(api_key and ipn_secret and callback_url.startswith("https://"))
+            if not provider_ready:
+                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
+                                "message": "Configure the hosted payment provider server credentials before enabling purchases."}), 409
+            if current_status != 'active':
+                return jsonify({"success": False, "error": "CAMPAIGN_NOT_ACTIVE",
+                                "message": "Purchases can only be enabled while the campaign is active."}), 409
+            try:
+                from psemine_payments_v2 import verify_merchant_account, provider_api_base
+                get_deps()
+                if requests is None:
+                    raise RuntimeError("HTTP client unavailable")
+                enabled_currencies = verify_merchant_account(
+                    api_key, api_base=provider_api_base(), http_get=requests.get
+                )
+            except Exception as exc:
+                logging.exception("[PSEmine Admin] NOWPayments merchant verification failed")
+                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_VERIFICATION_FAILED",
+                                "message": "NOWPayments credentials or merchant payment currencies could not be verified. Check the merchant account and enabled assets before enabling purchases."}), 409
         now_iso = datetime.now(timezone.utc).isoformat()
         camp_ref.update({
-            "receiverWalletAddress": receiver_address,
-            "receiverWalletConfigured": True,
-            "receiverWalletConfiguredAt": now_iso,
-            "receiverWalletConfiguredBy": uid,
+            "purchaseEnabled": enabled,
+            "purchasePaymentProvider": "nowpayments",
+            "enabledPaymentCurrencies": enabled_currencies,
+            "paymentProviderVerifiedAt": now_iso if enabled else camp_before.get("paymentProviderVerifiedAt"),
+            "paymentProviderKeyFingerprint": hashlib.sha256(
+                (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
+                 str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" +
+                 callback_url).encode()
+            ).hexdigest()[:20] if enabled else camp_before.get("paymentProviderKeyFingerprint"),
+            "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
+            "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),
             "updatedAt": now_iso,
         })
         db.collection('admin_audit_logs').add({
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "adminId": uid,
-            "action": "PSEMINE_RECEIVER_WALLET_UPDATED",
+            "timestamp": firestore.SERVER_TIMESTAMP, "adminId": uid,
+            "action": "PSEMINE_HOSTED_PURCHASES_ENABLED" if enabled else "PSEMINE_HOSTED_PURCHASES_DISABLED",
             "targetEntity": "psemine_campaigns/active_campaign",
-            "metadata": {
-                "reason": str(reason)[:240],
-                "previousReceiverWalletAddress": previous_address,
-                "newReceiverWalletAddress": receiver_address,
-                "appliesTo": "new_quotes_only",
-                "existingQuotesPreserved": True,
-            }
+            "metadata": {"reason": str(reason)[:240], "provider": "nowpayments", "enabled": enabled},
         })
-        return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
-                        "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
+        return jsonify({"success": True, "action": action, "purchaseEnabled": enabled,
+                        "paymentProvider": "nowpayments", "timestamp": now_iso})
+
+    if action == 'set_receiver_wallet':
+        return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
+                        "message": "Campaign receiver wallets are no longer configured in PulseEarn. Configure the merchant payout wallet in the hosted payment provider."}), 410
 
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance

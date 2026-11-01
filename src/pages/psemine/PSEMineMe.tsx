@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
+import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
-import { campaignStatusView, timeAgo } from '../../components/psemine/pseCore';
+import { campaignStatusView, shortAddr, timeAgo } from '../../components/psemine/pseCore';
 import {
   PseButton, PseEmptyNote, PseFact, PseFacts, PseField, PseInput, PseNotice,
   PsePage, PseSection, PseSkeleton, PseSplit, PseStack, PseStatus,
@@ -24,6 +25,7 @@ import { mapAuthError } from '../../utils/errors';
  */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout, hasPSEmineAccess } = usePSEMineAuth();
+  const { connectedWallet, walletTransport } = usePSEMine();
   const { state, campaignStatus, loading, activities, notifications, feedErrors, refreshFeed } = usePseState();
   const navigate = useNavigate();
 
@@ -187,7 +189,7 @@ export const PSEMineMe: React.FC = () => {
                 label="Connected wallet"
                 value={walletsPending
                   ? <PseSkeleton width="9ch" height="0.875rem" />
-                  : 'Not required for hosted checkout'}
+                  : connectedWallet ? `${shortAddr(connectedWallet)}${walletTransport === 'walletConnect' ? ' · WalletConnect' : ''}` : 'Not connected'}
                 text={!walletsPending}
               />
               <PseFact

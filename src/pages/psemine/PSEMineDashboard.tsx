@@ -196,7 +196,7 @@ export const PSEMineDashboard: React.FC = () => {
             {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review'
               ? 'A payment needs administrator reconciliation. Do not send another payment.'
               : pendingPaymentOrder.status === 'reconciliation_pending' || pendingPaymentOrder.status === 'confirming'
-                ? 'Your payment has been received and is being verified. Tool activation follows provider confirmation.'
+                ? 'We are checking the provider's final status for this invoice. Please do not pay again while this check is pending.'
                 : pendingPaymentOrder.status === 'underpaid'
                   ? 'The invoice reports an incomplete payment. Open the same tool checkout to review its current status.'
                   : 'You have a secure checkout waiting for this tool. You can resume it without creating a second order.'}

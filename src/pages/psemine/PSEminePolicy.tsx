@@ -252,7 +252,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
       },
       {
         id: 'quote',
-        h: 'The quote, and why the amount moves',
+        h: 'The hosted invoice and crypto amount',
         p: [
           'A unit\u2019s price is fixed in GBP and does not change during a campaign. Checkout converts the server-priced order into the selected supported cryptocurrency using the provider rate shown on the invoice. Each invoice is time-limited; its expiry and exact amount are shown before you pay.',
           'The crypto amount and network fee can vary by asset and provider quote. If an invoice expires, start a new checkout rather than reusing an old payment address or amount.',
@@ -278,7 +278,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'activation',
         h: 'Verification and activation',
         p: [
-          'Once the transaction is confirmed on-chain it is verified, and the purchase moves through transaction submitted, confirming, confirmed and activated. A unit begins to add capacity at activation, not at the moment you sent the payment.',
+          'The provider notification is authenticated and the payment is independently retrieved and reconciled by the backend. Only a final, matching payment activates the unit. A unit begins to add capacity at activation, not when you leave the checkout page.',
         ],
       },
       {

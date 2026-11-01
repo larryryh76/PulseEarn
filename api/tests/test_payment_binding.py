@@ -224,6 +224,14 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.verify_handler = tfg._handler_body(self.source, "verify_psemine_tool_purchase")
         self.create_handler = tfg._handler_body(self.source, "mine_create_purchase")
 
+    def test_purchase_requires_a_quote_bound_wallet_ownership_signature(self):
+        self.assertIn("walletSignature", self.create_handler)
+        self.assertIn("verify_psemine_wallet_proof", self.create_handler)
+        self.assertIn("'walletProofVerified': True", self.create_handler)
+        self.assertIn("walletProofVerified", self.verify_handler)
+        self.assertIn("WALLET_PROOF_REQUIRED", self.create_handler)
+        self.assertIn("WALLET_PROOF_REQUIRED", self.verify_handler)
+
     def test_expired_submitted_hash_is_recorded_not_silently_discarded(self):
         self.assertIn("_flag_expired_purchase", self.verify_handler)
         self.assertIn("PAYMENT_REQUIRES_REVIEW", self.verify_handler)

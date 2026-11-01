@@ -156,7 +156,8 @@ export const AdminPSEMine: React.FC = () => {
 
   const toggleHostedPurchases = async () => {
     if (!isAdmin) { toast.error('Platform admin permission is required.'); return; }
-    const enabled = config?.purchaseEnabled !== true;
+    const reverify = config?.purchaseEnabled === true && config?.paymentProviderVerified !== true;
+    const enabled = config?.purchaseEnabled !== true || reverify;
     if (enabled && !config?.paymentProviderConfigured) {
       toast.error('Configure NOWPayments server credentials before enabling purchases.');
       return;
@@ -174,7 +175,7 @@ export const AdminPSEMine: React.FC = () => {
           reason: 'PSEmine hosted checkout admin control',
         }),
       });
-      toast.success(enabled ? 'Hosted crypto purchases enabled.' : 'New tool purchases disabled. Existing invoices can still settle.');
+      toast.success(reverify ? 'NOWPayments merchant account re-verified.' : enabled ? 'Hosted crypto purchases enabled.' : 'New tool purchases disabled. Existing invoices can still settle.');
       await load(true);
       await refreshCampaign();
     } catch (e) {
@@ -325,7 +326,7 @@ export const AdminPSEMine: React.FC = () => {
               <button type="button" onClick={() => void toggleHostedPurchases()}
                 disabled={!isAdmin || busy || (!config?.purchaseEnabled && !config?.paymentProviderConfigured) || (!config?.purchaseEnabled && campaign?.status !== 'active')}
                 className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:opacity-40">
-                {busy ? 'Saving…' : config?.purchaseEnabled ? 'Disable purchases' : 'Enable purchases'}
+                {busy ? 'Saving…' : config?.purchaseEnabled && !config?.paymentProviderVerified ? 'Re-verify provider' : config?.purchaseEnabled ? 'Disable purchases' : 'Enable purchases'}
               </button>
             </div>
             {!config?.paymentProviderConfigured && (

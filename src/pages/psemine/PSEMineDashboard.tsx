@@ -76,9 +76,9 @@ export const PSEMineDashboard: React.FC = () => {
     ? user.qualifiedReferralsCount
     : null;
   const ownedCount = ownedTools.length;
-  const paymentOrders = state?.paymentOrders ?? [];
-  const pendingPaymentOrder = paymentOrders.find(order =>
-    ['creating', 'pending', 'reconciliation_pending', 'confirming', 'underpaid', 'review'].includes(order.status)
+  const pendingPurchases = state?.pendingPurchases ?? [];
+  const pendingPaymentOrder = pendingPurchases.find(order =>
+    ['created', 'awaiting_payment', 'transaction_submitted', 'confirming', 'underpaid', 'manual_review'].includes(String(order.status))
   ) ?? null;
   const activeCount = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
   const payoutWallet = user?.payoutWallet ?? null;
@@ -190,16 +190,16 @@ export const PSEMineDashboard: React.FC = () => {
             </dl>
 
             {pendingPaymentOrder && (
-        <PseNotice tone={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'attention' : 'info'}
+        <PseNotice tone={Boolean(pendingPaymentOrder.reviewReason) || pendingPaymentOrder.status === 'manual_review' ? 'attention' : 'info'}
           title={pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'Payment needs review' : 'Checkout in progress'}>
           <p>
             {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review'
               ? 'A payment needs administrator reconciliation. Do not send another payment.'
-              : pendingPaymentOrder.status === 'reconciliation_pending' || pendingPaymentOrder.status === 'confirming'
-                ? "We are checking the provider's final status for this invoice. Please do not pay again while this check is pending."
+              : pendingPaymentOrder.status === 'transaction_submitted' || pendingPaymentOrder.status === 'confirming'
+                ? "We are checking your BNB Smart Chain transaction and confirmations. Please do not send another payment while this check is pending."
                 : pendingPaymentOrder.status === 'underpaid'
                   ? 'The invoice reports an incomplete payment. Open the same tool checkout to review its current status.'
-                  : 'You have a secure checkout waiting for this tool. You can resume it without creating a second order.'}
+                  : 'You have a purchase waiting for payment. Resume the same purchase to avoid creating a duplicate order.'}
           </p>
           <Link className="pse-inline-link" to="/mine/tools">
             {pendingPaymentOrder.reviewRequired || pendingPaymentOrder.status === 'review' ? 'View tools and status' : 'Resume checkout'}

@@ -298,12 +298,14 @@ export interface PseHostedPaymentOrder {
   priceAmount: string;
   priceCurrency: string;
   expiresAt: string;
+  status?: string;
+  existing?: boolean;
 }
 
 export interface PseHostedPaymentStatus {
   success: boolean;
   orderId: string;
-  status: 'creating' | 'pending' | 'confirming' | 'paid' | 'underpaid' | 'expired' | 'failed' | 'refunded' | 'review';
+  status: 'creating' | 'pending' | 'reconciliation_pending' | 'confirming' | 'paid' | 'underpaid' | 'expired' | 'failed' | 'refunded' | 'review';
   toolId?: string;
   toolName?: string;
   priceAmount?: string;

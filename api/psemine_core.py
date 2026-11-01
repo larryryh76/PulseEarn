@@ -666,10 +666,11 @@ def referral_doc_id(referrer_id: str, referred_user_id: str) -> str:
     return f"ref_{referrer_id}_{referred_user_id}"
 
 
-REFERRAL_STAGES = ("registered", "wallet_connected", "tool_purchased", "mining_active", "qualified")
+REFERRAL_STAGES = ("registered", "tool_purchased", "mining_active", "qualified")
 
-# Legacy vocabulary found in production docs (v1/v2 writers used both).
-LEGACY_REFERRAL_STAGE_ALIASES = {"pending": "registered"}
+# Legacy vocabulary from the retired direct-wallet checkout is mapped to
+# registered so existing referrals can continue without requiring a wallet bind.
+LEGACY_REFERRAL_STAGE_ALIASES = {"pending": "registered", "wallet_connected": "registered"}
 
 
 def _canonical_referral_stage(stage: str) -> str:
@@ -686,12 +687,19 @@ def referral_stage_rank(stage: str) -> int:
 
 
 def is_valid_referral_progression(current: str, new: str) -> bool:
-    """Stages may only advance forward (never backwards). Legacy 'pending' == 'registered'."""
-    if new not in REFERRAL_STAGES:
+    """Stages may only advance forward; legacy stage aliases remain readable."""
+    # Historical clients emitted wallet_connected after registered. Accept that
+    # idempotent compatibility update, then canonicalize both sides before the
+    # monotonic progression check so aliases never create a false rejection.
+    if current == "registered" and new == "wallet_connected":
+        return True
+    canonical_new = _canonical_referral_stage(new)
+    canonical_current = _canonical_referral_stage(current)
+    if canonical_new not in REFERRAL_STAGES:
         return False
-    if current not in REFERRAL_STAGES and current not in LEGACY_REFERRAL_STAGE_ALIASES:
-        return new == "registered"
-    return referral_stage_rank(new) > referral_stage_rank(current)
+    if canonical_current not in REFERRAL_STAGES:
+        return canonical_new == "registered"
+    return referral_stage_rank(canonical_new) > referral_stage_rank(canonical_current)
 
 
 # ----------------------------------------------------------------------------

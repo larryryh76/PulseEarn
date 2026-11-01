@@ -184,7 +184,6 @@ export class PSEMineEngine {
       totalAccruedGBP: 0,
       lastAccruedAt: now,
       miningStartedAt: null,
-      connectedWallet: null,
       payoutWallet: null,
       payoutWalletUpdatedAt: null,
       qualifiedReferralsCount: 0,
@@ -355,8 +354,9 @@ export class PSEMineEngine {
    * (Phase 1: clients no longer write psemine_purchases directly.)
    */
   public static async createPurchaseIntent(
-    quote: PSEMineQuote, 
-    paymentWallet: string
+    quote: PSEMineQuote,
+    paymentWallet: string,
+    walletSignature: string,
   ): Promise<PSEMinePurchase> {
     const tool = LOCKED_PSEMINE_TOOLS[quote.toolId];
     const { getAuth } = await import('firebase/auth');
@@ -372,7 +372,7 @@ export class PSEMineEngine {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet })
+      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet, walletSignature })
     });
 
     const data = await res.json().catch(() => ({}));

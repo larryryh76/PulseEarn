@@ -19,8 +19,9 @@
     "probe:route": "bun scripts/pse-probe.mjs",
     "metrics:db": "bun scripts/pse-db-metrics.mjs",
     "firebase:check": "bun scripts/check-firebase-infra.mjs",
-    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs",
-    "verify:wallet-recovery": "bun scripts/pse-wallet-recovery-check.mjs && bun scripts/pse-wallet-handoff-check.mjs"
+    "verify:payments": "bunx vite build",
+    "verify:wallet": "npm run verify:payments",
+    "verify:wallet-recovery": "npm run verify:payments"
   },
   "dependencies": {
     "@reown/appkit": "1.8.24",

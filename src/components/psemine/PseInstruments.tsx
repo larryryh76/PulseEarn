@@ -894,98 +894,89 @@ const NetworkMark: React.FC<{ size?: number }> = ({ size = 18 }) => (
  */
 export const PaymentConsole: React.FC<{
   tier: PseTierView;
-  network: string;
-  asset: string;
-  /** The GBP price of the illustrated purchase. */
+  /** The fixed GBP price of the illustrated purchase. */
   priceGBP: number;
-  /** The scenario conversion rate, GBP per unit of the asset. */
-  rateGBP: number;
-}> = ({ tier, network, asset, priceGBP, rateGBP }) => {
-  const amount = priceGBP / rateGBP;
+}> = ({ tier, priceGBP }) => (
+  <Reveal className="pse-pay" delay={80}>
+    <div className="pse-pay-bar">
+      <span className="pse-pay-bar-title">Secure checkout</span>
+      <span className="pse-pay-bar-id">Unit · {tier.name}</span>
+      <span className="pse-chip" data-tone="bnb">
+        <span className="pse-chip-dot" aria-hidden="true" />
+        Crypto
+      </span>
+    </div>
 
-  return (
-    <Reveal className="pse-pay" delay={80}>
-      <div className="pse-pay-bar">
-        <span className="pse-pay-bar-title">Purchase</span>
-        <span className="pse-pay-bar-id">Unit · {tier.name}</span>
-        <span className="pse-chip" data-tone="bnb">
-          <span className="pse-chip-dot" aria-hidden="true" />
-          {asset}
+    <div className="pse-pay-body">
+      <div className="pse-pay-unit">
+        <span className="pse-pay-unit-art">
+          <PseTierModule tier={tier.tier} continuous={tier.continuous} width={86} />
+        </span>
+        <span className="pse-pay-unit-id">
+          <span className="pse-micro">{`Tier ${String(tier.tier).padStart(2, '0')}`}</span>
+          <span className="pse-h3">{tier.name}</span>
+          <span className="pse-pay-unit-rate">{`${tier.rate} · ${tier.continuous ? 'continuous' : 'session'} duty`}</span>
         </span>
       </div>
 
-      <div className="pse-pay-body">
-        <div className="pse-pay-unit">
-          <span className="pse-pay-unit-art">
-            <PseTierModule tier={tier.tier} continuous={tier.continuous} width={86} />
-          </span>
-          <span className="pse-pay-unit-id">
-            <span className="pse-micro">{`Tier ${String(tier.tier).padStart(2, '0')}`}</span>
-            <span className="pse-h3">{tier.name}</span>
-            <span className="pse-pay-unit-rate">{`${tier.rate} · ${tier.continuous ? 'continuous' : 'session'} duty`}</span>
-          </span>
+      <div className="pse-pay-amount">
+        <div className="pse-pay-amount-side">
+          <span className="pse-micro">Price · fixed</span>
+          <span className="pse-metric">{tier.price || `£${priceGBP.toFixed(2)}`}</span>
+          <span className="pse-pay-amount-note">Set in GBP. The tool price does not move with crypto markets.</span>
         </div>
 
-        <div className="pse-pay-amount">
-          <div className="pse-pay-amount-side">
-            <span className="pse-micro">Price · fixed</span>
-            <span className="pse-metric">{tier.price}</span>
-            <span className="pse-pay-amount-note">Set in GBP. It does not move with the market.</span>
-          </div>
-
-          <span className="pse-pay-amount-link" aria-hidden="true">
-            <span className="pse-pay-amount-line" />
-            <span className="pse-pay-amount-rate">
-              {`1 ${asset} = £${rateGBP.toFixed(2)}`}
-              <span className="pse-pay-amount-rate-note">indicative rate</span>
-            </span>
-            <span className="pse-pay-amount-line" />
+        <span className="pse-pay-amount-link" aria-hidden="true">
+          <span className="pse-pay-amount-line" />
+          <span className="pse-pay-amount-rate">
+            Hosted invoice
+            <span className="pse-pay-amount-rate-note">secure provider checkout</span>
           </span>
+          <span className="pse-pay-amount-line" />
+        </span>
 
-          <div className="pse-pay-amount-side">
-            <span className="pse-micro">Amount · {asset}</span>
-            <span className="pse-metric pse-pay-amount-quoted">{amount.toFixed(8)}</span>
-            <span className="pse-pay-amount-note">
-              An indicative conversion. Your quote issues the exact amount at the rate of that quote, and shows what is
-              left of its own time limit.
-            </span>
-          </div>
-        </div>
-
-        <div className="pse-pay-net">
-          <span className="pse-pay-net-mark">
-            <NetworkMark />
-          </span>
-          <span className="pse-pay-net-id">
-            <span className="pse-pay-net-name">{network}</span>
-            <span className="pse-pay-net-note">You send from your own wallet. PSEmine never holds your keys.</span>
+        <div className="pse-pay-amount-side">
+          <span className="pse-micro">Payment choice</span>
+          <span className="pse-metric pse-pay-amount-quoted">Choose crypto</span>
+          <span className="pse-pay-amount-note">
+            Select an available cryptocurrency and network on the invoice. The exact amount is shown before you pay.
           </span>
         </div>
-
-        <ol className="pse-pay-states" aria-label="The four states of a PSEmine purchase">
-          {['Quoted', 'Awaiting payment', 'Confirmed on-chain', 'Unit activated'].map((state, i) => (
-            <li key={state} className="pse-pay-state" data-active={i === 0 ? 'true' : undefined}>
-              <span className="pse-pay-state-node" aria-hidden="true" />
-              <span className="pse-pay-state-name">{state}</span>
-            </li>
-          ))}
-        </ol>
       </div>
 
-      <div className="pse-pay-foot">
-        <Link className="pse-btn pse-btn--block" to="/mine/signup">
-          Open an account for a quote
-          <span className="pse-btn-arrow" aria-hidden="true">
-            →
-          </span>
-        </Link>
-        <span className="pse-pay-foot-note">
-          Drawn from the published price list: your own quote states its live amount and its time limit.
+      <div className="pse-pay-net">
+        <span className="pse-pay-net-mark">
+          <NetworkMark />
+        </span>
+        <span className="pse-pay-net-id">
+          <span className="pse-pay-net-name">No wallet connection required</span>
+          <span className="pse-pay-net-note">Pay from the wallet you prefer. PulseEarn never asks for your keys or seed phrase.</span>
         </span>
       </div>
-    </Reveal>
-  );
-};
+
+      <ol className="pse-pay-states" aria-label="The four states of a PSEmine purchase">
+        {['Order created', 'Asset selected', 'Payment confirmed', 'Tool activated'].map((state, i) => (
+          <li key={state} className="pse-pay-state" data-active={i === 0 ? 'true' : undefined}>
+            <span className="pse-pay-state-node" aria-hidden="true" />
+            <span className="pse-pay-state-name">{state}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <div className="pse-pay-foot">
+      <Link className="pse-btn pse-btn--block" to="/mine/signup">
+        Open an account for secure checkout
+        <span className="pse-btn-arrow" aria-hidden="true">→</span>
+      </Link>
+      <span className="pse-pay-foot-note">
+        Available assets and networks depend on the merchant checkout configuration.
+      </span>
+    </div>
+  </Reveal>
+);
+
+/* ── The settlement statement ───────────────────────────────────────────── */
 
 /* ── The settlement statement ───────────────────────────────────────────── */
 

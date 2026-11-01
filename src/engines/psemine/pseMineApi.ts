@@ -89,16 +89,26 @@ export interface PseStateTool {
 export interface PseStateCampaign {
   id?: string; name?: string; status?: string; startAt?: string; endAt?: string; durationDays?: number;
   purchaseEnabled?: boolean; miningEnabled?: boolean; referralEnabled?: boolean;
-  paymentNetwork?: string; purchaseReady?: boolean;
+  purchaseReady?: boolean;
 }
-/** An in-flight purchase the client can RESUME after a refresh instead of
- *  creating a second purchase intent. Read-only projection of the user's own
- *  records; amounts come verbatim from the stored quote. */
+/** A hosted crypto checkout order owned by the authenticated user. */
+export interface PseStatePaymentOrder {
+  orderId: string;
+  toolId: string;
+  toolName: string;
+  status: string;
+  priceAmount?: string | number;
+  priceCurrency?: string;
+  checkoutUrl?: string;
+  expiresAt?: string;
+  reviewRequired?: boolean;
+}
 export interface PseState {
   success: boolean;
   user: PseStateUser;
   tools: PseStateTool[];
   campaign: PseStateCampaign | null;
+  paymentOrders?: PseStatePaymentOrder[];
   effectiveCampaignStatus: string;
   checkpoint?: { earnedMinor?: number; duplicate?: boolean };
   serverTimeMs: number;

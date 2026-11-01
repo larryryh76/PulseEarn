@@ -184,7 +184,6 @@ export class PSEMineEngine {
       totalAccruedGBP: 0,
       lastAccruedAt: now,
       miningStartedAt: null,
-      connectedWallet: null,
       payoutWallet: null,
       payoutWalletUpdatedAt: null,
       qualifiedReferralsCount: 0,

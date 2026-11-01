@@ -335,6 +335,17 @@ export const AdminPSEMine: React.FC = () => {
                 https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn. Never paste secrets into this dashboard.
               </div>
             )}
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Merchant-enabled payment currencies</div>
+              <div className="mt-1 text-xs text-white">
+                {Array.isArray(config?.enabledPaymentCurrencies) && config.enabledPaymentCurrencies.length
+                  ? config.enabledPaymentCurrencies.join(' · ')
+                  : 'Not verified yet — enable purchases to validate the merchant account.'}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                {config?.paymentProviderVerifiedAt ? 'Verified ' + new Date(config.paymentProviderVerifiedAt).toLocaleString() : 'Merchant verification pending'}
+              </div>
+            </div>
             <p className="mt-3 text-xs leading-5 text-slate-500">
               Scheduled backup reconciliation: {config?.scheduledReconciliationConfigured ? 'configured' : 'not configured'}.
               Without the optional backup secret, signed payment events are still reconciled when the customer returns

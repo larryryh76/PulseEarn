@@ -72,7 +72,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 export interface PseStateUser {
   accruedMinor: number; accruedGBP: number; debitedMinor: number; availableMinor: number;
   toolCapacityGBPPerHour: number; referralCapacityGBPPerHour: number; totalCapacityGBPPerHour: number;
-  qualifiedReferralsCount: number; payoutWallet: string | null;
+  qualifiedReferralsCount: number; payoutWallet: string | null; connectedWallet: string | null;
   status?: string;
 }
 export interface PseStateTool {
@@ -89,26 +89,34 @@ export interface PseStateTool {
 export interface PseStateCampaign {
   id?: string; name?: string; status?: string; startAt?: string; endAt?: string; durationDays?: number;
   purchaseEnabled?: boolean; miningEnabled?: boolean; referralEnabled?: boolean;
-  purchaseReady?: boolean;
+  receiverWalletAddress?: string; paymentNetwork?: string; purchaseReady?: boolean;
 }
-/** A hosted crypto checkout order owned by the authenticated user. */
-export interface PseStatePaymentOrder {
-  orderId: string;
-  toolId: string;
-  toolName: string;
-  status: string;
-  priceAmount?: string | number;
-  priceCurrency?: string;
-  checkoutUrl?: string;
+/** An in-flight purchase the client can RESUME after a refresh instead of
+ *  creating a second purchase intent. Read-only projection of the user's own
+ *  records; amounts come verbatim from the stored quote. */
+export interface PsePendingPurchase {
+  purchaseId: string;
+  toolId?: string;
+  toolName?: string;
+  status?: string;
+  quoteId?: string;
+  paymentWallet?: string | null;
+  receiverWallet?: string;
+  quotedBNBAmount?: number;
+  quotedBNBWei?: string;
+  chainId?: number;
   expiresAt?: string;
-  reviewRequired?: boolean;
+  transactionHash?: string | null;
+  recoveryCaseId?: string | null;
+  reviewReason?: string | null;
+  statusMessage?: string | null;
 }
 export interface PseState {
   success: boolean;
   user: PseStateUser;
   tools: PseStateTool[];
+  pendingPurchases?: PsePendingPurchase[];
   campaign: PseStateCampaign | null;
-  paymentOrders?: PseStatePaymentOrder[];
   effectiveCampaignStatus: string;
   checkpoint?: { earnedMinor?: number; duplicate?: boolean };
   serverTimeMs: number;
@@ -258,6 +266,7 @@ export interface PsePublicCampaign {
   paymentAsset?: string;
   paymentNetwork?: string;
   paymentChainId?: number;
+  receiverWalletAddress?: string;
   purchaseReady?: boolean;
   purchaseEnabled?: boolean;
   miningEnabled?: boolean;
@@ -285,53 +294,4 @@ export async function fetchPublicCampaign(): Promise<PsePublicCampaign> {
     throw pseHttpError(OPERATION_PUBLIC_CAMPAIGN, res.status, { error: 'CAMPAIGN_UNAVAILABLE' });
   }
   return data.campaign ?? {};
-}
-
-/* ── Hosted crypto checkout v2 ───────────────────────────────────────── */
-
-export interface PseHostedPaymentOrder {
-  success: boolean;
-  orderId: string;
-  checkoutUrl: string;
-  provider: string;
-  toolName: string;
-  priceAmount: string;
-  priceCurrency: string;
-  expiresAt: string;
-  status?: string;
-  existing?: boolean;
-}
-
-export interface PseHostedPaymentStatus {
-  success: boolean;
-  orderId: string;
-  status: 'creating' | 'pending' | 'reconciliation_pending' | 'confirming' | 'paid' | 'underpaid' | 'expired' | 'failed' | 'refunded' | 'review';
-  toolId?: string;
-  toolName?: string;
-  priceAmount?: string;
-  priceCurrency?: string;
-  checkoutUrl?: string;
-  expiresAt?: string;
-}
-
-export async function createHostedPaymentInvoice(toolId: string): Promise<PseHostedPaymentOrder> {
-  const data = await requestJson<PseHostedPaymentOrder>('/api/mine/payments/v2/invoices', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ toolId }),
-  });
-  if (!data?.success || !data.orderId || !data.checkoutUrl) {
-    throw pseDataError('POST /api/mine/payments/v2/invoices');
-  }
-  return data;
-}
-
-export async function fetchHostedPaymentStatus(orderId: string): Promise<PseHostedPaymentStatus> {
-  const data = await requestJson<PseHostedPaymentStatus>(
-    `/api/mine/payments/v2/orders/${encodeURIComponent(orderId)}`,
-  );
-  if (!data?.success || !data.orderId || !data.status) {
-    throw pseDataError('GET /api/mine/payments/v2/orders/:orderId');
-  }
-  return data;
 }

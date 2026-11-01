@@ -84,11 +84,13 @@ class TestPSEminePaymentsV2Adapter(unittest.TestCase):
 
     def test_invoice_url_is_allowlisted_and_https_only(self):
         self.assertEqual(
-            invoice_response({"id": "inv-1", "invoice_url": "https://pay.example/inv-1"}),
-            {"providerInvoiceId": "inv-1", "checkoutUrl": "https://pay.example/inv-1"},
+            invoice_response({"id": "inv-1", "invoice_url": "https://nowpayments.io/payment/?iid=inv-1"}),
+            {"providerInvoiceId": "inv-1", "checkoutUrl": "https://nowpayments.io/payment/?iid=inv-1"},
         )
         with self.assertRaises(PaymentPayloadError):
             invoice_response({"id": "inv-1", "invoice_url": "javascript:alert(1)"})
+        with self.assertRaises(PaymentPayloadError):
+            invoice_response({"id": "inv-1", "invoice_url": "https://pay.example/inv-1"})
         with self.assertRaises(PaymentPayloadError):
             invoice_response({"id": "inv-1"})
 

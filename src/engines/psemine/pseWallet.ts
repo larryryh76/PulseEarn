@@ -36,6 +36,47 @@ export interface PseEip1193Provider {
 
 export type PseWalletTransport = 'injected' | 'walletConnect';
 
+/** A wallet session persisted for one authenticated Firebase account only. */
+export interface PseAccountWalletSession {
+  uid: string;
+  address: string;
+  transport: PseWalletTransport;
+  walletName?: string;
+}
+
+/**
+ * Read only the active account's wallet record. Reown itself persists sessions
+ * per origin, so this separate binding is required before a saved session may
+ * be silently restored or reused by a later login on the same browser.
+ */
+export const readAccountWalletSession = (
+  uid: string | null | undefined,
+  storage?: Pick<Storage, 'getItem'>,
+): PseAccountWalletSession | null => {
+  if (!uid) return null;
+  try {
+    const source = storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!source) return null;
+    const raw = source.getItem(`psemine_connected_wallet:${uid}`);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<PseAccountWalletSession>;
+    if (
+      value.uid !== uid ||
+      typeof value.address !== 'string' ||
+      !/^0x[0-9a-fA-F]{40}$/.test(value.address) ||
+      (value.transport !== 'injected' && value.transport !== 'walletConnect')
+    ) return null;
+    return {
+      uid,
+      address: value.address.toLowerCase(),
+      transport: value.transport,
+      ...(typeof value.walletName === 'string' ? { walletName: value.walletName } : {}),
+    };
+  } catch {
+    return null;
+  }
+};
+
 /** A discoverable injected wallet (EIP-6963 detail, or the fallback provider). */
 export interface PseInjectedWallet {
   id: string;

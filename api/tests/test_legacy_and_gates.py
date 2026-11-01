@@ -115,7 +115,7 @@ class TestLegacySurfaceInventory(unittest.TestCase):
         source = _read(INDEX_SRC)
         for function_name in ("psemine_create_order", "psemine_verify_payment"):
             start = source.index(f"def {function_name}():")
-            end = source.index("\\n@app.route(", start)
+            end = source.index("\n@app.route(", start)
             route = source[start:end]
             self.assertIn("LEGACY_PAYMENT_DISABLED", route)
             self.assertIn("), 410", route)

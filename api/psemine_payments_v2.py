@@ -38,10 +38,10 @@ def _https_url(value: str, field: str) -> str:
 
 
 def nowpayments_configured(env: Mapping[str, str] | None = None) -> bool:
-    """True only when both server-only credentials and a public callback exist."""
+    """True only when provider credentials, public callback and reconciler secret exist."""
     values = os.environ if env is None else env
     return all(str(values.get(key, "")).strip() for key in (
-        "NOWPAYMENTS_API_KEY", "NOWPAYMENTS_IPN_SECRET", "NOWPAYMENTS_IPN_CALLBACK_URL",
+        "NOWPAYMENTS_API_KEY", "NOWPAYMENTS_IPN_SECRET", "NOWPAYMENTS_IPN_CALLBACK_URL", "PSEMINE_PAYMENT_CRON_SECRET",
     ))
 
 

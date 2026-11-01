@@ -7898,20 +7898,19 @@ def admin_campaign_action():
     if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
 
     data = request.get_json() or {}
-    action = data.get('action') # 'pause', 'resume', 'schedule', 'settle', 'shutdown'
+    action = data.get('action') # 'set_purchase_enabled', 'pause', 'resume', 'schedule', 'settle', 'shutdown'
     reason = data.get('reason', 'Administrative decision')
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
     if not camp_snap.exists and action == 'set_purchase_enabled':
-        # Wallet configuration must work on a fresh install too. This is an
-        # explicit authenticated admin write path; the public GET endpoints
-        # remain read-only and never bootstrap campaign data.
+        # Hosted purchase-gate configuration must work on a fresh install too.
+        # Public GET endpoints remain read-only and never bootstrap campaign data.
         try:
             psemine_ensure_canonical_data(db)
             camp_snap = camp_ref.get()
         except Exception:
-            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before receiver setup')
+            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before purchase-gate update')
     if not camp_snap.exists:
         return jsonify({
             "success": False,

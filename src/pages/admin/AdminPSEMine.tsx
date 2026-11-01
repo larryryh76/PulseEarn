@@ -93,16 +93,12 @@ export const AdminPSEMine: React.FC = () => {
   // The backend remains authoritative on every write. The signed-in admin
   // profile is a UI fallback so a transient overview-load failure cannot leave
   // the confirmation controls permanently disabled.
-  const canConfigureReceiverWallet = config?.canConfigureReceiverWallet === true || role === 'admin';
   const isAdmin = config?.canManageCampaign === true || role === 'admin';
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [recovery, setRecovery] = useState<Row[]>([]);
   const [withdrawals, setWithdrawals] = useState<Row[]>([]);
   const [audit, setAudit] = useState<Row[]>([]);
-  const [walletInput, setWalletInput] = useState('');
-  const [walletAck, setWalletAck] = useState(false);
-  const [walletPhrase, setWalletPhrase] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [orderQuery, setOrderQuery] = useState('');
@@ -148,15 +144,14 @@ export const AdminPSEMine: React.FC = () => {
   }, [currentUser, request]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { setWalletInput(String(config?.receiverWalletAddress || '')); }, [config?.receiverWalletAddress]);
 
   const filteredOrders = useMemo(() => {
     const q = orderQuery.trim().toLowerCase();
     const verifiedOrderIds = new Set(payments.map(payment => String(payment.orderId || '')).filter(Boolean));
     return orders.filter(order => {
       const status = String(order.status || '').toLowerCase();
-      // A legacy order marked "paid" is not payment evidence. It is shown as
-      // paid only when the independent BSC receipt ledger contains its order ID.
+      // A paid order is counted only when the provider-settled payment feed
+      // contains the same immutable order ID.
       if (['paid', 'confirmed', 'completed', 'verified', 'success'].includes(status)
           && !verifiedOrderIds.has(String(order.id || order.orderId || ''))) return false;
       return !q || [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
@@ -181,22 +176,6 @@ export const AdminPSEMine: React.FC = () => {
       await refreshCampaign();
       await load(true);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Campaign action failed.'); }
-    finally { setBusy(false); }
-  };
-
-  const saveWallet = async () => {
-    if (!canConfigureReceiverWallet) { toast.error('Your account needs platform admin permission to configure the campaign receiver.'); return; }
-    const address = walletInput.trim();
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address) || /^0x0{40}$/i.test(address)) { toast.error('Enter a valid, non-zero BNB Smart Chain address.'); return; }
-    if (!walletAck) { toast.error('Confirm that you verified the receiving wallet and network.'); return; }
-    if (walletPhrase.trim() !== 'CONFIRM RECEIVER') { toast.error('Type CONFIRM RECEIVER to save the payment destination.'); return; }
-    setBusy(true);
-    try {
-      await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_receiver_wallet', receiverWalletAddress: address, reason: 'PSEmine operations configuration' }) });
-      toast.success('Campaign receiving wallet saved. New purchase quotes can now be issued.');
-      setWalletAck(false); setWalletPhrase('');
-      await load(true);
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Wallet configuration failed.'); }
     finally { setBusy(false); }
   };
 
@@ -256,7 +235,7 @@ export const AdminPSEMine: React.FC = () => {
       <div className="mx-auto max-w-[1500px] space-y-5">
         <header className="overflow-hidden rounded-3xl border border-cyan-400/15 bg-[radial-gradient(ellipse_at_top_left,rgba(36,115,190,.22),transparent_55%),linear-gradient(135deg,#101a2c,#090e19_70%)] p-5 sm:p-7">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div><div className="text-[10px] font-bold tracking-[.24em] text-cyan-300">PULSE EARN / PSEMINE</div><h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Operations command centre</h1><p className="mt-2 max-w-3xl text-sm text-slate-400">Campaign controls, receiving wallet, tool capacity, verified purchases, payment recovery, payouts and audit history — all visible on one page.</p></div>
+            <div><div className="text-[10px] font-bold tracking-[.24em] text-cyan-300">PULSE EARN / PSEMINE</div><h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Operations command centre</h1><p className="mt-2 max-w-3xl text-sm text-slate-400">Campaign controls, hosted crypto checkout, confirmed tool revenue, payment recovery, payouts and audit history — all visible on one page.</p></div>
             <div className="flex items-center gap-3"><div className="text-right"><Pill value={loadState === 'ready' ? 'Connected' : loadState === 'partial' ? 'Partial data' : loadState === 'error' ? 'Unavailable' : 'Loading'} /><div className="mt-1 text-[10px] text-slate-500">{loadedAt ? `Updated ${dateText(loadedAt)}` : 'Waiting for first sync'}</div></div><button onClick={() => void load()} disabled={busy || loadState === 'loading'} className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50">Refresh data</button></div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2 text-xs"><Pill value={campaignStatus} /><span className="text-slate-500">Campaign timezone: Europe/London</span><span className="text-slate-500">·</span><span className="text-slate-500">Signed-in role: {role || 'not reported'}</span></div>
@@ -265,8 +244,8 @@ export const AdminPSEMine: React.FC = () => {
         {loadErrors.length > 0 && <div className="rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-4"><div className="font-medium text-amber-200">Some operational data could not be loaded</div><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-100/80">{loadErrors.map(x => <li key={x}>{x}</li>)}</ul><p className="mt-2 text-xs text-slate-400">Unavailable data is not treated as zero. The error for each register is shown above.</p></div>}
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Stat label="Total tool income" value={incomeReady ? money(income) : 'Unavailable'} note={incomeReady ? "Real on-chain confirmed tool payments only" : "Reconciliation incomplete — total withheld"} emphasis />
-          <Stat label="Confirmed tool payments" value={fmtStat(mineStats.totalConfirmedPayments ?? stats.totalConfirmedPayments)} note="Successful on-chain verification" />
+          <Stat label="Total tool income" value={incomeReady ? money(income) : 'Unavailable'} note={incomeReady ? "Settled provider-confirmed crypto orders only" : "Reconciliation incomplete — total withheld"} emphasis />
+          <Stat label="Confirmed tool payments" value={fmtStat(mineStats.totalConfirmedPayments ?? stats.totalConfirmedPayments)} note="Successful provider API reconciliation" />
           <Stat label="Active tool ownerships" value={fmtStat(mineStats.activeToolOwnerships ?? stats.activeToolOwnerships)} />
           <Stat label="Active mining sessions" value={fmtStat(mineStats.activeMiningSessions ?? stats.activeMiningSessions)} />
           <Stat label="Accrued liability" value={money(stats.totalAccruedLiabilityGBP)} note="Recorded eligible earnings" />
@@ -288,18 +267,41 @@ export const AdminPSEMine: React.FC = () => {
             </div>
             <details className="mt-3 rounded-xl border border-white/10 p-3"><summary className="cursor-pointer text-xs font-medium text-cyan-200">Show every backend campaign metric</summary><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(stats).map(([key, value]) => <div key={key} className="rounded-lg bg-white/[.03] p-2"><div className="break-all text-[10px] text-slate-500">{key}</div><div className="mt-1 break-all text-sm text-white">{fmtStat(value)}</div></div>)}</div></details>
           </Panel>
-          <Panel id="ops-settings" title="Purchase receiving wallet" detail="Campaign receiving destination — not a user's personal payout wallet and distinct from payout destinations.">
-            <div className="flex flex-wrap items-center justify-between gap-2"><Pill value={config?.purchaseReady ? 'Purchases enabled' : 'Purchases blocked'} /><span className="text-[11px] text-slate-500">Network ID: {config?.paymentChainId ?? 56}</span></div>
-            <div className="mt-3 break-all rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-cyan-100">{config?.receiverWalletAddress || 'No receiving address is configured'}</div>
-            <div className="mt-2 text-xs text-slate-400">{config?.receiverWalletConfigured ? `Confirmed ${dateText(config.receiverWalletConfiguredAt)}` : 'The receiving address has not been confirmed by an admin. New tool purchase quotes remain blocked.'}</div>
-            {!canConfigureReceiverWallet && <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs text-amber-100"><strong>Admin permission required.</strong> Your current profile role is “{role || 'not reported'}”. The authenticated backend permits the platform admin role to configure this wallet. If this control remains unavailable, refresh the admin session and inspect the permission error returned by the server.</div>}
-            <label className="mt-4 block text-xs font-medium text-slate-300">BNB Smart Chain receiving address</label>
-            <input value={walletInput} onChange={e => setWalletInput(e.target.value)} placeholder="0x…" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-3 font-mono text-xs text-white outline-none focus:border-cyan-400/50 disabled:opacity-50" />
-            <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!canConfigureReceiverWallet || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
-            <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
-            <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
-            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
+          <Panel id="ops-settings" title="Crypto checkout provider" detail="Hosted checkout is used for tool purchases. Customer wallet connections are not required.">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Pill value={config?.paymentProviderConfigured ? 'NOWPayments configured' : 'Provider credentials missing'} />
+              <span className="text-[11px] text-slate-500">Pricing currency: {config?.priceCurrency || 'GBP'}</span>
+            </div>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
+              <div className="text-xs font-semibold text-white">NOWPayments hosted invoice checkout</div>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                Customers continue to a secure provider page and choose from the cryptocurrencies and networks enabled
+                for the merchant account. PulseEarn receives signed payment notifications and independently reconciles
+                each payment before activating a tool.
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-white/[.025] p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Purchase gate</div>
+                <div className="mt-1 text-sm text-white">{config?.purchaseReady ? 'Ready when campaign is active' : 'Not ready'}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[.025] p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Checkout mode</div>
+                <div className="mt-1 text-sm text-white">No wallet connection required</div>
+              </div>
+            </div>
+            {!config?.paymentProviderConfigured && (
+              <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs leading-5 text-amber-100">
+                <strong>Server configuration required.</strong> Add NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET as
+                server-only Vercel environment variables. Set NOWPAYMENTS_IPN_CALLBACK_URL to
+                https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn. Never paste provider secrets into this
+                dashboard or frontend configuration.
+              </div>
+            )}
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              The merchant payout wallet and enabled assets are configured inside the NOWPayments merchant account.
+              The separate PSEmine user payout address remains managed in the PSEmine wallet settings.
+            </p>
           </Panel>
         </div>
 

@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { type PsePendingPurchase, type PseStateTool, createHostedPaymentInvoice, fetchHostedPaymentStatus } from '../../engines/psemine/pseMineApi';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
-import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
+import { PSEMineToolDefinition, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
-  bnbExactFromWei, copyText, gbp, gbpHour, nowMs, shortAddr, shortHash,
+  gbp, gbpHour, nowMs,
   CYCLE_STATE_MAP, cycleStateView, operatingModelView,
 } from '../../components/psemine/pseCore';
 import {
@@ -24,11 +24,9 @@ import toast from 'react-hot-toast';
  * ownership limit as a compact specification row rather than a promotional
  * card.
  *
- * The purchase behaviour is preserved exactly: quote → bind payer → chain
- * assertion → sign → submit → on-chain verification → activation, with refresh
- * recovery of an in-flight intent. The UI never asserts success before the
- * backend verifies, and every displayed amount comes from the server quote's
- * exact wei value (bnbExactFromWei).
+ * Tool purchases use a hosted crypto checkout. Customers choose an available
+ * asset and network on the provider page; PulseEarn never needs their wallet
+ * connection to create or verify an order.
  */
 const EVM = /^0x[0-9a-fA-F]{40}$/;
 
@@ -149,32 +147,6 @@ const OwnedToolRow: React.FC<{
     </li>
   );
 };
-
-type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
-
-/** Human wording for the submission state machine (see pseWallet.ts). */
-const SUBMISSION_LABEL: Record<PsePaymentSubmissionState, string> = {
-  NOT_SUBMITTED: 'Awaiting your confirmation',
-  SUBMISSION_IN_PROGRESS: 'Awaiting wallet confirmation',
-  SUBMITTED: 'Transaction submitted',
-  UNKNOWN_SUBMISSION_STATE: 'Submission state unknown',
-  CONFIRMING: 'Confirming on BNB Smart Chain',
-  VERIFIED: 'Payment verified',
-};
-
-/** An in-flight purchase recovered from the backend state projection. */
-type ResumeState =
-  | { kind: 'live'; quote: PSEMineQuote; purchase: PsePendingPurchase }
-  | { kind: 'submitted'; purchase: PsePendingPurchase }
-  | { kind: 'expired'; purchase: PsePendingPurchase };
-
-const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
-  { id: 'connect', label: 'Wallet' },
-  { id: 'quote', label: 'Quote' },
-  { id: 'pay', label: 'Pay in BNB' },
-  { id: 'verifying', label: 'Verify' },
-  { id: 'result', label: 'Activate' },
-];
 
 export const PSEMineTools: React.FC = () => {
   const { pseUser, campaign } = usePSEMine();
@@ -595,22 +567,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   }, [tool.id]);
 
   useEffect(() => {
-    let cancelled = false;
-    void createHostedPaymentInvoice(tool.id).then(invoice => {
-      if (cancelled) return;
-      setOrderId(invoice.orderId);
-      setCheckoutUrl(invoice.checkoutUrl);
-      setPriceAmount(invoice.priceAmount);
-      setPriceCurrency(invoice.priceCurrency.toUpperCase());
-      setStatus('pending');
-    }).catch(e => {
-      if (!cancelled) {
-        setError(e instanceof Error ? e.message : 'Secure checkout could not be started.');
-        setStatus('failed');
-      }
-    }).finally(() => { if (!cancelled) setCreating(false); });
-    return () => { cancelled = true; };
-  }, [tool.id]);
+    void createInvoice();
+  }, [createInvoice]);
 
   const checkStatus = useCallback(async () => {
     if (!orderId || checking) return;

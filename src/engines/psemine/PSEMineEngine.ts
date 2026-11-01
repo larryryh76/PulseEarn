@@ -13,8 +13,10 @@ import { db } from '../../firebase/config';
 import { 
   PSEMineCampaign, 
   PSEMineUser, 
+  PSEMinePurchase, 
   PSEMineReferral, 
   PSEMineActivity, 
+  PSEMineQuote, 
   PSEToolTierId,
   LOCKED_PSEMINE_TOOLS,
   PSEMINE_CONSTANTS
@@ -307,6 +309,375 @@ export class PSEMineEngine {
           `POST /api/mine/tools/${ownershipId}/maintain`, e,
         ),
       };
+    }
+  }
+
+  /**
+   * Generates an authoritative server-side 15-minute BNB/GBP purchase quote
+   */
+  public static async generatePurchaseQuote(
+    _userId: string, 
+    toolId: PSEToolTierId
+  ): Promise<PSEMineQuote> {
+    const tool = LOCKED_PSEMINE_TOOLS[toolId];
+    if (!tool) {
+      throw new Error(`Invalid tool tier: ${toolId}`);
+    }
+
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Authentication required to generate purchase quote.');
+    }
+
+    const response = await fetch('/api/mine/tools/quote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ toolId })
+    });
+
+    const resData = await response.json().catch(() => ({}));
+    if (response.ok && resData.success && resData.quote) {
+      return resData.quote as PSEMineQuote;
+    }
+
+    throw new Error(
+      pseFailureMessage('POST /api/mine/tools/quote', response.status, resData),
+    );
+  }
+
+  /**
+   * Creates a backend-authoritative purchase intent bound to a persisted server quote.
+   * (Phase 1: clients no longer write psemine_purchases directly.)
+   */
+  public static async createPurchaseIntent(
+    quote: PSEMineQuote, 
+    paymentWallet: string
+  ): Promise<PSEMinePurchase> {
+    const tool = LOCKED_PSEMINE_TOOLS[quote.toolId];
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Authentication required to create purchase intent.');
+    }
+
+    const res = await fetch('/api/mine/purchases/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.purchaseId) {
+      throw new Error(
+        pseFailureMessage('POST /api/mine/purchases/create', res.status, data),
+      );
+    }
+
+    // The payer binding is whatever the SERVER stored on the intent record —
+    // never the value this client sent. If the backend refused to rebind a
+    // live intent, the UI follows the server's wallet so a payment can only be
+    // attempted from the wallet the purchase is actually bound to.
+    const serverPaymentWallet =
+      typeof data.purchase?.paymentWallet === 'string' && data.purchase.paymentWallet
+        ? data.purchase.paymentWallet.toLowerCase()
+        : paymentWallet.toLowerCase();
+
+    return {
+      id: data.purchaseId,
+      userId: quote.userId,
+      toolId: quote.toolId,
+      toolName: tool?.name || quote.toolId,
+      toolVersion: quote.toolVersion,
+      quoteId: quote.quoteId,
+      quotedGBPAmount: quote.gbpPrice,
+      quotedBNBAmount: quote.bnbAmount,
+      exchangeRateBNBGBP: quote.exchangeRateBNBGBP,
+      receiverWallet: quote.receiverWallet,
+      paymentWallet: serverPaymentWallet,
+      transactionHash: null,
+      network: quote.network,
+      status: 'awaiting_payment',
+      confirmations: 0,
+      requiredConfirmations: 3,
+      createdAt: new Date().toISOString(),
+      expiresAt: quote.expiresAt,
+      confirmedAt: null,
+      activatedAt: null
+    } as PSEMinePurchase;
+  }
+
+  /** Persist an ambiguous wallet submission on the backend, shared by all signed-in devices. */
+  public static async markPurchaseSubmissionUncertain(purchaseId: string): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to recover this purchase.');
+    const res = await fetch('/api/mine/purchases/mark-uncertain', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/mark-uncertain', res.status, data));
+    }
+    return true;
+  }
+
+  /** Attach a known wallet transaction hash to its immutable server purchase intent. */
+  public static async reportPurchaseSubmission(
+    purchaseId: string, transactionHash: string, senderWallet: string,
+  ): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to record this transaction.');
+    const res = await fetch('/api/mine/purchases/report-submission', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId, transactionHash, senderWallet }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/report-submission', res.status, data));
+    }
+    return true;
+  }
+
+  /** Release a server-side uncertain lock only after explicit user attestation and no known hash. */
+  public static async confirmNoPurchaseBroadcast(purchaseId: string): Promise<boolean> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to resolve this purchase.');
+    const res = await fetch('/api/mine/purchases/resolve-no-broadcast', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId, confirmedNoTransaction: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      throw new Error(pseFailureMessage('POST /api/mine/purchases/resolve-no-broadcast', res.status, data));
+    }
+    return true;
+  }
+
+  /**
+   * Authoritative Tool Purchase Activation & Capacity Recalculation via Secure Backend API.
+   *
+   * The purchase intent already exists and is already bound to its payer wallet
+   * (created BEFORE the wallet was asked to sign). Only the transaction hash and
+   * the bound payer are submitted; the backend re-derives the recipient, the
+   * exact amount, the chain, the payer binding and the confirmation depth from
+   * its own data and the chain itself.
+   */
+  public static async activateToolPurchase(
+    purchaseId: string, 
+    txHash: string,
+    senderWallet?: string
+  ): Promise<{ success: boolean; error?: string; code?: string; confirmations?: number; user?: PSEMineUser }> {
+    const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
+    const purchaseSnap = await getDoc(purchaseRef);
+
+    if (!purchaseSnap.exists()) {
+      return { success: false, error: 'Purchase intent not found' };
+    }
+
+    const purchase = purchaseSnap.data() as PSEMinePurchase;
+    if (purchase.status === 'activated') {
+      return { success: false, error: 'Purchase already activated' };
+    }
+
+    // Call authoritative server endpoint with user Firebase ID token with 30s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+
+      if (!token) {
+        return { success: false, error: 'Authentication required. Please sign in.' };
+      }
+
+      const res = await fetch('/api/mine/tools/verify-purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          purchaseId: purchase.id,
+          transactionHash: txHash,
+          senderWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
+          toolId: purchase.toolId
+        }),
+        signal: controller.signal
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          // Machine-readable backend code (e.g. INSUFFICIENT_CONFIRMATIONS,
+          // WALLET_MISMATCH, QUOTE_EXPIRED) so the UI can distinguish
+          // "still confirming" from "rejected" without parsing prose.
+          code: typeof data.error === 'string' ? data.error : undefined,
+          confirmations: typeof data.confirmations === 'number' ? data.confirmations : undefined,
+          error: pseFailureMessage('POST /api/mine/tools/verify-purchase', res.status, data),
+        };
+      }
+
+      // Fetch fresh authoritative user record from Firestore
+      const userSnap = await getDoc(doc(db, 'psemine_users', purchase.userId));
+      const updatedUser = userSnap.exists() ? (userSnap.data() as PSEMineUser) : undefined;
+
+      return { success: true, user: updatedUser };
+    } catch (e: unknown) {
+      // A timeout is its own state: the chain result is genuinely unknown, so
+      // say that rather than reporting a generic verification failure.
+      if (e instanceof Error && e.name === 'AbortError') {
+        logPseDiagnostic('POST /api/mine/tools/verify-purchase', {
+          kind: 'unavailable', title: '', message: '', retryable: true,
+          operation: 'POST /api/mine/tools/verify-purchase',
+        });
+        return {
+          success: false,
+          error: 'Verification request timed out. Check BSCScan before retrying — the payment itself is unaffected.',
+        };
+      }
+      return {
+        success: false,
+        error: pseTransportFailureMessage('POST /api/mine/tools/verify-purchase', e),
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * Referral Qualification Engine:
+   * Checked authoritatively on backend during tool verification.
+   */
+  public static async checkRefereeQualification(refereeId: string): Promise<boolean> {
+    try {
+      const refQuery = query(
+        collection(db, 'psemine_referrals'),
+        where('refereeId', '==', refereeId),
+        limit(1)
+      );
+      const refSnap = await getDocs(refQuery);
+      if (refSnap.empty) return false;
+      const ref = refSnap.docs[0].data() as PSEMineReferral;
+      return ref.status === 'qualified';
+    } catch (e) {
+      console.error('[PSEMineEngine] checkRefereeQualification error:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Links a new miner to a referrer via the canonical backend registration endpoint.
+   * (Phase 1: referral records are created server-side with deterministic identity.)
+   */
+  /**
+   * Result of a referral registration attempt. `retryable` distinguishes
+   * transient failures (network/server) from permanent validation failures
+   * (self-referral, unknown referrer) so callers only persist retryable ones.
+   */
+  public static async registerReferral(
+    refereeId: string,
+    _refereeUsername: string,
+    referralCodeInput: string
+  ): Promise<{ ok: boolean; retryable: boolean }> {
+    void refereeId;
+    let code = '';
+    let result: { ok: boolean; retryable: boolean } = { ok: false, retryable: true };
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return result;
+
+      code = referralCodeInput.trim();
+      const res = await fetch('/api/mine/referrals/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ referralCode: code })
+      });
+      const data = await res.json().catch(() => ({}));
+      result = (res.ok && data.success)
+        ? { ok: true, retryable: false }
+        : { ok: false, retryable: res.status >= 500 || res.status === 429 };
+      if (!result.ok) {
+        // Classified for diagnosis, but never surfaced as a user-facing error:
+        // a failed referral attribution must not interrupt signup.
+        logPseDiagnostic('POST /api/mine/referrals/register', {
+          kind: result.retryable ? 'unavailable' : 'validation',
+          title: '', message: '', retryable: result.retryable,
+          status: res.status, code: data?.error, requestId: data?.requestId,
+          operation: 'POST /api/mine/referrals/register',
+        } as never);
+      }
+      return result;
+    } catch (e) {
+      logPseDiagnostic('POST /api/mine/referrals/register', {
+        kind: 'network', title: '', message: '', retryable: true,
+        operation: 'POST /api/mine/referrals/register',
+      });
+      void e;
+      return result;
+    } finally {
+      // Retain retryable failures in localStorage so the next PSEmine session
+      // can re-submit the attribution — signup success never loses the code.
+      if (code) {
+        try {
+          if (result.ok || !result.retryable) {
+            localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+          } else {
+            localStorage.setItem(
+              PSEMineEngine.PENDING_REFERRAL_KEY,
+              JSON.stringify({ code, savedAt: Date.now() })
+            );
+          }
+        } catch {
+          /* storage unavailable — best effort */
+        }
+      }
+    }
+  }
+
+  private static readonly PENDING_REFERRAL_KEY = 'psemine_pending_referral_code';
+
+  /**
+   * Re-submits a referral code retained after a transient registration
+   * failure. Idempotent server-side (deterministic referral identity), so
+   * re-submission is safe. Clears the retained code on success or on a
+   * permanent rejection (no point retrying validation failures).
+   */
+  public static async retryPendingReferral(): Promise<boolean> {
+    try {
+      const raw = localStorage.getItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      if (!raw) return false;
+      const { code } = JSON.parse(raw) as { code?: string };
+      if (!code) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+        return false;
+      }
+      const result = await PSEMineEngine.registerReferral('', '', code);
+      if (result.ok || !result.retryable) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      }
+      return result.ok;
+    } catch {
+      return false;
     }
   }
 

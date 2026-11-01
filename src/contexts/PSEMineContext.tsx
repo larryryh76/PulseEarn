@@ -594,6 +594,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Mobile wallet deep-links can immediately background/reload this tab.
       // Keep the user's explicit connection attempt alive for the full relay
       // window; a modal close is not evidence of approval or rejection.
+      if (currentUser?.uid) localStorage.setItem('psemine_wc_handoff_uid', currentUser.uid);
       const provider = await connectWalletConnect({ resume, timeoutMs: 300_000 });
       // A cancelled or superseded attempt must not adopt a session that arrived
       // after the user stopped waiting (or started a newer attempt).
@@ -609,6 +610,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return null;
       }
       const address = adoptConnection(connection);
+      localStorage.removeItem('psemine_wc_handoff_uid');
       setWalletRecoveryState('none');
       recordWalletStage('wallet_connected');
       if (currentUser) void PSEMineEngine.setConnectedWallet(address);
@@ -720,7 +722,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     let cancelled = false;
     recordWalletDocumentBoot();
-    const handoff = readWalletConnectHandoff();
+    let handoff = readWalletConnectHandoff();
+    const handoffOwnerUid = localStorage.getItem('psemine_wc_handoff_uid');
+    if (handoff && handoffOwnerUid !== currentUser?.uid) {
+      // A pending pairing belongs to the account that initiated it; never let
+      // another signed-in account resume that old wallet session.
+      clearWalletConnectHandoff(handoff.id);
+      localStorage.removeItem('psemine_wc_handoff_uid');
+      handoff = null;
+    }
     if (handoff) {
       // Keep the SAME correlation id across the reload so support sees one
       // attempt, including the document_boot that interrupted it.
@@ -774,6 +784,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           );
           if (cancelled || !connection) return;
           adoptConnection(connection);
+          localStorage.removeItem('psemine_wc_handoff_uid');
           if (handoff) clearWalletConnectHandoff(handoff.id);
           recordWalletStage('boot_session_adopted');
           setWalletRecoveryState('none');

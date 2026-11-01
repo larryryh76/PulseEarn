@@ -677,7 +677,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsConnectingWallet(false);
       }
     }
-  }, [adoptConnection, currentUser]);
+  }, [adoptConnection, currentUser, persistWallet]);
 
   /**
    * Stops a pending WalletConnect attempt. Without this the UI stayed disabled

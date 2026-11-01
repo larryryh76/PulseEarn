@@ -9965,3 +9965,243 @@ def admin_mine_deprecate_tool(tool_id):
     if not result.get("ok"):
         return jsonify({"success": False, "error": result.get("error")}), 404 if result.get("error") == "NOT_FOUND" else 400
     return jsonify({"success": True})
+
+
+# ----------------------------------------------------------------------------
+# PSEmine Payment v2 — hosted crypto checkout (NOWPayments adapter)
+# ----------------------------------------------------------------------------
+
+@app.route('/api/mine/payments/v2/invoices', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_payment_v2_create_invoice():
+    """Create a hosted crypto invoice for the authenticated user's own tool order."""
+    from psemine_payments_v2 import (
+        PaymentConfigurationError, PaymentPayloadError, build_invoice_payload,
+        invoice_response, nowpayments_configured, provider_api_base,
+    )
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    get_deps()
+    if requests is None:
+        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}), 503
+
+    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+    ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+    public_base = str(os.environ.get("PULSE_EARN_PUBLIC_URL") or "https://pulseearn.online").strip().rstrip("/")
+    callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
+                       f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
+    config = dict(os.environ)
+    config["NOWPAYMENTS_IPN_CALLBACK_URL"] = callback_url
+    if not nowpayments_configured(config):
+        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
+                        "message": "Crypto checkout is temporarily unavailable. Please try again later."}), 503
+
+    uid = request.user["uid"]
+    data = request.get_json(silent=True) or {}
+    tool_id = str(data.get("toolId") or "").strip().lower()
+    import psemine_core as _pse_core
+    tool = _pse_core.LOCKED_PSEMINE_TOOLS.get(tool_id)
+    if not tool:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    import psemine_engine as _pse_engine
+    campaign, effective, _ = _pse_engine.campaign_lifecycle_state(db)
+    if effective != "active" or campaign.get("purchaseEnabled") is not True:
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED",
+                        "message": "Tool purchases are currently closed."}), 403
+
+    # Never accept a client price, currency, receiver, account id, or payment status.
+    price_minor = int(tool["price_minor_units"])
+    price_amount = format(Decimal(price_minor) / Decimal(100), ".2f")
+    price_currency = str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").strip().lower()
+    order_id = "pse_" + uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=30)
+    order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
+    order_ref.set({
+        "id": order_id, "userId": uid, "toolId": tool_id,
+        "toolName": tool["name"], "priceMinor": price_minor,
+        "priceAmount": price_amount, "priceCurrency": price_currency,
+        "provider": "nowpayments", "status": "creating",
+        "createdAt": now.isoformat(), "expiresAt": expires.isoformat(),
+        "createdAtServer": firestore.SERVER_TIMESTAMP,
+    })
+
+    try:
+        payload = build_invoice_payload(
+            order_id=order_id, amount=price_amount, price_currency=price_currency,
+            callback_url=callback_url,
+            success_url=f"{public_base}/mine/tools?payment=return&order={order_id}",
+            cancel_url=f"{public_base}/mine/tools?payment=cancelled&order={order_id}",
+            description=f"PSEmine {tool['name']}",
+        )
+        base = provider_api_base()
+        response = requests.post(
+            f"{base}/invoice", json=payload,
+            headers={"x-api-key": api_key, "Content-Type": "application/json"},
+            timeout=20,
+        )
+        if not response.ok:
+            logging.error("[PSEmine Payment v2] invoice creation rejected: status=%s body=%s",
+                          response.status_code, response.text[:500])
+            order_ref.update({"status": "failed", "failureCode": "PROVIDER_INVOICE_REJECTED",
+                              "updatedAt": firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": False, "error": "INVOICE_CREATION_FAILED",
+                            "message": "We couldn't start checkout. Please try again."}), 502
+        safe_invoice = invoice_response(response.json() or {})
+        order_ref.update({
+            "status": "pending", "providerInvoiceId": safe_invoice["providerInvoiceId"],
+            "checkoutUrl": safe_invoice["checkoutUrl"],
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({
+            "success": True, "orderId": order_id,
+            "checkoutUrl": safe_invoice["checkoutUrl"],
+            "provider": "nowpayments", "toolName": tool["name"],
+            "priceAmount": price_amount, "priceCurrency": price_currency,
+            "expiresAt": expires.isoformat(),
+        })
+    except (PaymentConfigurationError, PaymentPayloadError) as error:
+        logging.warning("[PSEmine Payment v2] invalid checkout configuration/payload: %s", str(error))
+        order_ref.update({"status": "failed", "failureCode": "INVALID_PAYMENT_CONFIGURATION",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PAYMENT_CONFIGURATION_INVALID"}), 503
+    except Exception:
+        logging.exception("[PSEmine Payment v2] invoice creation failed")
+        order_ref.update({"status": "failed", "failureCode": "PROVIDER_REQUEST_FAILED",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "INVOICE_CREATION_FAILED",
+                        "message": "We couldn't start checkout. Please try again."}), 502
+
+
+@app.route('/api/mine/payments/v2/orders/<order_id>', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_payment_v2_get_order(order_id):
+    """Return only the authenticated owner's payment status and safe checkout fields."""
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    snap = db.collection("psemine_payment_orders_v2").document(str(order_id)).get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "PAYMENT_ORDER_NOT_FOUND"}), 404
+    order = snap.to_dict() or {}
+    if order.get("userId") != request.user["uid"]:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    return jsonify({
+        "success": True, "orderId": snap.id, "status": order.get("status"),
+        "toolId": order.get("toolId"), "toolName": order.get("toolName"),
+        "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
+        "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),
+        "updatedAt": order.get("updatedAt"),
+    })
+
+
+@app.route('/api/mine/payments/v2/nowpayments/ipn', methods=['POST'])
+def mine_payment_v2_nowpayments_ipn():
+    """Verify signed provider IPN, reconcile with provider API, then settle once."""
+    from psemine_payments_v2 import (
+        normalize_provider_status, provider_api_base, verify_ipn_signature,
+    )
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    get_deps()
+    if requests is None:
+        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}), 503
+    secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+    payload = request.get_json(silent=True)
+    signature = request.headers.get("x-nowpayments-sig")
+    if not isinstance(payload, dict) or not verify_ipn_signature(payload, signature, secret):
+        logging.warning("[PSEmine Payment v2] rejected invalid NOWPayments IPN signature")
+        return jsonify({"success": False, "error": "INVALID_IPN_SIGNATURE"}), 401
+
+    order_id = str(payload.get("order_id") or "").strip()
+    payment_id = str(payload.get("payment_id") or "").strip()
+    if not order_id or not payment_id:
+        return jsonify({"success": False, "error": "INVALID_IPN_PAYLOAD"}), 400
+    order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return jsonify({"success": False, "error": "PAYMENT_ORDER_NOT_FOUND"}), 404
+    order = order_snap.to_dict() or {}
+    if order.get("provider") != "nowpayments":
+        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_MISMATCH"}), 409
+    if payload.get("invoice_id") is not None and str(payload.get("invoice_id")) != str(order.get("providerInvoiceId")):
+        order_ref.update({"status": "review", "reviewReason": "INVOICE_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "INVOICE_ID_MISMATCH"}), 409
+
+    try:
+        base = provider_api_base()
+        provider_response = requests.get(
+            f"{base}/payment/{urllib.parse.quote(payment_id, safe='')}",
+            headers={"x-api-key": api_key}, timeout=15,
+        )
+        if not provider_response.ok:
+            logging.error("[PSEmine Payment v2] provider reconciliation unavailable: %s",
+                          provider_response.status_code)
+            return jsonify({"success": False, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}), 503
+        payment = provider_response.json() or {}
+    except Exception:
+        logging.exception("[PSEmine Payment v2] provider reconciliation request failed")
+        return jsonify({"success": False, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}), 503
+
+    # IPN is only a wake-up signal. The provider's authenticated payment record
+    # must match our immutable server order before any local status can advance.
+    if str(payment.get("order_id") or "") != order_id:
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_ORDER_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PROVIDER_ORDER_ID_MISMATCH"}), 409
+    try:
+        expected_amount = Decimal(str(order.get("priceAmount")))
+        observed_amount = Decimal(str(payment.get("price_amount")))
+        amount_matches = expected_amount == observed_amount
+    except Exception:
+        amount_matches = False
+    currency_matches = str(payment.get("price_currency") or "").lower() == str(order.get("priceCurrency") or "").lower()
+    if not amount_matches or not currency_matches:
+        order_ref.update({
+            "status": "review", "reviewReason": "PROVIDER_PRICE_MISMATCH",
+            "providerPaymentId": payment_id, "providerStatus": payment.get("payment_status"),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": False, "error": "PROVIDER_PRICE_MISMATCH"}), 409
+
+    provider_status = str(payment.get("payment_status") or "").lower()
+    local_status = normalize_provider_status(provider_status)
+    if local_status != "paid":
+        order_ref.update({
+            "status": local_status, "providerPaymentId": payment_id,
+            "providerStatus": provider_status, "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "status": local_status})
+
+    uid = str(order.get("userId") or "")
+    if not uid:
+        return jsonify({"success": False, "error": "PAYMENT_ORDER_OWNER_MISSING"}), 409
+    import psemine_engine as _pse_engine
+    result = _pse_engine.settle_provider_purchase(db, uid, order_id, payment)
+    if not result.get("ok"):
+        if result.get("error") == "SETTLEMENT_TRANSACTION_FAILED":
+            return jsonify({"success": False, "error": result["error"]}), 503
+        order_ref.update({
+            "status": "review", "reviewReason": result.get("error") or "SETTLEMENT_REJECTED",
+            "providerPaymentId": payment_id, "providerStatus": provider_status,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "status": "review"})
+    if not result.get("already_settled"):
+        mine_notify(uid, notif_id=f"notif_purchase_{order_id}", type="purchase",
+                    title="Tool purchase confirmed",
+                    message="Your crypto payment was confirmed and your PSEmine tool is now active.",
+                    related={"source": "nowpayments", "purchaseId": order_id,
+                             "toolId": result.get("toolId"), "providerPaymentId": payment_id})
+        mine_record_activity(uid, _type="purchase", title="PSEmine tool activated",
+                             description="Hosted crypto payment confirmed.",
+                             metadata={"purchaseId": order_id, "provider": "nowpayments",
+                                       "providerPaymentId": payment_id})
+    return jsonify({"success": True, "status": "paid", "purchaseId": order_id})

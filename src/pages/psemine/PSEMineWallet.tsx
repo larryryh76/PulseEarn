@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { requestPayout, type PseWithdrawal } from '../../engines/psemine/pseMineApi';
-import { PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
   campaignStatusView, copyText, fmtDateTime, gbp, payoutStatusView, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
@@ -29,14 +28,11 @@ import toast from 'react-hot-toast';
  *   • `accrued` and `settlement-available` are different states of the same
  *     money. Only the backend's released figure can be requested, so it is the
  *     hero figure and accrued is stated beside it as unsettled.
- *   • The payout wallet receives BNB on BNB Smart Chain after settlement. The
- *     connected wallet signs purchase payments. They are separate, and every
- *     action that touches either names which one it is.
+ *   • The payout wallet receives BNB on BNB Smart Chain after settlement.
+ *     Tool purchases use a hosted crypto checkout and require no wallet connection.
  *
- * EVERY ACTION IS REAL. Copy copies; connect and disconnect go through the
- * provider; the in-page actions scroll to a section that exists; the network
- * action switches the wallet through the same fail-closed assertion the purchase
- * flow uses; the payout request is re-validated by the backend. There is no
+ * EVERY ACTION IS REAL. Copy copies; the in-page actions scroll to a section
+ * that exists; the payout request is re-validated by the backend. There is no
  * deposit button because the product has no receive flow, and no invented asset
  * list because there is no on-chain balance to show.
  *

@@ -332,11 +332,15 @@ export const AdminPSEMine: React.FC = () => {
               <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[.06] p-3 text-xs leading-5 text-amber-100">
                 <strong>Server configuration required.</strong> Add NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET as
                 server-only Vercel environment variables. Set NOWPAYMENTS_IPN_CALLBACK_URL to
-                https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn, and set the same
-                PSEMINE_PAYMENT_CRON_SECRET in Vercel and GitHub Actions. Never paste secrets into this dashboard.
+                https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn. Never paste secrets into this dashboard.
               </div>
             )}
             <p className="mt-3 text-xs leading-5 text-slate-500">
+              Scheduled backup reconciliation: {config?.scheduledReconciliationConfigured ? 'configured' : 'not configured'}.
+              Without the optional backup secret, signed payment events are still reconciled when the customer returns
+              and the order-status page is checked.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
               The merchant payout wallet and enabled assets are configured inside the NOWPayments merchant account.
               The separate PSEmine user payout address remains managed in the PSEmine wallet settings.
             </p>

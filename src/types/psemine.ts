@@ -50,7 +50,6 @@ export interface PSEMineCampaign {
   paymentNetwork: 'BNB Smart Chain';
   paymentChainId: number; // 56 for Mainnet, 97 for Testnet
   paymentAsset: 'BNB';
-  receiverWalletAddress: string;
   /** Derived by the public campaign projection; absent on raw Firestore documents. */
   purchaseReady?: boolean;
   receiverWalletConfigured?: boolean;
@@ -86,7 +85,6 @@ export interface PSEMineUser {
   totalAccruedGBP: number;            // Authoritative server-accrued GBP
   lastAccruedAt: string;              // ISO timestamp of last accrual calculation
   miningStartedAt: string | null;
-  connectedWallet: string | null;     // 0x...
   payoutWallet: string | null;        // 0x...
   payoutWalletUpdatedAt: string | null;
   qualifiedReferralsCount: number;    // 0 - 5

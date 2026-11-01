@@ -173,15 +173,14 @@ const CAPACITY_STEPS: ReadonlyArray<PseChainStep> = [
 
 /** The rules a quote carries. Product education, not a live quote. */
 const QUOTE_RULES = [
-  { term: 'Price', rule: 'Fixed in GBP before the quote is issued, and it does not float with the market.' },
-  { term: 'Amount', rule: 'The exact BNB at the rate of that quote — a figure, not a range or an estimate.' },
-  { term: 'Destination', rule: 'One address, printed on the quote. PSEmine asks you to send nowhere else.' },
-  { term: 'Validity', rule: 'A counted window. A quote that lapses cannot be paid, and is recorded as expired.' },
-  { term: 'Wrong amount', rule: 'A partial or mismatched payment is recorded as underpaid and reviewed — never absorbed.' },
+  { term: 'Price', rule: 'Fixed in GBP before checkout, and it does not float with the market.' },
+  { term: 'Amount', rule: 'The exact crypto amount is displayed by the provider for the selected asset and network.' },
+  { term: 'Destination', rule: 'The payment destination is generated for your hosted invoice and verified against that order.' },
+  { term: 'Validity', rule: 'Each invoice has an expiry. An expired invoice cannot be reused; create a fresh checkout.' },
+  { term: 'Wrong amount', rule: 'Incomplete or mismatched payments are held for review — never silently counted as successful.' },
 ] as const;
 
 /** The scenario conversion rate used by the purchase illustration. */
-const SCENARIO_BNB_GBP = PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
 
 /**
  * The nav, carrying the same indices the section plates print.
@@ -567,7 +566,7 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'When does a referral count?',
     a: (
       <>
-        Only at the fifth and last stage: registered, wallet connected, unit purchased, mining active, qualified. Every
+        Only at the fourth and last stage: registered, unit purchased, mining active, qualified. Every
         stage is verified against the referral&apos;s own account records, and the capacity is added from the moment of
         qualification — never retroactively, and never for a referral that does not reach it.
       </>
@@ -1015,17 +1014,14 @@ export const PSEMineLanding: React.FC = () => {
           <PlateHead
             num="05"
             kicker="Payment"
-            title="You pay in BNB, at a quoted rate."
-            meta="GBP → BNB"
-            lede="The SHA-mining unit has a fixed GBP price. You pay in BNB on BNB Smart Chain using your own wallet; the quote shows the exact amount and expiry before you send."
+            title="Choose how you pay at secure checkout."
+            meta="GBP → supported crypto"
+            lede="The SHA-mining unit has a fixed GBP price. Continue to a hosted invoice, choose an available cryptocurrency and network, and see the exact amount and expiry before paying."
           />
           <Split object="start" className="pse-section-object">
             <PaymentConsole
               tier={TIERS[0]}
-              network={PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-              asset="BNB"
               priceGBP={TOOLS[0].purchasePriceGBP}
-              rateGBP={SCENARIO_BNB_GBP}
             />
 
             {/* The terms of a quote, as a quotation rather than as four stat
@@ -1035,8 +1031,8 @@ export const PSEMineLanding: React.FC = () => {
                 rather than hides. */}
             <Reveal delay={120} className="pse-quote">
               <div className="pse-quote-head">
-                <span className="pse-quote-title">Quote terms</span>
-                <span className="pse-quote-meta">What a quote fixes</span>
+                <span className="pse-quote-title">Checkout terms</span>
+                <span className="pse-quote-meta">What the invoice confirms</span>
               </div>
 
               <dl className="pse-quote-rows">
@@ -1049,9 +1045,8 @@ export const PSEMineLanding: React.FC = () => {
               </dl>
 
               <p className="pse-quote-note">
-                The purchase flow beside you shows how a quote works. Prices, rates and ownership limits are locked for
-                the campaign, but the BNB amount of any purchase is issued per quote and expires with it — your own quote
-                states the exact amount you would send.
+                The checkout beside you is an illustration. Prices and ownership limits are locked for the campaign; the hosted
+                invoice calculates the exact crypto amount for the asset and network you select, then shows its expiry.
               </p>
 
               <DocLine label="Governs a purchase" docs={['purchase-terms', 'campaign-terms']} />

@@ -95,7 +95,8 @@ class TestStateMachines(unittest.TestCase):
 
     def test_referral_progression(self):
         """Verify referral progression."""
-        self.assertTrue(is_valid_referral_progression("registered", "wallet_connected"))
+        self.assertTrue(is_valid_referral_progression("registered", "tool_purchased"))
+        self.assertTrue(is_valid_referral_progression("wallet_connected", "tool_purchased"))  # legacy wallet stage no longer blocks hosted checkout
         self.assertTrue(is_valid_referral_progression("pending", "qualified"))  # legacy vocabulary upgrades
         self.assertTrue(is_valid_referral_progression("registered", "qualified"))
         self.assertFalse(is_valid_referral_progression("qualified", "registered"))

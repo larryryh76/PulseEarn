@@ -2,15 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
-import {
-  type PsePaymentSubmissionState,
-  canRetryPayment,
-  isSessionUnavailable,
-  isSubmissionUncertain,
-  resolvePaymentPayer,
-} from '../../engines/psemine/pseWallet';
-import { type PsePendingPurchase, type PseStateTool } from '../../engines/psemine/pseMineApi';
-import { formatWalletDiagnostics, recordWalletStage } from '../../engines/psemine/pseWalletTrace';
+import { type PsePendingPurchase, type PseStateTool, createHostedPaymentInvoice, fetchHostedPaymentStatus } from '../../engines/psemine/pseMineApi';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
@@ -573,1014 +565,149 @@ export const PSEMineTools: React.FC = () => {
  * hash. Refresh recovery resumes an existing intent with its ORIGINAL quote
  * and payer instead of creating a second one.
  * ═══════════════════════════════════════════════════════════════════════ */
-const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, pending, onClose }) => {
-  const {
-    connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
-    requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain, refreshWalletChain,
-  } = usePSEMine();
+const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, onClose }) => {
   const { refresh } = usePseState();
+  const [creating, setCreating] = useState(true);
+  const [checking, setChecking] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>('creating');
+  const [priceAmount, setPriceAmount] = useState<string | null>(null);
+  const [priceCurrency, setPriceCurrency] = useState<string>('GBP');
+  const [error, setError] = useState<string | null>(null);
 
-  // Start on the wallet step when no wallet is connected yet; the flow opens the
-  // connection step immediately instead of a dead quote screen.
-  const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean; diagnostic?: string } | null>(null);
-  // Payer binding + submission state. The purchase is bound to a wallet BEFORE
-  // anything is signed, and the submission state decides whether a retry is even
-  // permitted (never after UNKNOWN_SUBMISSION_STATE).
-  const [boundPayer, setBoundPayer] = useState<string | null>(null);
-  const [purchaseId, setPurchaseId] = useState<string | null>(null);
-  const [submissionState, setSubmissionState] = useState<PsePaymentSubmissionState>('NOT_SUBMITTED');
-  // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
-  const [resume, setResume] = useState<ResumeState | null>(null);
-  const [rechecking, setRechecking] = useState(false);
-  const [uncertainRecovery, setUncertainRecovery] = useState(() => {
-    if (!pending) return false;
+  const createInvoice = useCallback(async () => {
+    setCreating(true);
+    setError(null);
     try {
-      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
-      return Boolean(saved?.purchaseId && saved.purchaseId === pending.purchaseId);
-    } catch { return false; }
-  });
-  const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
-  const [minimized, setMinimized] = useState(false);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-
-  // The purchase review is a true modal layer, not a full-page detour. Keep the
-  // underlying console from scrolling and return keyboard focus to its opener.
-  useEffect(() => {
-    if (minimized) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    document.body.style.overflow = 'hidden';
-    dialogRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        if (step === 'verifying') setMinimized(true);
-        else onClose();
-        return;
-      }
-      if (event.key === 'Tab') {
-        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        );
-        if (!focusable?.length) {
-          event.preventDefault();
-          dialogRef.current?.focus();
-          return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-      previousFocus?.focus?.();
-    };
-  }, [onClose, step, minimized]);
-
-  /** Forget the local binding (expired quote, wallet disconnect, restart). */
-  const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
-
-  // ── Refresh recovery (runs before the quote effect) ────────────────────────
-  // A live awaiting_payment intent is resumed with its ORIGINAL quote and payer;
-  // a submitted intent opens the verification-recovery panel; an expired one
-  // falls through to a fresh quote (the backend supersedes the dead intent and
-  // keeps the old record as audit evidence).
-  useEffect(() => {
-    if (!pending) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
-      if (saved?.purchaseId === pending.purchaseId) setUncertainRecovery(true);
-    } catch { /* malformed local marker is ignored */ }
-  }, [pending]);
+      const invoice = await createHostedPaymentInvoice(tool.id);
+      setOrderId(invoice.orderId);
+      setCheckoutUrl(invoice.checkoutUrl);
+      setPriceAmount(invoice.priceAmount);
+      setPriceCurrency(invoice.priceCurrency.toUpperCase());
+      setStatus('pending');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Secure checkout could not be started.');
+      setStatus('failed');
+    } finally {
+      setCreating(false);
+    }
+  }, [tool.id]);
 
   useEffect(() => {
-    if (confirmedNoTransaction) return;
-    if (uncertainRecovery && pending && pending.toolId === tool.id) {
-      setPurchaseId(pending.purchaseId);
-      setBoundPayer(pending.paymentWallet || null);
-      setSubmissionState('UNKNOWN_SUBMISSION_STATE');
-      setResult({ ok: false, uncertain: true, message: 'We could not confirm whether your wallet submitted this payment. Check the sending wallet before attempting another payment.' });
-      setStep('result');
-      return;
-    }
-    if (resume || !pending || pending.toolId !== tool.id) return;
-    if (pending.status === 'submission_uncertain') {
-      setPurchaseId(pending.purchaseId);
-      setBoundPayer(pending.paymentWallet || null);
-      setSubmissionState('UNKNOWN_SUBMISSION_STATE');
-      setUncertainRecovery(true);
-      setResult({
-        ok: false, uncertain: true, hash: pending.transactionHash || undefined,
-        message: 'A previous wallet submission is still being reconciled. This lock is stored on your account, so do not start another payment.',
-      });
-      setStep('result');
-      return;
-    }
-    if (pending.status && pending.status !== 'awaiting_payment') {
-      setResume({ kind: 'submitted', purchase: pending });
-      setSubmissionState('CONFIRMING');
-      setStep('verifying');
-      return;
-    }
-    const expiresAt = pending.expiresAt;
-    const live = expiresAt ? Date.parse(expiresAt) > nowMs() : false;
-    if (live && expiresAt && pending.quoteId && pending.receiverWallet) {
-      setResume({
-        kind: 'live',
-        purchase: pending,
-        quote: {
-          quoteId: pending.quoteId,
-          userId: pseUser?.uid || '',
-          toolId: tool.id,
-          toolVersion: tool.version,
-          gbpPrice: tool.purchasePriceGBP,
-          bnbAmount: Number(pending.quotedBNBAmount ?? 0),
-          bnbAmountWei: pending.quotedBNBWei || undefined,
-          exchangeRateBNBGBP: 0,
-          receiverWallet: pending.receiverWallet,
-          network: 'BNB Smart Chain',
-          chainId: pending.chainId || 56,
-          createdAt: '',
-          expiresAt,
-        },
-      });
-      setStep('pay');
-      return;
-    }
-    if (!live) setResume({ kind: 'expired', purchase: pending });
-  }, [resume, pending, tool.id, tool.version, tool.purchasePriceGBP, pseUser?.uid, uncertainRecovery, confirmedNoTransaction]);
-
-  // Fetch a quote on open — unless a live/submitted intent is being resumed
-  // (re-quoting there would re-price and re-bind an existing purchase).
-  useEffect(() => {
-    if (uncertainRecovery || confirmedNoTransaction || (resume && resume.kind !== 'expired')) return;
     let cancelled = false;
-    setQuoteLoading(true);
-    resetBinding();
-    setSubmissionState('NOT_SUBMITTED');
-    requestQuote(tool.id)
-      .catch(() => undefined)
-      .finally(() => { if (!cancelled) setQuoteLoading(false); });
-    return () => { cancelled = true; clearQuote(); };
-  }, [tool.id, requestQuote, clearQuote, resetBinding, resume, uncertainRecovery, confirmedNoTransaction]);
-
-  // The amounts the user sees. A live resume ALWAYS uses its own quote, never a
-  // freshly fetched one, so the binding can never drift to another quote.
-  const quote = resume?.kind === 'live' ? resume.quote : activeQuote;
-
-  // Quote countdown (server expiry, locally interpolated)
-  useEffect(() => {
-    if (!quote) return;
-    const tick = () => setSecondsLeft(Math.max(0, Math.floor((new Date(quote.expiresAt).getTime() - nowMs()) / 1000)));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [quote]);
-
-  useEffect(() => {
-    if (quote && secondsLeft === 0 && step === 'pay') {
-      if (resume?.kind === 'live') {
-        // The resumed quote lapsed: drop the resume and fall back to a fresh
-        // quote. The backend supersedes the dead intent; nothing is rewritten.
-        setResume(null);
-        setBoundPayer(null);
-        setPurchaseId(null);
-        setSubmissionState('NOT_SUBMITTED');
-        setStep('quote');
-        return;
+    void createHostedPaymentInvoice(tool.id).then(invoice => {
+      if (cancelled) return;
+      setOrderId(invoice.orderId);
+      setCheckoutUrl(invoice.checkoutUrl);
+      setPriceAmount(invoice.priceAmount);
+      setPriceCurrency(invoice.priceCurrency.toUpperCase());
+      setStatus('pending');
+    }).catch(e => {
+      if (!cancelled) {
+        setError(e instanceof Error ? e.message : 'Secure checkout could not be started.');
+        setStatus('failed');
       }
-      clearQuote();
-      resetBinding();
-      setQuoteLoading(true);
-      requestQuote(tool.id).finally(() => setQuoteLoading(false));
-      toast('Quote expired — refreshed with the live BNB rate.', { icon: '⏳' });
-    }
-  }, [secondsLeft, quote, step, clearQuote, requestQuote, tool.id, resetBinding, resume]);
+    }).finally(() => { if (!cancelled) setCreating(false); });
+    return () => { cancelled = true; };
+  }, [tool.id]);
 
-  const counts = pseUser?.toolOwnershipCounts;
-  const owned = counts ? (counts as Record<string, number>)[tool.id] || 0 : 0;
-
-  // Return-from-wallet continuity: if the connection completes while the user
-  // sits on the connect step (deep-link return from a mobile wallet app, or
-  // extension approval), the flow advances into the quote automatically.
-  useEffect(() => {
-    if (step === 'connect' && connectedWallet && walletTransport !== null) setStep('quote');
-  }, [step, connectedWallet, walletTransport]);
-
-  // Safety: if the wallet disconnects mid-flow, no payment UI may remain active —
-  // drop back to connect and drop the local binding. The 'verifying' step
-  // intentionally stays: the transaction may already be broadcast.
-  useEffect(() => {
-    if (!connectedWallet && (step === 'pay' || step === 'quote')) {
-      setStep('connect');
-      resetBinding();
-    }
-  }, [connectedWallet, step, resetBinding]);
-
-  // ── The exact amount, everywhere ───────────────────────────────────────────
-  const exactBnb = useMemo(
-    () => bnbExactFromWei(quote?.bnbAmountWei, typeof quote?.bnbAmount === 'number' ? quote.bnbAmount : null),
-    [quote],
-  );
-
-  // ── Pre-payment state (the clauses the pay button obeys) ───────────────────
-  const requiredChainId = quote?.chainId || 56;
-  const networkName = quote?.network || 'BNB Smart Chain';
-  // An address remembered for this ACCOUNT is not a usable payer: signing needs
-  // a live EIP-1193 provider in THIS browser.
-  const walletLive = Boolean(connectedWallet) && walletTransport !== null;
-  const chainUnknown = walletChainId === null;
-  const wrongChain = !chainUnknown && walletChainId !== requiredChainId;
-  const onRequiredChain = walletChainId === requiredChainId;
-  const payerAligned = !boundPayer || !connectedWallet || connectedWallet.toLowerCase() === boundPayer.toLowerCase();
-  const walletChanged = Boolean(boundPayer && connectedWallet && !payerAligned);
-  const quoteValid = Boolean(quote) && secondsLeft > 0;
-  const ownershipOk = owned < tool.maxPerUser;
-  const showingRecovery = resume?.kind === 'submitted';
-
-  const blockedReason = (() => {
-    if (!connectedWallet) return 'Connect a wallet to continue.';
-    if (!walletLive) return 'Reconnect your wallet in this browser — the payment must be signed by the wallet that pays, and this session has no live wallet connection.';
-    if (walletChanged) return `This purchase is locked to ${shortAddr(boundPayer)} — reconnect that wallet to pay.`;
-    // Chain selection is handled automatically by payNow through the active
-    // wallet provider. If needed, the wallet app will show its own switch/add
-    // network approval prompt; the user must not navigate wallet settings.
-    if (!quoteValid) return 'The quote expired. Refresh it to continue — the backend will not accept a stale quote.';
-    if (!ownershipOk) return `Maximum ownership reached for ${tool.name}.`;
-    return null;
-  })();
-  const payBlocked = blockedReason !== null;
-
-  const refreshQuoteNow = () => {
-    setResume(null);
-    resetBinding();
-    setSubmissionState('NOT_SUBMITTED');
-    clearQuote();
-    setQuoteLoading(true);
-    setStep('quote');
-    requestQuote(tool.id).finally(() => setQuoteLoading(false));
-  };
-
-  /**
-   * Proceeds to the wallet-signed payment.
-   * ORDER IS THE POINT: quote → BIND PAYER → chain assertion → sign → submit hash.
-   */
-  const payNow = async () => {
-    if (!quote) return;
-    if (!connectedWallet || !EVM.test(connectedWallet)) {
-      setStep('connect');
-      toast.error('Connect a valid BNB Smart Chain wallet first.');
-      return;
-    }
-    if (!canRetryPayment(submissionState)) {
-      toast.error('This payment is not in a submittable state — check your wallet activity before trying again.');
-      return;
-    }
-    if (payBlocked) {
-      toast.error(blockedReason || 'This purchase is not ready to pay.');
-      return;
-    }
-    setStep('verifying');
-    recordWalletStage('payment_flow_started');
+  const checkStatus = useCallback(async () => {
+    if (!orderId || checking) return;
+    setChecking(true);
     try {
-      // 1. VERIFY / SWITCH NETWORK before creating a purchase intent.
-      // A failed switch must not leave a bound, unpaid pending purchase.
-      const chainOk = await ensurePaymentChain(quote.chainId || 56);
-      if (!chainOk) {
-        recordWalletStage('payment_chain_not_ready', String(quote.chainId || 56));
-        setSubmissionState('NOT_SUBMITTED');
-        setStep('pay');
-        toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
-        return;
+      const latest = await fetchHostedPaymentStatus(orderId);
+      setStatus(latest.status);
+      if (latest.status === 'paid') {
+        toast.success('Payment confirmed. Your tool is active.');
+        await refresh();
+      } else if (latest.status === 'review') {
+        toast('Payment received and awaiting review.', { icon: '⏳' });
       }
-      // Refresh the displayed chain after the wallet approves the switch.
-      await refreshWalletChain();
-
-      // 2. BIND THE PAYER — server-side, against this account and this quote,
-      //    BEFORE any signature exists.
-      let payer = boundPayer;
-      let intentId = purchaseId;
-
-      if (!intentId || !payer) {
-        const bound = await bindPurchaseIntent(quote);
-        if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
-          setSubmissionState('NOT_SUBMITTED');
-          setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
-          setStep('result');
-          return;
-        }
-        intentId = bound.purchaseId;
-        payer = bound.payerWallet;
-        setPurchaseId(intentId);
-        setBoundPayer(payer);
-        // The backend has persisted the purchase-ready notification; refresh
-        // the shared feed now so the shell badge updates without a page reload.
-        void refresh();
-      }
-
-      // 2. The wallet about to sign must still be the bound payer.
-      const payerCheck = resolvePaymentPayer(payer, connectedWallet);
-      if (!payerCheck.ok) {
-        setSubmissionState('NOT_SUBMITTED');
-        setResult({
-          ok: false,
-          message: payerCheck.code === 'WALLET_MISMATCH'
-            ? `WALLET_MISMATCH — this purchase is bound to ${shortAddr(payer)}. Reconnect that wallet to pay, or close this and start a new purchase with ${shortAddr(connectedWallet)}. Nothing was sent and the binding was not changed.`
-            : 'This purchase has no bound payer wallet. Start the purchase again.',
-        });
-        setStep('result');
-        return;
-      }
-
-      // 3. to + value come VERBATIM from the server quote; from is the BOUND payer.
-      const wei = quote.bnbAmountWei;
-      if (!wei || !/^[0-9]+$/.test(String(wei))) {
-        throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');
-      }
-
-      // 5. EXACTLY ONE broadcast attempt.
-      recordWalletStage('payment_send_started');
-      setSubmissionState('SUBMISSION_IN_PROGRESS');
-      let txHash: string;
-      try {
-        txHash = await sendPayment({
-          from: payer,
-          to: quote.receiverWallet,
-          value: String(wei),
-        });
-      } catch (sendErr) {
-        if (isSessionUnavailable(sendErr)) {
-          // WalletConnect raised this LOCALLY: the relay has no matching session,
-          // so no request reached the wallet and nothing could be broadcast. The
-          // purchase must stay retryable instead of being locked as uncertain.
-          setSubmissionState('NOT_SUBMITTED');
-          setResult({
-            ok: false,
-            message: 'Your wallet session ended before the payment was requested, so nothing was sent and nothing was locked. Reconnect your wallet and request a fresh quote.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
-          });
-          setStep('result');
-          return;
-        }
-        if (typeof sendErr === 'object' && sendErr !== null &&
-            (sendErr as { code?: string }).code === 'PAYMENT_METHOD_UNSUPPORTED') {
-          setSubmissionState('NOT_SUBMITTED');
-          setResult({
-            ok: false,
-            message: 'This wallet rejected the transaction request before submission. No payment was sent. The diagnostic below identifies the exact RPC error. Reconnect and request a fresh quote before trying again.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
-          });
-          setStep('result');
-          return;
-        }
-        if (isSubmissionUncertain(sendErr)) {
-          // Lock the purchase on the backend, not just this browser. This keeps
-          // another device from creating a second payment while the first
-          // wallet handoff has an ambiguous outcome.
-          let serverLocked = false;
-          try {
-            await PSEMineEngine.markPurchaseSubmissionUncertain(intentId);
-            serverLocked = true;
-            void refresh();
-          } catch (lockErr) {
-            toast.error(lockErr instanceof Error
-              ? `Payment status could not be synced to the server: ${lockErr.message}`
-              : 'Payment status could not be synced to the server. Do not retry.');
-          }
-          setSubmissionState('UNKNOWN_SUBMISSION_STATE');
-          try {
-            localStorage.setItem('psemine_uncertain_payment', JSON.stringify({
-              purchaseId: intentId, toolId: tool.id, payerWallet: payer,
-              receiverWallet: quote.receiverWallet, quotedBNBWei: String(quote.bnbAmountWei || ''),
-              createdAt: new Date().toISOString(),
-            }));
-          } catch { /* the live page still keeps the retry lock */ }
-          setUncertainRecovery(true);
-          setConfirmedNoTransaction(false);
-          setResult({
-            ok: false,
-            uncertain: true,
-            message: serverLocked
-              ? 'We could not confirm whether your wallet submitted this payment. This purchase is now locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
-              : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
-          });
-          setStep('result');
-          return;
-        }
-        throw sendErr;
-      }
-      if (!txHash) throw new Error('Transaction was not submitted.');
-      recordWalletStage('payment_hash_returned');
-      setSubmissionState('SUBMITTED');
-      // Store the hash on the backend before verification so a refresh or
-      // another device can resume the exact same on-chain transfer.
-      try {
-        await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
-      } catch {
-        // Fail closed against a second purchase if the hash write failed.
-        await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
-        void refresh();
-        setResult({
-          ok: false, uncertain: true, hash: txHash,
-          message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash and use it for reconciliation.',
-        });
-        setUncertainRecovery(true);
-        setStep('result');
-        return;
-      }
-      // The submitted-hash notification and status are now persisted server-side.
-      void refresh();
-
-      // 6. Backend verifies on-chain; activation is server-authoritative.
-      setSubmissionState('CONFIRMING');
-      const res = await submitPurchaseTx(intentId, txHash, payer);
-      if (res.success) {
-        setSubmissionState('VERIFIED');
-        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
-        setUncertainRecovery(false);
-        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
-      } else {
-        const stillConfirming = res.code === 'INSUFFICIENT_CONFIRMATIONS';
-        setSubmissionState(stillConfirming ? 'CONFIRMING' : 'SUBMITTED');
-        setResult({
-          ok: false,
-          recheckable: stillConfirming,
-          message: res.error || 'Verification failed. If you already sent the payment, keep the transaction hash — support can reconcile it from the on-chain record.',
-          hash: txHash,
-        });
-      }
-      setStep('result');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
-      if (/user rejected|user denied|4001/i.test(msg)) {
-        recordWalletStage('payment_cancelled_in_wallet');
-        setSubmissionState('NOT_SUBMITTED');
-        setStep('pay');
-        toast('Payment cancelled in your wallet.');
-      } else {
-        // The raw provider/RPC message can embed endpoints; keep only the stage.
-        recordWalletStage('payment_flow_failed');
-        setResult({ ok: false, message: msg });
-        setStep('result');
-      }
-    }
-  };
-
-  /** Re-run backend verification for a hash that is still gathering confirmations. */
-  const recheckVerification = async (hash: string) => {
-    if (!purchaseId) return;
-    setRechecking(true);
-    try {
-      const res = await submitPurchaseTx(purchaseId, hash, boundPayer || connectedWallet || '');
-      if (res.success) {
-        setSubmissionState('VERIFIED');
-        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
-        setUncertainRecovery(false);
-        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash });
-        setStep('result');
-      } else if (res.code === 'INSUFFICIENT_CONFIRMATIONS') {
-        toast('Still confirming on-chain — try again in a moment.', { icon: '⏳' });
-      } else {
-        toast.error(res.error || 'Verification has not completed for this transaction yet.');
-      }
+      setError(e instanceof Error ? e.message : 'Could not refresh payment status.');
     } finally {
-      setRechecking(false);
-      void refresh();
+      setChecking(false);
     }
+  }, [orderId, checking, refresh]);
+
+  useEffect(() => {
+    if (!orderId || ['paid', 'expired', 'failed', 'refunded', 'review'].includes(status)) return;
+    const timer = window.setInterval(() => { void checkStatus(); }, 6000);
+    return () => window.clearInterval(timer);
+  }, [orderId, status, checkStatus]);
+
+  const openCheckout = () => {
+    if (!checkoutUrl) return;
+    window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
   };
 
-  /** Re-run backend verification for a purchase recovered after a refresh. */
-  const recheckRecovered = async () => {
-    if (resume?.kind !== 'submitted') return;
-    const p = resume.purchase;
-    if (!p.transactionHash) return;
-    setRechecking(true);
-    try {
-      const res = await submitPurchaseTx(p.purchaseId, p.transactionHash, p.paymentWallet || '');
-      if (res.success) {
-        setResume(null);
-        setSubmissionState('VERIFIED');
-        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: p.transactionHash });
-        setStep('result');
-      } else if (res.code === 'INSUFFICIENT_CONFIRMATIONS') {
-        toast('Still confirming on-chain — the backend needs more block confirmations.', { icon: '⏳' });
-      } else {
-        toast.error(res.error || 'Verification has not completed for this transaction yet.');
-      }
-    } finally {
-      setRechecking(false);
-      void refresh();
-    }
+  const statusText: Record<string, string> = {
+    creating: 'Preparing secure checkout',
+    pending: 'Waiting for payment',
+    confirming: 'Confirming on the blockchain',
+    paid: 'Payment confirmed',
+    underpaid: 'Payment amount needs review',
+    expired: 'Checkout expired',
+    failed: 'Checkout unavailable',
+    refunded: 'Payment refunded',
+    review: 'Payment awaiting review',
   };
-
-  /** Restart from a fresh quote — the only route out of an uncertain or failed
-   *  submission, and only ever at the user's explicit request. */
-  const confirmNoBroadcast = async () => {
-    if (!purchaseId) {
-      toast.error('The original purchase could not be identified. Contact support before starting another payment.');
-      return;
-    }
-    setRechecking(true);
-    try {
-      await PSEMineEngine.confirmNoPurchaseBroadcast(purchaseId);
-      setConfirmedNoTransaction(true);
-      try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
-      setUncertainRecovery(false);
-      await refresh();
-      toast.success('The previous purchase was closed. You can request a fresh quote.');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'The server could not close the previous purchase. Do not retry yet.');
-    } finally {
-      setRechecking(false);
-    }
-  };
-
-  const restartPurchase = () => {
-    if (uncertainRecovery && !confirmedNoTransaction) return;
-    try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
-    setUncertainRecovery(false);
-    // Keep the user's explicit no-transaction confirmation active while the
-    // new quote is prepared, so the old pending intent is not auto-resumed.
-    setConfirmedNoTransaction(confirmedNoTransaction || uncertainRecovery);
-    setResult(null);
-    resetBinding();
-    setSubmissionState('NOT_SUBMITTED');
-    clearQuote();
-    setQuoteLoading(true);
-    setStep('quote');
-    requestQuote(tool.id).finally(() => setQuoteLoading(false));
-  };
-
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-  const ss = String(secondsLeft % 60).padStart(2, '0');
-  const stepIndex = STEP_ORDER.findIndex(s => s.id === step);
-  const continuous = dutyOf(tool) === 'continuous';
 
   return (
-    <>
-    {minimized ? (
-      <div
-        role="status"
-        aria-live="polite"
-        style={{ position: 'fixed', zIndex: 1201, left: 12, right: 12, bottom: 'max(12px, env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', border: '1px solid rgba(129, 156, 210, .28)', borderRadius: 16, background: '#080e1b', color: '#e8eefc', boxShadow: '0 16px 50px rgba(0,0,0,.5)' }}
-      >
-        <span style={{ fontSize: 13, lineHeight: 1.4 }}>{step === 'verifying' ? 'Payment is still processing. Keep this page open and do not pay again.' : 'Your purchase needs attention. Review its current status.'}</span>
-        <button type="button" onClick={() => setMinimized(false)} style={{ flexShrink: 0, borderRadius: 10, padding: '9px 12px', background: '#23365b', color: '#fff', fontSize: 13, fontWeight: 600 }}>Return</button>
-      </div>
-    ) : (
-    <div
-      role="presentation"
-      style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))', background: 'rgba(3, 7, 18, .82)', backdropFilter: 'blur(12px)' }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Purchase ${tool.name}`}
-        tabIndex={-1}
-        style={{ width: 'min(100%, 820px)', maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain', border: '1px solid rgba(129, 156, 210, .22)', borderRadius: 22, background: '#080e1b', boxShadow: '0 28px 100px rgba(0,0,0,.6)', outline: 'none' }}
-      >
-    <PsePage
-      title={`Purchase ${tool.name}`}
-      objective={`${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
-      actions={<PseButton variant="secondary" size="sm" onClick={() => step === 'verifying' ? setMinimized(true) : onClose()}>{step === 'verifying' ? 'Minimize' : 'Close'}</PseButton>}
-    >
-      <ol className="pse-steps" aria-label="Purchase progress">
-        {STEP_ORDER.map((s, i) => (
-          <li
-            key={s.id}
-            className="pse-step"
-            data-state={i < stepIndex ? 'done' : i === stepIndex ? 'current' : 'pending'}
-            aria-current={i === stepIndex ? 'step' : undefined}
-          >
-            {s.label}
-          </li>
-        ))}
-      </ol>
-
-      {/* ── Recovered purchase: a transaction was already submitted ── */}
-      {showingRecovery && resume?.kind === 'submitted' && (
-        <PseSection title={resume.purchase.status === 'manual_review' ? 'Payment under manual review' : resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}>
-          <p className="pse-prose">
-            {resume.purchase.status === 'manual_review'
-              ? `${tool.name} — your transaction hash is recorded, but the purchase is waiting for an administrator to attach the recovery case. No second payment is needed.`
-              : `${tool.name} — a transaction was submitted for this purchase and the backend is verifying it on BNB Smart Chain. This state was recovered from the backend after your refresh, so no new purchase was created.`}
-          </p>
-          {resume.purchase.transactionHash && (
-            <p className="text-sm">
-              <a href={`https://bscscan.com/tx/${resume.purchase.transactionHash}`} target="_blank" rel="noreferrer" className="pse-link">
-                View {shortHash(resume.purchase.transactionHash)} on BscScan
-              </a>
-            </p>
-          )}
-          <PseNotice tone="attention">
-            {resume.purchase.status === 'manual_review'
-              ? 'This payment is held for admin review. Once the recovery case is attached to this exact purchase, use Check verification again. Do not send another payment.'
-              : 'The backend needs a few block confirmations before the tool activates. Do not send the payment again — the same transaction hash is reused for every verification check.'}
-          </PseNotice>
-          <div className="flex flex-wrap gap-2">
-            <PseButton onClick={() => void recheckRecovered()} disabled={rechecking || !resume.purchase.transactionHash}>
-              {rechecking ? 'Checking…' : 'Check verification again'}
-            </PseButton>
-            <PseButton onClick={onClose}>Close</PseButton>
-          </div>
-        </PseSection>
-      )}
-
-      {/* ── Step: connect ── */}
-      {!showingRecovery && step === 'connect' && <WalletConnectStep />}
-
-      {/* ── Step: quote ── */}
-      {!showingRecovery && step === 'quote' && (
-        quoteLoading || !quote ? (
-          <PseLoading label="Requesting a live BNB quote from the server" />
-        ) : (
-          <PseSection title="Quote">
-            {resume?.kind === 'expired' && (
-              <PseNotice tone="attention">
-                Your previous quote expired — BNB pricing changed, so the earlier purchase could not be completed. A
-                fresh quote is prepared below; the earlier record is kept for audit and was not rewritten.
-              </PseNotice>
-            )}
-            <PseFacts cols={2}>
-              <PseFact label="Tool" value={tool.name} text />
-              <PseFact label="Fixed price" value={gbp(quote.gbpPrice)} />
-              <PseFact label="Live rate" value={quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'} />
-              <PseFact label="You pay, exactly" value={`${exactBnb} BNB`} />
-              <PseFact label="Network" value={`${networkName} · ${requiredChainId}`} text />
-              <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
-              <PseFact label="Quote window" value={`${mm}:${ss}`} />
-              <PseFact label="Quote id" value={shortHash(quote.quoteId, 8)} />
-            </PseFacts>
-            <p className="pse-block-note">
-              The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
-              {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
-            </p>
+    <div className="pse-modal-backdrop" role="presentation">
+      <div className="pse-modal pse-payment-v2" role="dialog" aria-modal="true" aria-labelledby="pse-payment-v2-title">
+        <PsePage title="Secure tool checkout" subtitle="Pay with the cryptocurrency and wallet you prefer.">
+          <PseSection title={tool.name}>
             <p className="pse-prose">
-              Adds {gbpHour(tool.hourlyRateGBP)} of capacity. You will own {owned} of {tool.maxPerUser} after this
-              purchase. {continuous
-                ? 'Elite mines continuously — no manual session restarts.'
-                : 'This tier mines in sessions: when a session ends, mining stops until you restart the tool.'}
+              You do not need to connect a wallet to PulseEarn. Continue to our secure payment provider, choose an
+              available cryptocurrency and network, then pay from your preferred wallet.
             </p>
-            <PseButton
-              variant="secondary"
-              size="sm"
-              onClick={() => void copyText(quote.receiverWallet).then(ok => {
-                if (ok) toast.success('Receiving wallet copied.');
-                else toast.error('Could not copy the address. Select it and copy manually.');
-              })}
-            >
-              Copy receiving wallet {shortAddr(quote.receiverWallet)}
-            </PseButton>
-
+            {priceAmount && (
+              <PseFacts>
+                <PseFact label="Tool price" value={`${priceCurrency} ${priceAmount}`} />
+                <PseFact label="Payment provider" value="NOWPayments" />
+              </PseFacts>
+            )}
+            <PseNotice title={statusText[status] || 'Checking payment'}>
+              {status === 'paid'
+                ? 'Your payment has been independently confirmed and the tool has been activated.'
+                : status === 'review'
+                  ? 'Your payment has been received, but an administrator must reconcile it before activation. Do not pay again.'
+                  : status === 'underpaid'
+                    ? 'The provider reported an incomplete payment. Do not send another payment until the order is reviewed.'
+                    : status === 'expired'
+                      ? 'This checkout has expired. You can start a new checkout.'
+                      : status === 'failed'
+                        ? (error || 'We could not create a secure checkout. No payment was taken.')
+                        : 'Your checkout status updates automatically. Returning to PulseEarn does not itself confirm payment.'}
+            </PseNotice>
+            {error && status !== 'failed' && <PseErrorNotice title="Status refresh issue">{error}</PseErrorNotice>}
+            {creating && <PseLoading label="Preparing your secure checkout…" />}
             <div className="flex flex-wrap gap-2">
-              {owned >= tool.maxPerUser ? (
-                <PseNotice tone="attention">Maximum ownership for this tool reached.</PseNotice>
-              ) : !walletLive ? (
-                <PseButton onClick={() => setStep('connect')}>
-                  {connectedWallet ? 'Reconnect your wallet to continue' : 'Connect a wallet to continue'}
-                </PseButton>
-              ) : !quoteValid ? (
-                <PseButton onClick={refreshQuoteNow}>Refresh quote</PseButton>
-              ) : (
-                <PseButton onClick={() => setStep('pay')}>Continue to payment</PseButton>
+              {checkoutUrl && !['paid', 'review', 'expired', 'failed', 'refunded'].includes(status) && (
+                <PseButton onClick={openCheckout}>Continue to secure checkout</PseButton>
               )}
+              {orderId && !['paid', 'review'].includes(status) && (
+                <PseButton variant="secondary" onClick={() => void checkStatus()} disabled={checking}>
+                  {checking ? 'Checking…' : 'Check payment status'}
+                </PseButton>
+              )}
+              {['expired', 'failed'].includes(status) && (
+                <PseButton onClick={() => void createInvoice()} disabled={creating}>
+                  {creating ? 'Preparing…' : 'Try checkout again'}
+                </PseButton>
+              )}
+              {status === 'paid' && <PseButton onClick={onClose}>Continue to my tools</PseButton>}
+              {status !== 'paid' && <PseButton variant="secondary" onClick={onClose}>Close</PseButton>}
             </div>
-            {connectedWallet && (
-              <p className="pse-prose--sm">Paying from {shortAddr(connectedWallet)}</p>
+            {orderId && (
+              <p className="pse-prose pse-prose--sm">Order reference: <code>{orderId}</code></p>
             )}
           </PseSection>
-        )
-      )}
-
-      {/* ── Step: pay ── */}
-      {!showingRecovery && step === 'pay' && quote && (
-        <PseSection title="Pay in BNB">
-          {resume?.kind === 'live' && (
-            <PseNotice>
-              Resuming your pending purchase — the original quote and payment wallet are unchanged, and no second
-              purchase was created.
-            </PseNotice>
-          )}
-
-          <PseFacts cols={2}>
-            <PseFact label="Tool" value={tool.name} text />
-            <PseFact label="Price" value={gbp(tool.purchasePriceGBP)} />
-            <PseFact label="Network" value={`${networkName} · chain ${requiredChainId}`} text />
-            <PseFact label="Payment wallet" value={boundPayer ? shortAddr(boundPayer) : connectedWallet ? shortAddr(connectedWallet) : '—'} />
-            <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
-            <PseFact label="Quote expires" value={`${mm}:${ss}`} />
-            <PseFact label="You pay exactly" value={`${exactBnb} BNB`} />
-          </PseFacts>
-
-          <PseButton
-            variant="secondary"
-            size="sm"
-            onClick={() => void copyText(exactBnb).then(ok => {
-              if (ok) toast.success('Exact BNB amount copied.');
-              else toast.error('Could not copy the amount. Select it and copy manually.');
-            })}
-          >
-            Copy exact BNB amount
-          </PseButton>
-          <PseNotice tone="attention">
-            Send the exact amount — underpayments are detected and will not activate a tool.
-          </PseNotice>
-
-          {boundPayer && (
-            <p className="pse-prose">
-              Bound payer {shortAddr(boundPayer)} — only this wallet can complete this purchase; the backend compares
-              the on-chain sender against it.
-            </p>
-          )}
-
-          <ul className="pse-checks">
-            {[
-              {
-                ok: walletLive && Boolean(connectedWallet && EVM.test(connectedWallet)),
-                warn: Boolean(connectedWallet) && !walletLive,
-                label: !connectedWallet
-                  ? 'Connect a wallet'
-                  : walletLive
-                    ? `Wallet connected — ${shortAddr(connectedWallet)}`
-                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`,
-              },
-              {
-                ok: payerAligned,
-                warn: walletChanged,
-                label: walletChanged
-                  ? `Wallet changed — this purchase is locked to ${shortAddr(boundPayer)}`
-                  : boundPayer
-                    ? `Payer binding verified — only ${shortAddr(boundPayer)} can complete this purchase`
-                    : 'Payer is bound to this wallet before anything is signed',
-              },
-              {
-                ok: onRequiredChain && walletLive,
-                warn: wrongChain || (walletLive && chainUnknown),
-                label: !walletLive
-                  ? `Network verified once the wallet is reconnected — must be ${networkName} (chain ${requiredChainId})`
-                  : onRequiredChain
-                    ? `${networkName} (chain ${requiredChainId})`
-                    : chainUnknown
-                      ? `Network not confirmed yet — PSEmine will request ${networkName} automatically when you tap Pay`
-                      : `Network switch required — PSEmine will request ${networkName} automatically before payment`,
-              },
-              { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
-              { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
-            ].map(c => (
-              <li
-                key={c.label}
-                className="pse-checks-item"
-                data-state={c.ok ? 'ok' : c.warn ? 'warn' : 'idle'}
-              >
-                <span className="pse-checks-mark" aria-hidden="true">
-                  {c.ok ? 'OK' : c.warn ? '!' : '–'}
-                </span>
-                <span>{c.label}</span>
-              </li>
-            ))}
-          </ul>
-
-          {walletChanged && (
-            <PseNotice tone="danger">
-              Wallet changed — this purchase is locked to {shortAddr(boundPayer)}. Reconnect that wallet to pay; the
-              connected wallet will not replace the payer. To pay with a different wallet, wait for the quote window to
-              lapse and start a new purchase.
-            </PseNotice>
-          )}
-
-          {connectedWallet && (wrongChain || chainUnknown) && (
-            <PseNotice tone="attention">
-              {chainUnknown
-                ? `Your wallet is connected, but its network is not confirmed yet. When you tap Pay, PSEmine will ask your wallet app to verify or switch to ${networkName} (chain ${requiredChainId}).`
-                : `Your wallet is currently on chain ${walletChainId}. When you tap Pay, PSEmine will request ${networkName} (chain ${requiredChainId}) from your wallet app before preparing the payment.`}
-              {' '}Approve that network request in the wallet app if it appears; you do not need to open wallet settings yourself.
-            </PseNotice>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <PseButton onClick={() => void payNow()} disabled={payBlocked}>
-              Open wallet &amp; pay {exactBnb} BNB
-            </PseButton>
-            {!walletLive && (
-              <PseButton onClick={() => setStep('connect')}>
-                {connectedWallet ? 'Reconnect this wallet' : 'Connect a wallet'}
-              </PseButton>
-            )}
-            <PseButton onClick={() => (quoteValid ? setStep('quote') : refreshQuoteNow())}>
-              {quoteValid ? 'Back to quote' : 'Refresh quote'}
-            </PseButton>
-          </div>
-          {payBlocked && <PseNotice tone="attention">{blockedReason}</PseNotice>}
-          <p className="pse-block-note">
-            After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and
-            confirmation depth — before the tool activates.
-          </p>
-        </PseSection>
-      )}
-
-      {/* ── Step: verifying ── */}
-      {!showingRecovery && step === 'verifying' && (
-        <PseSection title="Verifying on BNB Smart Chain">
-          <p className="pse-prose" role="status" aria-live="polite">
-            Confirming sender, recipient, amount and network confirmations. You may minimize this panel, but do not start another payment.
-          </p>
-          <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
-        </PseSection>
-      )}
-
-      {/* ── Step: result ── */}
-      {!showingRecovery && step === 'result' && result && (
-        <PseSection
-          title={
-            result.ok ? 'Tool activated'
-              : result.recheckable ? 'Confirming payment'
-                : result.uncertain ? 'Submission uncertain'
-                  : 'Verification incomplete'
-          }
-        >
-          <p className="pse-prose pse-prose--ink">{result.message}</p>
-          {result.diagnostic && (
-            <PseNotice tone="attention" title="Technical diagnostic">
-              <code>{result.diagnostic}</code>
-              {walletCorrelationId && (
-                <p className="mt-2">Correlation ID <code>{walletCorrelationId}</code></p>
-              )}
-              <div className="mt-3">
-                <PseButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void copyText(formatWalletDiagnostics()).then(ok => {
-                    if (ok) toast.success('Wallet diagnostics copied.');
-                    else toast.error('Could not copy diagnostics. Open the browser console and copy the [pseWallet] lines.');
-                  })}
-                >
-                  Copy wallet diagnostics
-                </PseButton>
-              </div>
-            </PseNotice>
-          )}
-          {result.hash && (
-            <p className="text-sm">
-              <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer" className="pse-link">
-                View {shortHash(result.hash)} on BscScan
-              </a>
-            </p>
-          )}
-
-          {result.uncertain && (
-            <PseNotice tone="attention" title="Check your wallet before retrying">
-              The wallet did not return a transaction result, so PSEmine cannot tell whether the transfer was submitted.
-              This does not mean the payment failed. Check the activity for the sending wallet
-              {boundPayer ? <> (<a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>)</> : ''}.
-              If a transfer appears, do not pay again. Keep its transaction hash and the sending wallet address so support
-              can reconcile that exact on-chain transfer. If no transfer appears, confirm below before requesting a new quote.
-            </PseNotice>
-          )}
-          {result.uncertain && !confirmedNoTransaction && (
-            <PseButton variant="secondary" onClick={() => void confirmNoBroadcast()} disabled={rechecking}>
-              {rechecking ? 'Checking with server…' : 'I checked — no transaction is listed'}
-            </PseButton>
-          )}
-          {!result.ok && !result.recheckable && !result.uncertain && (
-            <PseNotice tone="attention">
-              No tool was activated. Nothing was lost: unverified payments are recorded as recovery evidence for manual
-              review — that record exists so an administrator can reconcile it, and it is not an automatic activation.
-            </PseNotice>
-          )}
-          {result.ok && (
-            <PseNotice>
-              {continuous
-                ? 'This tool mines continuously while the campaign is active — there is no manual session restart.'
-                : 'This tool now runs in mining sessions. When a session completes, mining stops until you restart it; each restart needs a short backend period before mining resumes.'}
-            </PseNotice>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <PseButton onClick={onClose}>{result.ok ? 'Go to console' : 'Close'}</PseButton>
-            {!result.ok && result.recheckable && result.hash && (
-              <PseButton onClick={() => void recheckVerification(result.hash as string)} disabled={rechecking}>
-                {rechecking ? 'Checking…' : 'Check verification again'}
-              </PseButton>
-            )}
-            {!result.ok && !result.recheckable && !result.uncertain && (
-              <PseButton onClick={restartPurchase}>Try again with a new quote</PseButton>
-            )}
-            {!result.ok && result.uncertain && confirmedNoTransaction && (
-              <PseButton onClick={restartPurchase}>Start a new purchase</PseButton>
-            )}
-          </div>
-        </PseSection>
-      )}
-    </PsePage>
+        </PsePage>
       </div>
     </div>
-    )}
-    </>
-  );
-};
-
-/* ── Wallet connection step (inside the purchase flow) ─────────────────── */
-const WalletConnectStep: React.FC = () => {
-  const {
-    injectedWallets, walletConnectAvailable, connectWallet,
-    connectWalletConnectTransport, cancelWalletConnectTransport,
-    isConnectingWallet, walletRecoveryState, walletCorrelationId,
-  } = usePSEMine();
-
-  return (
-    <PseSection title="Connect a wallet">
-      <p className="pse-prose">
-        A wallet is required to sign the payment. PSEmine never requests automatic transfers — every payment must be
-        approved in your wallet.
-      </p>
-
-      <div className="flex flex-wrap gap-2">
-        {walletConnectAvailable ? (
-          <PseButton onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
-            Connect Wallet
-          </PseButton>
-        ) : (
-          injectedWallets.map(w => (
-            <PseButton key={w.id} onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
-              Connect {w.name}
-            </PseButton>
-          ))
-        )}
-      </div>
-
-      {isConnectingWallet && (
-        <PseNotice title="Waiting for wallet approval">
-          Your wallet may open as a separate app. Choose it and approve the connection there, then return to this PSEmine tab.
-          Keep this tab open; PSEmine confirms the session when your wallet returns. If the wallet app was cancelled,
-          stop waiting below — nothing has been sent.
-          <div className="mt-3 flex flex-wrap gap-2">
-            <PseButton variant="secondary" size="sm" onClick={() => void cancelWalletConnectTransport()}>
-              Cancel wallet connection
-            </PseButton>
-          </div>
-        </PseNotice>
-      )}
-
-      {walletRecoveryState === 'interrupted' && (
-        <PseNotice tone="attention" title="Wallet connection was interrupted">
-          The previous attempt ended when the browser restarted before PSEmine could save the wallet approval. No
-          payment was submitted. Approve the connection once more to finish.
-          <div className="mt-3 flex flex-wrap gap-2">
-            <PseButton size="sm" onClick={() => void connectWalletConnectTransport(true)} disabled={isConnectingWallet}>
-              Reconnect wallet
-            </PseButton>
-          </div>
-        </PseNotice>
-      )}
-
-      {walletCorrelationId && (
-        <details className="pse-block-note mt-3">
-          <summary>Wallet diagnostics</summary>
-          <p className="pse-prose--sm">
-            Correlation ID <code>{walletCorrelationId}</code>. Safe to share: addresses are shortened and session
-            secrets are removed.
-          </p>
-          <PseButton
-            variant="secondary"
-            size="sm"
-            onClick={() => void copyText(formatWalletDiagnostics()).then(ok => {
-              if (ok) toast.success('Wallet diagnostics copied.');
-              else toast.error('Could not copy diagnostics. Open the browser console and copy the [pseWallet] lines.');
-            })}
-          >
-            Copy wallet diagnostics
-          </PseButton>
-        </details>
-      )}
-
-      {!walletConnectAvailable && injectedWallets.length === 0 && (
-        <PseNotice tone="attention">
-          WalletConnect is not configured for this deployment yet. Add the public Reown project ID as
-          VITE_WALLETCONNECT_PROJECT_ID, or open PSEmine inside your wallet&apos;s browser.
-        </PseNotice>
-      )}
-    </PseSection>
   );
 };
 

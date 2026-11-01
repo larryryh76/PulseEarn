@@ -704,6 +704,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         purchase: pending,
         quote: {
           quoteId: pending.quoteId,
+          walletProofNonce: pending.walletProofNonce || '',
           userId: pseUser?.uid || '',
           toolId: tool.id,
           toolVersion: tool.version,

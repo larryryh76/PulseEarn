@@ -5,7 +5,7 @@ import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateP
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  bnbExactFromWei, campaignStatusView, gbp, gbpHour, purchaseStatusView, shortAddr, timeAgo, toDateSafe,
+  campaignStatusView, gbp, gbpHour, shortAddr, timeAgo, toDateSafe,
   useCampaignClock,
 } from '../../components/psemine/pseCore';
 import {
@@ -55,7 +55,6 @@ export const PSEMineDashboard: React.FC = () => {
 
   const user = state?.user;
   const ownedTools = useMemo(() => state?.tools ?? [], [state?.tools]);
-  const pendingPurchases = state?.pendingPurchases ?? [];
 
   const clock = useCampaignClock(state?.campaign, campaignStatus);
   const campaignView = campaignStatusView(campaignStatus);
@@ -93,15 +92,13 @@ export const PSEMineDashboard: React.FC = () => {
 
   // One actionable next step makes this an operations dashboard rather than a
   // page of repeated campaign facts. Priority is based on real account state.
-  const nextAction = pendingPurchases.length > 0
-    ? { title: 'Resume purchase', detail: 'A tool purchase is awaiting completion.', to: '/mine/tools', label: 'Open tools' }
-    : !payoutWallet
-      ? { title: 'Set payout destination', detail: 'Add the wallet that should receive eligible settlements.', to: '/mine/wallet', label: 'Set up wallet' }
-      : ownedCount === 0
-        ? { title: 'Add your first tool', detail: 'Your equipment register is empty.', to: '/mine/tools', label: 'Browse tools' }
-        : postMining
-          ? { title: 'Review settlement', detail: 'The campaign is in its settlement or closed phase.', to: '/mine/wallet', label: 'View wallet' }
-          : { title: 'Monitor equipment', detail: ownedCount ? (activeCount + ' of ' + ownedCount + ' owned units currently operating.') : 'No equipment owned.', to: '/mine/tools', label: 'Manage tools' };
+  const nextAction = !payoutWallet
+    ? { title: 'Set payout destination', detail: 'Add the wallet that should receive eligible settlements.', to: '/mine/wallet', label: 'Set up wallet' }
+    : ownedCount === 0
+      ? { title: 'Add your first tool', detail: 'Your equipment register is empty.', to: '/mine/tools', label: 'Browse tools' }
+      : postMining
+        ? { title: 'Review settlement', detail: 'The campaign is in its settlement or closed phase.', to: '/mine/wallet', label: 'View wallet' }
+        : { title: 'Monitor equipment', detail: ownedCount ? (activeCount + ' of ' + ownedCount + ' owned units currently operating.') : 'No equipment owned.', to: '/mine/tools', label: 'Manage tools' };
 
   const campaignPosition = campaignDatesKnown
     ? clock.dayNumber !== null
@@ -322,48 +319,6 @@ export const PSEMineDashboard: React.FC = () => {
           </dd>
         </div>
       </dl>
-
-      {pendingPurchases.length > 0 && (
-        <PseNotice tone="attention" title={pendingPurchases.length === 1 ? 'Action needed: tool purchase' : `Action needed: ${pendingPurchases.length} tool purchases`}>
-          <div className="space-y-3">
-            {pendingPurchases.map(p => {
-              const status = purchaseStatusView(p.status);
-              const exactBnb = bnbExactFromWei(p.quotedBNBWei, p.quotedBNBAmount ?? null);
-              const quotedAmount = exactBnb !== '—' ? `${exactBnb} BNB` : null;
-              const expires = p.expiresAt && Number.isFinite(Date.parse(p.expiresAt))
-                ? new Date(p.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }) : null;
-              const needsReview = p.status === 'manual_review' || p.status === 'submission_uncertain';
-              return (
-                <div key={p.purchaseId} className="rounded-xl border border-current/15 bg-black/10 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong>{p.toolName || p.toolId || 'Mining tool'}</strong>
-                    <span className="text-xs font-semibold">{status.label}</span>
-                  </div>
-                  <p className="mt-1 text-sm">
-                    {needsReview
-                      ? 'Do not send another payment. Check the existing transaction or wait for the recovery review.'
-                      : p.status === 'awaiting_payment'
-                        ? 'Your quote and wallet-bound purchase are waiting for you to continue.'
-                        : 'Your transaction is recorded. The backend must verify it before the tool can activate.'}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
-                    {quotedAmount && <span>Quoted amount: {quotedAmount}</span>}
-                    {p.chainId && <span>Network: BNB Smart Chain ({p.chainId})</span>}
-                    {expires && <span>Quote expiry: {expires}</span>}
-                  </div>
-                  {p.transactionHash && (
-                    <a className="pse-textlink mt-2 inline-block" href={`https://bscscan.com/tx/${p.transactionHash}`} target="_blank" rel="noreferrer">
-                      View transaction on BscScan
-                    </a>
-                  )}
-                  {p.statusMessage && <p className="mt-2 text-xs opacity-80">{p.statusMessage}</p>}
-                </div>
-              );
-            })}
-            <Link to="/mine/tools" className="pse-textlink inline-block">Resume or review in Tools →</Link>
-          </div>
-        </PseNotice>
-      )}
 
       <div className="pse-dash-grid">
         <div className="pse-dash-col">

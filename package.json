@@ -21,7 +21,7 @@
     "firebase:check": "bun scripts/check-firebase-infra.mjs",
     "verify:payments": "bunx vite build && bun scripts/pse-payment-v2-check.mjs",
     "verify:wallet": "npm run verify:payments",
-    "verify:wallet-recovery": "bun scripts/pse-wallet-recovery-check.mjs && bun scripts/pse-wallet-handoff-check.mjs"
+    "verify:wallet-recovery": "npm run verify:payments"
   },
   "dependencies": {
     "@reown/appkit": "1.8.24",

@@ -721,6 +721,16 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // no stored session exists is nothing done (explicit connect as before).
   useEffect(() => {
     let cancelled = false;
+    // Clear any prior account's in-memory wallet before restoring this user's
+    // account-scoped session. This prevents a stale provider/address surviving
+    // sign-out or a fast account switch while the new restore is pending.
+    providerRef.current = null;
+    transportRef.current = null;
+    setConnectedWallet(null);
+    setWalletTransport(null);
+    setWalletName(null);
+    setWalletChainId(null);
+    setIsConnectingWallet(false);
     recordWalletDocumentBoot();
     let handoff = readWalletConnectHandoff();
     const handoffOwnerUid = localStorage.getItem('psemine_wc_handoff_uid');

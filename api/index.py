@@ -7934,24 +7934,37 @@ def admin_campaign_action():
         if not isinstance(enabled, bool):
             return jsonify({"success": False, "error": "INVALID_PURCHASE_GATE",
                             "message": "Provide enabled as true or false."}), 400
+        enabled_currencies = list(camp_before.get("enabledPaymentCurrencies") or [])
         if enabled:
             callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
                                "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn").strip()
-            provider_ready = bool(
-                str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
-                and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-                and callback_url.startswith("https://")
-            )
+            api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+            ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+            provider_ready = bool(api_key and ipn_secret and callback_url.startswith("https://"))
             if not provider_ready:
                 return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
                                 "message": "Configure the hosted payment provider server credentials before enabling purchases."}), 409
             if current_status != 'active':
                 return jsonify({"success": False, "error": "CAMPAIGN_NOT_ACTIVE",
                                 "message": "Purchases can only be enabled while the campaign is active."}), 409
+            try:
+                from psemine_payments_v2 import verify_merchant_account, provider_api_base
+                get_deps()
+                if requests is None:
+                    raise RuntimeError("HTTP client unavailable")
+                enabled_currencies = verify_merchant_account(
+                    api_key, api_base=provider_api_base(), http_get=requests.get
+                )
+            except Exception as exc:
+                logging.exception("[PSEmine Admin] NOWPayments merchant verification failed")
+                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_VERIFICATION_FAILED",
+                                "message": "NOWPayments credentials or merchant payment currencies could not be verified. Check the merchant account and enabled assets before enabling purchases."}), 409
         now_iso = datetime.now(timezone.utc).isoformat()
         camp_ref.update({
             "purchaseEnabled": enabled,
             "purchasePaymentProvider": "nowpayments",
+            "enabledPaymentCurrencies": enabled_currencies,
+            "paymentProviderVerifiedAt": now_iso if enabled else camp_before.get("paymentProviderVerifiedAt"),
             "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
             "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),
             "updatedAt": now_iso,

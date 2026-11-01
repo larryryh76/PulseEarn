@@ -44,6 +44,7 @@ class TestPSEMineHostedCheckoutMigration(unittest.TestCase):
         self.assertIn("if action == 'set_purchase_enabled':", API)
         self.assertIn("NOWPAYMENTS_API_KEY", API)
         self.assertIn("NOWPAYMENTS_IPN_SECRET", API)
+        self.assertIn("verify_merchant_account", API)
         self.assertIn("if current_status != 'active':", API)
         self.assertIn('"purchaseEnabled": enabled', API)
         self.assertIn("paymentProviderConfigured", API)

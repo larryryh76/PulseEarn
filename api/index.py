@@ -6785,7 +6785,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
     """Verify BSC transaction on-chain via JSON-RPC.
     Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
+    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
 
     try:
@@ -7014,23 +7014,481 @@ def psemine_get_tools():
 @verify_token
 @require_db
 def psemine_create_order():
-    """Retired legacy purchase endpoint. Use the canonical /api/mine/tools/* flow."""
-    return jsonify({
-        "success": False,
-        "error": "LEGACY_PAYMENT_DISABLED",
-        "message": "This legacy purchase endpoint is retired. Start or resume your purchase from the PSEmine Tools page."
-    }), 410
+    """Create locked BNB purchase quote for a PSEmine mining tool."""
+    try:
+        db = get_db()
+        # (Phase 3A) This handler no longer bootstraps canonical data: creation
+        # belongs to the admin-gated POST /api/psemine/setup. The quote prices
+        # itself from the canonical constants below, so it neither needs nor may
+        # cause a seed write.
+        uid = request.user['uid']
+        data = request.json or {}
+        tool_id = (data.get('toolId') or '').strip().lower()
+        payment_wallet_value = data.get('paymentWallet') or data.get('paymentAddress') or ''
+        payment_wallet = payment_wallet_value.strip().lower() if isinstance(payment_wallet_value, str) else ''
+
+        # (B3) Legacy purchase path respects the canonical campaign lifecycle.
+        import psemine_engine as _pse_engine
+        _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+        if _eff == 'ended':
+            return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended."}), 409
+        if _eff != 'active' or _camp.get('purchaseEnabled') is False:
+            return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+        if not tool_id:
+            return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
+
+        if (len(payment_wallet) != 42 or not payment_wallet.startswith('0x') or
+                any(char not in '0123456789abcdef' for char in payment_wallet[2:])):
+            return jsonify({
+                "success": False,
+                "error": "INVALID_PAYMENT_WALLET",
+                "message": "A valid 42-character EVM payment wallet address is required."
+            }), 400
+
+        # (Phase 3A) ECONOMICS COME FROM THE CANONICAL CONSTANTS, never from
+        # the Firestore row: price and the ownership limit are locked rules
+        # (psemine_core.LOCKED_PSEMINE_TOOLS, projected here as
+        # LOCKED_PSEMINE_TOOLS_CONFIG). The row is read only for the mutable
+        # operational flag the admin surface owns (`isActive`, cleared by
+        # admin_deprecate_tool), so a missing row means "not deprecated" — the
+        # same assumption the canonical /api/mine/tools/quote path makes.
+        tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
+        if not tool_cfg:
+            return jsonify({"success": False, "error": "TOOL_NOT_FOUND", "message": "Mining tool not found."}), 404
+
+        tool_doc = db.collection('psemine_tools').document(tool_id).get()
+        tool = tool_doc.to_dict() or {}
+        if not tool.get('isActive', True):
+            return jsonify({"success": False, "error": "TOOL_INACTIVE", "message": "This mining tool is currently unavailable."}), 400
+
+        # Enforce maximum copies limit per user
+        owned_snaps = db.collection('psemine_tool_ownership') \
+            .where('userId', '==', uid) \
+            .where('toolId', '==', tool_id) \
+            .where('status', '==', 'active') \
+            .get()
+
+        max_copies = tool_cfg['max_per_user']
+        if len(owned_snaps) >= max_copies:
+            return jsonify({
+                "success": False,
+                "error": "MAX_COPIES_REACHED",
+                "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool_cfg['name']} tool."
+            }), 409
+
+        try:
+            bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
+        except Exception as e:
+            return jsonify({"success": False, "error": "PRICE_SERVICE_UNAVAILABLE", "message": str(e)}), 503
+
+        if bnb_gbp_price is None or bnb_gbp_price <= 0:
+            return jsonify({
+                "success": False,
+                "error": "PRICE_SERVICE_UNAVAILABLE",
+                "message": "Live BNB exchange rate service is temporarily unavailable. Please try again in a few moments."
+            }), 503
+
+        gbp_price = float(tool_cfg['price_gbp'])
+        # Match the exact 8-decimal amount shown by the legacy checkout UI.
+        # Verifying an unrounded float after showing 8 decimals could reject a
+        # payment that the user already sent.
+        bnb_amount = round(gbp_price / bnb_gbp_price, 8)
+        wei_amount = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+
+        now_dt = datetime.now(timezone.utc)
+        expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+
+        # Legacy checkout uses the same single admin-configured destination.
+        _legacy_campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+        _legacy_campaign = (_legacy_campaign_snap.to_dict() or {}) if _legacy_campaign_snap.exists else {}
+        receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)
+        if not receiver_wallet:
+            return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                            "message": "Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet."}), 503
+
+        legacy_review_orders = db.collection('psemine_orders').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+        if legacy_review_orders:
+            return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                            "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved."}), 409
+
+        order_ref = db.collection('psemine_orders').document()
+        order_payload = {
+            'id': order_ref.id,
+            'userId': uid,
+            'toolId': tool_id,
+            'campaignId': tool.get('campaignId') or PSEMINE_CAMPAIGN_DOC_ID,
+            'priceGbp': gbp_price,
+            'bnbGbpPrice': bnb_gbp_price,
+            'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
+            'payableBnbAmount': f"{bnb_amount:.8f}",
+            'payableWeiAmount': str(wei_amount),
+            'quoteProvider': quote_provider,
+            'quoteTimestamp': now_dt.isoformat(),
+            'quoteExpiry': expiry_dt.isoformat(),
+            'destinationAddress': receiver_wallet,
+            'intendedPaymentWallet': payment_wallet,
+            'chainId': PSEMINE_BSC_CHAIN_ID,
+            'status': 'quoted',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }
+
+        order_ref.set(order_payload)
+
+        # Log order creation activity
+        act_ref = db.collection('psemine_activities').document()
+        act_ref.set({
+            'id': act_ref.id,
+            'userId': uid,
+            'type': 'ORDER_CREATED',
+            'title': f"Order Quoted for {tool_cfg['name']} Tool",
+            'description': f"Created quote for {tool_cfg['name']} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for {PSEMINE_QUOTE_TTL_MINUTES} minutes.",
+            'metadata': {'orderId': order_ref.id, 'toolId': tool_id, 'payableWeiAmount': str(wei_amount)},
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        return jsonify({"success": True, "order": order_payload})
+    except Exception as exc:
+        print(f"[PSEmine Create Order Error]: {exc}", flush=True)
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE", "message": "Unable to process order quote right now. Please try again later."}), 503
 
 @app.route('/api/psemine/orders/verify-payment', methods=['POST'])
 @verify_token
 @require_db
 def psemine_verify_payment():
-    """Retired legacy purchase endpoint. Use the canonical /api/mine/tools/* flow."""
+    """Verify BSC transaction on-chain and trigger ownership, session, referral, and notification pipeline."""
+    db = get_db()
+    uid = request.user['uid']
+    data = request.json or {}
+    order_id = (data.get('orderId') or '').strip()
+    tx_hash = (data.get('txHash') or '').strip().lower()
+
+    if not order_id or not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_PARAMS", "message": "Valid orderId and 66-char txHash required."}), 400
+
+    order_ref = db.collection('psemine_orders').document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return jsonify({"success": False, "error": "ORDER_NOT_FOUND", "message": "Order document not found."}), 404
+
+    order = order_snap.to_dict() or {}
+    if order.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This order does not belong to you."}), 403
+
+    if order.get('status') == 'confirmed':
+        return jsonify({"success": False, "error": "ORDER_ALREADY_CONFIRMED", "message": "This order has already been verified and paid."}), 409
+
+    # (B3) Campaign lifecycle gate at verification time. NO activation after
+    # end — same shared terminal predicate as the canonical flow.
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    # Legacy orders created before the explicit receiver-confirmation gate may
+    # still contain the former bootstrap destination. Do not accept a payment
+    # to that stale address after an administrator has confirmed a new one.
+    _current_receiver = _configured_psemine_receiver_wallet(_camp)
+    _order_receiver = order.get('destinationAddress')
+    if (not _current_receiver or not _is_valid_psemine_receiver_wallet(_order_receiver)
+            or _order_receiver.lower() != _current_receiver.lower()):
+        try:
+            _legacy_recovery_id = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=_order_receiver, chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='LEGACY_ORDER_RECEIVER_STALE',
+                extra={'message': 'Legacy order destination no longer matches the explicitly confirmed campaign receiver.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'recoveryCaseId': _legacy_recovery_id,
+                              'reviewReason': 'LEGACY_ORDER_RECEIVER_STALE',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+        except Exception:
+            logging.exception('[PSEmine] stale legacy receiver recovery failed')
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This legacy order uses a stale or unconfirmed receiving address. The transaction was sent for manual review. Do not send another payment."}), 409
+
+    if _eff in _pse_engine.TERMINAL_CAMPAIGN_STATUSES:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='CAMPAIGN_ENDED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended; this payment was recorded for manual review."}), 409
+    if _camp.get('purchaseEnabled') is False:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='PURCHASES_DISABLED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+    # Quote expiry cannot discard a transaction the user may already have sent.
+    # Record it for review and retain the legacy order instead of marking it dead.
+    expiry_raw = order.get('quoteExpiry')
+    if not expiry_raw:
+        _pse_engine.create_payment_recovery(
+            db, uid, tx_hash=tx_hash, quote_id=order_id,
+            sender=order.get('intendedPaymentWallet'),
+            recipient=order.get('destinationAddress'),
+            chain_id=PSEMINE_BSC_CHAIN_ID,
+            reason='MISSING_LEGACY_QUOTE_EXPIRY',
+            extra={'message': 'Legacy order has no expiry and was sent for manual review.'})
+        order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                          'reviewReason': 'MISSING_LEGACY_QUOTE_EXPIRY',
+                          'updatedAt': firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This order has no valid expiry. The transaction was recorded for admin review. Do not send another payment."}), 409
+    if expiry_raw:
+        try:
+            if isinstance(expiry_raw, datetime):
+                exp_dt = expiry_raw
+            else:
+                exp_dt = datetime.fromisoformat(str(expiry_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp_dt:
+                _pse_engine.create_payment_recovery(
+                    db, uid, tx_hash=tx_hash, quote_id=order_id,
+                    sender=order.get('intendedPaymentWallet'),
+                    recipient=order.get('destinationAddress'),
+                    chain_id=PSEMINE_BSC_CHAIN_ID,
+                    reason='LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                    extra={'message': 'Legacy order quote expired before verification completed.'})
+                order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                                  'reviewReason': 'LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                                  'updatedAt': firestore.SERVER_TIMESTAMP})
+                return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                                "message": "This order quote expired. The transaction was recorded for admin review. Do not send another payment."}), 409
+        except Exception:
+            _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=order.get('destinationAddress'),
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='INVALID_LEGACY_QUOTE_EXPIRY',
+                extra={'message': 'Legacy order quote expiry could not be parsed.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'reviewReason': 'INVALID_LEGACY_QUOTE_EXPIRY',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "The order expiry is invalid. The transaction was recorded for admin review. Do not send another payment."}), 409
+
+    intended_payment_wallet = order.get('intendedPaymentWallet')
+    expected_sender = intended_payment_wallet.strip().lower() if isinstance(intended_payment_wallet, str) else ''
+    if not expected_sender:
+        return jsonify({
+            "success": False,
+            "error": "ORDER_PAYMENT_WALLET_MISSING",
+            "message": "This order is not bound to a payment wallet. Please create a new order."
+        }), 422
+
+    # Only the immutable server-created order destination may be verified.
+    legacy_destination = order.get('destinationAddress')
+    if not _is_valid_psemine_receiver_wallet(legacy_destination):
+        return jsonify({"success": False, "error": "INVALID_ORDER_RECEIVER",
+                        "message": "This order has no valid receiving wallet. Do not send payment; create a new order."}), 409
+    if int(order.get('chainId') or 0) != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "ORDER_NETWORK_MISMATCH",
+                        "message": "This order is not for BNB Smart Chain."}), 409
+
+    # On-Chain Verification
+    verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(
+        tx_hash,
+        legacy_destination,
+        order['payableWeiAmount'],
+        expected_sender=expected_sender
+    )
+
+    if not verified:
+        if err_code == "SENDER_MISMATCH":
+            order_ref.update({
+                'status': 'manual_review',
+                'flaggedReason': err_msg,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+            pay_doc_id = f"pay_{tx_hash}"
+            db.collection('psemine_payments').document(pay_doc_id).set({
+                'id': pay_doc_id,
+                'orderId': order_id,
+                'userId': uid,
+                'txHash': tx_hash,
+                'status': 'flagged_mismatch',
+                'flaggedReason': err_msg,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+            return jsonify({
+                "success": False,
+                "error": "SENDER_MISMATCH",
+                "message": "Payment wallet on-chain does not match order payment wallet. Order flagged for manual review."
+            }), 422
+
+        return jsonify({
+            "success": False,
+            "error": err_code or "VERIFICATION_FAILED",
+            "message": err_msg or "On-chain verification failed.",
+            "confirmations": block_depth
+        }), 422
+
+    # Fetch Tool Details
+    tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
+    tool = tool_doc.to_dict() if tool_doc.exists else {}
+    import psemine_core as _pse_core
+
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    pay_doc_id = f"pay_{tx_hash}"
+    pay_ref = db.collection('psemine_payments').document(pay_doc_id)
+    own_ref = db.collection('psemine_tool_ownership').document()
+
+    @firestore.transactional
+    def process_payment_confirmation(txn):
+        # Reads before writes
+        pay_snap = pay_ref.get(transaction=txn)
+        if pay_snap.exists:
+            raise Exception("TRANSACTION_REUSED")
+
+        o_snap = order_ref.get(transaction=txn)
+        if not o_snap.exists:
+            raise Exception("ORDER_NOT_FOUND")
+        if o_snap.to_dict().get('status') == 'confirmed':
+            raise Exception("ORDER_ALREADY_CONFIRMED")
+
+        owned_query = db.collection('psemine_tool_ownership') \
+            .where('userId', '==', uid) \
+            .where('toolId', '==', order['toolId']) \
+            .where('status', '==', 'active')
+        owned_count = len(owned_query.get(transaction=txn))
+        # (Phase 3A) For a canonical tool the ownership cap is a locked economic
+        # rule, so it is read from the canonical constants rather than from the
+        # tool document (a stale or missing row could otherwise widen how many
+        # copies an account may hold). A non-canonical legacy row keeps behaving
+        # exactly as before, which is what the fallback preserves.
+        _cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId'])
+        max_copies = _cfg['max_per_user'] if _cfg else safe_int(tool.get('maxCopiesPerUser'), 1)
+        if owned_count >= max_copies:
+            raise Exception("MAX_COPIES_REACHED")
+
+        pay_payload = {
+            'id': pay_doc_id,
+            'orderId': order_id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'priceGbp': order['priceGbp'],
+            'paidBnbAmount': order['payableBnbAmount'],
+            'paidWeiAmount': order['payableWeiAmount'],
+            'asset': 'BNB',
+            'chainId': PSEMINE_BSC_CHAIN_ID,
+            'destinationAddress': order['destinationAddress'],
+            'txHash': tx_hash,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
+            'verificationSource': 'bsc_rpc_receipt',
+            'status': 'confirmed',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(pay_ref, pay_payload)
+
+        own_payload = {
+            'id': own_ref.id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'orderId': order_id,
+            'paymentId': pay_doc_id,
+            'txHash': tx_hash,
+            'purchasePriceGbp': order['priceGbp'],
+            # (Phase 3A) The locked hourly rate comes from the canonical
+            # economics, never from the tool document: the old inline default
+            # (0.10) was a second, silently-diverging statement of the Starter
+            # rate, and a stored rate could disagree with the ledger's. A
+            # non-canonical legacy row keeps its stored value, defaulted from
+            # the canonical Starter rate so no rate literal lives here.
+            'miningRateGbpPerHour': (
+                _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS[order['toolId']]['hourly_rate_minor'])
+                if order['toolId'] in _pse_core.LOCKED_PSEMINE_TOOLS
+                else safe_float(tool.get('miningRateGbpPerHour'), _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS['starter']['hourly_rate_minor']))
+            ),
+            'campaignId': tool.get('campaignId') or PSEMINE_CAMPAIGN_DOC_ID,
+            'status': 'active',
+            'acquiredAt': now_iso,
+            # (B1/B2) canonical balance anchor + cycle fields so v1-created
+            # ownerships never become anchor-less and never double-count the
+            # legacy balance at first checkpoint.
+            'accruedBalanceAbsorbed': True,
+            'cycleIndex': 0,
+            'cycleStartedAt': now_iso,
+            'lastAccruedAt': now_iso,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(own_ref, own_payload)
+
+        txn.update(order_ref, {
+            'status': 'confirmed',
+            'paymentTxHash': tx_hash,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+    try:
+        process_payment_confirmation(db.transaction())
+    except Exception as e:
+        err_str = str(e)
+        if err_str in ("TRANSACTION_REUSED", "ORDER_ALREADY_CONFIRMED", "MAX_COPIES_REACHED"):
+            return jsonify({"success": False, "error": err_str, "message": f"Payment processing stopped: {err_str}"}), 409
+        return jsonify({"success": False, "error": "CONFIRMATION_FAILED", "message": str(e)}), 400
+
+    # 4. Update/Recalculate User Mining Session
+    session_data = recalculate_psemine_user_mining_state(db, uid)
+
+    # 5. Record Activity & Notification for Buyer
+    tool_name = (tool.get('name')
+                 or (LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId']) or {}).get('name')
+                 or 'Mining')
+    act_ref = db.collection('psemine_activities').document()
+    act_ref.set({
+        'id': act_ref.id,
+        'userId': uid,
+        'type': 'TOOL_PURCHASED',
+        'title': f"Purchased {tool_name} Tool",
+        'description': f"Acquired {tool_name} tool (£{order['priceGbp']:.2f} GBP). Mining rate updated to £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'metadata': {'orderId': order_id, 'paymentId': pay_doc_id, 'txHash': tx_hash, 'toolId': order['toolId']},
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    notif_ref = db.collection('psemine_notifications').document()
+    notif_ref.set({
+        'id': notif_ref.id,
+        'userId': uid,
+        'type': 'purchase',
+        'title': 'Tool Purchase Confirmed',
+        'message': f"Your {tool_name} tool purchase is confirmed. Active rate is now £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'read': False,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    # 6. Referral Qualification — (Phase 2) delegates to the ONE canonical
+    # qualification path (settle_referral_on_activation). The previous manual
+    # 'pending'->'qualified' block was a second, competing qualification path.
+    import psemine_engine as _pse_engine
+    try:
+        _pse_engine.settle_referral_on_activation(db, uid, order_id)
+    except Exception as _ref_err:
+        # Activation succeeded but qualification failed — persist an idempotent
+        # repair task instead of losing the referral permanently.
+        try:
+            _pse_engine.record_referral_repair(db, uid, order_id, reason='V1_ACTIVATE_SETTLE_FAILED',
+                                               detail=str(_ref_err)[:500])
+        except Exception:
+            logging.error(f"[PSEmine v1] referral repair record failed for {uid}", exc_info=True)
+        logging.warning(f"[PSEmine v1] canonical referral settle failed for {uid}: {_ref_err}")
+
     return jsonify({
-        "success": False,
-        "error": "LEGACY_PAYMENT_DISABLED",
-        "message": "This legacy purchase endpoint is retired. Start or resume your purchase from the PSEmine Tools page."
-    }), 410
+        "success": True,
+        "orderId": order_id,
+        "paymentId": pay_doc_id,
+        "ownershipId": own_ref.id,
+        "blockNumber": receipt_block_number,
+        "confirmations": block_depth,
+        "session": session_data,
+    })
 
 @app.route('/api/psemine/dashboard', methods=['GET'])
 @verify_token
@@ -7453,7 +7911,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
         try:
             import json as _json
-            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.bnbchain.org')
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
             def _rpc(method, params):
                 body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
                 request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')

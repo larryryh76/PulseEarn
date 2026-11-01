@@ -1,253 +1,104 @@
-"""Regression checks for the PSEmine campaign receiving-wallet admin control.
-
-These are source-contract tests: api/index.py imports Flask/Firebase at module
-scope, so the tests deliberately verify the route contract without booting
-production services or touching real funds.
-"""
+"""PSEmine hosted-checkout migration and legacy wallet retirement guards."""
 from pathlib import Path
-import re
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[2]
-API_SOURCE = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
-ADMIN_SOURCE = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text(encoding="utf-8")
-ENGINE_SOURCE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
-WALLET_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_text(encoding="utf-8")
-PSE_API_SOURCE = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
-TOOLS_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_text(encoding="utf-8")
-POLICY_SOURCE = (ROOT / "src" / "pages" / "psemine" / "PSEminePolicy.tsx").read_text(encoding="utf-8")
-AUTH_SOURCE = (ROOT / "src" / "contexts" / "AuthContext.tsx").read_text(encoding="utf-8")
-TYPES_SOURCE = (ROOT / "src" / "types" / "index.ts").read_text(encoding="utf-8")
-PSEMINE_TYPES_SOURCE = (ROOT / "src" / "types" / "psemine.ts").read_text(encoding="utf-8")
+API = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
+PUBLIC = (ROOT / "api" / "psemine_public.py").read_text(encoding="utf-8")
+ENGINE = (ROOT / "api" / "psemine_engine.py").read_text(encoding="utf-8")
+TOOLS = (ROOT / "src" / "pages" / "psemine" / "PSEMineTools.tsx").read_text(encoding="utf-8")
+WALLET = (ROOT / "src" / "pages" / "psemine" / "PSEMineWallet.tsx").read_text(encoding="utf-8")
+CONTEXT = (ROOT / "src" / "contexts" / "PSEMineContext.tsx").read_text(encoding="utf-8")
+ADMIN = (ROOT / "src" / "pages" / "admin" / "AdminPSEMine.tsx").read_text(encoding="utf-8")
+PSE_API = (ROOT / "src" / "engines" / "psemine" / "pseMineApi.ts").read_text(encoding="utf-8")
 
 
-class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
-    def setUp(self):
-        start = API_SOURCE.index("@app.route('/api/admin/mine/campaign/action'")
-        self.route = API_SOURCE[start:]
-        next_route = self.route.find("\n@app.route(", 1)
-        if next_route >= 0:
-            self.route = self.route[:next_route]
+class TestPSEMineHostedCheckoutMigration(unittest.TestCase):
+    def test_hosted_invoice_and_provider_reconciliation_are_registered(self):
+        self.assertIn("@app.route('/api/mine/payments/v2/invoices', methods=['POST'])", API)
+        self.assertIn("@app.route('/api/mine/payments/v2/nowpayments/ipn', methods=['POST'])", API)
+        self.assertIn("@app.route('/api/mine/payments/v2/reconcile', methods=['POST'])", API)
+        self.assertIn("def reconcile_nowpayments_order(", API)
+        self.assertIn("verify_ipn_signature(payload, signature, secret)", API)
+        self.assertIn("settle_provider_purchase(db, uid", API)
+        self.assertIn("psemine_provider_redemptions", ENGINE)
 
-    def test_wallet_change_uses_platform_admin_gated_campaign_action(self):
-        self.assertIn("@verify_token\ndef admin_campaign_action()", self.route)
-        self.assertIn('"error": "ADMIN_REQUIRED"', self.route)
-        self.assertIn("if action == 'set_receiver_wallet':", self.route)
-        wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
-        self.assertIn("if not is_admin(uid)", wallet_action)
+    def test_old_direct_wallet_purchase_routes_are_retired(self):
+        routes = (
+            "/api/psemine/orders/verify-payment",
+            "/api/mine/tools/quote",
+            "/api/mine/tools/verify-purchase",
+            "/api/mine/purchases/create",
+            "/api/mine/purchases/mark-uncertain",
+            "/api/mine/purchases/report-submission",
+            "/api/mine/purchases/resolve-no-broadcast",
+        )
+        for route in routes:
+            start = API.index(f"@app.route('{route}'")
+            next_route = API.find("\\n@app.route(", start + 1)
+            handler = API[start: next_route if next_route >= 0 else len(API)]
+            self.assertIn('"error": "PAYMENT_FLOW_RETIRED"', handler, route)
+            self.assertIn("}), 410", handler, route)
 
-    def test_wallet_save_bootstraps_missing_campaign_before_updating_receiver(self):
-        self.assertIn("if not camp_snap.exists and action == 'set_receiver_wallet':", self.route)
-        self.assertIn("psemine_ensure_canonical_data(db)", self.route)
-        self.assertIn("receiverWalletConfiguredBy", self.route)
+    def test_campaign_purchase_gate_is_provider_and_admin_controlled(self):
+        self.assertIn("if action == 'set_purchase_enabled':", API)
+        self.assertIn("NOWPAYMENTS_API_KEY", API)
+        self.assertIn("NOWPAYMENTS_IPN_SECRET", API)
+        self.assertIn("if current_status != 'active':", API)
+        self.assertIn('"purchaseEnabled": enabled', API)
+        self.assertIn("paymentProviderConfigured", API)
 
-    def test_platform_admin_role_is_authorized_by_backend_admin_gate(self):
-        self.assertIn("return is_admin(uid)", API_SOURCE)
-        self.assertIn("role in {'admin', 'super_admin', 'moderator'}", API_SOURCE)
+    def test_old_receiver_wallet_admin_action_is_retired(self):
+        self.assertIn("if action == 'set_receiver_wallet':", API)
+        receiver_action = API.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
+        self.assertIn('"error": "PAYMENT_FLOW_RETIRED"', receiver_action)
+        self.assertNotIn('"receiverWalletAddress": receiver_address', receiver_action)
 
-    def test_super_admin_role_is_preserved_by_auth_context(self):
-        self.assertIn("normalized_role === 'super_admin'", AUTH_SOURCE)
-        self.assertIn("'super_admin'", TYPES_SOURCE)
+    def test_public_and_authenticated_user_payloads_hide_legacy_wallet_binding(self):
+        self.assertNotIn("'receiverWalletAddress'", PUBLIC)
+        self.assertNotIn("'paymentChainId'", PUBLIC)
+        self.assertNotIn('"connectedWallet": u.get', API)
+        self.assertNotIn('"pendingPurchases": pending_purchases', API)
 
-    def test_tool_catalogue_fails_closed_until_wallet_is_ready(self):
-        self.assertIn("campaign?.purchaseReady === true ||", TOOLS_SOURCE)
-        self.assertIn("purchaseReady?: boolean;", PSEMINE_TYPES_SOURCE)
-        self.assertIn("campaign?.receiverWalletConfigured === true", TOOLS_SOURCE)
-        self.assertIn("campaign?.receiverWalletConfiguredAt", TOOLS_SOURCE)
-        self.assertIn("campaign?.receiverWalletConfiguredBy", TOOLS_SOURCE)
-        self.assertIn("Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet.", TOOLS_SOURCE)
-        self.assertIn("campaign_state['purchaseReady']", API_SOURCE)
+    def test_purchase_ui_and_context_have_no_wallet_connect_or_direct_send_path(self):
+        for source in (TOOLS, WALLET, CONTEXT):
+            self.assertNotIn("connectWallet", source)
+            self.assertNotIn("WalletConnect", source)
+            self.assertNotIn("sendPayment", source)
+            self.assertNotIn("ensurePaymentChain", source)
+        self.assertIn("createHostedPaymentInvoice", TOOLS)
+        self.assertIn("fetchHostedPaymentStatus", TOOLS)
 
-    def test_wallet_address_is_validated_and_zero_address_rejected(self):
-        wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
-        self.assertIn("len(receiver_address) != 42", wallet_action)
-        self.assertIn("receiver_address.startswith('0x')", wallet_action)
-        self.assertIn("receiver_address.lower() == '0x' + ('0' * 40)", wallet_action)
+    def test_admin_revenue_comes_from_settled_v2_orders_only(self):
+        self.assertIn("psemine_payment_orders_v2", API)
+        self.assertIn('row.get("status") != "paid"', API)
+        self.assertIn('"totalToolIncomeGbp": tool_income_gbp', API)
+        self.assertIn("paymentProviderConfigured", ADMIN)
+        self.assertNotIn("Purchase receiving wallet", ADMIN)
+        self.assertNotIn("saveWallet", ADMIN)
 
-    def test_wallet_change_updates_campaign_and_writes_audit_record(self):
-        wallet_action = self.route.split("if action == 'set_receiver_wallet':", 1)[1].split("if action == 'schedule':", 1)[0]
-        self.assertIn('"receiverWalletAddress": receiver_address', wallet_action)
-        self.assertIn("PSEMINE_RECEIVER_WALLET_UPDATED", wallet_action)
-        self.assertIn("previousReceiverWalletAddress", wallet_action)
-        self.assertIn("newReceiverWalletAddress", wallet_action)
-        self.assertIn('"existingQuotesPreserved": True', wallet_action)
-        self.assertIn('"receiverWalletConfigured": True', wallet_action)
-        self.assertIn('"receiverWalletConfiguredAt": now_iso', wallet_action)
-        self.assertIn('"receiverWalletConfiguredBy": uid', wallet_action)
+    def test_user_payout_pipeline_remains_separate_from_purchase_checkout(self):
+        withdrawal_start = API.index("def mine_create_withdrawal():")
+        withdrawal_end = API.index("\\n@app.route(", withdrawal_start)
+        withdrawal = API[withdrawal_start:withdrawal_end]
+        self.assertIn("fetch_psemine_bnb_gbp_quote()", withdrawal)
+        self.assertIn("expectedAmountWei", withdrawal)
+        self.assertIn('"amountBnb": payout_quote["amountBnb"]', withdrawal)
+        review_start = API.index("def admin_psemine_review_withdrawal(")
+        review_end = API.index("\\n@app.route(", review_start)
+        review = API[review_start:review_end]
+        self.assertIn("PAYOUT_INSUFFICIENT_CONFIRMATIONS", review)
+        self.assertIn("PAYOUT_AMOUNT_MISMATCH", review)
+        self.assertIn("payout_block", review)
+        self.assertIn("txn.set(_tx_doc", review)
+        self.assertIn("Locked payout amount", WALLET)
+        self.assertIn("Locked conversion rate", WALLET)
+        self.assertIn("amountBnb?: string | number", PSE_API)
 
-    def test_all_quote_paths_fail_closed_without_the_single_admin_wallet(self):
-        self.assertIn("def _configured_psemine_receiver_wallet(campaign):", API_SOURCE)
-        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(camp_data)", API_SOURCE)
-        self.assertIn("receiver_wallet = _configured_psemine_receiver_wallet(_legacy_campaign)", API_SOURCE)
-        self.assertGreaterEqual(API_SOURCE.count("RECEIVER_WALLET_NOT_CONFIGURED"), 2)
-        self.assertIn("'destinationAddress': receiver_wallet", API_SOURCE)
-        self.assertNotIn("PSEMINE_PAYMENT_ADDRESS", API_SOURCE)
-        self.assertNotIn("0x8b32A461d3106B3356e9A389DfeB74aC084c8F33", API_SOURCE)
-        self.assertIn("expected_destination = q_data.get('receiverWallet')", API_SOURCE)
-        self.assertIn("legacy_destination = order.get('destinationAddress')", API_SOURCE)
-
-    def test_bootstrap_campaign_never_invents_a_receiving_wallet(self):
-        self.assertGreaterEqual(API_SOURCE.count("'receiverWalletAddress': ''"), 2)
-        self.assertIn("def _is_valid_psemine_receiver_wallet(value):", API_SOURCE)
-        self.assertIn("address.lower() != '0x' + ('0' * 40)", API_SOURCE)
-        self.assertIn("campaign.get('receiverWalletConfigured') is not True", API_SOURCE)
-        self.assertIn("receiverWalletConfiguredAt", API_SOURCE)
-        self.assertIn("receiverWalletConfiguredBy", API_SOURCE)
-
-    def test_legacy_quote_amount_matches_the_eight_decimal_ui_amount(self):
-        self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
-        self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
-
-    def test_legacy_order_verification_rejects_stale_receiver(self):
-        self.assertIn("LEGACY_ORDER_RECEIVER_STALE", API_SOURCE)
-        self.assertIn("_order_receiver.lower() != _current_receiver.lower()", API_SOURCE)
-        self.assertIn("stale or unconfirmed receiving address", API_SOURCE)
-
-    def test_purchase_intent_rejects_stale_receiver_and_inconsistent_amount(self):
-        start = API_SOURCE.index("def mine_create_purchase():")
-        end = API_SOURCE.index("\n@app.route(", start)
-        route = API_SOURCE[start:end]
-        self.assertIn("_configured_psemine_receiver_wallet(camp)", route)
-        self.assertIn("RECEIVER_WALLET_CHANGED", route)
-        self.assertIn("QUOTE_NETWORK_MISMATCH", route)
-        self.assertIn("exact_wei != quoted_wei", route)
-        self.assertIn("INVALID_QUOTE_AMOUNT", route)
-
-    def test_admin_money_totals_require_canonical_on_chain_receipts(self):
-        overview_start = API_SOURCE.index("def get_admin_mine_overview():")
-        overview_end = API_SOURCE.index("\n@app.route(", overview_start)
-        overview = API_SOURCE[overview_start:overview_end]
-        self.assertIn("verificationSource', '==', 'bsc_rpc_receipt'", overview)
-        self.assertIn("_is_canonical_verified_psemine_payment(_payment)", overview)
-
-    def test_payout_requests_lock_bnb_amount_and_admin_checks_confirmations(self):
-        route_start = API_SOURCE.index("def mine_create_withdrawal():")
-        route_end = API_SOURCE.index("\n@app.route(", route_start)
-        route = API_SOURCE[route_start:route_end]
-        self.assertIn("fetch_psemine_bnb_gbp_quote()", route)
-        self.assertIn("ROUND_HALF_UP", route)
-        self.assertIn("amount_minor = int((Decimal(str(amount)) * Decimal('100')).to_integral_value(rounding=ROUND_HALF_UP))", route)
-        self.assertIn("expectedAmountWei", route)
-        self.assertIn('"amountBnb": payout_quote["amountBnb"]', route)
-        self.assertIn("payout_quote=payout_quote", route)
-        engine_start = ENGINE_SOURCE.index("def create_payout_request(")
-        engine_end = ENGINE_SOURCE.index("\ndef create_payment_recovery", engine_start)
-        engine = ENGINE_SOURCE[engine_start:engine_end]
-        self.assertIn('"expectedAmountWei": str(amount_wei)', engine)
-        self.assertIn('"destinationWallet": u.get("payoutWallet")', engine)
-        self.assertIn("exact_wei != amount_wei", engine)
-        payout_start = API_SOURCE.index("def admin_psemine_review_withdrawal(")
-        payout_end = API_SOURCE.index("\n@app.route(", payout_start)
-        payout = API_SOURCE[payout_start:payout_end]
-        self.assertIn("PAYOUT_INSUFFICIENT_CONFIRMATIONS", payout)
-        self.assertIn("PAYOUT_AMOUNT_MISMATCH", payout)
-        self.assertIn("payout_block", payout)
-        self.assertIn("txn.set(_tx_doc", payout)
-        self.assertIn("No locked BNB quote", ADMIN_SOURCE)
-        self.assertIn("amountBnb.toFixed(8)", ADMIN_SOURCE)
-        self.assertIn("Locked payout amount", WALLET_SOURCE)
-        self.assertIn("Locked conversion rate", WALLET_SOURCE)
-        self.assertIn("amountBnb.toFixed(8)", WALLET_SOURCE)
-        self.assertIn("amountBnb?: string | number", PSE_API_SOURCE)
-
-    def test_expired_payment_recovery_warns_user_not_to_pay_twice(self):
-        self.assertIn("'manual_review'", API_SOURCE)
-        self.assertIn("where('status', '==', 'manual_review').get()", API_SOURCE)
-        self.assertIn("const pendingNeedsReview = pendingPurchase?.status === 'manual_review'", TOOLS_SOURCE)
-        self.assertIn("Payment under manual review", TOOLS_SOURCE)
-        self.assertIn("Open payment recovery", TOOLS_SOURCE)
-        self.assertIn("Do not send another payment", TOOLS_SOURCE)
-        self.assertIn("'confirming', 'manual_review', 'submission_uncertain']", API_SOURCE)
-
-    def test_tool_specs_are_campaign_operating_rules_not_fake_hardware_metrics(self):
-        self.assertNotIn("hashRateClass", TOOLS_SOURCE)
-        self.assertNotIn("powerEfficiency", TOOLS_SOURCE)
-        self.assertNotIn("warrantyDays", TOOLS_SOURCE)
-        self.assertIn("sessionDurationHours", TOOLS_SOURCE)
-        self.assertIn("restartDelayMinutes", TOOLS_SOURCE)
-        self.assertIn("virtual campaign-capacity units", TOOLS_SOURCE)
-        self.assertIn("not physical mining hardware", POLICY_SOURCE)
-        self.assertIn("not physical mining hardware", TOOLS_SOURCE)
-
-    def test_admin_recovery_action_passes_purchase_id_for_safe_attachment(self):
-        self.assertIn("const purchaseId = typeof row.purchaseId === 'string' ? row.purchaseId : undefined", ADMIN_SOURCE)
-        self.assertIn("'attach_to_purchase', purchaseId", ADMIN_SOURCE)
-        self.assertIn("This recovery case has no canonical purchase ID", ADMIN_SOURCE)
-
-    def test_admin_can_reconfirm_same_legacy_seeded_address(self):
-        self.assertIn("const saveWallet = async () =>", ADMIN_SOURCE)
-        self.assertIn("receiverWalletConfigured", ADMIN_SOURCE)
-        self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
-        self.assertIn("CONFIRM RECEIVER", ADMIN_SOURCE)
-        self.assertIn("New tool purchase quotes remain blocked", ADMIN_SOURCE)
-
-    def test_global_admin_console_reads_private_wallet_confirmation_from_admin_api(self):
-        overview_start = API_SOURCE.index("@app.route('/api/admin/psemine/overview'")
-        overview_end = API_SOURCE.index("@app.route('/api/admin/psemine/orders'", overview_start)
-        overview = API_SOURCE[overview_start:overview_end]
-        self.assertIn("campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()", overview)
-        self.assertIn('"receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True', overview)
-        self.assertIn('"purchaseReady": bool(configured_receiver)', overview)
-        self.assertIn("setConfig(d.campaign || null)", ADMIN_SOURCE)
-        self.assertIn('"canConfigureReceiverWallet": is_admin(request.user["uid"])', overview)
-        self.assertIn("config?.canConfigureReceiverWallet === true", ADMIN_SOURCE)
-        self.assertIn("config?.receiverWalletConfigured", ADMIN_SOURCE)
-        self.assertNotIn("campaign?.receiverWalletConfigured === true", ADMIN_SOURCE)
-
-    def test_admin_has_a_visible_config_section_with_explicit_confirmation(self):
-        self.assertIn('id="ops-settings"', ADMIN_SOURCE)
-        self.assertIn("config?.paymentChainId", ADMIN_SOURCE)
-        self.assertIn("action: 'set_receiver_wallet'", ADMIN_SOURCE)
-        self.assertIn("walletAck", ADMIN_SOURCE)
-        self.assertIn("CONFIRM RECEIVER", ADMIN_SOURCE)
-        self.assertIn("new purchase quotes", ADMIN_SOURCE)
-
-    def test_single_admin_console_renders_every_register(self):
-        for section in ("campaign", "lifecycle", "payments", "tools", "purchases", "payouts", "audit", "settings"):
-            self.assertIn(f'id="ops-{section}"', ADMIN_SOURCE)
-        self.assertIn("Operations command centre", ADMIN_SOURCE)
-        self.assertIn("all visible on one page", ADMIN_SOURCE)
-
-    def test_legacy_payment_shaped_rows_are_excluded_from_live_ledger(self):
-        self.assertIn("def _is_canonical_verified_psemine_payment(row):", API_SOURCE)
-        helper_start = API_SOURCE.index("def _is_canonical_verified_psemine_payment(row):")
-        helper_end = API_SOURCE.index("@app.route('/api/admin/psemine/overview'", helper_start)
-        helper = API_SOURCE[helper_start:helper_end]
-        for evidence in ("verificationSource", "bsc_rpc_receipt", "chain_id == PSEMINE_BSC_CHAIN_ID",
-                         "valid_hash", "valid_destination", "block_number > 0",
-                         "confirmations > 0", "paid_wei > 0", "price_gbp > 0"):
-            self.assertIn(evidence, helper)
-        payments_start = API_SOURCE.index("@app.route('/api/admin/psemine/payments'")
-        payments_end = API_SOURCE.index("@app.route(", payments_start + 1)
-        self.assertIn("_is_canonical_verified_psemine_payment(row)", API_SOURCE[payments_start:payments_end])
-        self.assertIn("_is_canonical_verified_psemine_payment(payment_row)", API_SOURCE)
-
-    def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
-        self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)
-        self.assertIn("distinct from payout destinations", ADMIN_SOURCE)
-
-    def test_admin_overview_reports_verified_tool_income_and_running_tools(self):
-        overview_start = API_SOURCE.index("@app.route('/api/admin/psemine/overview'")
-        overview_end = API_SOURCE.index("@app.route('/api/admin/psemine/orders'", overview_start)
-        overview = API_SOURCE[overview_start:overview_end]
-        self.assertIn("'status', '==', 'confirmed'", overview)
-        self.assertIn("totalToolIncomeGbp", overview)
-        self.assertIn("verificationSource", overview)
-        self.assertIn("bsc_rpc_receipt", overview)
-        self.assertIn("Total tool income", ADMIN_SOURCE)
-        self.assertIn("Real on-chain confirmed tool payments only", ADMIN_SOURCE)
-        self.assertIn("priceGbp", overview)
-        self.assertIn("psemine_orders", overview)
-        self.assertIn("income_complete", overview)
-        self.assertIn("toolIncomeComplete", overview)
-        self.assertIn("Reconciliation incomplete", ADMIN_SOURCE)
-        self.assertIn("Never present a partial sum as lifetime income.", overview)
-        self.assertIn("activeMiningSessions", overview)
-        self.assertIn("activeToolOwnerships", overview)
-        self.assertIn('label="Active mining sessions"', ADMIN_SOURCE)
-        self.assertIn('label="Total tool income"', ADMIN_SOURCE)
-        self.assertIn("mineStats.totalToolIncomeGbp", ADMIN_SOURCE)
+    def test_legacy_recovery_routes_are_preserved_for_audit(self):
+        self.assertIn("@app.route('/api/admin/mine/payment-recovery', methods=['GET'])", API)
+        self.assertIn("@app.route('/api/admin/mine/payment-recovery/<recovery_id>/resolve', methods=['POST'])", API)
+        self.assertIn("psemine_payment_recovery", ENGINE)
 
 
 if __name__ == "__main__":

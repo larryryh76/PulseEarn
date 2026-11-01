@@ -207,9 +207,6 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (snap.exists()) {
             const data = snap.data() as PSEMineUser;
             setPseUser(data);
-            // connectedWallet on the profile is a historical/last-used address,
-            // not proof of a live provider approval. Never restore connection
-            // state from Firestore; the wallet provider must prove it below.
           }
           setLoading(false);
         }, (err) => {

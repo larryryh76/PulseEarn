@@ -7445,9 +7445,11 @@ def admin_psemine_payments():
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    snaps = db.collection('psemine_payment_orders_v2').where('status', '==', 'paid').order_by('settledAt', direction='DESCENDING').limit(200).get()
+    all_snaps = list(db.collection('psemine_payment_orders_v2').stream())
+    paid_snaps = [snap for snap in all_snaps if (snap.to_dict() or {}).get('status') == 'paid']
+    paid_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get('settledAt') or ""), reverse=True)
     payments = []
-    for snap in snaps:
+    for snap in paid_snaps[:200]:
         row = snap.to_dict() or {}
         try:
             amount_minor = int(row.get('priceMinor'))
@@ -8239,8 +8241,9 @@ def mine_state():
     # closed the checkout tab before the status modal completed.
     payment_orders = []
     try:
-        order_snaps = db.collection("psemine_payment_orders_v2").where("userId", "==", uid).order_by("createdAt", direction="DESCENDING").limit(10).get()
-        for order_snap in order_snaps:
+        order_snaps = list(db.collection("psemine_payment_orders_v2").where("userId", "==", uid).get())
+        order_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get("createdAt") or ""), reverse=True)
+        for order_snap in order_snaps[:10]:
             order = order_snap.to_dict() or {}
             status = str(order.get("status") or "")
             payment_id = str(order.get("providerPaymentId") or "")

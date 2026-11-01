@@ -666,10 +666,11 @@ def referral_doc_id(referrer_id: str, referred_user_id: str) -> str:
     return f"ref_{referrer_id}_{referred_user_id}"
 
 
-REFERRAL_STAGES = ("registered", "wallet_connected", "tool_purchased", "mining_active", "qualified")
+REFERRAL_STAGES = ("registered", "tool_purchased", "mining_active", "qualified")
 
-# Legacy vocabulary found in production docs (v1/v2 writers used both).
-LEGACY_REFERRAL_STAGE_ALIASES = {"pending": "registered"}
+# Legacy vocabulary from the retired direct-wallet checkout is mapped to
+# registered so existing referrals can continue without requiring a wallet bind.
+LEGACY_REFERRAL_STAGE_ALIASES = {"pending": "registered", "wallet_connected": "registered"}
 
 
 def _canonical_referral_stage(stage: str) -> str:

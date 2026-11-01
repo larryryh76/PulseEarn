@@ -8233,6 +8233,49 @@ def mine_state():
     from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
     from psemine_public import public_campaign_view
     campaign_state = public_campaign_view(camp) if camp else None
+
+    # Surface only this user's hosted payment orders. When they return to any
+    # PSEmine page, a signed provider event can be reconciled here even if they
+    # closed the checkout tab before the status modal completed.
+    payment_orders = []
+    try:
+        order_snaps = list(db.collection("psemine_payment_orders_v2").where("userId", "==", uid).get())
+        order_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get("createdAt") or ""), reverse=True)
+        for order_snap in order_snaps[:10]:
+            order = order_snap.to_dict() or {}
+            status = str(order.get("status") or "")
+            payment_id = str(order.get("providerPaymentId") or "")
+            last_check = order.get("lastReconciledAt")
+            due = True
+            if isinstance(last_check, datetime):
+                due = (now - last_check).total_seconds() >= 20
+            if payment_id and due and status in ("reconciliation_pending", "pending", "confirming", "underpaid"):
+                try:
+                    reconcile_nowpayments_order(db, order_snap.id, payment_id)
+                    order = order_snap.reference.get().to_dict() or order
+                    status = str(order.get("status") or status)
+                except Exception:
+                    logging.exception("[PSEmine] payment order reconciliation on state read failed")
+            if status == "pending" and not payment_id:
+                try:
+                    expiry = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
+                    if expiry.tzinfo is None:
+                        expiry = expiry.replace(tzinfo=timezone.utc)
+                    if now > expiry:
+                        status = "expired"
+                except Exception:
+                    pass
+            if status not in ("paid", "failed", "expired", "refunded"):
+                payment_orders.append({
+                    "orderId": order_snap.id, "toolId": order.get("toolId"),
+                    "toolName": order.get("toolName"), "status": status,
+                    "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
+                    "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),
+                    "reviewRequired": order.get("reviewRequired") is True,
+                })
+    except Exception:
+        logging.exception("[PSEmine] payment order state read failed")
+
     return jsonify({
         "success": True,
         "user": {
@@ -8248,6 +8291,7 @@ def mine_state():
             "status": u.get('status'),
         },
         "tools": tools,
+        "paymentOrders": payment_orders,
         "campaign": campaign_state,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},

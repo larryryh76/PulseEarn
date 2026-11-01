@@ -51,14 +51,22 @@ def verify_psemine_wallet_proof(
     signature: str,
 ) -> bool:
     """Recover the signer and require it to match the quote's declared payer."""
-    if not isinstance(signature, str) or not re.fullmatch(r"0x[0-9a-fA-F]{130}", signature):
+    if not isinstance(signature, str):
+        return False
+    # Wallet libraries and eth-account versions differ on whether HexBytes.hex()
+    # includes the 0x prefix. Normalize that representation without relaxing
+    # the required 65-byte ECDSA signature length or accepting non-hex input.
+    normalized_signature = signature.strip()
+    if not normalized_signature.startswith(("0x", "0X")):
+        normalized_signature = "0x" + normalized_signature
+    if not re.fullmatch(r"0x[0-9a-fA-F]{130}", normalized_signature):
         return False
     try:
         from eth_account import Account
         from eth_account.messages import encode_defunct
 
         message = build_psemine_wallet_proof_message(user_id, quote, wallet_address)
-        recovered = Account.recover_message(encode_defunct(text=message), signature=signature)
+        recovered = Account.recover_message(encode_defunct(text=message), signature=normalized_signature)
         return recovered.lower() == str(wallet_address or "").strip().lower()
     except Exception:
         return False

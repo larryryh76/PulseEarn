@@ -1,0 +1,32 @@
+name: PSEmine payment reconciliation
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psemine-payment-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reconcile provider-confirmed payment orders
+        env:
+          PAYMENT_CRON_SECRET: ${{ secrets.PSEMINE_PAYMENT_CRON_SECRET }}
+        run: |
+          if [ -z "$PAYMENT_CRON_SECRET" ]; then
+            echo "::warning::PSEMINE_PAYMENT_CRON_SECRET is not configured in GitHub Actions; scheduled reconciliation is skipped."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 45 \
+            -X POST \
+            -H "x-psemine-payment-cron-secret: $PAYMENT_CRON_SECRET" \
+            -H "content-type: application/json" \
+            https://pulseearn.online/api/mine/payments/v2/reconcile

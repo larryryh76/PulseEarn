@@ -240,6 +240,7 @@ export interface PSEMineActivity {
 
 export interface PSEMineQuote {
   quoteId: string;
+  walletProofNonce: string;
   userId: string;
   toolId: PSEToolTierId;
   toolVersion: number;

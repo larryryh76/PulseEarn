@@ -1813,7 +1813,7 @@ def settle_provider_purchase(db, uid, order_id, provider_payment):
             return {"ok": False, "error": "FORBIDDEN"}
         if order.get("status") == "paid" or purchase_snap.exists and (purchase_snap.to_dict() or {}).get("status") == "activated":
             return {"ok": True, "already_settled": True, "purchaseId": order_id}
-        if order.get("status") not in ("pending", "confirming", "paid_pending_activation"):
+        if order.get("status") not in ("pending", "confirming", "underpaid", "paid_pending_activation"):
             return {"ok": False, "error": "PAYMENT_ORDER_NOT_SETTLEABLE"}
         if redeemed_snap.exists:
             return {"ok": False, "error": "PROVIDER_PAYMENT_ALREADY_REDEEMED"}

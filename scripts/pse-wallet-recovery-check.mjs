@@ -41,6 +41,21 @@ const check = (name, pass, detail) => results.push({ name, pass: Boolean(pass), 
 const NOW = Date.now();
 const ADDRESS = '0x1111111111111111111111111111111111111111';
 const bnAccount = (chain, address = ADDRESS) => `eip155:${chain}:${address}`;
+
+const USER_A = 'firebase-user-a';
+const USER_B = 'firebase-user-b';
+localStorage.setItem(`psemine_connected_wallet:${USER_A}`, JSON.stringify({
+  uid: USER_A, address: ADDRESS, transport: 'walletConnect', walletName: 'Trust Wallet',
+}));
+check('account-wallet:own-session-restores', m.readAccountWalletSession(USER_A)?.address === ADDRESS);
+check('account-wallet:other-user-cannot-inherit', m.readAccountWalletSession(USER_B) === null);
+check('account-wallet:no-user-never-restores', m.readAccountWalletSession(null) === null);
+localStorage.setItem(`psemine_connected_wallet:${USER_B}`, JSON.stringify({
+  uid: USER_A, address: ADDRESS, transport: 'walletConnect',
+}));
+check('account-wallet:uid-mismatch-rejected', m.readAccountWalletSession(USER_B) === null);
+localStorage.removeItem(`psemine_connected_wallet:${USER_A}`);
+localStorage.removeItem(`psemine_connected_wallet:${USER_B}`);
 const session = (accounts, expiry = Math.floor(NOW / 1000) + 3600) => ({ expiry, namespaces: { eip155: { accounts } } });
 
 // ── 1. Session validity ────────────────────────────────────────────────────

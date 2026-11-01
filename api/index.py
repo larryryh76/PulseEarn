@@ -8974,31 +8974,6 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
 
     provider_status = str(payment.get("payment_status") or "").lower()
     local_status = normalize_provider_status(provider_status)
-    if local_status == "paid":
-        # A payment first created after the server order expiry is never
-        # auto-activated. If the customer paid before expiry but confirmation
-        # completed later, provider created_at preserves that distinction.
-        try:
-            expires_at = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-        except Exception:
-            expires_at = None
-        if expires_at and datetime.now(timezone.utc) > expires_at:
-            try:
-                payment_created = datetime.fromisoformat(str(payment.get("created_at") or "").replace("Z", "+00:00"))
-                if payment_created.tzinfo is None:
-                    payment_created = payment_created.replace(tzinfo=timezone.utc)
-                if payment_created > expires_at:
-                    raise ValueError("payment created after expiry")
-            except Exception:
-                order_ref.update({
-                    "status": "review", "reviewReason": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY_OR_EVIDENCE_MISSING",
-                    "providerPaymentId": str(payment_id), "providerStatus": provider_status,
-                    "updatedAt": firestore.SERVER_TIMESTAMP,
-                })
-                return {"ok": False, "error": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY_OR_EVIDENCE_MISSING"}
-
     if local_status != "paid":
         if order.get("status") == "paid":
             order_ref.update({

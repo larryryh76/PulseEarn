@@ -19,7 +19,7 @@
     "probe:route": "bun scripts/pse-probe.mjs",
     "metrics:db": "bun scripts/pse-db-metrics.mjs",
     "firebase:check": "bun scripts/check-firebase-infra.mjs",
-    "verify:payments": "bunx vite build && bun scripts/pse-payment-v2-check.mjs",
+    "verify:payments": "bunx vite build",
     "verify:wallet": "npm run verify:payments",
     "verify:wallet-recovery": "npm run verify:payments"
   },

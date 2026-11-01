@@ -607,13 +607,12 @@ export const connectWalletConnect = async (opts?: { timeoutMs?: number; resume?:
     await wcState.appKit.open();
     recordWalletStage('selector_open_resolved');
   } catch (error) {
-    clearWalletConnectHandoff(handoff.id);
+    // Some mobile wallets close the in-page AppKit sheet as soon as the OS
+    // deep-link is launched. That close is a handoff, not a user rejection.
+    // Continue waiting for the session; only a valid BSC session, explicit
+    // cancellation, or the bounded timeout decides the outcome.
     recordWalletStage('selector_open_rejected', redactedMessage(error));
-    console.error('[pseWallet] WalletConnect modal failed to open:', error);
-    throw new PseWalletConnectError(
-      'MODAL_OPEN_FAILED',
-      'Wallet selection could not be opened. Check the connection and try again.',
-    );
+    console.warn('[pseWallet] AppKit selector closed during mobile handoff; awaiting wallet session:', redactedMessage(error));
   }
 
   const provider = await waitForWalletConnectProvider(opts?.timeoutMs ?? 300_000);

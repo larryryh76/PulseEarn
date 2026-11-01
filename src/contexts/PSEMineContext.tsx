@@ -788,7 +788,6 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // persisted pairing; do not silently adopt it against the user's choice.
     const walletUid = currentUser?.uid;
     if (!walletUid) return () => { cancelled = true; };
-    const walletKey = `psemine_connected_wallet:${walletUid}`;
     const disconnectedKey = `psemine_wallet_user_disconnected:${walletUid}`;
     // Drop unscoped legacy values; they cannot safely identify the Firebase account.
     localStorage.removeItem('psemine_connected_wallet');

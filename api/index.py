@@ -7362,6 +7362,7 @@ def admin_psemine_overview():
     provider_configured = bool(
         str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
         and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+        and str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()
         and callback_url.startswith("https://")
     )
     admin_campaign_config = {
@@ -7938,6 +7939,7 @@ def admin_campaign_action():
             provider_ready = bool(
                 str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
                 and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+                and str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()
                 and callback_url.startswith("https://")
             )
             if not provider_ready:

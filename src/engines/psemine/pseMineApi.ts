@@ -94,28 +94,10 @@ export interface PseStateCampaign {
 /** An in-flight purchase the client can RESUME after a refresh instead of
  *  creating a second purchase intent. Read-only projection of the user's own
  *  records; amounts come verbatim from the stored quote. */
-export interface PsePendingPurchase {
-  purchaseId: string;
-  toolId?: string;
-  toolName?: string;
-  status?: string;
-  quoteId?: string;
-  paymentWallet?: string | null;
-  receiverWallet?: string;
-  quotedBNBAmount?: number;
-  quotedBNBWei?: string;
-  chainId?: number;
-  expiresAt?: string;
-  transactionHash?: string | null;
-  recoveryCaseId?: string | null;
-  reviewReason?: string | null;
-  statusMessage?: string | null;
-}
 export interface PseState {
   success: boolean;
   user: PseStateUser;
   tools: PseStateTool[];
-  pendingPurchases?: PsePendingPurchase[];
   campaign: PseStateCampaign | null;
   effectiveCampaignStatus: string;
   checkpoint?: { earnedMinor?: number; duplicate?: boolean };

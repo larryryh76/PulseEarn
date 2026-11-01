@@ -325,7 +325,7 @@ export const PSEMineTools: React.FC = () => {
         />
       </PseStatBar>
 
-      {!purchaseOpen && !walletSetupRequired && (
+      {!purchaseOpen && (
         <PseNotice tone="attention" title="Purchases closed">
           The campaign status is {campaign?.status || 'scheduled'}. Nothing can be bought until the campaign is
           active again; existing equipment keeps its state and accrual rules.

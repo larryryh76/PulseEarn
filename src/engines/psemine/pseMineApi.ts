@@ -72,7 +72,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 export interface PseStateUser {
   accruedMinor: number; accruedGBP: number; debitedMinor: number; availableMinor: number;
   toolCapacityGBPPerHour: number; referralCapacityGBPPerHour: number; totalCapacityGBPPerHour: number;
-  qualifiedReferralsCount: number; payoutWallet: string | null; connectedWallet: string | null;
+  qualifiedReferralsCount: number; payoutWallet: string | null;
   status?: string;
 }
 export interface PseStateTool {

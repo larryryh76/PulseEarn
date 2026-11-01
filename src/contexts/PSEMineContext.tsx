@@ -585,7 +585,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWalletRecoveryState(resume ? 'resuming' : 'none');
     setIsConnectingWallet(true);
     try {
-      const provider = await connectWalletConnect({ resume });
+      // Mobile wallet deep-links can immediately background/reload this tab.
+      // Keep the user's explicit connection attempt alive for the full relay
+      // window; a modal close is not evidence of approval or rejection.
+      const provider = await connectWalletConnect({ resume, timeoutMs: 300_000 });
       // A cancelled or superseded attempt must not adopt a session that arrived
       // after the user stopped waiting (or started a newer attempt).
       if (connectAttemptRef.current !== attempt) return null;

@@ -181,7 +181,7 @@ export const PSEMineTools: React.FC = () => {
   };
 
   // Hosted crypto checkout does not require a campaign receiving wallet.
-  const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
+  const purchaseOpen = campaign?.purchaseEnabled === true && campaign?.status === 'active';
   // Every ownership the backend reports is listed: filtering to "operating"
   // statuses hid settling/ended tools and under-reported equipment (merged from
   // remote, which found the same defect).

@@ -7357,7 +7357,7 @@ def admin_psemine_overview():
 
     campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     campaign_data = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
-    public_base = str(os.environ.get("PUBLIC_BASE_URL") or "https://pulseearn.online").strip().rstrip("/")
+    public_base = str(os.environ.get("PULSE_EARN_PUBLIC_URL") or "https://pulseearn.online").strip().rstrip("/")
     callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
                        f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
     provider_configured = bool(

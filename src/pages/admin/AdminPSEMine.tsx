@@ -295,7 +295,7 @@ export const AdminPSEMine: React.FC = () => {
           </Panel>
           <Panel id="ops-settings" title="Crypto checkout provider" detail="Hosted checkout is used for tool purchases. Customer wallet connections are not required.">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Pill value={config?.paymentProviderVerified ? 'NOWPayments verified' : config?.paymentProviderConfigured ? 'Credentials configured · verification pending' : 'Provider credentials missing'} />
+              <Pill value={config?.paymentProviderVerified ? 'NOWPayments API verified' : config?.paymentProviderConfigured ? 'Credentials configured · verification pending' : 'Provider credentials missing'} />
               <span className="text-[11px] text-slate-500">Pricing currency: {config?.priceCurrency || 'GBP'}</span>
             </div>
             <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">

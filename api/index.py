@@ -7157,8 +7157,338 @@ def psemine_create_order():
 @verify_token
 @require_db
 def psemine_verify_payment():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Verify BSC transaction on-chain and trigger ownership, session, referral, and notification pipeline."""
+    db = get_db()
+    uid = request.user['uid']
+    data = request.json or {}
+    order_id = (data.get('orderId') or '').strip()
+    tx_hash = (data.get('txHash') or '').strip().lower()
+
+    if not order_id or not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_PARAMS", "message": "Valid orderId and 66-char txHash required."}), 400
+
+    order_ref = db.collection('psemine_orders').document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return jsonify({"success": False, "error": "ORDER_NOT_FOUND", "message": "Order document not found."}), 404
+
+    order = order_snap.to_dict() or {}
+    if order.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This order does not belong to you."}), 403
+
+    if order.get('status') == 'confirmed':
+        return jsonify({"success": False, "error": "ORDER_ALREADY_CONFIRMED", "message": "This order has already been verified and paid."}), 409
+
+    # (B3) Campaign lifecycle gate at verification time. NO activation after
+    # end — same shared terminal predicate as the canonical flow.
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    # Legacy orders created before the explicit receiver-confirmation gate may
+    # still contain the former bootstrap destination. Do not accept a payment
+    # to that stale address after an administrator has confirmed a new one.
+    _current_receiver = _configured_psemine_receiver_wallet(_camp)
+    _order_receiver = order.get('destinationAddress')
+    if (not _current_receiver or not _is_valid_psemine_receiver_wallet(_order_receiver)
+            or _order_receiver.lower() != _current_receiver.lower()):
+        try:
+            _legacy_recovery_id = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=_order_receiver, chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='LEGACY_ORDER_RECEIVER_STALE',
+                extra={'message': 'Legacy order destination no longer matches the explicitly confirmed campaign receiver.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'recoveryCaseId': _legacy_recovery_id,
+                              'reviewReason': 'LEGACY_ORDER_RECEIVER_STALE',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+        except Exception:
+            logging.exception('[PSEmine] stale legacy receiver recovery failed')
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This legacy order uses a stale or unconfirmed receiving address. The transaction was sent for manual review. Do not send another payment."}), 409
+
+    if _eff in _pse_engine.TERMINAL_CAMPAIGN_STATUSES:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='CAMPAIGN_ENDED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended; this payment was recorded for manual review."}), 409
+    if _camp.get('purchaseEnabled') is False:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='PURCHASES_DISABLED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+    # Quote expiry cannot discard a transaction the user may already have sent.
+    # Record it for review and retain the legacy order instead of marking it dead.
+    expiry_raw = order.get('quoteExpiry')
+    if not expiry_raw:
+        _pse_engine.create_payment_recovery(
+            db, uid, tx_hash=tx_hash, quote_id=order_id,
+            sender=order.get('intendedPaymentWallet'),
+            recipient=order.get('destinationAddress'),
+            chain_id=PSEMINE_BSC_CHAIN_ID,
+            reason='MISSING_LEGACY_QUOTE_EXPIRY',
+            extra={'message': 'Legacy order has no expiry and was sent for manual review.'})
+        order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                          'reviewReason': 'MISSING_LEGACY_QUOTE_EXPIRY',
+                          'updatedAt': firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                        "message": "This order has no valid expiry. The transaction was recorded for admin review. Do not send another payment."}), 409
+    if expiry_raw:
+        try:
+            if isinstance(expiry_raw, datetime):
+                exp_dt = expiry_raw
+            else:
+                exp_dt = datetime.fromisoformat(str(expiry_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp_dt:
+                _pse_engine.create_payment_recovery(
+                    db, uid, tx_hash=tx_hash, quote_id=order_id,
+                    sender=order.get('intendedPaymentWallet'),
+                    recipient=order.get('destinationAddress'),
+                    chain_id=PSEMINE_BSC_CHAIN_ID,
+                    reason='LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                    extra={'message': 'Legacy order quote expired before verification completed.'})
+                order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                                  'reviewReason': 'LEGACY_QUOTE_EXPIRED_AT_VERIFICATION',
+                                  'updatedAt': firestore.SERVER_TIMESTAMP})
+                return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                                "message": "This order quote expired. The transaction was recorded for admin review. Do not send another payment."}), 409
+        except Exception:
+            _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=order_id,
+                sender=order.get('intendedPaymentWallet'),
+                recipient=order.get('destinationAddress'),
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason='INVALID_LEGACY_QUOTE_EXPIRY',
+                extra={'message': 'Legacy order quote expiry could not be parsed.'})
+            order_ref.update({'status': 'manual_review', 'transactionHash': tx_hash,
+                              'reviewReason': 'INVALID_LEGACY_QUOTE_EXPIRY',
+                              'updatedAt': firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "The order expiry is invalid. The transaction was recorded for admin review. Do not send another payment."}), 409
+
+    intended_payment_wallet = order.get('intendedPaymentWallet')
+    expected_sender = intended_payment_wallet.strip().lower() if isinstance(intended_payment_wallet, str) else ''
+    if not expected_sender:
+        return jsonify({
+            "success": False,
+            "error": "ORDER_PAYMENT_WALLET_MISSING",
+            "message": "This order is not bound to a payment wallet. Please create a new order."
+        }), 422
+
+    # Only the immutable server-created order destination may be verified.
+    legacy_destination = order.get('destinationAddress')
+    if not _is_valid_psemine_receiver_wallet(legacy_destination):
+        return jsonify({"success": False, "error": "INVALID_ORDER_RECEIVER",
+                        "message": "This order has no valid receiving wallet. Do not send payment; create a new order."}), 409
+    if int(order.get('chainId') or 0) != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "ORDER_NETWORK_MISMATCH",
+                        "message": "This order is not for BNB Smart Chain."}), 409
+
+    # On-Chain Verification
+    verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(
+        tx_hash,
+        legacy_destination,
+        order['payableWeiAmount'],
+        expected_sender=expected_sender
+    )
+
+    if not verified:
+        if err_code == "SENDER_MISMATCH":
+            order_ref.update({
+                'status': 'manual_review',
+                'flaggedReason': err_msg,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+            pay_doc_id = f"pay_{tx_hash}"
+            db.collection('psemine_payments').document(pay_doc_id).set({
+                'id': pay_doc_id,
+                'orderId': order_id,
+                'userId': uid,
+                'txHash': tx_hash,
+                'status': 'flagged_mismatch',
+                'flaggedReason': err_msg,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+            return jsonify({
+                "success": False,
+                "error": "SENDER_MISMATCH",
+                "message": "Payment wallet on-chain does not match order payment wallet. Order flagged for manual review."
+            }), 422
+
+        return jsonify({
+            "success": False,
+            "error": err_code or "VERIFICATION_FAILED",
+            "message": err_msg or "On-chain verification failed.",
+            "confirmations": block_depth
+        }), 422
+
+    # Fetch Tool Details
+    tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
+    tool = tool_doc.to_dict() if tool_doc.exists else {}
+    import psemine_core as _pse_core
+
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    pay_doc_id = f"pay_{tx_hash}"
+    pay_ref = db.collection('psemine_payments').document(pay_doc_id)
+    own_ref = db.collection('psemine_tool_ownership').document()
+
+    @firestore.transactional
+    def process_payment_confirmation(txn):
+        # Reads before writes
+        pay_snap = pay_ref.get(transaction=txn)
+        if pay_snap.exists:
+            raise Exception("TRANSACTION_REUSED")
+
+        o_snap = order_ref.get(transaction=txn)
+        if not o_snap.exists:
+            raise Exception("ORDER_NOT_FOUND")
+        if o_snap.to_dict().get('status') == 'confirmed':
+            raise Exception("ORDER_ALREADY_CONFIRMED")
+
+        owned_query = db.collection('psemine_tool_ownership') \
+            .where('userId', '==', uid) \
+            .where('toolId', '==', order['toolId']) \
+            .where('status', '==', 'active')
+        owned_count = len(owned_query.get(transaction=txn))
+        # (Phase 3A) For a canonical tool the ownership cap is a locked economic
+        # rule, so it is read from the canonical constants rather than from the
+        # tool document (a stale or missing row could otherwise widen how many
+        # copies an account may hold). A non-canonical legacy row keeps behaving
+        # exactly as before, which is what the fallback preserves.
+        _cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId'])
+        max_copies = _cfg['max_per_user'] if _cfg else safe_int(tool.get('maxCopiesPerUser'), 1)
+        if owned_count >= max_copies:
+            raise Exception("MAX_COPIES_REACHED")
+
+        pay_payload = {
+            'id': pay_doc_id,
+            'orderId': order_id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'priceGbp': order['priceGbp'],
+            'paidBnbAmount': order['payableBnbAmount'],
+            'paidWeiAmount': order['payableWeiAmount'],
+            'asset': 'BNB',
+            'chainId': PSEMINE_BSC_CHAIN_ID,
+            'destinationAddress': order['destinationAddress'],
+            'txHash': tx_hash,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
+            'verificationSource': 'bsc_rpc_receipt',
+            'status': 'confirmed',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(pay_ref, pay_payload)
+
+        own_payload = {
+            'id': own_ref.id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'orderId': order_id,
+            'paymentId': pay_doc_id,
+            'txHash': tx_hash,
+            'purchasePriceGbp': order['priceGbp'],
+            # (Phase 3A) The locked hourly rate comes from the canonical
+            # economics, never from the tool document: the old inline default
+            # (0.10) was a second, silently-diverging statement of the Starter
+            # rate, and a stored rate could disagree with the ledger's. A
+            # non-canonical legacy row keeps its stored value, defaulted from
+            # the canonical Starter rate so no rate literal lives here.
+            'miningRateGbpPerHour': (
+                _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS[order['toolId']]['hourly_rate_minor'])
+                if order['toolId'] in _pse_core.LOCKED_PSEMINE_TOOLS
+                else safe_float(tool.get('miningRateGbpPerHour'), _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS['starter']['hourly_rate_minor']))
+            ),
+            'campaignId': tool.get('campaignId') or PSEMINE_CAMPAIGN_DOC_ID,
+            'status': 'active',
+            'acquiredAt': now_iso,
+            # (B1/B2) canonical balance anchor + cycle fields so v1-created
+            # ownerships never become anchor-less and never double-count the
+            # legacy balance at first checkpoint.
+            'accruedBalanceAbsorbed': True,
+            'cycleIndex': 0,
+            'cycleStartedAt': now_iso,
+            'lastAccruedAt': now_iso,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(own_ref, own_payload)
+
+        txn.update(order_ref, {
+            'status': 'confirmed',
+            'paymentTxHash': tx_hash,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+    try:
+        process_payment_confirmation(db.transaction())
+    except Exception as e:
+        err_str = str(e)
+        if err_str in ("TRANSACTION_REUSED", "ORDER_ALREADY_CONFIRMED", "MAX_COPIES_REACHED"):
+            return jsonify({"success": False, "error": err_str, "message": f"Payment processing stopped: {err_str}"}), 409
+        return jsonify({"success": False, "error": "CONFIRMATION_FAILED", "message": str(e)}), 400
+
+    # 4. Update/Recalculate User Mining Session
+    session_data = recalculate_psemine_user_mining_state(db, uid)
+
+    # 5. Record Activity & Notification for Buyer
+    tool_name = (tool.get('name')
+                 or (LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId']) or {}).get('name')
+                 or 'Mining')
+    act_ref = db.collection('psemine_activities').document()
+    act_ref.set({
+        'id': act_ref.id,
+        'userId': uid,
+        'type': 'TOOL_PURCHASED',
+        'title': f"Purchased {tool_name} Tool",
+        'description': f"Acquired {tool_name} tool (£{order['priceGbp']:.2f} GBP). Mining rate updated to £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'metadata': {'orderId': order_id, 'paymentId': pay_doc_id, 'txHash': tx_hash, 'toolId': order['toolId']},
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    notif_ref = db.collection('psemine_notifications').document()
+    notif_ref.set({
+        'id': notif_ref.id,
+        'userId': uid,
+        'type': 'purchase',
+        'title': 'Tool Purchase Confirmed',
+        'message': f"Your {tool_name} tool purchase is confirmed. Active rate is now £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'read': False,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    # 6. Referral Qualification — (Phase 2) delegates to the ONE canonical
+    # qualification path (settle_referral_on_activation). The previous manual
+    # 'pending'->'qualified' block was a second, competing qualification path.
+    import psemine_engine as _pse_engine
+    try:
+        _pse_engine.settle_referral_on_activation(db, uid, order_id)
+    except Exception as _ref_err:
+        # Activation succeeded but qualification failed — persist an idempotent
+        # repair task instead of losing the referral permanently.
+        try:
+            _pse_engine.record_referral_repair(db, uid, order_id, reason='V1_ACTIVATE_SETTLE_FAILED',
+                                               detail=str(_ref_err)[:500])
+        except Exception:
+            logging.error(f"[PSEmine v1] referral repair record failed for {uid}", exc_info=True)
+        logging.warning(f"[PSEmine v1] canonical referral settle failed for {uid}: {_ref_err}")
+
+    return jsonify({
+        "success": True,
+        "orderId": order_id,
+        "paymentId": pay_doc_id,
+        "ownershipId": own_ref.id,
+        "blockNumber": receipt_block_number,
+        "confirmations": block_depth,
+        "session": session_data,
+    })
 
 @app.route('/api/psemine/dashboard', methods=['GET'])
 @verify_token
@@ -7350,92 +7680,112 @@ def _is_canonical_verified_psemine_payment(row):
 @verify_token
 @require_db
 def admin_psemine_overview():
-    """Admin overview backed only by settled hosted-payment v2 orders."""
+    """Admin endpoint: Get system-wide PSEmine statistics and operations overview using aggregation."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
+    # The global PulseEarn admin can manage PSEmine without enrolling as a miner.
+    # Its PSEMineContext therefore receives the public campaign projection, which
+    # intentionally omits private confirmation metadata. Return the minimal
+    # admin-only configuration snapshot here instead of making the admin UI infer
+    # readiness from that public projection.
     campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
-    campaign_data = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
-    public_base = str(os.environ.get("PULSE_EARN_PUBLIC_URL") or "https://pulseearn.online").strip().rstrip("/")
-    callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                       f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
-    provider_configured = bool(
-        str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
-        and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-        and callback_url.startswith("https://")
-    )
-    provider_fingerprint = hashlib.sha256(
-        (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
-         str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" + callback_url).encode()
-    ).hexdigest()[:20]
-    provider_verified = bool(
-        provider_configured
-        and campaign_data.get("paymentProviderVerifiedAt")
-        and campaign_data.get("paymentProviderKeyFingerprint") == provider_fingerprint
-        and campaign_data.get("enabledPaymentCurrencies")
-    )
+    campaign_config = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
+    configured_receiver = _configured_psemine_receiver_wallet(campaign_config)
     admin_campaign_config = {
-        "paymentProvider": "nowpayments",
-        "paymentProviderConfigured": provider_configured,
-        "paymentProviderVerified": provider_verified,
-        "scheduledReconciliationConfigured": bool(str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()),
-        "enabledPaymentCurrencies": list(campaign_data.get("enabledPaymentCurrencies") or []),
-        "paymentProviderVerifiedAt": campaign_data.get("paymentProviderVerifiedAt"),
-        "priceCurrency": "GBP",
-        "purchaseEnabled": campaign_data.get("purchaseEnabled") is True,
-        "purchaseReady": provider_verified and campaign_data.get("purchaseEnabled") is True and campaign_data.get("status") == "active",
+        "receiverWalletAddress": str(campaign_config.get("receiverWalletAddress") or ""),
+        "receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True,
+        "receiverWalletConfiguredAt": campaign_config.get("receiverWalletConfiguredAt"),
+        "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
+        "purchaseReady": bool(configured_receiver),
+        "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
+        # Return the effective backend permissions so the console never guesses
+        # whether a cached client profile can perform a protected operation.
+        "canConfigureReceiverWallet": is_admin(request.user["uid"]),
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
     try:
-        all_order_snaps = db.collection('psemine_payment_orders_v2').stream()
-        total_orders = 0
-        paid_count = 0
-        income_minor = 0
-        income_complete = True
-        for snap in all_order_snaps:
-            total_orders += 1
-            row = snap.to_dict() or {}
-            if row.get("status") != "paid":
-                continue
-            paid_count += 1
-            try:
-                amount_minor = int(row.get("priceMinor"))
-                if amount_minor <= 0:
-                    raise ValueError("invalid paid amount")
-                income_minor += amount_minor
-            except Exception:
-                income_complete = False
-                logging.error("[PSEmine Admin] settled hosted order %s has no valid priceMinor", snap.id)
-        tool_income_gbp = round(income_minor / 100.0, 2) if income_complete else None
-    except Exception:
-        total_orders = None
-        paid_count = None
-        tool_income_gbp = None
-        income_complete = False
-        logging.exception("[PSEmine Admin] hosted payment aggregation failed")
-
-    try:
+        orders_count = db.collection('psemine_orders').count().get()[0][0].value
+        # Count only verified payments; payment documents can include failed attempts.
+        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').stream()
+        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
         ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
         sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
     except Exception:
+        orders_count = len(db.collection('psemine_orders').get())
+        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').get()
+        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
+    # There have been no genuine tool purchases at launch. Count revenue only
+    # when the payment is both confirmed AND carries the verifier's on-chain
+    # receipt marker. Quotes, seeded/demo rows, manually marked confirmations,
+    # failed attempts, withdrawals and mining rewards are never income.
+    # With no verified receipt records the correct lifetime total is £0.00.
+    tool_income_gbp = 0.0
+    income_complete = True
+    try:
+        verified_income_snaps = (
+            db.collection('psemine_payments')
+            .where('status', '==', 'confirmed')
+            .where('verificationSource', '==', 'bsc_rpc_receipt')
+            .stream()
+        )
+        for payment_snap in verified_income_snaps:
+            payment_row = payment_snap.to_dict() or {}
+            if not _is_canonical_verified_psemine_payment(payment_row):
+                continue
+            gbp_amount = payment_row.get('priceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('purchasePriceGbp')
+            if gbp_amount is None:
+                gbp_amount = payment_row.get('amountGbp')
+            if gbp_amount is None:
+                order_id = str(payment_row.get('orderId') or '').strip()
+                if order_id:
+                    order_snap = db.collection('psemine_orders').document(order_id).get()
+                    if order_snap.exists:
+                        order_row = order_snap.to_dict() or {}
+                        gbp_amount = order_row.get('priceGbp')
+                        if gbp_amount is None:
+                            gbp_amount = order_row.get('gbpPrice')
+            # A verified payment without a recoverable GBP amount is a data
+            # integrity issue; do not publish a partial lifetime total.
+            if gbp_amount is None:
+                # Never present a partial sum as lifetime income.
+                tool_income_gbp = None
+                income_complete = False
+                logging.error(
+                    '[PSEmine Admin] verified payment %s has no GBP purchase price',
+                    payment_snap.id,
+                )
+                break
+            tool_income_gbp += safe_float(gbp_amount, 0.0)
+        if tool_income_gbp is not None:
+            tool_income_gbp = round(tool_income_gbp, 2)
+    except Exception:
+        tool_income_gbp = None
+        income_complete = False
+        logging.exception('[PSEmine Admin] verified tool income aggregation failed')
+
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
-    pending_withdrawals = [snap.to_dict() or {} for snap in pending_snaps]
+    pending_withdrawals = [s.to_dict() for s in pending_snaps]
+
     return jsonify({
-        "success": True, "campaign": admin_campaign_config,
+        "success": True,
+        "campaign": admin_campaign_config,
         "stats": {
-            "totalOrders": total_orders,
-            "totalConfirmedPayments": paid_count,
-            "totalToolIncomeGbp": tool_income_gbp,
-            "toolIncomeComplete": income_complete,
+            "totalOrders": orders_count,
+            "totalConfirmedPayments": payments_count,
             "activeToolOwnerships": ownership_count,
             "activeMiningSessions": sessions_count,
+            "totalToolIncomeGbp": tool_income_gbp,
+            "toolIncomeComplete": income_complete,
             "pendingWithdrawalsCount": len(pending_withdrawals),
-            "pendingWithdrawalsVolumeGbp": sum(safe_float(row.get('amountGbp')) for row in pending_withdrawals),
+            "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
         }
     })
 
@@ -7443,45 +7793,62 @@ def admin_psemine_overview():
 @verify_token
 @require_db
 def admin_psemine_orders():
-    """Admin list of hosted crypto checkout orders, including pending/review states."""
+    """Admin endpoint: Inspect PSEmine orders."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    snaps = db.collection('psemine_payment_orders_v2').order_by('createdAt', direction='DESCENDING').limit(200).get()
-    orders = [{**(snap.to_dict() or {}), 'id': snap.id, 'orderId': snap.id} for snap in snaps]
+
+    snaps = db.collection('psemine_orders').order_by('createdAt', direction='DESCENDING').limit(100).get()
+    orders = [{**s.to_dict(), 'id': s.id} for s in snaps]
     return jsonify({"success": True, "orders": orders})
 
 @app.route('/api/admin/psemine/payments', methods=['GET'])
 @verify_token
 @require_db
 def admin_psemine_payments():
-    """Return only orders settled through the authenticated hosted-payment provider."""
+    """Return only payment records written after successful on-chain verification."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    all_snaps = list(db.collection('psemine_payment_orders_v2').stream())
-    paid_snaps = [snap for snap in all_snaps if (snap.to_dict() or {}).get('status') == 'paid']
-    paid_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get('settledAt') or ""), reverse=True)
-    payments = []
-    for snap in paid_snaps[:200]:
-        row = snap.to_dict() or {}
-        try:
-            amount_minor = int(row.get('priceMinor'))
-            if amount_minor <= 0:
+    try:
+        # Use the single-field timestamp index, then explicitly filter status.
+        # The query is bounded so this admin view cannot read the entire ledger.
+        snaps = db.collection('psemine_payments').order_by('confirmedAt', direction='DESCENDING').limit(200).get()
+        payments = []
+        for snap in snaps:
+            row = snap.to_dict() or {}
+            # Defend the response contract even if a legacy/malformed document
+            # slips through a test double or an inconsistent query result.
+            if not _is_canonical_verified_psemine_payment(row):
                 continue
-        except Exception:
-            continue
-        payments.append({
-            "id": snap.id, "orderId": snap.id, "userId": str(row.get("userId") or ""),
-            "toolId": str(row.get("toolId") or ""), "toolName": str(row.get("toolName") or ""),
-            "provider": str(row.get("provider") or ""), "providerPaymentId": str(row.get("providerPaymentId") or ""),
-            "priceMinor": amount_minor, "priceAmount": row.get("priceAmount"),
-            "priceCurrency": row.get("priceCurrency"), "actualPaidAmount": row.get("actualPaidAmount"),
-            "actualPaidCurrency": row.get("actualPaidCurrency"), "status": "paid",
-            "providerStatus": row.get("providerStatus"), "reviewRequired": row.get("reviewRequired") is True,
-            "confirmedAt": row.get("settledAt"), "settledAt": row.get("settledAt"),
-        })
-    return jsonify({"success": True, "payments": payments})
+            created_at = row.get('createdAt')
+            confirmed_at = row.get('confirmedAt')
+            payments.append({
+                'id': snap.id,
+                'orderId': str(row.get('orderId') or ''),
+                'userId': str(row.get('userId') or ''),
+                'toolId': str(row.get('toolId') or ''),
+                'txHash': str(row.get('txHash') or ''),
+                'amountBnb': str(row.get('amountBnb') or ''),
+                'paidBnbAmount': str(row.get('paidBnbAmount') or ''),
+                'asset': str(row.get('asset') or ''),
+                'chainId': row.get('chainId'),
+                'destination': str(row.get('destinationAddress') or ''),
+                'blockNumber': row.get('blockNumber'),
+                'status': 'confirmed',
+                'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
+                'confirmedAt': confirmed_at.isoformat() if hasattr(confirmed_at, 'isoformat') else confirmed_at,
+            })
+        payments.sort(key=lambda row: str(row.get('confirmedAt') or row.get('createdAt') or ''), reverse=True)
+        payments = payments[:100]
+        return jsonify({"success": True, "payments": payments, "count": len(payments)})
+    except Exception:
+        logging.exception('[PSEmine Admin] verified payment ledger read failed')
+        return jsonify({
+            "success": False,
+            "error": "VERIFIED_PAYMENTS_UNAVAILABLE",
+            "message": "Confirmed payment records could not be loaded. No payment totals were inferred.",
+        }), 503
 
 @app.route('/api/admin/psemine/withdrawals', methods=['GET'])
 @verify_token
@@ -7810,15 +8177,624 @@ def get_psemine_campaign_status():
 @verify_token
 @require_psemine_access
 def generate_psemine_tool_quote():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Create an authoritative BNB-denominated purchase quote for a PSEmine tool tier.
+    Quote TTL is the canonical backend value PSEMINE_QUOTE_TTL_MINUTES (15 minutes)."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    tool_id = data.get('toolId')
+    
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    camp_doc = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+    if not camp_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_NOT_FOUND",
+            "message": "Active mining campaign is not currently configured."
+        }), 404
+
+    import psemine_engine as _pse_engine
+    camp_data, effective_status, _ = _pse_engine.campaign_lifecycle_state(db)
+    if effective_status != 'active' or not camp_data.get('purchaseEnabled', True):
+        return jsonify({
+            "success": False,
+            "error": "PURCHASES_DISABLED",
+            "message": "Tool purchases are closed until the campaign is active."
+        }), 403
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    exchange_rate = get_current_bnb_gbp_price()
+    if not exchange_rate or exchange_rate <= 0:
+        return jsonify({
+            "success": False,
+            "error": "PRICE_SERVICE_UNAVAILABLE",
+            "message": "Live BNB/GBP exchange rate is currently unavailable. Please try again in a moment."
+        }), 503
+
+    bnb_amount = round(tool_cfg['price_gbp'] / exchange_rate, 6)
+    expected_wei = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+    quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
+
+    receiver_wallet = _configured_psemine_receiver_wallet(camp_data)
+    if not receiver_wallet:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED", "message": "Tool purchases are disabled until an admin configures and confirms the campaign receiving wallet."}), 503
+
+    quote = {
+        "quoteId": quote_id,
+        "userId": uid,
+        "toolId": tool_id,
+        "toolVersion": tool_cfg['version'],
+        "gbpPrice": tool_cfg['price_gbp'],
+        "bnbAmount": bnb_amount,
+        "bnbAmountWei": str(expected_wei),
+        "exchangeRateBNBGBP": exchange_rate,
+        "receiverWallet": receiver_wallet,
+        "network": "BNB Smart Chain",
+        "chainId": 56,
+        "createdAt": now.isoformat(),
+        "expiresAt": expires_at.isoformat()
+    }
+
+    # Persist quote server-side by quoteId for authoritative purchase verification
+    try:
+        db.collection('psemine_quotes').document(quote_id).set(quote)
+    except Exception as q_err:
+        logging.error(f"[PSEmine] Could not persist quote {quote_id}: {q_err}")
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_PERSISTENCE_FAILED",
+            "message": "Failed to persist quote record. Please try again."
+        }), 500
+
+    return jsonify({"success": True, "quote": quote})
 
 @app.route('/api/mine/tools/verify-purchase', methods=['POST'])
 @verify_token
 @require_psemine_access
 def verify_psemine_tool_purchase():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Verify on-chain BSC transaction receipt and authoritatively activate tool purchase via Admin SDK.
+    
+    Validates transaction hash format, checks for replay attacks, verifies receipt recipient and payable
+    value against quoted BNB amount on BNB Smart Chain, and commits the ownership record, purchase status,
+    user capacity, and campaign aggregate counters inside an atomic Firestore transaction.
+    """
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = (data.get('purchaseId') or '').strip()
+    tx_hash = (data.get('transactionHash') or '').strip().lower()
+    sender_wallet = (data.get('senderWallet') or '').strip().lower()
+
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
+
+    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH", "message": "Transaction hash must be a 66-character hex string starting with 0x."}), 400
+
+    # 1. Fetch purchase intent
+    purchase_ref = db.collection('psemine_purchases').document(purchase_id)
+    purchase_snap = purchase_ref.get()
+    if not purchase_snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND", "message": "Purchase intent record not found."}), 404
+
+    purchase = purchase_snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
+
+    if purchase.get('status') == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+
+    # 1b. Campaign lifecycle gate at verification time (server clock is the authority).
+    # Terminal states settle/payout/closed/archived are all economically closed,
+    # not just 'ended' — activation must be impossible in every one of them.
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff in _pse_engine.TERMINAL_CAMPAIGN_STATUSES:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=purchase.get('quoteId'), purchase_id=purchase_id,
+            reason='CAMPAIGN_ENDED_AT_VERIFICATION')
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended; this payment was recorded for manual review."}), 409
+    if _camp.get('purchaseEnabled') is False:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=purchase.get('quoteId'), purchase_id=purchase_id,
+            reason='PURCHASES_DISABLED_AT_VERIFICATION')
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+    # An expired payment is never silently discarded. It becomes a recovery
+    # case; an admin may attach that exact case to this exact purchase, after
+    # which the same immutable quote can be re-verified on-chain.
+    recovery_authorized = False
+    recovery_case_id = purchase.get('recoveryCaseId')
+    if purchase.get('status') == 'manual_review' and recovery_case_id:
+        _recovery_snap = db.collection('psemine_payment_recovery').document(recovery_case_id).get()
+        _recovery_data = _recovery_snap.to_dict() or {} if _recovery_snap.exists else {}
+        recovery_authorized = (
+            _recovery_data.get('status') == 'attached'
+            and _recovery_data.get('attachedPurchaseId') == purchase_id
+            and str(_recovery_data.get('txHash') or '').lower() == tx_hash
+        )
+
+    def _flag_expired_purchase(reason, message, recipient=None):
+        try:
+            _rid = _pse_engine.create_payment_recovery(
+                db, uid, tx_hash=tx_hash, quote_id=purchase.get('quoteId'),
+                purchase_id=purchase_id, sender=sender_wallet,
+                recipient=recipient or purchase.get('receiverWallet'),
+                chain_id=PSEMINE_BSC_CHAIN_ID, reason=reason,
+                extra={'message': message, 'quoteExpiresAt': purchase.get('expiresAt')},
+            )
+            purchase_ref.update({
+                'status': 'manual_review',
+                'transactionHash': tx_hash,
+                'recoveryCaseId': _rid,
+                'reviewReason': reason,
+                'statusMessage': 'Payment needs manual review. Do not send another payment.',
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+            mine_notify(uid,
+                notif_id=f"notif_purchase_review_{purchase_id}_{reason}",
+                type='purchase',
+                title='Payment recorded for manual review',
+                message='Your transaction was recorded, but it needs administrator review before any tool can activate. Do not send another payment. You can track the recovery from Tools.',
+                related={'source': 'verify_psemine_tool_purchase', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'recoveryCaseId': _rid, 'status': 'manual_review'},
+            )
+            return jsonify({"success": False, "error": "PAYMENT_REQUIRES_REVIEW",
+                            "message": "This quote has expired. Your transaction has been recorded for admin review. Do not send another payment.",
+                            "recoveryCaseId": _rid}), 409
+        except Exception:
+            logging.exception('[PSEmine] expired payment recovery recording failed')
+            return jsonify({"success": False, "error": "PAYMENT_RECOVERY_UNAVAILABLE",
+                            "message": "The payment could not be safely reconciled automatically. Do not pay again; contact support with your transaction hash."}), 503
+
+    # 2. Check quote expiry. A malformed expiry also fails closed into recovery.
+    expires_at_raw = purchase.get('expiresAt')
+    if not expires_at_raw and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_PURCHASE_QUOTE_EXPIRY',
+                                      'The purchase record has no server quote expiry.')
+    if expires_at_raw and not recovery_authorized:
+        try:
+            exp_dt = datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp_dt:
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The submitted transaction was presented after the purchase quote expired.')
+        except Exception:
+            return _flag_expired_purchase('INVALID_PURCHASE_QUOTE_EXPIRY',
+                                          'The stored purchase expiry could not be parsed safely.')
+
+    # 3. Prevent replay attacks: check prior redemption before attempting verification
+    dupes_p = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
+    if len(dupes_p) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    dupes_pay = db.collection('psemine_payments').where('txHash', '==', tx_hash).get()
+    if len(dupes_pay) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    dupe_redeemed = db.collection('psemine_redeemed_hashes').document(tx_hash).get()
+    if dupe_redeemed.exists:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    # 4. Verify tool definitions & tier limits
+    tool_id = purchase.get('toolId')
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    user_ref = db.collection('psemine_users').document(uid)
+    user_snap = user_ref.get()
+    u_data = user_snap.to_dict() if user_snap.exists else {}
+
+    current_owned = (u_data.get('toolOwnershipCounts') or {}).get(tool_id, 0)
+    if current_owned >= tool_cfg['max_per_user']:
+        return jsonify({
+            "success": False, 
+            "error": "MAX_OWNERSHIP_REACHED", 
+            "message": f"Maximum ownership reached for {tool_cfg['name']} (Max: {tool_cfg['max_per_user']})"
+        }), 400
+
+    # 5. Bind on-chain verification terms strictly to server-owned quote and campaign parameters
+    quote_id = (purchase.get('quoteId') or data.get('quoteId') or '').strip()
+    if not quote_id:
+        return jsonify({
+            "success": False,
+            "error": "MISSING_QUOTE",
+            "message": "Purchase record is missing required server quoteId."
+        }), 400
+
+    quote_doc = db.collection('psemine_quotes').document(quote_id).get()
+    if not quote_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Referenced server quote does not exist or has expired."
+        }), 400
+
+    q_data = quote_doc.to_dict() or {}
+    if q_data.get('userId') != uid or q_data.get('toolId') != tool_id:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Quote terms do not match authenticated user and tool tier."
+        }), 400
+
+    # Ensure quote matches server configuration for tool tier
+    if float(q_data.get('gbpPrice', 0.0)) != float(tool_cfg['price_gbp']):
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_CONFIG_MISMATCH",
+            "message": "Quote GBP price does not match canonical tool tier configuration."
+        }), 400
+
+    q_exp = q_data.get('expiresAt')
+    if not q_exp and not recovery_authorized:
+        return _flag_expired_purchase('MISSING_SERVER_QUOTE_EXPIRY',
+                                      'The saved quote has no server expiry.',
+                                      recipient=q_data.get('receiverWallet'))
+    if q_exp:
+        try:
+            q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
+            if q_exp_dt.tzinfo is None:
+                q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > q_exp_dt and not recovery_authorized:
+                return _flag_expired_purchase('QUOTE_EXPIRED_AT_VERIFICATION',
+                                              'The server quote expired before verification completed.',
+                                              recipient=q_data.get('receiverWallet'))
+        except Exception:
+            if not recovery_authorized:
+                return _flag_expired_purchase('INVALID_SERVER_QUOTE_EXPIRY',
+                                              'The saved quote expiry could not be parsed safely.',
+                                              recipient=q_data.get('receiverWallet'))
+
+    # Derive expected destination and amount strictly from server-owned data
+    # The persisted server quote is the immutable payment instruction. Never
+    # fall back to an environment constant or a second wallet at verification.
+    expected_destination = q_data.get('receiverWallet')
+    if not _is_valid_psemine_receiver_wallet(expected_destination):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER", "message": "The saved quote has no valid receiving wallet. Do not send payment; request a new quote."}), 409
+    if q_data.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH", "message": "The saved quote is not for BNB Smart Chain."}), 409
+
+    server_quoted_bnb = q_data.get('bnbAmount')
+    if not server_quoted_bnb or float(server_quoted_bnb) <= 0:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE_AMOUNT",
+            "message": "Server quote contains invalid BNB amount."
+        }), 400
+
+    quoted_bnb = float(server_quoted_bnb)
+    quoted_bnb_str = str(server_quoted_bnb)
+    # Exact wei: prefer the quote's persisted wei string; derive via Decimal only as fallback.
+    _quoted_wei_raw = q_data.get('bnbAmountWei')
+    if _quoted_wei_raw:
+        expected_wei = int(str(_quoted_wei_raw))
+    else:
+        expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
+    # WALLET BINDING. A payment may only be attributed to a purchase when the
+    # payer matches the wallet the intent was created with. A mismatch is
+    # recorded for manual review and never silently reassigned.
+    _sender_ok, _sender_code, expected_sender = _pse_engine.purchase_sender_binding(
+        sender_wallet, purchase.get('paymentWallet')
+    )
+    if not _sender_ok:
+        try:
+            _pse_engine.create_payment_recovery(db, uid,
+                tx_hash=tx_hash,
+                quote_id=quote_id,
+                purchase_id=purchase_id,
+                sender=sender_wallet,
+                recipient=expected_destination,
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason=_sender_code,
+                extra={'message': 'On-chain payer does not match the wallet bound to the purchase intent.'})
+        except Exception:
+            logging.warning('[PSEmine] recovery record failed on wallet mismatch', exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": "WALLET_MISMATCH",
+            "message": "The paying wallet does not match the wallet this purchase was created with. "
+                       "Your payment was recorded for manual review and no tool was activated.",
+        }), 409
+
+    verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
+        tx_hash,
+        expected_destination,
+        expected_wei,
+        expected_sender=expected_sender if expected_sender else None
+    )
+
+    if not verified:
+        allow_skip = (
+            os.environ.get('PSEMINE_SKIP_ONCHAIN_CHECK') == 'true'
+            and os.environ.get('APP_ENV', 'production') != 'production'
+            and os.environ.get('NODE_ENV', 'production') != 'production'
+        )
+        if not allow_skip:
+            # Preserve an admin-attached recovery while confirmations propagate;
+            # re-opening it here would make an expired quote impossible to retry.
+            try:
+                if recovery_authorized and recovery_case_id:
+                    db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                        'lastVerificationError': err_code or 'VERIFICATION_FAILED',
+                        'lastVerificationMessage': err_msg,
+                        'lastVerificationBlock': receipt_block,
+                        'lastVerificationAt': firestore.SERVER_TIMESTAMP,
+                        'updatedAt': firestore.SERVER_TIMESTAMP,
+                    })
+                else:
+                    _pse_engine.create_payment_recovery(db, uid,
+                        tx_hash=tx_hash,
+                        quote_id=quote_id,
+                        purchase_id=purchase_id,
+                        sender=expected_sender,
+                        recipient=expected_destination,
+                        observed_wei=None,
+                        chain_id=PSEMINE_BSC_CHAIN_ID,
+                        block_number=receipt_block,
+                        reason=err_code or 'VERIFICATION_FAILED',
+                        extra={'message': err_msg})
+            except Exception:
+                logging.warning('[PSEmine] recovery record failed', exc_info=True)
+            return jsonify({
+                "success": False,
+                "error": err_code or "VERIFICATION_FAILED",
+                "message": err_msg or "On-chain verification failed on BNB Smart Chain.",
+                "confirmations": block_depth
+            }), 422
+        logging.warning(f"[PSEmine] Non-production on-chain check bypassed for {tx_hash}: {err_code}")
+
+    # 6. Atomic Firestore Transaction Execution
+    ownership_id = f"own_{tool_id}_{uid[:5]}_{int(time.time() * 1000)}"
+    own_ref = db.collection('psemine_tool_ownership').document(ownership_id)
+    camp_ref = db.collection('psemine_campaigns').document('active_campaign')
+    redeemed_ref = db.collection('psemine_redeemed_hashes').document(tx_hash)
+    # (transaction-read-first) migration-ledger doc is READ here, before ANY
+    # txn.set — Firestore transactions reject reads that follow writes.
+    _mig_id = f"migration_{uid}"
+    _mig_ref = db.collection('psemine_mining_ledger').document(_mig_id)
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    prev_tool_counts = u_data.get('toolOwnershipCounts') or {}
+    is_first_tool_activation = sum(prev_tool_counts.values()) == 0
+
+    try:
+        @firestore.transactional
+        def commit_purchase_activation(txn):
+            # ALL transaction reads happen before the FIRST txn write —
+            # Firestore transactions reject reads that follow writes.
+            h_curr = redeemed_ref.get(transaction=txn)
+            if h_curr.exists:
+                raise Exception("TRANSACTION_ALREADY_REDEEMED")
+
+            p_curr = purchase_ref.get(transaction=txn)
+            if not p_curr.exists or p_curr.to_dict().get('status') == 'activated':
+                raise Exception("PURCHASE_ALREADY_ACTIVATED")
+
+            u_curr = user_ref.get(transaction=txn)
+            u_dict = u_curr.to_dict() if u_curr.exists else {}
+
+            # Read-ahead for the legacy-balance migration branch (R2): the
+            # outer-scope read above cannot run inside the transaction.
+            _mig_exists = _mig_ref.get(transaction=txn).exists
+            # Read-ahead for the campaign counters block.
+            c_snap = camp_ref.get(transaction=txn)
+
+            counts = dict(u_dict.get('toolOwnershipCounts') or {})
+            counts[tool_id] = counts.get(tool_id, 0) + 1
+
+            # (Phase 3A) Capacity is CANONICAL ECONOMY (psemine_core). This
+            # transaction used to re-derive the locked rates, the referral bonus
+            # and the 5-referral cap inline — a second implementation of money
+            # rules that no test could keep in step with the core.
+            import psemine_core as _pse_core
+            qual_refs = u_dict.get('qualifiedReferralsCount', 0)
+            tool_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_tool_capacity_minor(counts))
+            ref_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_referral_capacity_minor(qual_refs))
+            total_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_total_capacity_minor(counts, qual_refs))
+
+            # Settle accrued earnings up to current server timestamp
+            prev_total_cap = float(u_dict.get('totalCapacityGBPPerHour', 0.0))
+            prev_accrued = float(u_dict.get('totalAccruedGBP', 0.0))
+            last_accrued_str = u_dict.get('lastAccruedAt')
+            new_accrued = prev_accrued
+            if last_accrued_str and prev_total_cap > 0:
+                try:
+                    last_dt = datetime.fromisoformat(last_accrued_str.replace('Z', '+00:00'))
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                    elapsed_sec = max(0, (now_dt - last_dt).total_seconds())
+                    new_accrued = prev_accrued + (elapsed_sec / 3600.0) * prev_total_cap
+                except Exception:
+                    pass
+
+            # Record redeemed hash atomically
+            txn.set(redeemed_ref, {
+                'txHash': tx_hash,
+                'purchaseId': purchase_id,
+                'userId': uid,
+                'toolId': tool_id,
+                'redeemedAt': now_iso
+            })
+
+            # Commit purchase update
+            txn.update(purchase_ref, {
+                'status': 'activated',
+                'transactionHash': tx_hash,
+                'quoteId': quote_id,
+                'quotedBNBAmount': quoted_bnb,
+                'receiverWallet': expected_destination,
+                # Server-derived payer only: `expected_sender` is the binding
+                # decision (bound wallet wins; a declared sender is used only
+                # for a legacy intent with no binding at all), never a raw
+                # client-supplied address.
+                'paymentWallet': (expected_sender or p_curr.to_dict().get('paymentWallet') or '').lower(),
+                'confirmedAt': now_iso,
+                'activatedAt': now_iso,
+                'confirmations': block_depth,  # actual observed depth (0 in dev bypass) — never fabricated
+                'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Commit ownership record (canonical cycle + minor-unit accrual anchor fields)
+            txn.set(own_ref, _pse_engine.hydrate_ownership_for_activation(
+                ownership_id, uid, tool_id,
+                {'name': tool_cfg['name'], 'version': tool_cfg.get('version', 1),
+                 'hourly_rate_minor': int(tool_cfg['hourly_rate_minor']),
+                 'price_minor_units': int(tool_cfg['price_minor_units'])},
+                purchase_id, now_dt
+            ))
+
+            # Commit user economic state (canonical minor-unit balance; capacities additive).
+            # NOTE: _mig_ref was already READ at the top of this transaction
+            # (reads must precede all writes — Firestore rejects reads after
+            # the first txn write).
+            user_was_inactive = u_dict.get('status') != 'active'
+            prev_accrued_minor = int(u_dict.get('accruedMinor') or 0)
+            legacy_minor = _pse_engine._legacy_balance_minor(u_dict)
+            if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
+                # one-time absorption of pre-ledger balance into the ledger (auditable entry)
+                if not _mig_exists:
+                    txn.set(_mig_ref, {
+                        'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
+                        'kind': 'migration', 'amountMinor': int(legacy_minor),
+                        'source': 'migration', 'note': 'pre-ledger totalAccruedGBP absorption',
+                        'createdAt': firestore.SERVER_TIMESTAMP,
+                    })
+                prev_accrued_minor += int(legacy_minor)
+            txn.set(user_ref, {
+                'id': uid,
+                'uid': uid,
+                'userId': uid,
+                'status': 'active',
+                'accruedMinor': prev_accrued_minor,
+                'legacyBalanceAbsorbedMinor': int(legacy_minor),
+                'toolCapacityGBPPerHour': tool_cap,
+                'referralCapacityGBPPerHour': ref_cap,
+                'totalCapacityGBPPerHour': total_cap,
+                'totalAccruedGBP': round(prev_accrued_minor / 100.0, 6),
+                'miningStartedAt': u_dict.get('miningStartedAt') or now_iso,
+                'toolOwnershipCounts': counts,
+                'qualifiedReferralsCount': qual_refs,
+                'updatedAt': now_iso,
+            }, merge=True)
+
+            # Commit campaign counters update using Increment
+            # (c_snap was read at the top of the transaction — read-before-write)
+            if c_snap.exists:
+                txn.update(camp_ref, {
+                    'totalCapacitiesRegisteredGBPPerHour': firestore.Increment(tool_cfg['hourly_rate']),
+                    'totalBNBCollected': firestore.Increment(quoted_bnb),
+                    'totalMinersCount': firestore.Increment(1 if user_was_inactive else 0),
+                    'updatedAt': now_iso,
+                })
+            else:
+                end_dt = now_dt + timedelta(days=90)
+                deadline_dt = end_dt - timedelta(days=3)
+                txn.set(camp_ref, {
+                    'id': PSEMINE_CAMPAIGN_DOC_ID,
+                    'name': 'PSEmine Genesis 90-Day Campaign',
+                    'status': 'active',
+                    'startAt': now_iso,
+                    'endAt': end_dt.isoformat(),
+                    'durationDays': 90,
+                    'currencyDisplay': 'GBP',
+                    'paymentNetwork': 'BNB Smart Chain',
+                    'paymentChainId': PSEMINE_BSC_CHAIN_ID,
+                    'paymentAsset': 'BNB',
+                    'receiverWalletAddress': '',  # No implicit receiving wallet; admin configuration is mandatory.
+                    'walletChangeDeadline': deadline_dt.isoformat(),
+                    'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
+                    'totalBNBCollected': quoted_bnb,
+                    'totalMinersCount': 1,
+                    'miningEnabled': True,
+                    'purchaseEnabled': True,
+                    'referralEnabled': True,
+                    'createdAt': now_iso,
+                    'updatedAt': now_iso,
+                })
+
+        transaction = db.transaction()
+        commit_purchase_activation(transaction)
+
+        if recovery_authorized and recovery_case_id:
+            try:
+                db.collection('psemine_payment_recovery').document(recovery_case_id).update({
+                    'status': 'resolved',
+                    'resolvedAt': now_iso,
+                    'resolvedBy': 'system:verified_purchase_activation',
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                })
+            except Exception:
+                logging.warning('[PSEmine] recovery case activation closure failed', exc_info=True)
+
+        # 7. Canonical referral qualification (single backend-authoritative path).
+        try:
+            _pse_engine.settle_referral_on_activation(db, uid, purchase_id)
+        except Exception as ref_err:
+            # Activation succeeded but qualification failed — persist an
+            # idempotent repair task; the cron sweep retries it exactly once.
+            try:
+                _pse_engine.record_referral_repair(db, uid, purchase_id, reason='V2_ACTIVATE_SETTLE_FAILED',
+                                                   detail=str(ref_err)[:500])
+            except Exception:
+                logging.error(f"[PSEmine] referral repair record failed for {uid}", exc_info=True)
+            logging.warning(f"[PSEmine Purchase] Referral qualification notice: {ref_err}")
+
+        # 8. Canonical activity + notification (Phase 3 completion). The
+        # previous writer here created documents in the
+        # psemine_users/{uid}/activity SUBCOLLECTION, in-place replacement.
+        # No reader consumes that subcollection (the Phase-1 context listener
+        # was deliberately removed in favor of the canonical top-level feed).
+        try:
+            mine_record_activity(uid,
+                _type='TOOL_PURCHASED',
+                title=f"{tool_cfg['name']} Deployed",
+                description=f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
+                metadata={'txHash': tx_hash, 'toolId': tool_id, 'purchaseId': purchase_id},
+            )
+            mine_notify(uid,
+                notif_id=f"notif_purchase_{purchase_id}",
+                type='purchase',
+                title=f"{tool_cfg['name']} Deployed",
+                message=f"Payment verified on BNB Smart Chain. {tool_cfg['name']} is now mining at £{tool_cfg['hourly_rate']:.2f}/hr.",
+                related={'source': 'verify_psemine_tool_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'txHash': tx_hash},
+            )
+        except Exception:
+            logging.warning('[PSEmine Purchase] canonical activity/notification notice', exc_info=True)
+
+        return jsonify({
+            "success": True, 
+            "verified": True, 
+            "transactionHash": tx_hash,
+            "confirmedAt": now_iso,
+            "message": f"Transaction verified and {tool_cfg['name']} deployed successfully."
+        })
+
+    except Exception as e:
+        err_str = str(e)
+        if err_str == "TRANSACTION_ALREADY_REDEEMED":
+            return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+        if err_str == "PURCHASE_ALREADY_ACTIVATED":
+            return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+        logging.exception(f"[PSEmine Purchase Verify Error]: {e}")
+        return jsonify({
+            "success": False, 
+            "error": "TRANSACTION_FAILED", 
+            "message": "Activation could not be completed. Contact support with your transaction hash."
+        }), 500
 
 @app.route('/api/admin/mine/overview', methods=['GET'])
 @verify_token
@@ -7914,19 +8890,20 @@ def admin_campaign_action():
     if not is_admin(uid): return jsonify({"success": False, "error": "ADMIN_REQUIRED", "message": "An authenticated platform admin is required for this action."}), 403
 
     data = request.get_json() or {}
-    action = data.get('action') # 'set_purchase_enabled', 'pause', 'resume', 'schedule', 'settle', 'shutdown'
+    action = data.get('action') # 'pause', 'resume', 'schedule', 'settle', 'shutdown'
     reason = data.get('reason', 'Administrative decision')
 
     camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
-    if not camp_snap.exists and action == 'set_purchase_enabled':
-        # Hosted purchase-gate configuration must work on a fresh install too.
-        # Public GET endpoints remain read-only and never bootstrap campaign data.
+    if not camp_snap.exists and action == 'set_receiver_wallet':
+        # Wallet configuration must work on a fresh install too. This is an
+        # explicit authenticated admin write path; the public GET endpoints
+        # remain read-only and never bootstrap campaign data.
         try:
             psemine_ensure_canonical_data(db)
             camp_snap = camp_ref.get()
         except Exception:
-            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before purchase-gate update')
+            logging.exception('[PSEmine Admin] canonical campaign bootstrap failed before receiver setup')
     if not camp_snap.exists:
         return jsonify({
             "success": False,
@@ -7943,64 +8920,50 @@ def admin_campaign_action():
             "message": "Archived campaign cannot be transitioned."
         }), 400
 
-    if action == 'set_purchase_enabled':
-        enabled = data.get('enabled')
-        if not isinstance(enabled, bool):
-            return jsonify({"success": False, "error": "INVALID_PURCHASE_GATE",
-                            "message": "Provide enabled as true or false."}), 400
-        enabled_currencies = list(camp_before.get("enabledPaymentCurrencies") or [])
-        if enabled:
-            public_base = str(os.environ.get("PUBLIC_BASE_URL") or "https://pulseearn.online").strip().rstrip("/")
-            callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                               f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
-            api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
-            ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-            provider_ready = bool(api_key and ipn_secret and callback_url.startswith("https://"))
-            if not provider_ready:
-                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
-                                "message": "Configure the hosted payment provider server credentials before enabling purchases."}), 409
-            if current_status != 'active':
-                return jsonify({"success": False, "error": "CAMPAIGN_NOT_ACTIVE",
-                                "message": "Purchases can only be enabled while the campaign is active."}), 409
-            try:
-                from psemine_payments_v2 import verify_merchant_account, provider_api_base
-                get_deps()
-                if requests is None:
-                    raise RuntimeError("HTTP client unavailable")
-                enabled_currencies = verify_merchant_account(
-                    api_key, api_base=provider_api_base(), http_get=requests.get
-                )
-            except Exception as exc:
-                logging.exception("[PSEmine Admin] NOWPayments merchant verification failed")
-                return jsonify({"success": False, "error": "PAYMENT_PROVIDER_VERIFICATION_FAILED",
-                                "message": "NOWPayments credentials or merchant payment currencies could not be verified. Check the merchant account and enabled assets before enabling purchases."}), 409
+    if action == 'set_receiver_wallet':
+        if not is_admin(uid):
+            return jsonify({"success": False, "error": "ADMIN_REQUIRED",
+                            "message": "An authenticated platform admin is required to configure the campaign receiving wallet."}), 403
+        # Campaign receiving address for new tool-purchase quotes, never a user payout wallet.
+        raw_address = data.get('receiverWalletAddress')
+        if not isinstance(raw_address, str):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "A valid BNB Smart Chain receiving address is required."}), 400
+        receiver_address = raw_address.strip()
+        if (len(receiver_address) != 42 or not receiver_address.startswith('0x') or
+                any(char not in '0123456789abcdefABCDEF' for char in receiver_address[2:]) or
+                receiver_address.lower() == '0x' + ('0' * 40)):
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET", "message": "Enter a valid, non-zero 42-character EVM address."}), 400
+        previous_address = str(camp_before.get('receiverWalletAddress') or '')
+        already_confirmed = (
+            camp_before.get('receiverWalletConfigured') is True
+            and bool(camp_before.get('receiverWalletConfiguredAt'))
+            and bool(camp_before.get('receiverWalletConfiguredBy'))
+        )
+        if previous_address.lower() == receiver_address.lower() and already_confirmed:
+            return jsonify({"success": True, "action": action, "receiverWalletAddress": previous_address, "unchanged": True})
         now_iso = datetime.now(timezone.utc).isoformat()
         camp_ref.update({
-            "purchaseEnabled": enabled,
-            "purchasePaymentProvider": "nowpayments",
-            "enabledPaymentCurrencies": enabled_currencies,
-            "paymentProviderVerifiedAt": now_iso if enabled else camp_before.get("paymentProviderVerifiedAt"),
-            "paymentProviderKeyFingerprint": hashlib.sha256(
-                (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
-                 str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" +
-                 callback_url).encode()
-            ).hexdigest()[:20] if enabled else camp_before.get("paymentProviderKeyFingerprint"),
-            "purchaseEnabledAt": now_iso if enabled else camp_before.get("purchaseEnabledAt"),
-            "purchaseEnabledBy": uid if enabled else camp_before.get("purchaseEnabledBy"),
+            "receiverWalletAddress": receiver_address,
+            "receiverWalletConfigured": True,
+            "receiverWalletConfiguredAt": now_iso,
+            "receiverWalletConfiguredBy": uid,
             "updatedAt": now_iso,
         })
         db.collection('admin_audit_logs').add({
-            "timestamp": firestore.SERVER_TIMESTAMP, "adminId": uid,
-            "action": "PSEMINE_HOSTED_PURCHASES_ENABLED" if enabled else "PSEMINE_HOSTED_PURCHASES_DISABLED",
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "adminId": uid,
+            "action": "PSEMINE_RECEIVER_WALLET_UPDATED",
             "targetEntity": "psemine_campaigns/active_campaign",
-            "metadata": {"reason": str(reason)[:240], "provider": "nowpayments", "enabled": enabled},
+            "metadata": {
+                "reason": str(reason)[:240],
+                "previousReceiverWalletAddress": previous_address,
+                "newReceiverWalletAddress": receiver_address,
+                "appliesTo": "new_quotes_only",
+                "existingQuotesPreserved": True,
+            }
         })
-        return jsonify({"success": True, "action": action, "purchaseEnabled": enabled,
-                        "paymentProvider": "nowpayments", "timestamp": now_iso})
-
-    if action == 'set_receiver_wallet':
-        return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                        "message": "Campaign receiver wallets are no longer configured in PulseEarn. Configure the merchant payout wallet in the hosted payment provider."}), 410
+        return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
+                        "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
 
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance
@@ -8265,54 +9228,36 @@ def mine_state():
     )
     counts = u.get('toolOwnershipCounts') or {}
     qual = int(u.get('qualifiedReferralsCount') or 0)
-    from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
-    from psemine_public import public_campaign_view
-    campaign_state = public_campaign_view(camp) if camp else None
-
-    # Surface only this user's hosted payment orders. When they return to any
-    # PSEmine page, a signed provider event can be reconciled here even if they
-    # closed the checkout tab before the status modal completed.
-    payment_orders = []
+    # Pending purchases (awaiting_payment / transaction_submitted / confirming):
+    # the client uses this to RESUME an in-flight purchase after a refresh
+    # instead of creating a second intent. Read-only projection of the user's
+    # own records; amounts come verbatim from the stored quote.
+    pending_purchases = []
     try:
-        order_snaps = list(db.collection("psemine_payment_orders_v2").where("userId", "==", uid).get())
-        order_snaps.sort(key=lambda snap: str((snap.to_dict() or {}).get("createdAt") or ""), reverse=True)
-        for order_snap in order_snaps[:10]:
-            order = order_snap.to_dict() or {}
-            status = str(order.get("status") or "")
-            payment_id = str(order.get("providerPaymentId") or "")
-            last_check = order.get("lastReconciledAt")
-            due = True
-            if isinstance(last_check, datetime):
-                due = (now - last_check).total_seconds() >= 20
-            if payment_id and due and status in ("reconciliation_pending", "pending", "confirming", "underpaid"):
-                try:
-                    reconcile_nowpayments_order(db, order_snap.id, payment_id)
-                    order = order_snap.reference.get().to_dict() or order
-                    status = str(order.get("status") or status)
-                except Exception:
-                    logging.exception("[PSEmine] payment order reconciliation on state read failed")
-            if status == "pending" and not payment_id:
-                try:
-                    expiry = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
-                    if expiry.tzinfo is None:
-                        expiry = expiry.replace(tzinfo=timezone.utc)
-                    if now > expiry:
-                        status = "reconciliation_pending" if now <= expiry + timedelta(minutes=15) else "expired"
-                except Exception:
-                    pass
-            if status not in ("paid", "failed", "expired", "refunded") or order.get("reviewRequired") is True:
-                if order.get("reviewRequired") is True and status == "paid":
-                    status = "review"
-                payment_orders.append({
-                    "orderId": order_snap.id, "toolId": order.get("toolId"),
-                    "toolName": order.get("toolName"), "status": status,
-                    "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
-                    "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),
-                    "reviewRequired": order.get("reviewRequired") is True,
-                })
+        pur_rows = db.collection('psemine_purchases').where('userId', '==', uid) \
+            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming', 'manual_review', 'submission_uncertain']).get()
+        for pr in pur_rows:
+            pd = pr.to_dict() or {}
+            pending_purchases.append({
+                'purchaseId': pr.id,
+                'toolId': pd.get('toolId'),
+                'toolName': pd.get('toolName'),
+                'status': pd.get('status'),
+                'quoteId': pd.get('quoteId'),
+                'paymentWallet': pd.get('paymentWallet'),
+                'receiverWallet': pd.get('receiverWallet'),
+                'quotedBNBAmount': pd.get('quotedBNBAmount'),
+                'quotedBNBWei': pd.get('quotedBNBWei'),
+                'chainId': pd.get('chainId'),
+                'expiresAt': pd.get('expiresAt'),
+                'transactionHash': pd.get('transactionHash'),
+            })
     except Exception:
-        logging.exception("[PSEmine] payment order state read failed")
-
+        logging.warning("[PSEmine State] pending-purchase projection failed", exc_info=True)
+    from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
+    campaign_state = {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None
+    if campaign_state is not None:
+        campaign_state['purchaseReady'] = bool(_configured_psemine_receiver_wallet(camp))
     return jsonify({
         "success": True,
         "user": {
@@ -8325,10 +9270,11 @@ def mine_state():
             "totalCapacityGBPPerHour": round(compute_total_capacity_minor(counts, qual) / 100.0, 2),
             "qualifiedReferralsCount": qual,
             "payoutWallet": u.get('payoutWallet'),
+            "connectedWallet": u.get('connectedWallet'),
             "status": u.get('status'),
         },
         "tools": tools,
-        "paymentOrders": payment_orders,
+        "pendingPurchases": pending_purchases,
         "campaign": campaign_state,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},
@@ -8458,29 +9404,307 @@ def mine_maintain(ownership_id):
 @verify_token
 @require_psemine_access
 def mine_create_purchase():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Backend-authoritative purchase intent bound to a persisted server quote."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    quote_id = (data.get('quoteId') or '').strip()
+    payment_wallet = (data.get('paymentWallet') or '').strip().lower()
+    # The all-zero address is not a wallet: an intent created against it would
+    # carry no payer to bind, which is the exact state the pre-signature binding
+    # exists to prevent (verification would then have to trust a declared sender).
+    if payment_wallet == '0x' + '0' * 40:
+        return jsonify({"success": False, "error": "INVALID_PAYMENT_WALLET",
+                        "message": "Connect a real wallet before creating a purchase."}), 400
+
+    import re as _re
+    if not _re.match(r'^0x[0-9a-fA-F]{40}$', payment_wallet or ''):
+        return jsonify({"success": False, "error": "INVALID_PAYMENT_WALLET"}), 400
+
+    import psemine_engine as _pse_engine
+    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if eff == 'ended':
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended."}), 409
+    if eff != 'active' or camp.get('purchaseEnabled') is False:
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+    q_ref = db.collection('psemine_quotes').document(quote_id)
+    q_snap = q_ref.get()
+    if not q_snap.exists:
+        return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote not found. Generate a new quote."}), 404
+    q = q_snap.to_dict() or {}
+    if q.get('userId') != uid:
+        return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote terms do not match this account."}), 403
+
+    # A quote can become stale if an administrator changes the receiving wallet
+    # after it was issued. Before the user creates an intent (and before they
+    # send anything), require the quote to match the currently configured
+    # destination. Once an intent exists, verification keeps its immutable quote
+    # destination so a later admin change cannot redirect an in-flight payment.
+    configured_receiver = _configured_psemine_receiver_wallet(camp)
+    quoted_receiver = q.get('receiverWallet')
+    if not configured_receiver:
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                        "message": "Purchases are disabled until the campaign receiving wallet is configured."}), 503
+    if not _is_valid_psemine_receiver_wallet(quoted_receiver):
+        return jsonify({"success": False, "error": "INVALID_QUOTE_RECEIVER",
+                        "message": "This quote has no valid receiving wallet. Request a new quote."}), 409
+    if quoted_receiver.lower() != configured_receiver.lower():
+        return jsonify({"success": False, "error": "RECEIVER_WALLET_CHANGED",
+                        "message": "The campaign receiving wallet changed after this quote. Request a fresh quote before paying."}), 409
+    if q.get('chainId') != PSEMINE_BSC_CHAIN_ID:
+        return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH",
+                        "message": "This quote is not for BNB Smart Chain. Request a fresh quote."}), 409
+    try:
+        quoted_wei = int(str(q.get('bnbAmountWei') or '0'))
+        quoted_bnb = Decimal(str(q.get('bnbAmount')))
+        if quoted_wei <= 0 or quoted_bnb <= 0:
+            raise ValueError("non-positive quote")
+        exact_wei = int((quoted_bnb * Decimal('1000000000000000000')).to_integral_value())
+        if exact_wei != quoted_wei:
+            raise ValueError("quote BNB and wei disagree")
+    except Exception:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_AMOUNT",
+                        "message": "The saved quote amount is inconsistent. Request a fresh quote."}), 409
+    try:
+        exp = datetime.fromisoformat(str(q.get('expiresAt')).replace('Z', '+00:00'))
+        if exp.tzinfo is None: exp = exp.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > exp:
+            return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote expired. Request a new quote."}), 409
+    except Exception:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+
+    tool_id = q.get('toolId')
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
+    if not tool_cfg:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    user_ref = db.collection('psemine_users').document(uid)
+    u_snap = user_ref.get()
+    u = u_snap.to_dict() if u_snap.exists else {}
+    counts = dict(u.get('toolOwnershipCounts') or {})
+    if counts.get(tool_id, 0) >= tool_cfg['max_per_user']:
+        return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
+
+    # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
+    # The binding is written here, before the wallet is asked to sign anything;
+    # a later create call must never be able to move it to another wallet — that
+    # binding is what the on-chain sender is compared against at verification.
+    # The decision itself is a pure, unit-tested function.
+    manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
+    if manual_review_rows:
+        return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                        "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved.",
+                        "purchaseId": manual_review_rows[0].id}), 409
+
+    blocking_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', 'in', ['submission_uncertain', 'transaction_submitted', 'confirming']).get()
+    if blocking_rows:
+        blocked = blocking_rows[0].to_dict() or {}
+        blocked_status = blocked.get('status')
+        return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
+                        "message": "A previous payment may already have been submitted. Its server-side recovery record must be reconciled before another payment can be started.",
+                        "purchaseId": blocking_rows[0].id, "status": blocked_status}), 409
+
+    existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
+    for e in existing:
+        stored = e.to_dict() or {}
+        action, decision_code = _pse_engine.purchase_intent_reuse_decision(
+            stored.get('paymentWallet'), payment_wallet, stored.get('expiresAt'),
+            stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
+        )
+        if action == 'reuse':
+            return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
+        if action == 'rebind_forbidden':
+            return jsonify({
+                "success": False,
+                "error": decision_code or "WALLET_MISMATCH",
+                "message": "This account already has an awaiting purchase for this tool bound to a "
+                           "different wallet. Pay it from that wallet, or wait for its quote window "
+                           "to lapse before binding another.",
+                "purchaseId": e.id,
+                "boundWallet": (stored.get('paymentWallet') or '').lower(),
+            }), 409
+        # 'supersede': the stored quote has lapsed, so that intent can never be
+        # verified (its quote fails QUOTE_EXPIRED). Fall through and create a
+        # fresh intent for the requested wallet; the stored record is left
+        # untouched as audit evidence.
+
+    now_dt = datetime.now(timezone.utc)
+    purchase_id = f"pse_pur_{tool_id}_{int(now_dt.timestamp() * 1000)}_{uid[:6]}"
+    payload = {
+        'id': purchase_id,
+        'userId': uid,
+        'toolId': tool_id,
+        'toolName': tool_cfg['name'],
+        'toolVersion': tool_cfg['version'],
+        'quoteId': quote_id,
+        'quotedGBPAmount': tool_cfg['price_gbp'],
+        'quotedBNBAmount': q.get('bnbAmount'),
+        'quotedBNBWei': q.get('bnbAmountWei'),
+        'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
+        'receiverWallet': q.get('receiverWallet'),
+        'paymentWallet': payment_wallet,
+        'transactionHash': None,
+        'network': 'BNB Smart Chain',
+        'chainId': PSEMINE_BSC_CHAIN_ID,
+        'status': 'awaiting_payment',
+        'confirmations': 0,
+        'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+        'expiresAt': q.get('expiresAt'),
+        'confirmedAt': None,
+        'activatedAt': None,
+    }
+    db.collection('psemine_purchases').document(purchase_id).set(payload)
+    mine_notify(uid,
+        notif_id=f"notif_purchase_started_{purchase_id}",
+        type='purchase',
+        title=f"{tool_cfg['name']} purchase ready",
+        message=f"Your {tool_cfg['name']} purchase is awaiting wallet approval. Quoted amount: {q.get('bnbAmount')} BNB on BNB Smart Chain. No payment is confirmed yet.",
+        related={'source': 'mine_create_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'status': 'awaiting_payment'},
+    )
+    # The stored payload carries firestore.SERVER_TIMESTAMP for createdAt — a
+    # Firestore Sentinel that is valid for the WRITE but not JSON-serializable
+    # for the RESPONSE (jsonify raises TypeError: Sentinel). Respond with a
+    # concrete UTC ISO timestamp instead; the authoritative server value lands
+    # in Firestore via the sentinel. (Production incident 2026-09-19: every
+    # FRESH intent creation 500'd before the user could reach the payment
+    # step. Hidden for weeks because the reuse path always returned first.)
+    response_payload = dict(payload)
+    response_payload['createdAt'] = now_dt.isoformat()
+    return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
+
 
 @app.route('/api/mine/purchases/mark-uncertain', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_mark_purchase_uncertain():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Persist an ambiguous wallet broadcast on the server so every device is locked."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = str(data.get('purchaseId') or '').strip()
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
+    ref = db.collection('psemine_purchases').document(purchase_id)
+    snap = ref.get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
+    purchase = snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    status = purchase.get('status')
+    if status == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED"}), 409
+    if status not in ('awaiting_payment', 'transaction_submitted', 'confirming', 'submission_uncertain'):
+        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE",
+                        "message": "This purchase cannot be marked as an uncertain wallet submission."}), 409
+    ref.update({
+        'status': 'submission_uncertain',
+        'submissionUncertainAt': firestore.SERVER_TIMESTAMP,
+        'statusMessage': 'Wallet submission outcome is unknown. Do not send another payment until reconciled.',
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    })
+    mine_notify(uid,
+        notif_id=f"notif_purchase_uncertain_{purchase_id}",
+        type='purchase',
+        title='Payment needs your attention',
+        message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
+        related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+    )
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
+
 
 @app.route('/api/mine/purchases/report-submission', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_report_purchase_submission():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Persist a returned transaction hash before attempting chain verification."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = str(data.get('purchaseId') or '').strip()
+    tx_hash = str(data.get('transactionHash') or '').strip().lower()
+    sender = str(data.get('senderWallet') or '').strip().lower()
+    import re as _re
+    if not purchase_id or not _re.fullmatch(r'0x[0-9a-f]{64}', tx_hash):
+        return jsonify({"success": False, "error": "INVALID_SUBMISSION",
+                        "message": "A purchase ID and valid transaction hash are required."}), 400
+    ref = db.collection('psemine_purchases').document(purchase_id)
+    snap = ref.get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
+    purchase = snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    if purchase.get('status') == 'activated':
+        return jsonify({"success": True, "purchaseId": purchase_id, "status": "activated",
+                        "transactionHash": purchase.get('transactionHash')})
+    bound = str(purchase.get('paymentWallet') or '').lower()
+    if sender and bound and sender != bound:
+        return jsonify({"success": False, "error": "WALLET_MISMATCH",
+                        "message": "The sending wallet does not match the wallet bound to this purchase."}), 409
+    existing_hash = str(purchase.get('transactionHash') or '').lower()
+    if existing_hash and existing_hash != tx_hash:
+        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
+                        "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
+    if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
+        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE"}), 409
+    ref.update({
+        'transactionHash': tx_hash,
+        'status': 'transaction_submitted',
+        'submissionReportedAt': firestore.SERVER_TIMESTAMP,
+        'statusMessage': 'Transaction hash recorded. Waiting for on-chain verification.',
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    })
+    mine_notify(uid,
+        notif_id=f"notif_purchase_submitted_{purchase_id}",
+        type='purchase',
+        title='Payment submitted — verification pending',
+        message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
+        related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': 'transaction_submitted'},
+    )
+    return jsonify({"success": True, "purchaseId": purchase_id,
+                    "status": "transaction_submitted", "transactionHash": tx_hash})
+
 
 @app.route('/api/mine/purchases/resolve-no-broadcast', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_resolve_purchase_no_broadcast():
-    return jsonify({"success": False, "error": "PAYMENT_FLOW_RETIRED",
-                    "message": "Direct wallet payments have been retired. Use the secure hosted checkout."}), 410
+    """Close an uncertain intent only after the user explicitly attests no tx exists."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = str(data.get('purchaseId') or '').strip()
+    confirmed = data.get('confirmedNoTransaction') is True
+    if not purchase_id or not confirmed:
+        return jsonify({"success": False, "error": "EXPLICIT_CONFIRMATION_REQUIRED"}), 400
+    ref = db.collection('psemine_purchases').document(purchase_id)
+    snap = ref.get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
+    purchase = snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    if purchase.get('status') != 'submission_uncertain':
+        return jsonify({"success": False, "error": "PURCHASE_NOT_UNCERTAIN"}), 409
+    if purchase.get('transactionHash'):
+        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                        "message": "A transaction hash is attached. Reconcile that transaction instead of closing this intent."}), 409
+    ref.update({
+        'status': 'abandoned_no_broadcast',
+        'noBroadcastConfirmedAt': firestore.SERVER_TIMESTAMP,
+        'noBroadcastConfirmedBy': uid,
+        'statusMessage': 'User confirmed no transaction was broadcast. This intent is closed.',
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    })
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": "abandoned_no_broadcast"})
+
 
 @app.route('/api/mine/wallet', methods=['POST'])
 @verify_token
@@ -8741,443 +9965,3 @@ def admin_mine_deprecate_tool(tool_id):
     if not result.get("ok"):
         return jsonify({"success": False, "error": result.get("error")}), 404 if result.get("error") == "NOT_FOUND" else 400
     return jsonify({"success": True})
-
-
-# ----------------------------------------------------------------------------
-# PSEmine Payment v2 — hosted crypto checkout (NOWPayments adapter)
-# ----------------------------------------------------------------------------
-
-@app.route('/api/mine/payments/v2/invoices', methods=['POST'])
-@verify_token
-@require_psemine_access
-def mine_payment_v2_create_invoice():
-    """Create a hosted crypto invoice for the authenticated user's own tool order."""
-    from psemine_payments_v2 import (
-        PaymentConfigurationError, PaymentPayloadError, build_invoice_payload,
-        invoice_response, nowpayments_configured, provider_api_base,
-    )
-    db = get_db()
-    if not db:
-        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    get_deps()
-    if requests is None:
-        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}), 503
-
-    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
-    ipn_secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-    public_base = str(os.environ.get("PULSE_EARN_PUBLIC_URL") or "https://pulseearn.online").strip().rstrip("/")
-    callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
-                       f"{public_base}/api/mine/payments/v2/nowpayments/ipn").strip()
-    config = dict(os.environ)
-    config["NOWPAYMENTS_IPN_CALLBACK_URL"] = callback_url
-    if not nowpayments_configured(config):
-        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_CONFIGURED",
-                        "message": "Crypto checkout is temporarily unavailable. Please try again later."}), 503
-
-    uid = request.user["uid"]
-    data = request.get_json(silent=True) or {}
-    tool_id = str(data.get("toolId") or "").strip().lower()
-    import psemine_core as _pse_core
-    tool = _pse_core.LOCKED_PSEMINE_TOOLS.get(tool_id)
-    if not tool:
-        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
-
-    import psemine_engine as _pse_engine
-    campaign, effective, _ = _pse_engine.campaign_lifecycle_state(db)
-    if effective != "active" or campaign.get("purchaseEnabled") is not True:
-        return jsonify({"success": False, "error": "PURCHASES_DISABLED",
-                        "message": "Tool purchases are currently closed."}), 403
-    provider_fingerprint = hashlib.sha256(
-        (str(os.environ.get("NOWPAYMENTS_API_KEY") or "") + ":" +
-         str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "") + ":" + callback_url).encode()
-    ).hexdigest()[:20]
-    if (
-        not campaign.get("paymentProviderVerifiedAt")
-        or campaign.get("paymentProviderKeyFingerprint") != provider_fingerprint
-        or not campaign.get("enabledPaymentCurrencies")
-    ):
-        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_NOT_VERIFIED",
-                        "message": "The hosted payment provider must be verified by an administrator before checkout."}), 503
-
-    # Reuse an unexpired invoice for this account/tool. This prevents rapid
-    # repeated taps from generating several independently payable invoices.
-    active_rows = db.collection("psemine_payment_orders_v2").where("userId", "==", uid).limit(25).get()
-    now = datetime.now(timezone.utc)
-    for active_row in active_rows:
-        active = active_row.to_dict() or {}
-        if active.get("toolId") != tool_id:
-            continue
-        if active.get("status") == "review" or active.get("reviewRequired") is True:
-            return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
-                            "message": "A previous payment for this tool needs administrator reconciliation. Do not pay again.",
-                            "orderId": active_row.id}), 409
-        if active.get("status") not in ("creating", "pending", "reconciliation_pending", "confirming", "underpaid"):
-            continue
-        has_provider_payment = bool(str(active.get("providerPaymentId") or "").strip())
-        try:
-            active_expiry = datetime.fromisoformat(str(active.get("expiresAt") or "").replace("Z", "+00:00"))
-            if active_expiry.tzinfo is None:
-                active_expiry = active_expiry.replace(tzinfo=timezone.utc)
-        except Exception:
-            active_expiry = None
-        # A payment ID means funds may already be moving; never create a second
-        # invoice while its provider status is being reconciled, even after the
-        # local invoice expiry.
-        if has_provider_payment and active.get("checkoutUrl"):
-            return jsonify({
-                "success": True, "orderId": active_row.id,
-                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
-                "toolName": active.get("toolName") or tool["name"],
-                "priceAmount": active.get("priceAmount"),
-                "priceCurrency": active.get("priceCurrency"),
-                "expiresAt": active.get("expiresAt"),
-                "existing": True, "status": active.get("status"),
-            })
-        if active_expiry and active_expiry > now and active.get("checkoutUrl"):
-            return jsonify({
-                "success": True, "orderId": active_row.id,
-                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
-                "toolName": active.get("toolName") or tool["name"],
-                "priceAmount": active.get("priceAmount"),
-                "priceCurrency": active.get("priceCurrency"),
-                "expiresAt": active.get("expiresAt"),
-                "existing": True, "status": active.get("status"),
-            })
-        if active_expiry and active_expiry <= now and now <= active_expiry + timedelta(minutes=15) and active.get("checkoutUrl"):
-            return jsonify({
-                "success": True, "orderId": active_row.id,
-                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
-                "toolName": active.get("toolName") or tool["name"],
-                "priceAmount": active.get("priceAmount"),
-                "priceCurrency": active.get("priceCurrency"),
-                "expiresAt": active.get("expiresAt"),
-                "existing": True, "status": "reconciliation_pending",
-            })
-
-    user_snap = db.collection("psemine_users").document(uid).get()
-    user_data = user_snap.to_dict() or {} if user_snap.exists else {}
-    ownership_counts = dict(user_data.get("toolOwnershipCounts") or {})
-    if int(ownership_counts.get(tool_id, 0) or 0) >= int(tool.get("max_per_user") or 0):
-        return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED",
-                        "message": f"Maximum ownership reached for {tool['name']}."}), 409
-
-    # Never accept a client price, currency, receiver, account id, or payment status.
-    price_minor = int(tool["price_minor_units"])
-    price_amount = format(Decimal(price_minor) / Decimal(100), ".2f")
-    price_currency = "gbp"  # Tool prices and revenue accounting are canonically GBP.
-    order_id = "pse_" + uuid.uuid4().hex
-    now = datetime.now(timezone.utc)
-    expires = now + timedelta(minutes=60)
-    order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
-    order_ref.set({
-        "id": order_id, "userId": uid, "toolId": tool_id,
-        "toolName": tool["name"], "priceMinor": price_minor,
-        "priceAmount": price_amount, "priceCurrency": price_currency,
-        "provider": "nowpayments", "status": "creating",
-        "createdAt": now.isoformat(), "expiresAt": expires.isoformat(),
-        "createdAtServer": firestore.SERVER_TIMESTAMP,
-    })
-
-    try:
-        payload = build_invoice_payload(
-            order_id=order_id, amount=price_amount, price_currency=price_currency,
-            callback_url=callback_url,
-            success_url=f"{public_base}/mine/tools?payment=return&order={order_id}",
-            cancel_url=f"{public_base}/mine/tools?payment=cancelled&order={order_id}",
-            description=f"PSEmine {tool['name']}",
-        )
-        base = provider_api_base()
-        response = requests.post(
-            f"{base}/invoice", json=payload,
-            headers={"x-api-key": api_key, "Content-Type": "application/json"},
-            timeout=20,
-        )
-        if not response.ok:
-            logging.error("[PSEmine Payment v2] invoice creation rejected: status=%s body=%s",
-                          response.status_code, response.text[:500])
-            order_ref.update({"status": "failed", "failureCode": "PROVIDER_INVOICE_REJECTED",
-                              "updatedAt": firestore.SERVER_TIMESTAMP})
-            return jsonify({"success": False, "error": "INVOICE_CREATION_FAILED",
-                            "message": "We couldn't start checkout. Please try again."}), 502
-        safe_invoice = invoice_response(response.json() or {})
-        order_ref.update({
-            "status": "pending", "providerInvoiceId": safe_invoice["providerInvoiceId"],
-            "checkoutUrl": safe_invoice["checkoutUrl"],
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return jsonify({
-            "success": True, "orderId": order_id,
-            "checkoutUrl": safe_invoice["checkoutUrl"],
-            "provider": "nowpayments", "toolName": tool["name"],
-            "priceAmount": price_amount, "priceCurrency": price_currency,
-            "expiresAt": expires.isoformat(),
-        })
-    except (PaymentConfigurationError, PaymentPayloadError) as error:
-        logging.warning("[PSEmine Payment v2] invalid checkout configuration/payload: %s", str(error))
-        order_ref.update({"status": "failed", "failureCode": "INVALID_PAYMENT_CONFIGURATION",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "PAYMENT_CONFIGURATION_INVALID"}), 503
-    except Exception:
-        logging.exception("[PSEmine Payment v2] invoice creation failed")
-        order_ref.update({"status": "failed", "failureCode": "PROVIDER_REQUEST_FAILED",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "INVOICE_CREATION_FAILED",
-                        "message": "We couldn't start checkout. Please try again."}), 502
-
-
-@app.route('/api/mine/payments/v2/orders/<order_id>', methods=['GET'])
-@verify_token
-@require_psemine_access
-def mine_payment_v2_get_order(order_id):
-    """Return the authenticated owner's order; reconcile any signed provider event first."""
-    db = get_db()
-    if not db:
-        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    order_ref = db.collection("psemine_payment_orders_v2").document(str(order_id))
-    snap = order_ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PAYMENT_ORDER_NOT_FOUND"}), 404
-    order = snap.to_dict() or {}
-    if order.get("userId") != request.user["uid"]:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-
-    # Mark an unpaid invoice expired only when no provider payment ID exists.
-    # If a payment ID exists, funds may already be in flight and must reconcile.
-    if order.get("status") == "pending" and not order.get("providerPaymentId"):
-        try:
-            expiry = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
-            if expiry.tzinfo is None:
-                expiry = expiry.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expiry:
-                if datetime.now(timezone.utc) <= expiry + timedelta(minutes=15):
-                    order["status"] = "reconciliation_pending"
-                else:
-                    order_ref.update({"status": "expired", "updatedAt": firestore.SERVER_TIMESTAMP})
-                    order["status"] = "expired"
-        except Exception:
-            pass
-
-    # A signed IPN is queued by the webhook. The user's own status poll can
-    # reconcile immediately; a scheduled worker covers users who close checkout.
-    last_check = order.get("lastReconciledAt")
-    reconcile_due = True
-    if isinstance(last_check, datetime) and order.get("status") != "reconciliation_pending":
-        reconcile_due = (datetime.now(timezone.utc) - last_check).total_seconds() >= 20
-    if order.get("providerPaymentId") and reconcile_due and order.get("status") in ("reconciliation_pending", "pending", "confirming", "underpaid"):
-        try:
-            reconcile_nowpayments_order(db, snap.id, str(order["providerPaymentId"]))
-            snap = order_ref.get()
-            order = snap.to_dict() or order
-        except Exception:
-            logging.exception("[PSEmine Payment v2] on-demand order reconciliation failed")
-
-    return jsonify({
-        "success": True, "orderId": snap.id, "status": "review" if order.get("reviewRequired") is True else order.get("status"),
-        "toolId": order.get("toolId"), "toolName": order.get("toolName"),
-        "priceAmount": order.get("priceAmount"), "priceCurrency": order.get("priceCurrency"),
-        "checkoutUrl": order.get("checkoutUrl"), "expiresAt": order.get("expiresAt"),
-        "updatedAt": order.get("updatedAt"), "reviewRequired": order.get("reviewRequired") is True,
-    })
-
-
-def reconcile_nowpayments_order(db, order_id, payment_id):
-    """Fetch and verify one provider payment, then settle it exactly once."""
-    from psemine_payments_v2 import normalize_provider_status, provider_api_base
-    order_ref = db.collection("psemine_payment_orders_v2").document(str(order_id))
-    order_snap = order_ref.get()
-    if not order_snap.exists:
-        return {"ok": False, "error": "PAYMENT_ORDER_NOT_FOUND"}
-    order = order_snap.to_dict() or {}
-    if order.get("provider") != "nowpayments":
-        return {"ok": False, "error": "PAYMENT_PROVIDER_MISMATCH"}
-    if order.get("status") == "paid" and order.get("reviewRequired") is not True:
-        return {"ok": True, "status": "paid", "alreadySettled": True}
-
-    get_deps()
-    if requests is None:
-        order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "retry": True, "error": "PAYMENT_PROVIDER_UNAVAILABLE"}
-    api_key = str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
-    try:
-        base = provider_api_base()
-        provider_response = requests.get(
-            f"{base}/payment/{urllib.parse.quote(str(payment_id), safe='')}",
-            headers={"x-api-key": api_key}, timeout=4,
-        )
-        if not provider_response.ok:
-            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-            return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
-        payment = provider_response.json() or {}
-    except Exception:
-        logging.exception("[PSEmine Payment v2] provider status fetch failed")
-        order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "retry": True, "error": "PROVIDER_RECONCILIATION_UNAVAILABLE"}
-
-    if payment.get("payment_id") is not None and str(payment.get("payment_id")) != str(payment_id):
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_PAYMENT_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "error": "PROVIDER_PAYMENT_ID_MISMATCH"}
-    if payment.get("invoice_id") is not None and str(payment.get("invoice_id")) != str(order.get("providerInvoiceId") or ""):
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_INVOICE_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "error": "PROVIDER_INVOICE_ID_MISMATCH"}
-    if str(payment.get("order_id") or "") != str(order_id):
-        order_ref.update({"status": "review", "reviewReason": "PROVIDER_ORDER_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return {"ok": False, "error": "PROVIDER_ORDER_ID_MISMATCH"}
-
-    try:
-        amount_matches = Decimal(str(payment.get("price_amount"))) == Decimal(str(order.get("priceAmount")))
-    except Exception:
-        amount_matches = False
-    currency_matches = str(payment.get("price_currency") or "").lower() == str(order.get("priceCurrency") or "").lower()
-    if not amount_matches or not currency_matches:
-        order_ref.update({
-            "status": "review", "reviewReason": "PROVIDER_PRICE_MISMATCH",
-            "providerPaymentId": str(payment_id), "providerStatus": payment.get("payment_status"),
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return {"ok": False, "error": "PROVIDER_PRICE_MISMATCH"}
-
-    provider_status = str(payment.get("payment_status") or "").lower()
-    local_status = normalize_provider_status(provider_status)
-    if local_status != "paid":
-        if order.get("status") == "paid":
-            order_ref.update({
-                "providerStatus": provider_status, "reviewRequired": True,
-                "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            })
-            return {"ok": True, "status": "paid", "reviewRequired": True}
-        order_ref.update({
-            "status": local_status, "providerPaymentId": str(payment_id),
-            "providerStatus": provider_status, "lastReconciledAt": firestore.SERVER_TIMESTAMP,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return {"ok": True, "status": local_status}
-
-    uid = str(order.get("userId") or "")
-    if not uid:
-        return {"ok": False, "error": "PAYMENT_ORDER_OWNER_MISSING"}
-    import psemine_engine as _pse_engine
-    result = _pse_engine.settle_provider_purchase(db, uid, str(order_id), payment)
-    if not result.get("ok"):
-        if result.get("error") == "SETTLEMENT_TRANSACTION_FAILED":
-            order_ref.update({"lastReconciledAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP})
-            return {"ok": False, "retry": True, "error": result["error"]}
-        order_ref.update({
-            "status": "review", "reviewReason": result.get("error") or "SETTLEMENT_REJECTED",
-            "providerPaymentId": str(payment_id), "providerStatus": provider_status,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return {"ok": False, "error": result.get("error") or "SETTLEMENT_REJECTED"}
-    if not result.get("already_settled"):
-        mine_notify(uid, notif_id=f"notif_purchase_{order_id}", type="purchase",
-                    title="Tool purchase confirmed",
-                    message="Your crypto payment was confirmed and your PSEmine tool is now active.",
-                    related={"source": "nowpayments", "purchaseId": order_id,
-                             "toolId": result.get("toolId"), "providerPaymentId": str(payment_id)})
-        mine_record_activity(uid, _type="purchase", title="PSEmine tool activated",
-                             description="Hosted crypto payment confirmed.",
-                             metadata={"purchaseId": order_id, "provider": "nowpayments",
-                                       "providerPaymentId": str(payment_id)})
-    return {"ok": True, "status": "paid", "purchaseId": order_id}
-
-
-@app.route('/api/mine/payments/v2/nowpayments/ipn', methods=['POST'])
-def mine_payment_v2_nowpayments_ipn():
-    """Verify the IPN signature, persist a reconciliation job, and ACK quickly."""
-    from psemine_payments_v2 import verify_ipn_signature
-    db = get_db()
-    if not db:
-        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    secret = str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
-    payload = request.get_json(silent=True)
-    signature = request.headers.get("x-nowpayments-sig")
-    if not isinstance(payload, dict) or not verify_ipn_signature(payload, signature, secret):
-        logging.warning("[PSEmine Payment v2] rejected invalid NOWPayments IPN signature")
-        return jsonify({"success": False, "error": "INVALID_IPN_SIGNATURE"}), 401
-
-    order_id = str(payload.get("order_id") or "").strip()
-    payment_id = str(payload.get("payment_id") or "").strip()
-    if not order_id or not payment_id:
-        return jsonify({"success": False, "error": "INVALID_IPN_PAYLOAD"}), 400
-    order_ref = db.collection("psemine_payment_orders_v2").document(order_id)
-    order_snap = order_ref.get()
-    if not order_snap.exists:
-        return jsonify({"success": False, "error": "PAYMENT_ORDER_NOT_FOUND"}), 404
-    order = order_snap.to_dict() or {}
-    if order.get("provider") != "nowpayments":
-        return jsonify({"success": False, "error": "PAYMENT_PROVIDER_MISMATCH"}), 409
-    if payload.get("invoice_id") is not None and str(payload.get("invoice_id")) != str(order.get("providerInvoiceId")):
-        order_ref.update({"status": "review", "reviewReason": "INVOICE_ID_MISMATCH",
-                          "updatedAt": firestore.SERVER_TIMESTAMP})
-        return jsonify({"success": False, "error": "INVOICE_ID_MISMATCH"}), 409
-
-    existing_payment_id = str(order.get("providerPaymentId") or "")
-    if existing_payment_id and existing_payment_id != payment_id:
-        order_ref.update({
-            "status": "review", "reviewRequired": True,
-            "reviewReason": "MULTIPLE_PROVIDER_PAYMENTS_FOR_ORDER",
-            "additionalProviderPaymentIds": firestore.ArrayUnion([payment_id]),
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        })
-        return jsonify({"success": True, "status": "review", "reviewRequired": True})
-    if order.get("status") == "paid":
-        # A late non-finished notification must never downgrade a settled order.
-        if str(payload.get("payment_status") or "").lower() != "finished":
-            order_ref.update({
-                "reviewRequired": True, "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
-                "providerStatus": payload.get("payment_status"), "updatedAt": firestore.SERVER_TIMESTAMP,
-            })
-        return jsonify({"success": True, "status": "paid"})
-
-    event_id = hashlib.sha256(f"{payment_id}:{payload.get('payment_status')}:{payload.get('updated_at')}".encode()).hexdigest()
-    db.collection("psemine_payment_ipn_events_v2").document(event_id).set({
-        "id": event_id, "orderId": order_id, "providerPaymentId": payment_id,
-        "providerStatus": str(payload.get("payment_status") or "").lower(),
-        "payload": payload, "receivedAt": datetime.now(timezone.utc).isoformat(),
-        "createdAtServer": firestore.SERVER_TIMESTAMP,
-    }, merge=True)
-    order_ref.update({
-        "status": "reconciliation_pending", "providerPaymentId": payment_id,
-        "ipnStatus": str(payload.get("payment_status") or "").lower(),
-        "lastIpnReceivedAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
-    })
-    # NOWPayments requires the callback endpoint to acknowledge quickly. The
-    # status endpoint and scheduled reconciler perform the provider API fetch.
-    return jsonify({"success": True, "status": "reconciliation_pending"})
-
-
-@app.route('/api/mine/payments/v2/reconcile', methods=['POST'])
-def mine_payment_v2_reconcile_cron():
-    """Scheduled background reconciler. Secret is shared with the GitHub Action."""
-    configured = str(os.environ.get("PSEMINE_PAYMENT_CRON_SECRET") or "").strip()
-    provided = str(request.headers.get("x-psemine-payment-cron-secret") or "").strip()
-    if not configured or not provided or not hmac.compare_digest(configured, provided):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    db = get_db()
-    if not db:
-        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    snaps = db.collection("psemine_payment_orders_v2").stream()
-    processed = 0
-    paid = 0
-    retried = 0
-    for snap in snaps:
-        if processed >= 25:
-            break
-        row = snap.to_dict() or {}
-        if row.get("provider") != "nowpayments" or row.get("status") not in ("reconciliation_pending", "pending", "confirming", "underpaid"):
-            continue
-        payment_id = str(row.get("providerPaymentId") or "")
-        if not payment_id:
-            continue
-        processed += 1
-        result = reconcile_nowpayments_order(db, snap.id, payment_id)
-        if result.get("status") == "paid":
-            paid += 1
-        if result.get("retry"):
-            retried += 1
-    return jsonify({"success": True, "processed": processed, "paid": paid, "retryable": retried})
-
-

@@ -7680,112 +7680,76 @@ def _is_canonical_verified_psemine_payment(row):
 @verify_token
 @require_db
 def admin_psemine_overview():
-    """Admin endpoint: Get system-wide PSEmine statistics and operations overview using aggregation."""
+    """Admin overview backed only by settled hosted-payment v2 orders."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
-    # The global PulseEarn admin can manage PSEmine without enrolling as a miner.
-    # Its PSEMineContext therefore receives the public campaign projection, which
-    # intentionally omits private confirmation metadata. Return the minimal
-    # admin-only configuration snapshot here instead of making the admin UI infer
-    # readiness from that public projection.
     campaign_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
-    campaign_config = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
-    configured_receiver = _configured_psemine_receiver_wallet(campaign_config)
+    campaign_data = campaign_snap.to_dict() or {} if campaign_snap.exists else {}
+    callback_url = str(os.environ.get("NOWPAYMENTS_IPN_CALLBACK_URL") or
+                       "https://pulseearn.online/api/mine/payments/v2/nowpayments/ipn").strip()
+    provider_configured = bool(
+        str(os.environ.get("NOWPAYMENTS_API_KEY") or "").strip()
+        and str(os.environ.get("NOWPAYMENTS_IPN_SECRET") or "").strip()
+        and callback_url.startswith("https://")
+    )
     admin_campaign_config = {
-        "receiverWalletAddress": str(campaign_config.get("receiverWalletAddress") or ""),
-        "receiverWalletConfigured": campaign_config.get("receiverWalletConfigured") is True,
-        "receiverWalletConfiguredAt": campaign_config.get("receiverWalletConfiguredAt"),
-        "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
-        "purchaseReady": bool(configured_receiver),
-        "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
-        # Return the effective backend permissions so the console never guesses
-        # whether a cached client profile can perform a protected operation.
-        "canConfigureReceiverWallet": is_admin(request.user["uid"]),
+        "paymentProvider": "nowpayments",
+        "paymentProviderConfigured": provider_configured,
+        "priceCurrency": str(os.environ.get("NOWPAYMENTS_PRICE_CURRENCY") or "gbp").upper(),
+        "purchaseReady": provider_configured and campaign_data.get("purchaseEnabled") is not False,
         "canManageCampaign": is_admin(request.user["uid"]),
     }
 
     try:
-        orders_count = db.collection('psemine_orders').count().get()[0][0].value
-        # Count only verified payments; payment documents can include failed attempts.
-        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').stream()
-        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
+        all_order_snaps = db.collection('psemine_payment_orders_v2').stream()
+        total_orders = 0
+        paid_count = 0
+        income_minor = 0
+        income_complete = True
+        for snap in all_order_snaps:
+            total_orders += 1
+            row = snap.to_dict() or {}
+            if row.get("status") != "paid":
+                continue
+            paid_count += 1
+            try:
+                amount_minor = int(row.get("priceMinor"))
+                if amount_minor <= 0:
+                    raise ValueError("invalid paid amount")
+                income_minor += amount_minor
+            except Exception:
+                income_complete = False
+                logging.error("[PSEmine Admin] settled hosted order %s has no valid priceMinor", snap.id)
+        tool_income_gbp = round(income_minor / 100.0, 2) if income_complete else None
+    except Exception:
+        total_orders = None
+        paid_count = None
+        tool_income_gbp = None
+        income_complete = False
+        logging.exception("[PSEmine Admin] hosted payment aggregation failed")
+
+    try:
         ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
         sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
     except Exception:
-        orders_count = len(db.collection('psemine_orders').get())
-        payment_snaps = db.collection('psemine_payments').where('status', '==', 'confirmed').where('verificationSource', '==', 'bsc_rpc_receipt').get()
-        payments_count = sum(1 for snap in payment_snaps if _is_canonical_verified_psemine_payment(snap.to_dict() or {}))
         ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
         sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
-    # There have been no genuine tool purchases at launch. Count revenue only
-    # when the payment is both confirmed AND carries the verifier's on-chain
-    # receipt marker. Quotes, seeded/demo rows, manually marked confirmations,
-    # failed attempts, withdrawals and mining rewards are never income.
-    # With no verified receipt records the correct lifetime total is £0.00.
-    tool_income_gbp = 0.0
-    income_complete = True
-    try:
-        verified_income_snaps = (
-            db.collection('psemine_payments')
-            .where('status', '==', 'confirmed')
-            .where('verificationSource', '==', 'bsc_rpc_receipt')
-            .stream()
-        )
-        for payment_snap in verified_income_snaps:
-            payment_row = payment_snap.to_dict() or {}
-            if not _is_canonical_verified_psemine_payment(payment_row):
-                continue
-            gbp_amount = payment_row.get('priceGbp')
-            if gbp_amount is None:
-                gbp_amount = payment_row.get('purchasePriceGbp')
-            if gbp_amount is None:
-                gbp_amount = payment_row.get('amountGbp')
-            if gbp_amount is None:
-                order_id = str(payment_row.get('orderId') or '').strip()
-                if order_id:
-                    order_snap = db.collection('psemine_orders').document(order_id).get()
-                    if order_snap.exists:
-                        order_row = order_snap.to_dict() or {}
-                        gbp_amount = order_row.get('priceGbp')
-                        if gbp_amount is None:
-                            gbp_amount = order_row.get('gbpPrice')
-            # A verified payment without a recoverable GBP amount is a data
-            # integrity issue; do not publish a partial lifetime total.
-            if gbp_amount is None:
-                # Never present a partial sum as lifetime income.
-                tool_income_gbp = None
-                income_complete = False
-                logging.error(
-                    '[PSEmine Admin] verified payment %s has no GBP purchase price',
-                    payment_snap.id,
-                )
-                break
-            tool_income_gbp += safe_float(gbp_amount, 0.0)
-        if tool_income_gbp is not None:
-            tool_income_gbp = round(tool_income_gbp, 2)
-    except Exception:
-        tool_income_gbp = None
-        income_complete = False
-        logging.exception('[PSEmine Admin] verified tool income aggregation failed')
-
     pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
-    pending_withdrawals = [s.to_dict() for s in pending_snaps]
-
+    pending_withdrawals = [snap.to_dict() or {} for snap in pending_snaps]
     return jsonify({
-        "success": True,
-        "campaign": admin_campaign_config,
+        "success": True, "campaign": admin_campaign_config,
         "stats": {
-            "totalOrders": orders_count,
-            "totalConfirmedPayments": payments_count,
-            "activeToolOwnerships": ownership_count,
-            "activeMiningSessions": sessions_count,
+            "totalOrders": total_orders,
+            "totalConfirmedPayments": paid_count,
             "totalToolIncomeGbp": tool_income_gbp,
             "toolIncomeComplete": income_complete,
+            "activeToolOwnerships": ownership_count,
+            "activeMiningSessions": sessions_count,
             "pendingWithdrawalsCount": len(pending_withdrawals),
-            "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
+            "pendingWithdrawalsVolumeGbp": sum(safe_float(row.get('amountGbp')) for row in pending_withdrawals),
         }
     })
 
@@ -7793,62 +7757,42 @@ def admin_psemine_overview():
 @verify_token
 @require_db
 def admin_psemine_orders():
-    """Admin endpoint: Inspect PSEmine orders."""
+    """Admin list of hosted crypto checkout orders, including pending/review states."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-
-    snaps = db.collection('psemine_orders').order_by('createdAt', direction='DESCENDING').limit(100).get()
-    orders = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    snaps = db.collection('psemine_payment_orders_v2').order_by('createdAt', direction='DESCENDING').limit(200).get()
+    orders = [{**(snap.to_dict() or {}), 'id': snap.id, 'orderId': snap.id} for snap in snaps]
     return jsonify({"success": True, "orders": orders})
 
 @app.route('/api/admin/psemine/payments', methods=['GET'])
 @verify_token
 @require_db
 def admin_psemine_payments():
-    """Return only payment records written after successful on-chain verification."""
+    """Return only orders settled through the authenticated hosted-payment provider."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    try:
-        # Use the single-field timestamp index, then explicitly filter status.
-        # The query is bounded so this admin view cannot read the entire ledger.
-        snaps = db.collection('psemine_payments').order_by('confirmedAt', direction='DESCENDING').limit(200).get()
-        payments = []
-        for snap in snaps:
-            row = snap.to_dict() or {}
-            # Defend the response contract even if a legacy/malformed document
-            # slips through a test double or an inconsistent query result.
-            if not _is_canonical_verified_psemine_payment(row):
+    snaps = db.collection('psemine_payment_orders_v2').where('status', '==', 'paid').order_by('settledAt', direction='DESCENDING').limit(200).get()
+    payments = []
+    for snap in snaps:
+        row = snap.to_dict() or {}
+        try:
+            amount_minor = int(row.get('priceMinor'))
+            if amount_minor <= 0:
                 continue
-            created_at = row.get('createdAt')
-            confirmed_at = row.get('confirmedAt')
-            payments.append({
-                'id': snap.id,
-                'orderId': str(row.get('orderId') or ''),
-                'userId': str(row.get('userId') or ''),
-                'toolId': str(row.get('toolId') or ''),
-                'txHash': str(row.get('txHash') or ''),
-                'amountBnb': str(row.get('amountBnb') or ''),
-                'paidBnbAmount': str(row.get('paidBnbAmount') or ''),
-                'asset': str(row.get('asset') or ''),
-                'chainId': row.get('chainId'),
-                'destination': str(row.get('destinationAddress') or ''),
-                'blockNumber': row.get('blockNumber'),
-                'status': 'confirmed',
-                'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
-                'confirmedAt': confirmed_at.isoformat() if hasattr(confirmed_at, 'isoformat') else confirmed_at,
-            })
-        payments.sort(key=lambda row: str(row.get('confirmedAt') or row.get('createdAt') or ''), reverse=True)
-        payments = payments[:100]
-        return jsonify({"success": True, "payments": payments, "count": len(payments)})
-    except Exception:
-        logging.exception('[PSEmine Admin] verified payment ledger read failed')
-        return jsonify({
-            "success": False,
-            "error": "VERIFIED_PAYMENTS_UNAVAILABLE",
-            "message": "Confirmed payment records could not be loaded. No payment totals were inferred.",
-        }), 503
+        except Exception:
+            continue
+        payments.append({
+            "id": snap.id, "orderId": snap.id, "userId": str(row.get("userId") or ""),
+            "toolId": str(row.get("toolId") or ""), "toolName": str(row.get("toolName") or ""),
+            "provider": str(row.get("provider") or ""), "providerPaymentId": str(row.get("providerPaymentId") or ""),
+            "priceMinor": amount_minor, "priceAmount": row.get("priceAmount"),
+            "priceCurrency": row.get("priceCurrency"), "actualPaidAmount": row.get("actualPaidAmount"),
+            "actualPaidCurrency": row.get("actualPaidCurrency"), "status": "paid",
+            "confirmedAt": row.get("settledAt"), "settledAt": row.get("settledAt"),
+        })
+    return jsonify({"success": True, "payments": payments})
 
 @app.route('/api/admin/psemine/withdrawals', methods=['GET'])
 @verify_token

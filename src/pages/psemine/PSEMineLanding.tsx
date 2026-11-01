@@ -317,15 +317,15 @@ const PURCHASE: ReadonlyArray<PseFlowStep> = [
   {
     id: 'pay',
     glyph: 'wallet',
-    name: 'Pay with BNB',
-    note: 'Request a quote, then send the exact BNB amount from your own wallet on BNB Smart Chain.',
-    denom: <Denom tone="bnb">BNB</Denom>,
+    name: 'Pay with crypto',
+    note: 'Open secure checkout, choose an available cryptocurrency and network, then pay from your preferred wallet.',
+    denom: <Denom tone="bnb">Crypto</Denom>,
   },
   {
     id: 'verify',
     glyph: 'verify',
     name: 'Verified on-chain',
-    note: 'The payment is checked against the chain: the amount, the payer and the destination.',
+    note: 'The provider payment is independently reconciled against your order before the tool can activate.',
   },
   {
     id: 'activate',
@@ -397,7 +397,7 @@ const PAYOUT_TERMS = [
   },
   {
     term: 'Record',
-    rule: 'The purchase and the payout are both on-chain transactions, so each direction is checkable against BNB Smart Chain rather than taken on trust.',
+    rule: 'Tool purchases are confirmed through authenticated provider records; approved BNB payouts are separately recorded on BNB Smart Chain.',
   },
 ];
 
@@ -479,7 +479,7 @@ const TRUST = [
   {
     glyph: 'chain' as const,
     name: 'Verified on-chain',
-    note: 'A purchase is verified against BNB Smart Chain before any unit is activated.',
+    note: 'A provider-confirmed payment is reconciled by the backend before any unit is activated.',
   },
   {
     glyph: 'audit' as const,
@@ -500,7 +500,7 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'What is PSEmine, in one paragraph?',
     a: (
       <>
-        PSEmine is a managed, 90-day SHA-mining campaign-access product. You purchase a campaign unit in BNB; each
+        PSEmine is a managed, 90-day SHA-mining campaign-access product. You purchase a campaign unit through secure crypto checkout; each
         unit adds published hourly capacity recorded in GBP. Eligible earnings accrue while your unit is operating and
         the campaign is live. At campaign end, those earnings are settled in GBP. You can then request payout in BNB to your registered
         wallet; approved requests are paid after review. PSEmine manages the campaign operations, so you can participate without buying,
@@ -530,14 +530,13 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     ),
   },
   {
-    q: 'How does a BNB purchase actually work?',
+    q: 'How does a crypto purchase work?',
     a: (
       <>
-        You request a quote for a unit. The price is fixed in GBP and converted to a BNB amount at the rate of that
-        quote, and the quote is time-limited — the time left is shown on it. You then pay that exact amount from your own
-        wallet on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}, to the address that quote prints for you. Once the
-        transaction is confirmed on-chain it is verified and the unit is activated. If a quote expires, or a payment does
-        not match it, the purchase is recorded as expired or underpaid rather than silently absorbed.
+        The tool price is fixed in GBP and shown before checkout. You continue to a secure hosted invoice, choose an
+        available cryptocurrency and network, and pay from the wallet you prefer. PulseEarn checks the provider's
+        signed payment notification against the provider's payment record before activating the unit. If a payment is
+        incomplete, late or inconsistent, it is held for review rather than treated as successful.
       </>
     ),
   },
@@ -858,7 +857,7 @@ export const PSEMineLanding: React.FC = () => {
           </div>
           <div className="pse-access-disclosure">
             <span className="pse-access-disclosure-mark" aria-hidden="true">i</span>
-            <p><strong>SHA is the mining function behind PSEmine.</strong> Campaign capacity and eligible earnings are recorded in GBP. You purchase units and receive approved payouts in BNB on BNB Smart Chain. At campaign end, recorded eligible earnings are settled in GBP. You can then request payout in BNB to your registered wallet; approved requests are paid after review.</p>
+            <p><strong>SHA is the mining function behind PSEmine.</strong> Campaign capacity and eligible earnings are recorded in GBP. Tool purchases use a secure hosted crypto checkout with customer-selected supported assets and networks. At campaign end, eligible earnings are settled in GBP; approved payouts are sent in BNB on BNB Smart Chain to your registered payout address.</p>
             <Link to={PSE_DOC_PATH.risk} className="pse-access-disclosure-link">Read the risk disclosure <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
@@ -877,8 +876,8 @@ export const PSEMineLanding: React.FC = () => {
                 lede="PSEmine runs on a single chain: units add capacity, capacity accrues through the campaign window, and settled earnings are paid out in BNB. Entering that chain is the four-step sequence below, and every step is written to your own account record."
               />
               <p className="pse-small pse-measure pse-split-aside">
-                A purchase is a BNB transaction you send from your own wallet, at a quote you requested. The quote fixes
-                the amount, the destination and its own time limit before you sign anything.
+                A purchase begins with a server-priced order and a secure hosted invoice. You choose an available asset and network
+                on the provider checkout page; PulseEarn verifies the provider's final payment record before activation.
               </p>
               <DocLine label="Before you begin" docs={['campaign-terms', 'risk']} />
             </div>
@@ -895,7 +894,7 @@ export const PSEMineLanding: React.FC = () => {
         band="tint"
         title="One product line, four units."
         meta={`${TIERS.length} units · £${TIERS[0].rateValue.toFixed(2)}–£${TIERS[TIERS.length - 1].rateValue.toFixed(2)}/hour`}
-        lede="SHA mining is the engine behind PSEmine. Choose from four units with a published price, fixed GBP-per-hour capacity and an ownership limit; purchases are made in BNB at the rate on your quote."
+        lede="SHA mining is the engine behind PSEmine. Choose from four units with a published price, fixed GBP-per-hour capacity and an ownership limit; purchase through secure hosted crypto checkout."
         foot={
           <p className="pse-small">
             Session units mine in fixed operating cycles and are restarted from the console, with a short delay before
@@ -936,7 +935,7 @@ export const PSEMineLanding: React.FC = () => {
               <ol className="pse-ladder">
                 {[
                   ['Registered', 'Signed up with your referral code. Nothing is credited at this stage.'],
-                  ['Wallet connected', 'Connected a BNB Smart Chain wallet to their own account.'],
+                  ['Checkout opened', 'Opened the secure hosted payment page for a tool purchase.'],
                   ['Unit purchased', 'Bought a mining unit with their own funds.'],
                   ['Mining active', 'The unit is operating inside the campaign.'],
                   ['Qualified', 'All four stages verified — capacity is added from here, not before.'],
@@ -1144,8 +1143,8 @@ export const PSEMineLanding: React.FC = () => {
                 quietest heading on the page. */}
             <h2 className="pse-plate-title mt-4">Choose your first unit.</h2>
             <p className="pse-body mt-3">
-              An account is free. You spend nothing until you choose a unit and pay for it from your own wallet — and the
-              price, the hourly capacity and the ownership limit are shown before you sign anything.
+              An account is free. You spend nothing until you choose a unit and continue to secure checkout — the price, hourly
+              capacity and ownership limit are shown first, and you choose a supported crypto asset and network to pay.
             </p>
           </Reveal>
           {/*
@@ -1211,8 +1210,8 @@ export const PSEMineLanding: React.FC = () => {
               </span>
             </span>
             <p className="pse-small max-w-[46ch]">
-              A {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining access campaign on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}.
-              Units add fixed GBP-per-hour capacity; purchases and approved payouts use BNB under the campaign rules.
+              A {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day SHA-mining access campaign.
+              Units add fixed GBP-per-hour capacity; purchases use hosted crypto checkout and approved payouts use BNB on BNB Smart Chain.
             </p>
           </div>
           {/* Two labelled columns rather than one undifferentiated list: a
@@ -1234,8 +1233,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
         <div className="pse-wrap mt-8">
           <p className="pse-small max-w-[74ch]">
-            PSEmine provides managed SHA-mining access for a defined {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign on{' '}
-            {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}. Units add fixed GBP-per-hour capacity; purchases and approved payouts use BNB under the published campaign rules.
+            PSEmine provides managed SHA-mining access for a defined {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}-day campaign. Units add fixed GBP-per-hour capacity; purchases use hosted crypto checkout and approved payouts use BNB on BNB Smart Chain.
           </p>
           <p className="pse-small mt-3">
             <Link to={PSE_DOC_PATH.risk} className="pse-link inline-flex min-h-[44px] items-center">

@@ -8799,10 +8799,16 @@ def mine_payment_v2_create_invoice():
                 "expiresAt": active.get("expiresAt"),
                 "existing": True, "status": active.get("status"),
             })
-        if active_expiry and active_expiry <= now and now <= active_expiry + timedelta(minutes=15):
-            return jsonify({"success": False, "error": "PAYMENT_RECONCILIATION_PENDING",
-                            "message": "This invoice has expired. We are allowing time for any delayed provider notification. Do not pay again yet.",
-                            "orderId": active_row.id}), 409
+        if active_expiry and active_expiry <= now and now <= active_expiry + timedelta(minutes=15) and active.get("checkoutUrl"):
+            return jsonify({
+                "success": True, "orderId": active_row.id,
+                "checkoutUrl": active["checkoutUrl"], "provider": "nowpayments",
+                "toolName": active.get("toolName") or tool["name"],
+                "priceAmount": active.get("priceAmount"),
+                "priceCurrency": active.get("priceCurrency"),
+                "expiresAt": active.get("expiresAt"),
+                "existing": True, "status": "reconciliation_pending",
+            })
 
     user_snap = db.collection("psemine_users").document(uid).get()
     user_data = user_snap.to_dict() or {} if user_snap.exists else {}

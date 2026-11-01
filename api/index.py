@@ -9565,7 +9565,19 @@ def mine_create_purchase():
                     'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
                 })
                 stored['walletProofVerified'] = True
+                stored['walletProofNonce'] = q.get('walletProofNonce')
             return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
+        if stored.get('walletProofVerified') is not True:
+            if stored.get('transactionHash') or stored.get('txHash'):
+                return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
+                                "message": "A legacy purchase has transaction evidence but no verified wallet-ownership proof. Do not pay again; request payment recovery review.",
+                                "purchaseId": e.id}), 409
+            db.collection('psemine_purchases').document(e.id).update({
+                'status': 'superseded',
+                'statusMessage': 'Legacy unproven intent superseded by the wallet-ownership proof flow.',
+                'supersededAt': firestore.SERVER_TIMESTAMP,
+            })
+            continue
         if action == 'rebind_forbidden':
             return jsonify({
                 "success": False,

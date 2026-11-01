@@ -10129,6 +10129,14 @@ def mine_payment_v2_nowpayments_ipn():
 
     # IPN is only a wake-up signal. The provider's authenticated payment record
     # must match our immutable server order before any local status can advance.
+    if payment.get("payment_id") is not None and str(payment.get("payment_id")) != payment_id:
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_PAYMENT_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PROVIDER_PAYMENT_ID_MISMATCH"}), 409
+    if payment.get("invoice_id") is not None and str(payment.get("invoice_id")) != str(order.get("providerInvoiceId") or ""):
+        order_ref.update({"status": "review", "reviewReason": "PROVIDER_INVOICE_ID_MISMATCH",
+                          "updatedAt": firestore.SERVER_TIMESTAMP})
+        return jsonify({"success": False, "error": "PROVIDER_INVOICE_ID_MISMATCH"}), 409
     if str(payment.get("order_id") or "") != order_id:
         order_ref.update({"status": "review", "reviewReason": "PROVIDER_ORDER_ID_MISMATCH",
                           "updatedAt": firestore.SERVER_TIMESTAMP})
@@ -10151,6 +10159,16 @@ def mine_payment_v2_nowpayments_ipn():
     provider_status = str(payment.get("payment_status") or "").lower()
     local_status = normalize_provider_status(provider_status)
     if local_status != "paid":
+        # Never silently downgrade a previously settled order if a later
+        # provider event reports a refund or conflicting terminal state. Keep
+        # revenue evidence intact and raise a reconciliation flag for admin.
+        if order.get("status") == "paid":
+            order_ref.update({
+                "providerStatus": provider_status, "reviewRequired": True,
+                "reviewReason": "PROVIDER_STATUS_CHANGED_AFTER_SETTLEMENT",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            })
+            return jsonify({"success": True, "status": "paid", "reviewRequired": True})
         order_ref.update({
             "status": local_status, "providerPaymentId": payment_id,
             "providerStatus": provider_status, "updatedAt": firestore.SERVER_TIMESTAMP,

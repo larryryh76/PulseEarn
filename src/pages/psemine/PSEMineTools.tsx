@@ -485,6 +485,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   const createInvoice = useCallback(async () => {
     setCreating(true);
     setError(null);
+    setOrderId(null); setCheckoutUrl(null); setPriceAmount(null); setStatus('creating');
     try {
       const invoice = await createHostedPaymentInvoice(tool.id);
       setOrderId(invoice.orderId);
@@ -585,7 +586,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                   {checking ? 'Checking…' : 'Check payment status'}
                 </PseButton>
               )}
-              {['expired', 'failed'].includes(status) && (
+              {['expired', 'failed', 'refunded'].includes(status) && (
                 <PseButton onClick={() => void createInvoice()} disabled={creating}>
                   {creating ? 'Preparing…' : 'Try checkout again'}
                 </PseButton>

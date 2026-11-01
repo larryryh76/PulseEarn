@@ -657,7 +657,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   return (
     <div className="pse-modal-backdrop" role="presentation">
       <div className="pse-modal pse-payment-v2" role="dialog" aria-modal="true" aria-labelledby="pse-payment-v2-title">
-        <PsePage title="Secure tool checkout" subtitle="Pay with the cryptocurrency and wallet you prefer.">
+        <PsePage title="Secure tool checkout" objective="Pay with the cryptocurrency and wallet you prefer.">
           <PseSection title={tool.name}>
             <p className="pse-prose">
               You do not need to connect a wallet to PulseEarn. Continue to our secure payment provider, choose an
@@ -682,7 +682,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                         ? (error || 'We could not create a secure checkout. No payment was taken.')
                         : 'Your checkout status updates automatically. Returning to PulseEarn does not itself confirm payment.'}
             </PseNotice>
-            {error && status !== 'failed' && <PseErrorNotice title="Status refresh issue">{error}</PseErrorNotice>}
+            {error && status !== 'failed' && <PseNotice tone="attention" title="Status refresh issue">{error}</PseNotice>}
             {creating && <PseLoading label="Preparing your secure checkout…" />}
             <div className="flex flex-wrap gap-2">
               {checkoutUrl && !['paid', 'review', 'expired', 'failed', 'refunded'].includes(status) && (

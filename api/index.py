@@ -10155,23 +10155,22 @@ def reconcile_nowpayments_order(db, order_id, payment_id):
             expires_at = datetime.fromisoformat(str(order.get("expiresAt") or "").replace("Z", "+00:00"))
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
-            payment_created = datetime.fromisoformat(str(payment.get("created_at") or "").replace("Z", "+00:00"))
-            if payment_created.tzinfo is None:
-                payment_created = payment_created.replace(tzinfo=timezone.utc)
-            if payment_created > expires_at:
+        except Exception:
+            expires_at = None
+        if expires_at and datetime.now(timezone.utc) > expires_at:
+            try:
+                payment_created = datetime.fromisoformat(str(payment.get("created_at") or "").replace("Z", "+00:00"))
+                if payment_created.tzinfo is None:
+                    payment_created = payment_created.replace(tzinfo=timezone.utc)
+                if payment_created > expires_at:
+                    raise ValueError("payment created after expiry")
+            except Exception:
                 order_ref.update({
-                    "status": "review", "reviewReason": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY",
+                    "status": "review", "reviewReason": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY_OR_EVIDENCE_MISSING",
                     "providerPaymentId": str(payment_id), "providerStatus": provider_status,
                     "updatedAt": firestore.SERVER_TIMESTAMP,
                 })
-                return {"ok": False, "error": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY"}
-        except Exception:
-            order_ref.update({
-                "status": "review", "reviewReason": "PAYMENT_EXPIRY_EVIDENCE_MISSING",
-                "providerPaymentId": str(payment_id), "providerStatus": provider_status,
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            })
-            return {"ok": False, "error": "PAYMENT_EXPIRY_EVIDENCE_MISSING"}
+                return {"ok": False, "error": "PAYMENT_CREATED_AFTER_ORDER_EXPIRY_OR_EVIDENCE_MISSING"}
 
     if local_status != "paid":
         if order.get("status") == "paid":

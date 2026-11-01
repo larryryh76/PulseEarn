@@ -869,29 +869,24 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       // Refresh the displayed chain after the wallet approves the switch.
       await refreshWalletChain();
 
-      // 2. BIND THE PAYER — server-side, against this account and this quote,
-      //    BEFORE any signature exists.
-      let payer = boundPayer;
-      let intentId = purchaseId;
-
-      if (!intentId || !payer) {
-        const bound = await bindPurchaseIntent(quote);
-        if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
-          setSubmissionState('NOT_SUBMITTED');
-          setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
-          setStep('result');
-          return;
-        }
-        intentId = bound.purchaseId;
-        payer = bound.payerWallet;
-        setPurchaseId(intentId);
-        setBoundPayer(payer);
-        // The backend has persisted the purchase-ready notification; refresh
-        // the shared feed now so the shell badge updates without a page reload.
-        void refresh();
+      // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
+      //    free EIP-191 signature is quote/account-specific and sends no funds.
+      const bound = await bindPurchaseIntent(quote);
+      if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
+        setSubmissionState('NOT_SUBMITTED');
+        setResult({ ok: false, message: bound.error || 'Could not verify and bind this purchase to your wallet.' });
+        setStep('result');
+        return;
       }
+      const intentId = bound.purchaseId;
+      const payer = bound.payerWallet;
+      setPurchaseId(intentId);
+      setBoundPayer(payer);
+      // The backend has persisted the purchase-ready notification; refresh
+      // the shared feed now so the shell badge updates without a page reload.
+      void refresh();
 
-      // 2. The wallet about to sign must still be the bound payer.
+      // 3. The wallet about to send must still be the cryptographically bound payer.
       const payerCheck = resolvePaymentPayer(payer, connectedWallet);
       if (!payerCheck.ok) {
         setSubmissionState('NOT_SUBMITTED');
@@ -905,7 +900,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         return;
       }
 
-      // 3. to + value come VERBATIM from the server quote; from is the BOUND payer.
+      // 4. to + value come VERBATIM from the server quote; from is the BOUND payer.
       const wei = quote.bnbAmountWei;
       if (!wei || !/^[0-9]+$/.test(String(wei))) {
         throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');

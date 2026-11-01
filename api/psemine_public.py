@@ -27,22 +27,14 @@ Contract:
 
 PUBLIC_CAMPAIGN_FIELDS = (
     'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
-    'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentChainId',
-    'receiverWalletAddress', 'purchaseEnabled', 'purchaseReady', 'miningEnabled', 'referralEnabled',
+    'currencyDisplay', 'purchaseEnabled', 'purchaseReady', 'miningEnabled', 'referralEnabled',
 )
-
-# The name the campaign document actually carries. It was previously listed here
-# as `paymentNetworkId`, a key no writer ever produced, so the projected payload
-# silently omitted the chain id and any pre-signin consumer had to fall back to
-# its own constant. The pair below is asserted against the document writers by
-# api/tests/test_final_gates.py so a rename cannot drift again.
-CAMPAIGN_CHAIN_ID_FIELD = 'paymentChainId'
 
 # Fields that are deliberately part of the public contract, and why. Kept beside
 # the allow-list so a reviewer sees the intent without reading the purchase flow.
 PUBLIC_CAMPAIGN_FIELD_NOTES = {
-    'receiverWalletAddress': 'Payers must see the receiving address before signing in.',
-    'purchaseReady': 'Derived readiness: a valid non-zero BNB Smart Chain receiver explicitly confirmed by a super-admin.',
+    'purchaseEnabled': 'Admin-controlled gate for hosted crypto checkout; it does not expose provider credentials.',
+    'purchaseReady': 'Derived readiness: hosted provider purchase gate is enabled for an active campaign.',
 }
 
 # Never published. These are the operational fields the bootstrap writer, the
@@ -60,22 +52,11 @@ PRIVATE_CAMPAIGN_FIELDS = (
 
 
 def campaign_purchase_ready(camp):
-    """True only for an explicitly confirmed, valid, non-zero campaign receiver."""
-    if not isinstance(camp, dict):
-        return False
-    address = camp.get('receiverWalletAddress')
-    if camp.get('receiverWalletConfigured') is not True:
-        return False
-    if not camp.get('receiverWalletConfiguredAt') or not camp.get('receiverWalletConfiguredBy'):
-        return False
-    if not isinstance(address, str):
-        return False
-    address = address.strip()
-    return (
-        len(address) == 42
-        and address.startswith('0x')
-        and all(char in '0123456789abcdefABCDEF' for char in address[2:])
-        and address.lower() != '0x' + ('0' * 40)
+    """True only when the active campaign explicitly enables hosted purchases."""
+    return bool(
+        isinstance(camp, dict)
+        and camp.get('status') == 'active'
+        and camp.get('purchaseEnabled') is True
     )
 
 
@@ -83,8 +64,8 @@ def public_campaign_view(camp):
     """Project a campaign document down to the public allow-list.
 
     Returns None for a missing/empty document so callers can fall back to their
-    default public configuration. Readiness is derived and never trusts a stored
-    `purchaseReady` field or exposes the super-admin identity/timestamps.
+    default public configuration. Readiness is derived from the active campaign
+    and admin-controlled purchase gate; no wallet address or provider secret is exposed.
     """
     if not camp:
         return None

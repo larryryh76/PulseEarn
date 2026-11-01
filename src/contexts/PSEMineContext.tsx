@@ -600,6 +600,22 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWalletRecoveryState(resume ? 'resuming' : 'none');
     setIsConnectingWallet(true);
     try {
+      // Reown persists WalletConnect sessions at the origin level. Only reuse
+      // one when this Firebase account has its own matching account-scoped
+      // record; otherwise clear the old session before showing a fresh picker.
+      let expectedBoundWallet: string | null = null;
+      if (!resume) {
+        try {
+          const uid = currentUser?.uid;
+          const raw = uid ? localStorage.getItem(`psemine_connected_wallet:${uid}`) : null;
+          const saved = raw ? JSON.parse(raw) as { uid?: string; address?: string; transport?: PseWalletTransport } : null;
+          if (uid && saved?.uid === uid && saved.transport === 'walletConnect'
+              && typeof saved.address === 'string' && /^0x[0-9a-fA-F]{40}$/.test(saved.address)) {
+            expectedBoundWallet = saved.address.toLowerCase();
+          }
+        } catch { /* malformed local state is treated as no bound session */ }
+        if (!expectedBoundWallet) await disconnectWalletConnect();
+      }
       // Mobile wallet deep-links can immediately background/reload this tab.
       // Keep the user's explicit connection attempt alive for the full relay
       // window; a modal close is not evidence of approval or rejection.
@@ -613,6 +629,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // eth_requestAccounts can look empty even with BSC approved.
       const connection = await connectWalletConnectProvider(provider);
       if (connectAttemptRef.current !== attempt) return null;
+      if (connection && expectedBoundWallet && connection.address.toLowerCase() !== expectedBoundWallet) {
+        await disconnectWalletConnect();
+        persistWallet(null);
+        setConnectedWallet(null);
+        setWalletTransport(null);
+        setWalletName(null);
+        setWalletChainId(null);
+        recordWalletStage('connect_failed', 'ACCOUNT_WALLET_BINDING_MISMATCH');
+        toast.error('The restored wallet does not match this account’s saved wallet. Connect again and approve the correct wallet.');
+        return null;
+      }
       if (!connection) {
         recordWalletStage('connect_failed', 'no BSC account in session');
         toast.error('The wallet approved no account on BNB Smart Chain. Reopen the wallet picker and approve the session.');

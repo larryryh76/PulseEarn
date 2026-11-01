@@ -550,8 +550,9 @@ export const PSEMineTools: React.FC = () => {
             <h2 id="pse-how-title">From quote to activation</h2>
             <ol className="pse-marketplace-steps">
               <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Approve in your wallet</strong><p>You review and sign the payment yourself. PSEmine never sends funds automatically.</p></div></li>
-              <li><span>03</span><div><strong>Wait for verification</strong><p>The backend checks payer, recipient, amount and chain confirmations before activation.</p></div></li>
+              <li><span>02</span><div><strong>Verify wallet ownership</strong><p>Your wallet asks for a free message signature tied to this quote. It does not send funds or approve a transfer.</p></div></li>
+              <li><span>03</span><div><strong>Approve the BNB payment</strong><p>Review the exact BNB amount and campaign destination, then approve the transfer yourself.</p></div></li>
+              <li><span>04</span><div><strong>Wait for verification</strong><p>The backend checks the proven payer, recipient, exact amount and BNB Chain confirmations before activation.</p></div></li>
             </ol>
           </section>
         </aside>
@@ -1506,8 +1507,8 @@ const WalletConnectStep: React.FC = () => {
   return (
     <PseSection title="Connect a wallet">
       <p className="pse-prose">
-        A wallet is required to sign the payment. PSEmine never requests automatic transfers — every payment must be
-        approved in your wallet.
+        Connect the wallet you want to pay from. Before a purchase, it will ask you to sign a free ownership message
+        (no funds move), then show a separate BNB transfer for your approval. PSEmine never sends funds automatically.
       </p>
 
       <div className="flex flex-wrap gap-2">

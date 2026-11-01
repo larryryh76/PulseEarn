@@ -53,8 +53,6 @@ const WALLET_LOCKED_STATES = new Set(['settling', 'payout', 'closed', 'archived'
 
 export const PAYOUT_REQUEST_MIN_GBP = 10;
 
-const REQUIRED_CHAIN_ID = PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID;
-
 /** The tone of a recorded payout request. The label is always shown too. */
 function payoutTone(status?: string | null): PseStatusTone {
   if (status === 'paid') return 'good';
@@ -85,11 +83,7 @@ function payoutAmount(w: PseWithdrawal): number | null {
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export const PSEMineWallet: React.FC = () => {
-  const {
-    pseUser, campaign, connectedWallet, connectWallet, disconnectWallet, isConnectingWallet,
-    updatePayoutWallet, injectedWallets, walletConnectAvailable, connectWalletConnectTransport,
-    walletName, walletChainId, ensurePaymentChain, refreshWalletChain,
-  } = usePSEMine();
+  const { pseUser, campaign, updatePayoutWallet } = usePSEMine();
 
   const {
     state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed,
@@ -98,7 +92,6 @@ export const PSEMineWallet: React.FC = () => {
 
   const [payoutInput, setPayoutInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [switching, setSwitching] = useState(false);
   const [walletTab, setWalletTab] = useState<'overview' | 'activity' | 'manage'>('overview');
 
   // Mirror the backend gate exactly: create_payout_request blocks while the
@@ -124,7 +117,6 @@ export const PSEMineWallet: React.FC = () => {
     accruedGBP: pseUser?.totalAccruedGBP ?? null,
     totalCapacityGBPPerHour: pseUser?.totalCapacityGBPPerHour ?? 0,
     payoutWallet: pseUser?.payoutWallet ?? null,
-    connectedWallet: pseUser?.connectedWallet ?? null,
   };
 
   const accruedDisplay = typeof user.accruedGBP === 'number' && Number.isFinite(user.accruedGBP)
@@ -141,40 +133,10 @@ export const PSEMineWallet: React.FC = () => {
     return total;
   }, [withdrawals, feedErrors.withdrawals]);
 
-  const chainKnown = typeof walletChainId === 'number';
-  const chainIsRequired = walletChainId === REQUIRED_CHAIN_ID;
-  const networkLabel = !connectedWallet
-    ? 'Wallet not connected'
-    : !chainKnown
-      ? 'Network not reported'
-      : chainIsRequired
-        ? `BNB Smart Chain · ${walletChainId}`
-        : `Wrong network · chain ${walletChainId}`;
-  const networkTone: 'good' | 'hold' | 'idle' = !connectedWallet
-    ? 'idle'
-    : !chainKnown
-      ? 'idle'
-      : chainIsRequired ? 'good' : 'hold';
-
   const copy = async (value: string, message: string) => {
     const ok = await copyText(value);
     if (ok) toast.success(message);
     else toast.error('Could not copy. Select the value and copy it manually.');
-  };
-
-  const switchNetwork = async () => {
-    setSwitching(true);
-    try {
-      const ok = await ensurePaymentChain(REQUIRED_CHAIN_ID);
-      if (ok) {
-        await refreshWalletChain();
-        toast.success('Wallet is on BNB Smart Chain.');
-      } else {
-        toast.error('The wallet did not switch network. Purchase payments require BNB Smart Chain.');
-      }
-    } finally {
-      setSwitching(false);
-    }
   };
 
   const handleSavePayout = async (e: React.FormEvent) => {
@@ -202,11 +164,8 @@ export const PSEMineWallet: React.FC = () => {
     return (
       <div className="pse-console-main pse-route-wallet pse-wallet">
         <WalletHead
-          walletName={walletName}
-          connectedWallet={connectedWallet}
-          networkLabel={networkLabel}
-          networkTone={networkTone}
-          onCopy={() => undefined}
+          payoutWallet={payoutWallet}
+          onCopy={undefined}
         />
         <PseErrorNotice error={error} onRetry={() => void refresh()} retrying={refreshing} />
       </div>
@@ -218,11 +177,8 @@ export const PSEMineWallet: React.FC = () => {
   return (
     <div className="pse-console-main pse-route-wallet pse-wallet">
       <WalletHead
-        walletName={walletName}
-        connectedWallet={connectedWallet}
-        networkLabel={networkLabel}
-        networkTone={networkTone}
-        onCopy={connectedWallet ? () => void copy(connectedWallet, 'Wallet address copied.') : undefined}
+        payoutWallet={payoutWallet}
+        onCopy={payoutWallet ? () => void copy(payoutWallet, 'Payout address copied.') : undefined}
         actions={(
           <PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing} busy={refreshing}>
             {refreshing ? 'Syncing…' : 'Sync'}
@@ -291,7 +247,7 @@ export const PSEMineWallet: React.FC = () => {
         </section>
       )}
 
-      {/* THE ACTIONS — each one performs the operation it names. */}
+      {/* Hosted checkout does not require a browser wallet connection. */}
       <div className="pse-w-actions" aria-label="Wallet actions">
         <button type="button" className="pse-w-action pse-w-action--primary" onClick={() => {
             setWalletTab('overview');
@@ -302,46 +258,14 @@ export const PSEMineWallet: React.FC = () => {
           <span className="pse-w-action-glyph" aria-hidden="true"><PayoutGlyph /></span>
           <span className="pse-w-action-label">Payout</span>
         </button>
-
-        <button
-          type="button"
-          className="pse-w-action"
-          onClick={() => void copy(connectedWallet || '', 'Wallet address copied.')}
-          disabled={!connectedWallet}
-          aria-label={connectedWallet ? `Copy connected wallet address ${connectedWallet}` : 'Copy connected wallet address'}
-        >
+        <button type="button" className="pse-w-action" onClick={() => void copy(payoutWallet || '', 'Payout address copied.')} disabled={!payoutWallet}>
           <span className="pse-w-action-glyph" aria-hidden="true"><CopyGlyph /></span>
-          <span className="pse-w-action-label">Copy wallet</span>
+          <span className="pse-w-action-label">Copy payout address</span>
         </button>
-
         <button type="button" className="pse-w-action" onClick={() => setWalletTab('activity')}>
           <span className="pse-w-action-glyph" aria-hidden="true"><HistoryGlyph /></span>
           <span className="pse-w-action-label">History</span>
         </button>
-
-        {connectedWallet ? (
-          <button type="button" className="pse-w-action" onClick={() => void disconnectWallet()}>
-            <span className="pse-w-action-glyph" aria-hidden="true"><DisconnectGlyph /></span>
-            <span className="pse-w-action-label">Disconnect</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="pse-w-action"
-            onClick={() => void connectWallet()}
-            disabled={isConnectingWallet}
-          >
-            <span className="pse-w-action-glyph" aria-hidden="true"><ConnectGlyph /></span>
-            <span className="pse-w-action-label">{isConnectingWallet ? 'Connecting…' : 'Connect'}</span>
-          </button>
-        )}
-
-        {connectedWallet && chainKnown && !chainIsRequired && (
-          <button type="button" className="pse-w-action" onClick={() => void switchNetwork()} disabled={switching}>
-            <span className="pse-w-action-glyph" aria-hidden="true"><NetworkGlyph /></span>
-            <span className="pse-w-action-label">{switching ? 'Switching…' : 'Switch network'}</span>
-          </button>
-        )}
       </div>
 
       <nav className="pse-wallet-tabs" aria-label="Wallet sections">
@@ -470,108 +394,20 @@ export const PSEMineWallet: React.FC = () => {
                     </PseSection>
             </div>
             <div className="pse-wallet-manage-secondary">
-                    <PseSection title="Network and assets" meta={`Chain ${REQUIRED_CHAIN_ID}`}>
-                      <dl className="pse-w-net">
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Campaign accounting</span>
-                          <span className="pse-w-net-val">GBP (off-chain)</span>
-                        </div>
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Settlement asset</span>
-                          <span className="pse-w-net-val">BNB</span>
-                        </div>
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Settlement network</span>
-                          <span className="pse-w-net-val">
-                            {state?.campaign?.paymentNetwork || PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-                          </span>
-                        </div>
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Connected chain</span>
-                          <span className="pse-w-net-val">
-                            {connectedWallet
-                              ? chainKnown ? `Chain ${walletChainId}${chainIsRequired ? ' · payment network' : ''}` : 'Not reported'
-                              : 'No wallet connected'}
-                          </span>
-                        </div>
-                      </dl>
-                      <p className="pse-prose--sm">
-                        PSEmine balances are campaign accounting in GBP, not an on-chain token balance. BNB is
-                        the rail settlement is paid on.
-                      </p>
-                      {(injectedWallets.length > 0 || walletConnectAvailable) && !connectedWallet && (
-                        <div className="pse-actions">
-                          {injectedWallets.map(w => (
-                            <PseButton key={w.id} size="sm" onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
-                              {w.name}
-                            </PseButton>
-                          ))}
-                          {walletConnectAvailable && (
-                            <PseButton size="sm" onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
-                              WalletConnect
-                            </PseButton>
-                          )}
-                        </div>
-                      )}
-                    </PseSection>
-                    <PseSection
-                      title="Signing wallet"
-                      meta={walletName ? (chainKnown ? `${walletName} · chain ${walletChainId}` : walletName) : 'Not connected'}
-                    >
-                      <div className="pse-w-net">
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">In this browser</span>
-                          <span className="pse-w-net-val">{connectedWallet ? shortAddr(connectedWallet) : 'None connected'}</span>
-                        </div>
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Provider</span>
-                          <span className="pse-w-net-val">{walletName || '—'}</span>
-                        </div>
-                        <div className="pse-w-net-row">
-                          <span className="pse-w-net-key">Network</span>
-                          <span className="pse-w-net-val">{networkLabel}</span>
-                        </div>
-                      </div>
-          
-                      <div className="pse-actions">
-                        {connectedWallet ? (
-                          <>
-                            <PseButton variant="secondary" size="sm" onClick={() => void disconnectWallet()}>Disconnect</PseButton>
-                            {chainKnown && !chainIsRequired && (
-                              <PseButton size="sm" onClick={() => void switchNetwork()} disabled={switching}>
-                                {switching ? 'Switching…' : 'Switch to BNB Smart Chain'}
-                              </PseButton>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {injectedWallets.map(w => (
-                              <PseButton key={w.id} size="sm" onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
-                                {w.name}
-                              </PseButton>
-                            ))}
-                            {walletConnectAvailable && (
-                              <PseButton size="sm" onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
-                                WalletConnect
-                              </PseButton>
-                            )}
-                          </>
-                        )}
-                      </div>
-          
-                      {isConnectingWallet && <PseNotice>Waiting for the wallet…</PseNotice>}
-                      {!connectedWallet && !walletConnectAvailable && injectedWallets.length === 0 && (
-                        <PseNotice tone="attention">
-                          No wallet detected. Open PSEmine in your wallet’s browser (Trust, MetaMask) or install an extension.
-                        </PseNotice>
-                      )}
-                      <p className="pse-prose--sm">
-                        {connectedWallet
-                          ? 'This wallet signs purchase payments in this browser. It is not the payout wallet.'
-                          : 'No wallet is connected in this browser. A connected wallet is required to sign a purchase payment.'}
-                      </p>
-                    </PseSection>
+              <PseSection title="Payment and payout networks">
+                <dl className="pse-w-net">
+                  <div className="pse-w-net-row"><span className="pse-w-net-key">Tool purchases</span><span className="pse-w-net-val">Hosted crypto checkout</span></div>
+                  <div className="pse-w-net-row"><span className="pse-w-net-key">Wallet connection</span><span className="pse-w-net-val">Not required</span></div>
+                  <div className="pse-w-net-row"><span className="pse-w-net-key">Payout asset</span><span className="pse-w-net-val">BNB</span></div>
+                  <div className="pse-w-net-row"><span className="pse-w-net-key">Payout network</span><span className="pse-w-net-val">BNB Smart Chain</span></div>
+                </dl>
+                <p className="pse-prose--sm">
+                  Choose your payment asset and network on the secure checkout page. Your payout destination is a separate
+                  address that you enter and save manually.
+                </p>
+              </PseSection>
             </div>
+
           </div>
         </div>
       )}
@@ -582,46 +418,34 @@ export const PSEMineWallet: React.FC = () => {
 /* ── Wallet header ─────────────────────────────────────────────────────── */
 
 const WalletHead: React.FC<{
-  walletName: string | null;
-  connectedWallet: string | null;
-  networkLabel: string;
-  networkTone: 'good' | 'hold' | 'idle';
+  payoutWallet: string | null;
   onCopy?: () => void;
   actions?: React.ReactNode;
-}> = ({ walletName, connectedWallet, networkLabel, networkTone, onCopy, actions }) => (
+}> = ({ payoutWallet, onCopy, actions }) => (
   <header className="pse-w-head">
     <div className="pse-w-head-id">
       <p className="pse-eyebrow">Campaign account</p>
       <h1 className="pse-w-title">Wallet</h1>
       <p className="pse-w-head-note">
-        Campaign earnings in GBP, settlement released to your payout wallet in BNB on BNB Smart Chain.
+        Campaign earnings in GBP, with approved payouts sent to your registered BNB Smart Chain address.
       </p>
     </div>
-
     <div className="pse-w-head-side">
-      <span className="pse-w-chip" data-tone={connectedWallet ? 'good' : 'idle'}>
-        {connectedWallet ? 'Connected' : 'Disconnected'}
+      <span className="pse-w-chip" data-tone={payoutWallet ? 'good' : 'idle'}>
+        {payoutWallet ? 'Payout address set' : 'Payout address not set'}
       </span>
-      <span className="pse-w-chip" data-tone={networkTone}>
-        <span className="pse-w-chip-value">{networkLabel}</span>
-      </span>
-
-      {connectedWallet && onCopy && (
-        <button
-          type="button"
-          className="pse-w-addr"
-          onClick={onCopy}
-          aria-label={`Copy wallet address ${connectedWallet}${walletName ? ` (${walletName})` : ''}`}
-        >
-          <span className="pse-w-addr-text">{shortAddr(connectedWallet)}</span>
+      {payoutWallet && onCopy && (
+        <button type="button" className="pse-w-addr" onClick={onCopy} aria-label={`Copy payout address ${payoutWallet}`}>
+          <span className="pse-w-addr-text">{shortAddr(payoutWallet)}</span>
           <span className="pse-w-addr-copy" aria-hidden="true"><CopyGlyph size={14} /></span>
         </button>
       )}
-
       {actions}
     </div>
   </header>
 );
+
+/* ── One payout record ─────────────────────────────────────────────────── */
 
 /* ── One payout record ─────────────────────────────────────────────────── */
 

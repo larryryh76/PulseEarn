@@ -203,6 +203,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // The live EIP-1193 provider for the active connection. Held in a ref so the
   // payment path can use it without re-render churn; transport/name live in state.
   const providerRef = useRef<PseEip1193Provider | null>(null);
+  const walletEventCleanupRef = useRef<(() => void) | null>(null);
   const transportRef = useRef<PseWalletTransport | null>(null);
   const walletNameRef = useRef<string | null>(null);
   // One WalletConnect attempt at a time: double taps and boot-restore must not
@@ -484,12 +485,14 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [currentUser]);
 
   const subscribeActiveProvider = useCallback((connection: PseWalletConnection) => {
+    walletEventCleanupRef.current?.();
+    walletEventCleanupRef.current = null;
     providerRef.current = connection.provider;
     transportRef.current = connection.transport;
     setWalletTransport(connection.transport);
     setWalletName(connection.walletName);
     setWalletChainId(typeof connection.chainId === 'number' ? connection.chainId : null);
-    return subscribeWalletEvents(connection.provider, {
+    const cleanup = subscribeWalletEvents(connection.provider, {
       onAccountsChanged: (accounts) => {
         if (!accounts || accounts.length === 0) {
           // Wallet locked/disconnected: clear local session; backend payout
@@ -501,6 +504,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setWalletTransport(null);
           setWalletName(null);
           setWalletChainId(null);
+          walletEventCleanupRef.current?.();
+          walletEventCleanupRef.current = null;
         } else {
           const next = accounts[0].toLowerCase();
           setConnectedWallet(next);
@@ -523,8 +528,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setWalletTransport(null);
         setWalletName(null);
         setWalletChainId(null);
+        walletEventCleanupRef.current?.();
+        walletEventCleanupRef.current = null;
       },
     });
+    walletEventCleanupRef.current = cleanup;
+    return cleanup;
   }, [currentUser, persistWallet]);
 
   const adoptConnection = useCallback((connection: PseWalletConnection): string => {
@@ -674,6 +683,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [injectedWallets, walletConnectAvailable, connectInjectedWallet, connectWalletConnectTransport]);
 
   const disconnectWallet = useCallback(async (): Promise<void> => {
+    walletEventCleanupRef.current?.();
+    walletEventCleanupRef.current = null;
     if (transportRef.current === 'walletConnect') {
       await disconnectWalletConnect();
     }
@@ -724,6 +735,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Clear any prior account's in-memory wallet before restoring this user's
     // account-scoped session. This prevents a stale provider/address surviving
     // sign-out or a fast account switch while the new restore is pending.
+    walletEventCleanupRef.current?.();
+    walletEventCleanupRef.current = null;
     providerRef.current = null;
     transportRef.current = null;
     setConnectedWallet(null);

@@ -26,7 +26,7 @@ assert.match(engine, /psemine_provider_redemptions/);
 assert.match(adapter, /hashlib\.sha512/);
 assert.match(adapter, /hmac\.compare_digest/);
 assert.match(adapter, /def normalize_provider_status/);
-assert.match(admin, /psemine_payment_orders_v2/);
+assert.match(api, /psemine_payment_orders_v2/);
 assert.match(admin, /paymentProviderConfigured/);
 assert.doesNotMatch(admin, /Purchase receiving wallet|saveWallet|receiverWalletAddress/);
 assert.match(referrals, /REFERRAL_STAGES = \("registered", "tool_purchased", "mining_active", "qualified"\)/);

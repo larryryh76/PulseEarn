@@ -53,7 +53,7 @@ const switchStart = contextSource.indexOf('// Account switch guard:');
 const switchEnd = contextSource.indexOf('/**', switchStart);
 const switchBlock = switchStart >= 0 ? contextSource.slice(switchStart, switchEnd) : '';
 check('account-switch:memory-reset-does-not-delete-new-users-session',
-  switchBlock.includes('Do not call persistWallet(null) here') && !switchBlock.includes('persistWallet(null);'));
+  switchBlock.includes('Do not write a disconnect tombstone for the NEW UID here') && !switchBlock.includes('persistWallet(null);'));
 const disconnectStart = contextSource.indexOf('const disconnectWallet = useCallback');
 const disconnectEnd = contextSource.indexOf('/** Fail-closed chain assertion', disconnectStart);
 const disconnectBlock = disconnectStart >= 0 ? contextSource.slice(disconnectStart, disconnectEnd) : '';

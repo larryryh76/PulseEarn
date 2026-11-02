@@ -467,13 +467,13 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           ) : (
             <ul className="m-0 list-none p-0">
               {shown.map(n => (
-                <li key={n.id} className="pse-sheet-row">
+                <li key={n.id} className={`pse-sheet-row${n.read ? ' is-read' : ' is-unread'}`} data-type={n.type || 'general'}>
                   <span className="pse-sheet-row-title">
                     {n.title || n.type || 'Notification'}
                   </span>
                   {n.message && <span className="pse-sheet-row-note">{n.message}</span>}
                   <span className="pse-sheet-row-meta">
-                    <span>{timeAgo(n.createdAt)}</span>
+                    <time dateTime={typeof n.createdAt === 'string' ? n.createdAt : undefined}>{timeAgo(n.createdAt)}</time>
                     {n.type && <span>{n.type}</span>}
                     {(['purchase', 'withdrawal', 'referral', 'campaign'] as string[]).includes(String(n.type || '')) && (
                       <button

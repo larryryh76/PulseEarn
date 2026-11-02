@@ -1,0 +1,184 @@
+/* Focused PSEmine Tools, purchase sheet and notification refinement.
+   Scoped to the authenticated PSEmine console; no product or backend behaviour. */
+.pse-console-shell .pse-marketplace-hero {
+  min-height:0; padding:clamp(18px,2.6vw,28px);
+  border:1px solid rgba(111,139,255,.24);
+  background:
+    radial-gradient(ellipse at 84% 8%,rgba(108,91,255,.18),transparent 34%),
+    linear-gradient(120deg,rgba(19,31,57,.98),rgba(10,16,29,.98) 68%);
+  border-radius:20px;
+  box-shadow:0 18px 48px rgba(0,0,0,.18);
+}
+.pse-console-shell .pse-marketplace-hero-copy { max-width:650px; }
+.pse-console-shell .pse-marketplace-hero h2 { font-size:clamp(25px,3vw,34px); line-height:1.04; }
+.pse-console-shell .pse-marketplace-hero p { max-width:58ch; color:#a8b6d0; font-size:12px; line-height:1.65; }
+.pse-console-shell .pse-marketplace-hero-object { opacity:.68; transform:scale(.88); transform-origin:center right; }
+.pse-console-shell .pse-marketplace-hero-foot { margin-top:18px; padding-top:14px; }
+.pse-console-shell .pse-marketplace-hero-foot > div { min-width:0; }
+.pse-console-shell .pse-marketplace-hero-foot strong { font-variant-numeric:tabular-nums; }
+.pse-stage[data-page="tools"] .pse-notice { border-radius:12px; }
+.pse-stage[data-page="tools"] .pse-statbar { margin-top:0; }
+.pse-stage[data-page="tools"] .pse-marketplace-layout {
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(270px,.34fr);
+  gap:22px; align-items:start;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-catalogue { min-width:0; }
+.pse-stage[data-page="tools"] .pse-marketplace-heading { align-items:flex-end; gap:12px; margin-bottom:12px; }
+.pse-stage[data-page="tools"] .pse-marketplace-heading h2 { font-size:clamp(20px,2.2vw,25px); letter-spacing:-.05em; }
+.pse-stage[data-page="tools"] .pse-marketplace-heading p:not(.pse-marketplace-kicker) { max-width:58ch; font-size:11px; }
+.pse-stage[data-page="tools"] .pse-marketplace-products {
+  display:grid; grid-template-columns:minmax(0,1fr); gap:9px;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-products .pse-product {
+  display:grid; grid-template-columns:104px minmax(0,1fr); grid-template-rows:auto auto auto;
+  align-items:center; gap:8px 17px; min-width:0; padding:15px;
+  border:1px solid rgba(153,177,225,.13); border-radius:16px;
+  background:linear-gradient(112deg,rgba(18,28,47,.96),rgba(10,16,28,.98));
+  transition:border-color .18s,transform .18s,background .18s;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-products .pse-product:hover {
+  transform:translateY(-1px); border-color:rgba(117,142,255,.35);
+  background:linear-gradient(112deg,rgba(22,34,59,.98),rgba(11,17,30,.99));
+}
+.pse-stage[data-page="tools"] .pse-product .pse-tool-art {
+  grid-column:1; grid-row:1 / span 3; width:100%; min-width:0; min-height:96px;
+  border:1px solid rgba(143,166,220,.12); border-radius:13px;
+  background:radial-gradient(circle at 50% 42%,rgba(104,120,255,.13),rgba(9,15,27,.2) 70%);
+}
+.pse-stage[data-page="tools"] .pse-product .pse-tool-art svg { width:100%; max-width:126px; }
+.pse-stage[data-page="tools"] .pse-product-id { min-width:0; }
+.pse-stage[data-page="tools"] .pse-product-name { display:flex; align-items:center; flex-wrap:wrap; gap:7px 10px; font-size:16px; }
+.pse-stage[data-page="tools"] .pse-product-desc { margin:5px 0 7px; max-width:62ch; font-size:11px; line-height:1.5; }
+.pse-stage[data-page="tools"] .pse-product-tier { display:inline-flex; }
+.pse-stage[data-page="tools"] .pse-product-specs {
+  grid-column:2; display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px 13px; margin:0; padding:8px 0 0; border-top:1px solid rgba(156,181,226,.1);
+}
+.pse-stage[data-page="tools"] .pse-product-spec { min-width:0; padding:0; border:0; }
+.pse-stage[data-page="tools"] .pse-product-spec dt { color:#7788a7; font-size:9px; letter-spacing:.04em; text-transform:uppercase; }
+.pse-stage[data-page="tools"] .pse-product-spec dd { margin:3px 0 0; color:#eaf0ff; font-size:12px; font-weight:680; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.pse-stage[data-page="tools"] .pse-product-actions {
+  grid-column:2; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:8px; margin:0; padding-top:3px;
+}
+.pse-stage[data-page="tools"] .pse-product-avail { display:inline-flex; align-items:center; gap:7px; color:#8e9db9; font-size:10px; }
+.pse-stage[data-page="tools"] .pse-product-avail::before { content:""; width:6px; height:6px; flex:none; border-radius:50%; background:#6e7d98; }
+.pse-stage[data-page="tools"] .pse-product-avail[data-state="available"] { color:#a6eafa; }
+.pse-stage[data-page="tools"] .pse-product-avail[data-state="available"]::before { background:#54dff4; box-shadow:0 0 9px rgba(84,223,244,.45); }
+.pse-stage[data-page="tools"] .pse-product-avail[data-state="locked"] { color:#f3c57d; }
+.pse-stage[data-page="tools"] .pse-product-avail[data-state="locked"]::before { background:#f0b75d; }
+.pse-stage[data-page="tools"] .pse-product-avail[data-state="unavailable"] { color:#8793aa; }
+.pse-stage[data-page="tools"] .pse-marketplace-rail { position:sticky; top:84px; min-width:0; padding:16px; border:1px solid rgba(156,181,226,.13); border-radius:17px; background:rgba(11,17,29,.88); }
+.pse-stage[data-page="tools"] .pse-marketplace-owned { margin:0; padding:0; border:0; }
+.pse-stage[data-page="tools"] .pse-owned-tool { gap:10px; padding:12px 0; }
+.pse-stage[data-page="tools"] .pse-marketplace-how { margin-top:18px; padding:15px; border:1px solid rgba(156,181,226,.1); border-radius:14px; background:rgba(255,255,255,.018); }
+.pse-stage[data-page="tools"] .pse-marketplace-footnote { display:grid; gap:7px; margin-top:16px; color:#8593ad; font-size:10px; line-height:1.6; }
+.pse-stage[data-page="tools"] .pse-marketplace-footnote strong { color:#c6d2e9; font-size:11px; }
+.pse-stage[data-page="tools"] .pse-statbar { border-radius:14px; }
+.pse-stage[data-page="tools"] .pse-stat { padding:13px 15px; }
+.pse-stage[data-page="tools"] .pse-stat-val { font-size:clamp(16px,1.8vw,21px); }
+
+/* Quote and payment: one continuous sheet, preserving the existing state machine. */
+.pse-purchase-overlay { z-index:1200; }
+.pse-purchase-dialog {
+  width:min(100%,760px)!important; max-height:min(90dvh,900px)!important;
+  overflow-y:auto!important; overscroll-behavior:contain; scrollbar-width:thin;
+  border:1px solid rgba(130,155,225,.25)!important; border-radius:22px!important;
+  background:
+    radial-gradient(ellipse at 92% 0%,rgba(102,87,255,.12),transparent 36%),
+    #090f1b!important;
+  box-shadow:0 30px 100px rgba(0,0,0,.65)!important;
+}
+.pse-purchase-dialog > .pse-page { gap:17px; padding:clamp(17px,3vw,27px); }
+.pse-purchase-dialog .pse-page-head { align-items:flex-start; padding-bottom:14px; gap:12px; }
+.pse-purchase-dialog .pse-page-title { font-size:clamp(21px,3vw,27px); }
+.pse-purchase-dialog .pse-page-objective { margin-top:5px; font-size:11px; }
+.pse-purchase-dialog .pse-page-actions { flex:none; width:auto; }
+.pse-purchase-dialog .pse-steps { position:sticky; top:0; z-index:2; background:#0b1220; }
+.pse-purchase-dialog .pse-step { padding:10px 7px; font-size:10px; text-align:center; }
+.pse-purchase-dialog .pse-section { min-width:0; }
+.pse-purchase-dialog .pse-section-body { display:grid; gap:12px; }
+.pse-purchase-dialog .pse-facts { grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }
+.pse-purchase-dialog .pse-fact { padding:10px 0; }
+.pse-purchase-dialog .pse-fact-val { font-size:12px; }
+.pse-purchase-dialog .pse-btn { min-height:44px; }
+.pse-purchase-dialog .pse-checks { display:grid; gap:7px; }
+.pse-purchase-dialog .pse-checks-item { border-radius:10px; }
+.pse-purchase-dialog [role="alert"],.pse-purchase-dialog [role="status"] { overflow-wrap:anywhere; }
+
+/* Notification ledger: unread is a state, not merely a badge count. */
+.pse-console-shell .pse-sheet {
+  width:min(460px,100%); border-left:1px solid rgba(146,169,224,.2);
+  background:linear-gradient(155deg,#0d1422,#090e18 72%);
+}
+.pse-console-shell .pse-sheet-head { position:sticky; top:0; z-index:2; background:rgba(11,17,29,.96); backdrop-filter:blur(16px); padding:17px; }
+.pse-console-shell .pse-sheet-head .pse-block-title { font-size:18px; letter-spacing:-.04em; }
+.pse-console-shell .pse-sheet-row { position:relative; padding:15px 12px 15px 16px; border-bottom:1px solid rgba(156,181,226,.09); border-radius:0 10px 10px 0; }
+.pse-console-shell .pse-sheet-row.is-unread { background:linear-gradient(90deg,rgba(99,139,255,.09),rgba(99,139,255,.015)); }
+.pse-console-shell .pse-sheet-row.is-unread::before { content:""; position:absolute; left:3px; top:19px; width:5px; height:5px; border-radius:50%; background:#65dff5; box-shadow:0 0 10px rgba(84,223,244,.55); }
+.pse-console-shell .pse-sheet-row.is-read .pse-sheet-row-title { color:#a5b1c8; font-weight:520; }
+.pse-console-shell .pse-sheet-row-title { font-size:12px; line-height:1.45; }
+.pse-console-shell .pse-sheet-row-note { color:#9aa8c1; font-size:11px; line-height:1.55; }
+.pse-console-shell .pse-sheet-row-meta { margin-top:9px; gap:8px 12px; }
+.pse-console-shell .pse-sheet-row-meta time { font-variant-numeric:tabular-nums; }
+.pse-console-shell .pse-sheet-row-meta button { min-height:32px; padding:5px 7px; border-radius:7px; background:rgba(118,129,255,.08); }
+.pse-console-shell .pse-icon-btn-badge { border:2px solid #080c14; box-shadow:0 0 0 1px rgba(84,223,244,.2); }
+
+@media(max-width:900px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-layout { grid-template-columns:minmax(0,1fr); }
+  .pse-stage[data-page="tools"] .pse-marketplace-rail { position:static; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:15px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-how { margin-top:0; }
+}
+@media(max-width:620px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-hero { padding:18px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-object { display:none; }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-foot { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { grid-template-columns:76px minmax(0,1fr); gap:8px 12px; padding:12px; }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art { min-height:76px; align-self:start; }
+  .pse-stage[data-page="tools"] .pse-product-name { font-size:14px; }
+  .pse-stage[data-page="tools"] .pse-product-desc { font-size:10px; }
+  .pse-stage[data-page="tools"] .pse-product-specs { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 10px; }
+  .pse-stage[data-page="tools"] .pse-product-actions { align-items:flex-start; flex-direction:column; }
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { width:100%; }
+  .pse-stage[data-page="tools"] .pse-marketplace-rail { grid-template-columns:minmax(0,1fr); }
+  .pse-stage[data-page="tools"] .pse-stat { padding:11px; }
+  .pse-purchase-overlay { align-items:flex-end!important; padding:0!important; }
+  .pse-purchase-dialog {
+    width:100%!important; max-width:none!important; max-height:calc(94dvh - env(safe-area-inset-top))!important;
+    border-radius:22px 22px 0 0!important; border-bottom:0!important;
+    padding-bottom:env(safe-area-inset-bottom)!important;
+    animation:pse-sheet-enter .2s ease-out both;
+  }
+  .pse-purchase-dialog::before {
+    content:""; display:block; width:38px; height:4px; margin:9px auto 0;
+    border-radius:99px; background:rgba(180,195,225,.35);
+  }
+  .pse-purchase-dialog > .pse-page { gap:14px; padding:14px 16px 18px; }
+  .pse-purchase-dialog .pse-page-head { flex-direction:row; align-items:flex-start; }
+  .pse-purchase-dialog .pse-page-actions { width:auto; }
+  .pse-purchase-dialog .pse-steps { grid-template-columns:repeat(5,minmax(0,1fr)); }
+  .pse-purchase-dialog .pse-step { padding:8px 3px; font-size:9px; overflow-wrap:anywhere; }
+  .pse-purchase-dialog .pse-facts { grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; }
+  .pse-purchase-dialog .pse-section-body > .pse-btn { width:100%; }
+  .pse-console-shell .pse-sheet {
+    top:auto; left:0; right:0; bottom:0; width:100%;
+    max-height: min(82dvh,720px); border-left:0; border-top:1px solid rgba(146,169,224,.2);
+    border-radius:20px 20px 0 0; padding-bottom:env(safe-area-inset-bottom);
+    animation:pse-sheet-enter .2s ease-out both;
+  }
+  .pse-console-shell .pse-sheet::before { content:""; width:38px; height:4px; flex:none; margin:8px auto 0; border-radius:99px; background:rgba(180,195,225,.35); }
+  .pse-console-shell .pse-sheet-head { padding:12px 15px; }
+  .pse-console-shell .pse-sheet-head .pse-strip-actions { width:100%; margin-left:0; justify-content:flex-end; }
+  .pse-console-shell .pse-sheet-body { padding:0 15px 20px; }
+}
+@media(max-width:360px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { grid-template-columns:64px minmax(0,1fr); gap:7px 9px; padding:10px; }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art { min-height:68px; }
+  .pse-stage[data-page="tools"] .pse-product-specs { gap:6px 8px; }
+  .pse-stage[data-page="tools"] .pse-product-spec dt { font-size:8px; }
+  .pse-purchase-dialog .pse-steps { display:none; }
+  .pse-purchase-dialog .pse-facts { grid-template-columns:minmax(0,1fr); }
+  .pse-console-shell .pse-sheet-head .pse-strip-actions .pse-btn { min-height:36px; padding-inline:9px; }
+}
+@keyframes pse-sheet-enter { from { transform:translateY(16px); opacity:.7; } to { transform:translateY(0); opacity:1; } }
+@media(prefers-reduced-motion:reduce) { .pse-purchase-dialog,.pse-console-shell .pse-sheet { animation:none!important; } }

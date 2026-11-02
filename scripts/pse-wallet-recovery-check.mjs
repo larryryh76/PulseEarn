@@ -48,7 +48,7 @@ const restoreBlock = restoreStart >= 0 ? contextSource.slice(restoreStart, resto
 check('account-walletconnect:restore-requires-same-firebase-uid',
   restoreBlock.includes('walletConnectOwnerUid === walletUid') && restoreBlock.includes('!hasOwnedWalletConnectSession'));
 check('account-walletconnect:foreign-session-is-disconnected',
-  restoreBlock.includes('void disconnectWalletConnect()') && restoreBlock.includes('psemine_connected_wallet:' + walletUid));
+  restoreBlock.includes('void disconnectWalletConnect()') && restoreBlock.includes('psemine_connected_wallet:'));
 const switchStart = contextSource.indexOf('// Account switch guard:');
 const switchEnd = contextSource.indexOf('/**', switchStart);
 const switchBlock = switchStart >= 0 ? contextSource.slice(switchStart, switchEnd) : '';

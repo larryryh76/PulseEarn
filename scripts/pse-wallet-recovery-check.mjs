@@ -59,6 +59,8 @@ const disconnectEnd = contextSource.indexOf('/** Fail-closed chain assertion', d
 const disconnectBlock = disconnectStart >= 0 ? contextSource.slice(disconnectStart, disconnectEnd) : '';
 check('account-walletconnect:explicit-disconnect-clears-global-owner',
   disconnectBlock.includes("localStorage.removeItem('psemine_walletconnect_owner_uid')"));
+check('account-wallet:explicit-disconnect-persists-account-tombstone',
+  disconnectBlock.includes('persistWallet(null)'));
 
 
 const NOW = Date.now();

@@ -473,7 +473,7 @@ const NotificationSheet: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   </span>
                   {n.message && <span className="pse-sheet-row-note">{n.message}</span>}
                   <span className="pse-sheet-row-meta">
-                    <time dateTime={n.createdAt}>{timeAgo(n.createdAt)}</time>
+                    <time dateTime={typeof n.createdAt === 'string' ? n.createdAt : undefined}>{timeAgo(n.createdAt)}</time>
                     {n.type && <span>{n.type}</span>}
                     {(['purchase', 'withdrawal', 'referral', 'campaign'] as string[]).includes(String(n.type || '')) && (
                       <button

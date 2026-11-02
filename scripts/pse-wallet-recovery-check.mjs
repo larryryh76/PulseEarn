@@ -49,11 +49,11 @@ check('account-walletconnect:restore-requires-same-firebase-uid',
   restoreBlock.includes('walletConnectOwnerUid === walletUid') && restoreBlock.includes('!hasOwnedWalletConnectSession'));
 check('account-walletconnect:foreign-session-is-disconnected',
   restoreBlock.includes('void disconnectWalletConnect()') && restoreBlock.includes('psemine_connected_wallet:') && restoreBlock.includes("localStorage.removeItem('psemine_walletconnect_owner_uid')"));
-const switchStart = contextSource.indexOf('// Account switch guard:');
-const switchEnd = contextSource.indexOf('/**', switchStart);
+const switchStart = contextSource.indexOf('Do not write a disconnect tombstone for the NEW UID here.');
+const switchEnd = contextSource.indexOf('}, [currentUser, persistWallet]);', switchStart);
 const switchBlock = switchStart >= 0 ? contextSource.slice(switchStart, switchEnd) : '';
 check('account-switch:memory-reset-does-not-delete-new-users-session',
-  switchBlock.includes('Do not write a disconnect tombstone for the NEW UID here') && !switchBlock.includes('persistWallet(null);'));
+  switchBlock.includes('restore effect owns validation') && !switchBlock.includes('persistWallet(null);'));
 const disconnectStart = contextSource.indexOf('const disconnectWallet = useCallback');
 const disconnectEnd = contextSource.indexOf('/** Fail-closed chain assertion', disconnectStart);
 const disconnectBlock = disconnectStart >= 0 ? contextSource.slice(disconnectStart, disconnectEnd) : '';

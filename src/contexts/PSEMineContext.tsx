@@ -719,8 +719,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     persistWallet(null);
     providerRef.current = null;
     transportRef.current = null;
+    walletNameRef.current = null;
     setWalletTransport(null);
     setWalletName(null);
+    setWalletChainId(null);
     clearWalletConnectHandoff();
     recordWalletStage('wallet_disconnected');
     setWalletRecoveryState('none');

@@ -712,8 +712,11 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     walletEventCleanupRef.current?.();
     walletEventCleanupRef.current = null;
     if (transportRef.current === 'walletConnect') {
-      await disconnectWalletConnect();
-      try { localStorage.removeItem('psemine_walletconnect_owner_uid'); } catch { /* storage unavailable */ }
+      try { await disconnectWalletConnect(); }
+      catch (error) { console.warn('[PSEMineContext] WalletConnect disconnect cleanup:', error); }
+      finally {
+        try { localStorage.removeItem('psemine_walletconnect_owner_uid'); } catch { /* storage unavailable */ }
+      }
     }
     setConnectedWallet(null);
     persistWallet(null);
@@ -817,6 +820,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Fail closed: stale/global WalletConnect session cannot cross Firebase
       // identities. Remove the binding and disconnect the origin-wide session.
       localStorage.removeItem(`psemine_connected_wallet:${walletUid}`);
+      localStorage.removeItem('psemine_walletconnect_owner_uid');
       void disconnectWalletConnect();
     }
 

@@ -716,7 +716,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try { localStorage.removeItem('psemine_walletconnect_owner_uid'); } catch { /* storage unavailable */ }
     }
     setConnectedWallet(null);
-    persistWallet(null);
+    // Do not call persistWallet(null) here: this effect runs after the restore
+    // effect for the NEW UID and would erase that account's saved session.
+    // The restore effect independently validates UID ownership and clears any
+    // stale origin-wide WalletConnect session before adopting it.
     providerRef.current = null;
     transportRef.current = null;
     setWalletTransport(null);

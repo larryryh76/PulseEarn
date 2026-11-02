@@ -38,6 +38,31 @@ const m = await import(pathToFileURL(path.join(tmpDir, 'pseWallet.mjs')).href);
 const results = [];
 const check = (name, pass, detail) => results.push({ name, pass: Boolean(pass), ...(detail === undefined ? {} : { detail }) });
 
+// ── Account identity isolation in the React context ───────────────────────
+// Source-contract checks cover the origin-wide AppKit session, which the
+// provider-only harness cannot instantiate without a browser/Reown runtime.
+const contextSource = fs.readFileSync('src/contexts/PSEMineContext.tsx', 'utf8');
+const restoreStart = contextSource.indexOf("const walletConnectOwnerUid = localStorage.getItem('psemine_walletconnect_owner_uid')");
+const restoreEnd = contextSource.indexOf('// A first-time WalletConnect handoff', restoreStart);
+const restoreBlock = restoreStart >= 0 ? contextSource.slice(restoreStart, restoreEnd) : '';
+check('account-walletconnect:restore-requires-same-firebase-uid',
+  restoreBlock.includes('walletConnectOwnerUid === walletUid') && restoreBlock.includes('!hasOwnedWalletConnectSession'));
+check('account-walletconnect:foreign-session-is-disconnected',
+  restoreBlock.includes('void disconnectWalletConnect()') && restoreBlock.includes('psemine_connected_wallet:') && restoreBlock.includes("localStorage.removeItem('psemine_walletconnect_owner_uid')"));
+const switchStart = contextSource.indexOf('// Account switch guard:');
+const switchEnd = contextSource.indexOf('/**', switchStart);
+const switchBlock = switchStart >= 0 ? contextSource.slice(switchStart, switchEnd) : '';
+check('account-switch:memory-reset-does-not-delete-new-users-session',
+  switchBlock.includes('Do not write a disconnect tombstone for the NEW UID here') && !switchBlock.includes('persistWallet(null);'));
+const disconnectStart = contextSource.indexOf('const disconnectWallet = useCallback');
+const disconnectEnd = contextSource.indexOf('/** Fail-closed chain assertion', disconnectStart);
+const disconnectBlock = disconnectStart >= 0 ? contextSource.slice(disconnectStart, disconnectEnd) : '';
+check('account-walletconnect:explicit-disconnect-clears-global-owner',
+  disconnectBlock.includes("localStorage.removeItem('psemine_walletconnect_owner_uid')"));
+check('account-wallet:explicit-disconnect-persists-account-tombstone',
+  disconnectBlock.includes('persistWallet(null)'));
+
+
 const NOW = Date.now();
 const ADDRESS = '0x1111111111111111111111111111111111111111';
 const bnAccount = (chain, address = ADDRESS) => `eip155:${chain}:${address}`;

@@ -642,6 +642,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return null;
       }
       const address = adoptConnection(connection);
+      // Bind the origin-wide Reown session to the Firebase identity that just
+      // completed an explicit wallet approval. Boot restore requires this marker.
+      if (currentUser?.uid) localStorage.setItem('psemine_walletconnect_owner_uid', currentUser.uid);
       localStorage.removeItem('psemine_wc_handoff_uid');
       setWalletRecoveryState('none');
       recordWalletStage('wallet_connected');
@@ -709,14 +712,20 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     walletEventCleanupRef.current?.();
     walletEventCleanupRef.current = null;
     if (transportRef.current === 'walletConnect') {
-      await disconnectWalletConnect();
+      try { await disconnectWalletConnect(); }
+      catch (error) { console.warn('[PSEMineContext] WalletConnect disconnect cleanup:', error); }
+      finally {
+        try { localStorage.removeItem('psemine_walletconnect_owner_uid'); } catch { /* storage unavailable */ }
+      }
     }
     setConnectedWallet(null);
     persistWallet(null);
     providerRef.current = null;
     transportRef.current = null;
+    walletNameRef.current = null;
     setWalletTransport(null);
     setWalletName(null);
+    setWalletChainId(null);
     clearWalletConnectHandoff();
     recordWalletStage('wallet_disconnected');
     setWalletRecoveryState('none');
@@ -800,7 +809,20 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return () => { cancelled = true; };
     }
     const stored = readAccountWalletSession(walletUid);
-    const wantsWalletConnect = stored?.transport === 'walletConnect' || Boolean(handoff);
+    // Reown/AppKit persists its session globally for this origin. A per-user
+    // address record alone is not authorization to adopt that global session:
+    // require the explicit owner marker written only after this UID approved it.
+    const walletConnectOwnerUid = localStorage.getItem('psemine_walletconnect_owner_uid');
+    const hasOwnedWalletConnectSession =
+      stored?.transport === 'walletConnect' && walletConnectOwnerUid === walletUid;
+    const wantsWalletConnect = hasOwnedWalletConnectSession || Boolean(handoff);
+    if (stored?.transport === 'walletConnect' && !hasOwnedWalletConnectSession && !handoff) {
+      // Fail closed: stale/global WalletConnect session cannot cross Firebase
+      // identities. Remove the binding and disconnect the origin-wide session.
+      localStorage.removeItem(`psemine_connected_wallet:${walletUid}`);
+      localStorage.removeItem('psemine_walletconnect_owner_uid');
+      void disconnectWalletConnect();
+    }
 
     // A first-time WalletConnect handoff returns by RELOADING this page, before
     // the original connect can persist its wallet record. Only a recent pairing
@@ -1113,7 +1135,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (lastUidRef.current === uid) return;
     lastUidRef.current = uid;
     setConnectedWallet(null);
-    persistWallet(null);
+    // Do not write a disconnect tombstone for the NEW UID here. The restore
+    // effect owns validation and must be allowed to read that account's record.
     providerRef.current = null;
     transportRef.current = null;
     walletNameRef.current = null;

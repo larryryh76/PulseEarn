@@ -451,7 +451,7 @@ export const PSEMineTools: React.FC = () => {
               const remaining = Math.max(0, tool.maxPerUser - owned);
               const continuous = dutyOf(tool) === 'continuous';
               return (
-                <article className="pse-product" key={tool.id} data-product-index={index + 1}>
+                <article className="pse-product" key={tool.id} data-product-index={index + 1} data-state={atLimit ? 'locked' : purchaseOpen ? 'available' : 'unavailable'} data-owned={owned > 0 ? 'true' : 'false'}>
                   <ToolArt tier={tool.tier} name={tool.name} />
                   <div className="pse-product-id">
                     <h3 className="pse-product-name">
@@ -488,12 +488,12 @@ export const PSEMineTools: React.FC = () => {
                   </dl>
 
                   <div className="pse-product-actions">
-                    <span className="pse-product-avail">
+                    <span className="pse-product-avail" data-state={atLimit ? 'locked' : purchaseOpen ? 'available' : 'unavailable'}>
                       {atLimit
-                        ? 'Limit reached'
+                        ? 'Ownership limit reached'
                         : purchaseOpen
                           ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
-                          : walletSetupRequired ? 'Receiving wallet setup pending' : 'Campaign purchases closed'}
+                          : walletSetupRequired ? 'Wallet setup pending' : 'Campaign purchases closed'}
                     </span>
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>
@@ -1147,6 +1147,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     ) : (
     <div
       role="presentation"
+      className="pse-purchase-overlay"
       style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))', background: 'rgba(3, 7, 18, .82)', backdropFilter: 'blur(12px)' }}
     >
       <div
@@ -1154,6 +1155,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         role="dialog"
         aria-modal="true"
         aria-label={`Purchase ${tool.name}`}
+        className="pse-purchase-dialog"
         tabIndex={-1}
         style={{ width: 'min(100%, 820px)', maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain', border: '1px solid rgba(129, 156, 210, .22)', borderRadius: 22, background: '#080e1b', boxShadow: '0 28px 100px rgba(0,0,0,.6)', outline: 'none' }}
       >

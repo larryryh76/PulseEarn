@@ -6785,7 +6785,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
     """Verify BSC transaction on-chain via JSON-RPC.
     Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
+    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
 
     try:
@@ -7015,6 +7015,7 @@ def psemine_get_tools():
 @require_db
 def psemine_create_order():
     """Create locked BNB purchase quote for a PSEmine mining tool."""
+    return jsonify({"success": False, "error": "LEGACY_PAYMENT_DISABLED", "message": "This legacy purchase route is retired. Start a direct BNB purchase from the PSEmine Tools page."}), 410
     try:
         db = get_db()
         # (Phase 3A) This handler no longer bootstraps canonical data: creation
@@ -7158,6 +7159,7 @@ def psemine_create_order():
 @require_db
 def psemine_verify_payment():
     """Verify BSC transaction on-chain and trigger ownership, session, referral, and notification pipeline."""
+    return jsonify({"success": False, "error": "LEGACY_PAYMENT_DISABLED", "message": "This legacy payment verifier is retired. Use the current purchase flow."}), 410
     db = get_db()
     uid = request.user['uid']
     data = request.json or {}
@@ -7911,7 +7913,7 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             return jsonify({'success': False, 'error': 'PAYOUT_DESTINATION_MISSING', 'message': 'The request has no recorded payout destination; it cannot be approved.'}), 409
         try:
             import json as _json
-            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.binance.org/')
+            rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL', 'https://bsc-dataseed.bnbchain.org')
             def _rpc(method, params):
                 body = _json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode('utf-8')
                 request = urllib.request.Request(rpc_url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
@@ -8227,6 +8229,7 @@ def generate_psemine_tool_quote():
 
     quote = {
         "quoteId": quote_id,
+        "walletProofNonce": uuid.uuid4().hex,
         "userId": uid,
         "toolId": tool_id,
         "toolVersion": tool_cfg['version'],
@@ -8287,6 +8290,9 @@ def verify_psemine_tool_purchase():
     purchase = purchase_snap.to_dict() or {}
     if purchase.get('userId') != uid:
         return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
+    if purchase.get('walletProofVerified') is not True:
+        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
+                        "message": "This purchase has no verified wallet-ownership proof. Request a fresh quote and sign the free ownership message before paying."}), 409
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
@@ -8965,6 +8971,33 @@ def admin_campaign_action():
         return jsonify({"success": True, "action": action, "receiverWalletAddress": receiver_address,
                         "appliesTo": "new_quotes_only", "existingQuotesPreserved": True, "timestamp": now_iso})
 
+    if action == 'set_purchase_enabled':
+        enabled = data.get('enabled')
+        if not isinstance(enabled, bool):
+            return jsonify({"success": False, "error": "INVALID_PURCHASE_GATE",
+                            "message": "Provide an explicit true or false value."}), 400
+        if enabled:
+            configured_receiver = _configured_psemine_receiver_wallet(camp_before)
+            if not configured_receiver:
+                return jsonify({"success": False, "error": "RECEIVER_WALLET_NOT_CONFIGURED",
+                                "message": "Confirm the campaign receiving wallet before enabling purchases."}), 409
+        now_iso = datetime.now(timezone.utc).isoformat()
+        camp_ref.update({
+            "purchaseEnabled": enabled,
+            "purchaseEnabledUpdatedAt": now_iso,
+            "purchaseEnabledUpdatedBy": uid,
+            "updatedAt": now_iso,
+        })
+        db.collection('admin_audit_logs').add({
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "adminId": uid,
+            "action": "PSEMINE_PURCHASE_GATE_UPDATED",
+            "targetEntity": "psemine_campaigns/active_campaign",
+            "metadata": {"enabled": enabled, "receiverWalletConfigured": bool(_configured_psemine_receiver_wallet(camp_before))},
+        })
+        return jsonify({"success": True, "action": action, "purchaseEnabled": enabled,
+                        "timestamp": now_iso})
+
     if action == 'schedule':
         # Scheduling is an explicit restart of the live window, not a balance
         # reset. Existing user balances, ownerships, purchases and audit records
@@ -9244,6 +9277,7 @@ def mine_state():
                 'toolName': pd.get('toolName'),
                 'status': pd.get('status'),
                 'quoteId': pd.get('quoteId'),
+                'walletProofNonce': pd.get('walletProofNonce'),
                 'paymentWallet': pd.get('paymentWallet'),
                 'receiverWallet': pd.get('receiverWallet'),
                 'quotedBNBAmount': pd.get('quotedBNBAmount'),
@@ -9475,6 +9509,17 @@ def mine_create_purchase():
     except Exception:
         return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
 
+    wallet_signature = (data.get('walletSignature') or '').strip()
+    try:
+        from psemine_wallet_proof import verify_psemine_wallet_proof
+        wallet_proof_valid = verify_psemine_wallet_proof(uid, q, payment_wallet, wallet_signature)
+    except Exception:
+        logging.exception('[PSEmine] wallet ownership proof verification failed')
+        wallet_proof_valid = False
+    if not wallet_proof_valid:
+        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
+                        "message": "Sign the free wallet-ownership message in your connected wallet before creating this purchase. No funds are transferred by that signature."}), 403
+
     tool_id = q.get('toolId')
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
     if not tool_cfg:
@@ -9488,9 +9533,9 @@ def mine_create_purchase():
         return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
 
     # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
-    # The binding is written here, before the wallet is asked to sign anything;
-    # a later create call must never be able to move it to another wallet — that
-    # binding is what the on-chain sender is compared against at verification.
+    # The quote-bound EIP-191 proof was verified above. Persist this immutable
+    # payer binding before the value-transfer request; later create calls may
+    # never move it to another wallet, and on-chain sender checks use this value.
     # The decision itself is a pure, unit-tested function.
     manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
     if manual_review_rows:
@@ -9514,7 +9559,26 @@ def mine_create_purchase():
             stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
         )
         if action == 'reuse':
+            if stored.get('walletProofVerified') is not True:
+                db.collection('psemine_purchases').document(e.id).update({
+                    'walletProofVerified': True,
+                    'walletProofNonce': q.get('walletProofNonce'),
+                    'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+                })
+                stored['walletProofVerified'] = True
+                stored['walletProofNonce'] = q.get('walletProofNonce')
             return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
+        if stored.get('walletProofVerified') is not True:
+            if stored.get('transactionHash') or stored.get('txHash'):
+                return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
+                                "message": "A legacy purchase has transaction evidence but no verified wallet-ownership proof. Do not pay again; request payment recovery review.",
+                                "purchaseId": e.id}), 409
+            db.collection('psemine_purchases').document(e.id).update({
+                'status': 'superseded',
+                'statusMessage': 'Legacy unproven intent superseded by the wallet-ownership proof flow.',
+                'supersededAt': firestore.SERVER_TIMESTAMP,
+            })
+            continue
         if action == 'rebind_forbidden':
             return jsonify({
                 "success": False,
@@ -9545,6 +9609,9 @@ def mine_create_purchase():
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
+        'walletProofVerified': True,
+        'walletProofNonce': q.get('walletProofNonce'),
+        'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
         'transactionHash': None,
         'network': 'BNB Smart Chain',
         'chainId': PSEMINE_BSC_CHAIN_ID,

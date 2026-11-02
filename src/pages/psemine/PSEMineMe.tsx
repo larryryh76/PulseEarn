@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
+import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -24,6 +25,7 @@ import { mapAuthError } from '../../utils/errors';
  */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout, hasPSEmineAccess } = usePSEMineAuth();
+  const { connectedWallet, walletTransport } = usePSEMine();
   const { state, campaignStatus, loading, activities, notifications, feedErrors, refreshFeed } = usePseState();
   const navigate = useNavigate();
 
@@ -35,7 +37,6 @@ export const PSEMineMe: React.FC = () => {
   const [pwError, setPwError] = useState<string | null>(null);
 
   const payoutWallet = state?.user?.payoutWallet ?? null;
-  const connectedWallet = state?.user?.connectedWallet ?? null;
   const isPasswordAccount = (currentUser?.providerData || []).some(p => p.providerId === 'password');
 
   const handleLogout = async () => {
@@ -188,8 +189,8 @@ export const PSEMineMe: React.FC = () => {
                 label="Connected wallet"
                 value={walletsPending
                   ? <PseSkeleton width="9ch" height="0.875rem" />
-                  : connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}
-                text={!walletsPending && !connectedWallet}
+                  : connectedWallet ? `${shortAddr(connectedWallet)}${walletTransport === 'walletConnect' ? ' · WalletConnect' : ''}` : 'Not connected'}
+                text={!walletsPending}
               />
               <PseFact
                 label="Payout wallet"

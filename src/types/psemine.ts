@@ -50,12 +50,13 @@ export interface PSEMineCampaign {
   paymentNetwork: 'BNB Smart Chain';
   paymentChainId: number; // 56 for Mainnet, 97 for Testnet
   paymentAsset: 'BNB';
-  receiverWalletAddress: string;
   /** Derived by the public campaign projection; absent on raw Firestore documents. */
   purchaseReady?: boolean;
   receiverWalletConfigured?: boolean;
   receiverWalletConfiguredAt?: string | null;
   receiverWalletConfiguredBy?: string | null;
+  /** Public projection of the admin-confirmed campaign purchase receiver. */
+  receiverWalletAddress?: string;
   walletChangeDeadline: string; // Cutoff before settlement
   purchaseEnabled: boolean;
   miningEnabled: boolean;
@@ -86,7 +87,6 @@ export interface PSEMineUser {
   totalAccruedGBP: number;            // Authoritative server-accrued GBP
   lastAccruedAt: string;              // ISO timestamp of last accrual calculation
   miningStartedAt: string | null;
-  connectedWallet: string | null;     // 0x...
   payoutWallet: string | null;        // 0x...
   payoutWalletUpdatedAt: string | null;
   qualifiedReferralsCount: number;    // 0 - 5
@@ -127,28 +127,40 @@ export interface PSEMinePurchase {
   userId: string;
   toolId: PSEToolTierId;
   toolName: string;
-  toolVersion: number;
-  quoteId: string;
-  quotedGBPAmount: number;
-  quotedBNBAmount: number;
-  exchangeRateBNBGBP: number;
-  receiverWallet: string;
-  paymentWallet: string | null;
-  transactionHash: string | null;
-  network: string;
   status: PSEMinePurchaseStatus;
+  paymentSource?: 'hosted_crypto' | 'direct_bsc_legacy';
+  provider?: string;
+  providerInvoiceId?: string;
+  providerPaymentId?: string;
+  paymentAsset?: string;
+  paymentNetwork?: string;
+  actualPaidAmount?: string;
+  actualPaidCurrency?: string;
+  priceMinor?: number;
+  priceGBP?: number;
+  priceAmount?: string;
+  priceCurrency?: string;
+  toolVersion?: number;
+  quoteId?: string;
+  walletProofNonce?: string;
+  quotedGBPAmount?: number;
+  quotedBNBAmount?: number;
+  exchangeRateBNBGBP?: number;
+  receiverWallet?: string;
+  paymentWallet?: string | null;
+  transactionHash?: string | null;
+  network?: string;
   statusMessage?: string;
-  confirmations: number;
-  requiredConfirmations: number;
+  confirmations?: number;
+  requiredConfirmations?: number;
   createdAt: string;
-  expiresAt: string;
+  expiresAt?: string;
   confirmedAt: string | null;
   activatedAt: string | null;
 }
 
 export type PSEMineReferralStage =
   | 'registered'
-  | 'wallet_connected'
   | 'tool_purchased'
   | 'mining_active'
   | 'qualified'
@@ -229,6 +241,7 @@ export interface PSEMineActivity {
 
 export interface PSEMineQuote {
   quoteId: string;
+  walletProofNonce: string;
   userId: string;
   toolId: PSEToolTierId;
   toolVersion: number;

@@ -551,13 +551,17 @@ const run = async () => {
       && walletConnectRoute.sendCount === 1 && walletConnectRoute.rejected === true,
   });
 
-  // 10. PURCHASE-FLOW ORDER (source order of the real handler): bind the payer
-  //     BEFORE the wallet is asked to sign, guard the payer, then send, then
-  //     submit the hash. A regression here is what let wallet B become the
-  //     payer of wallet A's quote.
+  // 10. PURCHASE-FLOW ORDER: the wallet signs a quote/account-bound message,
+  //     the backend verifies it during intent binding, then the UI rechecks the
+  //     payer and sends exactly once before submitting the transaction hash.
   const toolsSrc = fs.readFileSync(path.join(process.cwd(), 'src/pages/psemine/PSEMineTools.tsx'), 'utf8');
+  const contextSrc = fs.readFileSync(path.join(process.cwd(), 'src/contexts/PSEMineContext.tsx'), 'utf8');
   const payStart = toolsSrc.indexOf('const payNow = async () => {');
   const payBody = payStart === -1 ? '' : toolsSrc.slice(payStart, toolsSrc.indexOf('\n  };', payStart));
+  const bindStart = contextSrc.indexOf('const bindPurchaseIntent');
+  const bindBody = bindStart === -1 ? '' : contextSrc.slice(bindStart, contextSrc.indexOf('\n  }, [currentUser, connectedWallet', bindStart));
+  const iProof = bindBody.indexOf("method: 'personal_sign'");
+  const iIntent = bindBody.indexOf('createPurchaseIntent(quote, connectedWallet, walletSignature)');
   const iBind = payBody.indexOf('bindPurchaseIntent');
   const iGuard = payBody.indexOf('resolvePaymentPayer');
   const iSend = payBody.indexOf('sendPayment(');
@@ -566,13 +570,13 @@ const run = async () => {
   const iRetryGate = payBody.indexOf('canRetryPayment');
   step('purchase-flow-order', {
     foundPayNow: payStart !== -1,
-    bindBeforeSign: iBind !== -1 && iSend !== -1 && iBind < iSend,
+    ownershipProofBeforeIntent: iProof !== -1 && iIntent > iProof,
     payerGuardBetweenBindAndSend: iGuard > iBind && iGuard < iSend,
     hashSubmittedAfterSend: iSubmit > iSend,
     ambiguousBranchHandled: iUncertain > iSend,
     retryGatePresent: iRetryGate !== -1 && iRetryGate < iBind,
-    pass: payStart !== -1 && iBind !== -1 && iGuard !== -1 && iSend !== -1 && iSubmit !== -1
-      && iBind < iGuard && iGuard < iSend && iSend < iSubmit
+    pass: payStart !== -1 && iProof !== -1 && iIntent > iProof && iBind !== -1
+      && iGuard > iBind && iSend > iGuard && iSubmit > iSend
       && iUncertain > iSend && iRetryGate !== -1 && iRetryGate < iBind,
   });
 

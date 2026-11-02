@@ -100,6 +100,7 @@ export interface PsePendingPurchase {
   toolName?: string;
   status?: string;
   quoteId?: string;
+  walletProofNonce?: string;
   paymentWallet?: string | null;
   receiverWallet?: string;
   quotedBNBAmount?: number;

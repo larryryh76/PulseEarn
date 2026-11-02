@@ -98,10 +98,9 @@ export function purchaseStatusView(status?: string | null) {
 /* ── Referral qualification stages (backend referral machine) ─────────── */
 export const REFERRAL_STAGE_MAP: Record<string, { label: string; step: number; help: string }> = {
   registered: { label: 'Registered', step: 1, help: 'Signed up with your referral code. No capacity yet.' },
-  wallet_connected: { label: 'Wallet connected', step: 2, help: 'Connected a BNB Smart Chain wallet. Not yet earning for you.' },
-  tool_purchased: { label: 'Tool purchased', step: 3, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
-  mining_active: { label: 'Mining active', step: 4, help: 'Mining is live. Qualification settles on the backend shortly.' },
-  qualified: { label: 'Qualified', step: 5, help: 'Qualified — added capacity to your account.' },
+  tool_purchased: { label: 'Tool purchased', step: 2, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
+  mining_active: { label: 'Mining active', step: 3, help: 'Mining is live. Qualification settles on the backend shortly.' },
+  qualified: { label: 'Qualified', step: 4, help: 'Qualified — added capacity to your account.' },
   rejected: { label: 'Rejected', step: 0, help: 'This referral did not qualify.' },
 };
 
@@ -111,7 +110,6 @@ export function referralStageView(stage?: string | null) {
 
 export const REFERRAL_STAGES = [
   { id: 'registered', label: 'Registered' },
-  { id: 'wallet_connected', label: 'Wallet connected' },
   { id: 'tool_purchased', label: 'Tool purchased' },
   { id: 'mining_active', label: 'Mining active' },
   { id: 'qualified', label: 'Qualified' },

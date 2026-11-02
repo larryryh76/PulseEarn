@@ -222,10 +222,6 @@ CAMPAIGN_DOC = {
     "startAt": "2026-09-01T00:00:00+00:00",
     "endAt": "2026-11-30T00:00:00+00:00",
     "currencyDisplay": "GBP",
-    "paymentAsset": "BNB",
-    "paymentNetwork": "BNB Smart Chain",
-    "paymentChainId": 56,
-    "receiverWalletAddress": "0x2222222222222222222222222222222222222222",
     "purchaseEnabled": True,
     "miningEnabled": True,
     "referralEnabled": True,
@@ -373,9 +369,10 @@ class TestPublicPayloadsAreAllowListed(PublicReadHarness):
                         "canonicalAlias", "createdAt", "updatedAt", "description"):
             self.assertNotIn(private, body["tools"][0])
 
-    def test_receiver_wallet_stays_public_for_payers(self):
+    def test_legacy_receiver_wallet_is_not_public_for_hosted_checkout(self):
         body = self.index.psemine_get_campaigns().get_json()
-        self.assertIn("receiverWalletAddress", body["campaigns"][0])
+        self.assertNotIn("receiverWalletAddress", body["campaigns"][0])
+        self.assertNotIn("paymentChainId", body["campaigns"][0])
 
     def test_projection_functions_ignore_unknown_future_fields(self):
         future = dict(CAMPAIGN_DOC)
@@ -512,7 +509,7 @@ class TestNoReadPathInitializesCanonicalData(unittest.TestCase):
                       if rule == "/api/admin/mine/campaign/action")
         body = ast.get_source_segment(self.source, action)
         self.assertIn("is_admin", body)
-        self.assertIn("action == 'set_receiver_wallet'", body)
+        self.assertIn("action == 'set_purchase_enabled'", body)
 
     def test_setup_route_is_admin_gated_and_never_get(self):
         for rule, methods, node in self._routes():

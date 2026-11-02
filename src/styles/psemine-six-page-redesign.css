@@ -347,3 +347,58 @@
 .pse-stage[data-page="account"] .pse-statbar { margin-bottom:0; }
 .pse-stage[data-page="account"] .pse-account-badges > span { border-radius:999px; padding:5px 9px; font-size:10px; }
 .pse-stage[data-page="account"] .pse-account-shortcut-arrow { color:#8da8f9; }
+
+/* Final shared product polish: presentation only. */
+.pse-console-shell {
+  --pse-bg: #070910; --pse-surface: #0d1320; --pse-surface-2: #121a2a;
+  --pse-rule: rgba(180,196,232,.13); --pse-rule-2: rgba(180,196,232,.23);
+  --pse-ink: #f5f7ff; --pse-ink-2: #aeb9d0; --pse-ink-3: #7d8aa4;
+  --pse-accent: #8f8bff; --pse-accent-strong: #716cff; --pse-cyan: #58ddf2;
+  --pse-danger: #ff718c; --pse-amber: #f2bd68; --pse-radius: 16px;
+  background-color: var(--pse-bg);
+}
+.pse-console-shell .pse-stage, .pse-console-shell .pse-page, .pse-console-shell .pse-console-main { min-width: 0; }
+.pse-console-shell :is(.pse-btn,.pse-icon-btn,.pse-dock-link,.pse-nav-link,.pse-bar-account) { min-height: 44px; }
+.pse-console-shell .pse-icon-btn, .pse-console-shell .pse-bar-account { width: 44px; min-width: 44px; }
+.pse-console-shell :is(input,select,textarea) { min-height: 44px; }
+.pse-console-shell :is(a,button,input,select,textarea):focus-visible { outline: 2px solid var(--pse-accent); outline-offset: 3px; }
+.pse-console-shell :is(.pse-block,.pse-section,.pse-product,.pse-w-action,.pse-account-metric) { border-color: var(--pse-rule); box-shadow: inset 0 1px rgba(255,255,255,.025), 0 16px 36px rgba(0,0,0,.12); }
+.pse-console-shell .pse-btn:not(.pse-btn--secondary) { background: linear-gradient(135deg,#7e79ff,#625de9); border-color: rgba(181,180,255,.28); }
+.pse-console-shell .pse-btn--secondary { background: rgba(255,255,255,.035); border-color: var(--pse-rule-2); }
+.pse-console-shell .pse-sheet { background: #0b111d; border-left-color: var(--pse-rule-2); }
+.pse-console-shell .pse-guide { background: #0b111d; border-color: var(--pse-rule-2); }
+.pse-console-shell .pse-dock { background: rgba(7,10,17,.96); border-top-color: var(--pse-rule-2); }
+@media (max-width:620px) {
+  .pse-console-shell .pse-stage { padding-inline: 14px; padding-top: 18px; }
+  .pse-console-shell .pse-page { gap: 18px; }
+  .pse-console-shell .pse-page-head { gap: 12px; padding-bottom: 16px; }
+  .pse-console-shell .pse-page-title,.pse-console-shell .pse-dash-title,.pse-console-shell .pse-w-title { font-size: clamp(27px,8vw,36px); }
+  .pse-console-shell .pse-page-objective { font-size: 12px; line-height: 1.6; }
+  .pse-console-shell .pse-block,.pse-console-shell .pse-section { border-radius: 14px; padding: 15px; }
+  .pse-console-shell .pse-statbar { gap: 8px; border: 0; background: transparent; overflow: visible; }
+  .pse-console-shell .pse-stat { border: 1px solid var(--pse-rule); border-radius: 13px; background: var(--pse-surface); padding: 13px; }
+  .pse-console-shell .pse-stat + .pse-stat { border-left: 1px solid var(--pse-rule); }
+  .pse-console-shell .pse-stat-value,.pse-console-shell .pse-stat-val { font-size: 18px; }
+  .pse-console-shell .pse-account-band,.pse-console-shell .pse-w-hero,.pse-console-shell .pse-marketplace-hero,.pse-console-shell .pse-invite { border-radius: 17px; }
+  .pse-console-shell .pse-account-main,.pse-console-shell .pse-w-hero { padding: 19px; }
+  .pse-console-shell .pse-account-figure,.pse-console-shell .pse-w-hero-figure { font-size: clamp(34px,11vw,49px); overflow-wrap: anywhere; }
+  .pse-console-shell .pse-account-actions { gap: 8px; }
+  .pse-console-shell .pse-account-actions > * { flex: 1 1 0; min-width: 0; }
+  .pse-console-shell .pse-toolbar { padding: 12px; border-radius: 13px; }
+  .pse-console-shell .pse-toolbar .pse-field { flex-basis: 100%; }
+  .pse-console-shell .pse-toolbar > .pse-btn { flex: 1 1 0; }
+  .pse-console-shell .pse-sheet { top: auto; left: 0; width: 100%; max-height: min(86vh,720px); border: 0; border-top: 1px solid var(--pse-rule-2); border-radius: 20px 20px 0 0; }
+  .pse-console-shell .pse-sheet-head { padding: 16px; }
+  .pse-console-shell .pse-sheet-body { padding-inline: 16px; }
+  .pse-console-shell .pse-guide { inset: 0; border: 0; border-radius: 0; }
+}
+@media (max-width:359px) {
+  .pse-console-shell .pse-stage { padding-inline: 12px; }
+  .pse-console-shell .pse-bar-inner { padding-inline: 12px; }
+  .pse-console-shell .pse-stat { padding: 11px; }
+  .pse-console-shell .pse-stat-key { font-size: 9px; }
+  .pse-console-shell .pse-account-actions { display: grid; grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .pse-console-shell *,.pse-console-shell *::before,.pse-console-shell *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+}

@@ -25,7 +25,8 @@ import { mapAuthError } from '../../utils/errors';
  */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout, hasPSEmineAccess } = usePSEMineAuth();
-  const { connectedWallet, walletTransport } = usePSEMine();
+  const { connectedWallet, walletTransport, disconnectWallet } = usePSEMine();
+  const [disconnectingWallet, setDisconnectingWallet] = useState(false);
   const { state, campaignStatus, loading, activities, notifications, feedErrors, refreshFeed } = usePseState();
   const navigate = useNavigate();
 
@@ -42,6 +43,14 @@ export const PSEMineMe: React.FC = () => {
   const handleLogout = async () => {
     try { await logout(); navigate('/mine/login', { replace: true }); }
     catch { toast.error('Sign out failed. Please try again.'); }
+  };
+
+  const handleWalletDisconnect = async () => {
+    if (!connectedWallet || disconnectingWallet) return;
+    setDisconnectingWallet(true);
+    try { await disconnectWallet(); }
+    catch { toast.error('Could not disconnect this wallet. Please try again.'); }
+    finally { setDisconnectingWallet(false); }
   };
 
   const changePassword = async (e: React.FormEvent) => {
@@ -206,6 +215,11 @@ export const PSEMineMe: React.FC = () => {
             </p>
             <div className="pse-actions">
               <Link to="/mine/wallet" className="pse-btn pse-btn--secondary pse-btn--sm">Manage wallets</Link>
+              {connectedWallet && (
+                <PseButton tone="danger" variant="secondary" size="sm" disabled={disconnectingWallet} onClick={() => void handleWalletDisconnect()}>
+                  {disconnectingWallet ? 'Disconnecting…' : 'Disconnect wallet'}
+                </PseButton>
+              )}
             </div>
           </PseSection>
 

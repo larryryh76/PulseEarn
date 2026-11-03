@@ -182,3 +182,57 @@
 }
 @keyframes pse-sheet-enter { from { transform:translateY(16px); opacity:.7; } to { transform:translateY(0); opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .pse-purchase-dialog,.pse-console-shell .pse-sheet { animation:none!important; } }
+
+
+/* PSEmine Tools checkout handoff — clear, calm wallet-approval state. */
+.pse-console-shell .pse-wallet-wait {
+  position:relative; overflow:hidden; isolation:isolate; display:grid; justify-items:center;
+  gap:13px; padding:clamp(22px,5vw,42px) clamp(16px,4vw,34px);
+  border:1px solid rgba(105,145,255,.28); border-radius:20px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(82,112,255,.17),transparent 58%),linear-gradient(145deg,#101b32,#0a101e 72%);
+  text-align:center;
+}
+.pse-console-shell .pse-wallet-wait-orbit {
+  width:62px; height:62px; display:grid; place-items:center; border-radius:50%;
+  border:1px solid rgba(107,151,255,.35); box-shadow:0 0 0 8px rgba(93,128,255,.055),0 0 35px rgba(80,116,255,.13);
+}
+.pse-console-shell .pse-wallet-wait-orbit > span {
+  width:17px; height:17px; border-radius:50%; background:#7f9fff;
+  box-shadow:0 0 22px rgba(105,147,255,.9); animation:pse-wallet-pulse 1.5s ease-in-out infinite;
+}
+.pse-console-shell .pse-wallet-wait-kicker {
+  margin:3px 0 0; color:#91aaff; font-size:10px; font-weight:800; letter-spacing:.16em;
+}
+.pse-console-shell .pse-wallet-wait h3 {
+  margin:0; color:#f2f5ff; font-size:clamp(20px,3vw,27px); letter-spacing:-.045em;
+}
+.pse-console-shell .pse-wallet-wait > p:not(.pse-wallet-wait-kicker):not(.pse-block-meta) {
+  max-width:520px; margin:0; color:#b3c0d9; font-size:13px; line-height:1.65;
+}
+.pse-console-shell .pse-wallet-wait ol {
+  display:grid; gap:9px; width:min(100%,490px); margin:5px 0; padding:0; list-style:none; text-align:left;
+  counter-reset:wallet-step;
+}
+.pse-console-shell .pse-wallet-wait li {
+  position:relative; padding:11px 13px 11px 43px; border:1px solid rgba(153,177,224,.12);
+  border-radius:11px; background:rgba(4,9,19,.48); color:#c4cee2; font-size:12px; line-height:1.5;
+  counter-increment:wallet-step;
+}
+.pse-console-shell .pse-wallet-wait li::before {
+  content:counter(wallet-step,decimal-leading-zero); position:absolute; left:13px; top:11px;
+  color:#8ca8ff; font-size:10px; font-weight:800;
+}
+.pse-console-shell .pse-wallet-wait-note {
+  width:min(100%,490px); padding:12px 14px; border:1px solid rgba(242,184,96,.2);
+  border-radius:11px; background:rgba(177,119,36,.08); color:#d5c7a9; font-size:11px; line-height:1.55;
+  text-align:left;
+}
+.pse-console-shell .pse-wallet-wait-note strong { color:#f4d49c; }
+.pse-console-shell .pse-wallet-wait .pse-block-meta { margin:0; color:#8394b3; font-size:10px; }
+@keyframes pse-wallet-pulse { 50% { transform:scale(.72); opacity:.65; } }
+@media (prefers-reduced-motion:reduce) {
+  .pse-console-shell .pse-wallet-wait-orbit > span { animation:none; }
+}
+@media (max-width:480px) {
+  .pse-console-shell .pse-wallet-wait { border-radius:15px; padding:22px 14px; }
+}

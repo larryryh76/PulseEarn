@@ -140,7 +140,7 @@ export const PSEMineMe: React.FC = () => {
               </PseNotice>
             )}
             {activities.length === 0 ? (
-              <PseEmptyNote title="No activity records loaded">
+              <PseEmptyNote title={feedErrors.activities ? "Activity unavailable" : "No activity yet"}>
                 Purchases, wallet changes, referral milestones and campaign events appear here when the backend records them.
               </PseEmptyNote>
             ) : (

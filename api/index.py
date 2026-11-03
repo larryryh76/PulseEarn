@@ -9509,16 +9509,12 @@ def mine_create_purchase():
     except Exception:
         return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
 
-    wallet_signature = (data.get('walletSignature') or '').strip()
-    try:
-        from psemine_wallet_proof import verify_psemine_wallet_proof
-        wallet_proof_valid = verify_psemine_wallet_proof(uid, q, payment_wallet, wallet_signature)
-    except Exception:
-        logging.exception('[PSEmine] wallet ownership proof verification failed')
-        wallet_proof_valid = False
-    if not wallet_proof_valid:
-        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
-                        "message": "Sign the free wallet-ownership message in your connected wallet before creating this purchase. No funds are transferred by that signature."}), 403
+    # The wallet's signed native BNB transaction is the payer proof. Do not
+    # require a separate personal_sign prompt: it is not a payment and has
+    # caused mobile WalletConnect sessions to stop before eth_sendTransaction.
+    # The immutable payer binding below is still enforced against the on-chain
+    # transaction sender during canonical verification.
+    
 
     tool_id = q.get('toolId')
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)

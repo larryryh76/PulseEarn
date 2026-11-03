@@ -393,7 +393,7 @@ export const PSEMineWallet: React.FC = () => {
               <PseSection title="Payment and payout networks">
                 <dl className="pse-w-net">
                   <div className="pse-w-net-row"><span className="pse-w-net-key">Tool purchases</span><span className="pse-w-net-val">Direct wallet payment</span></div>
-                  <div className="pse-w-net-row"><span className="pse-w-net-key">Wallet connection</span><span className="pse-w-net-val">WalletConnect required at checkout</span></div>
+                  <div className="pse-w-net-row"><span className="pse-w-net-key">Wallet connection</span><span className="pse-w-net-val">Compatible wallet connection at checkout</span></div>
                   <div className="pse-w-net-row"><span className="pse-w-net-key">Payout asset</span><span className="pse-w-net-val">BNB</span></div>
                   <div className="pse-w-net-row"><span className="pse-w-net-key">Payout network</span><span className="pse-w-net-val">BNB Smart Chain</span></div>
                 </dl>

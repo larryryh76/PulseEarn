@@ -1405,11 +1405,29 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Step: verifying ── */}
       {!showingRecovery && step === 'verifying' && (
-        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Waiting for wallet approval' : 'Preparing secure payment'}>
-          <p className="pse-prose" role="status" aria-live="polite">
-            {paymentProgress} Keep this page and your wallet open. If the wallet prompt does not appear, return to the wallet app and check pending requests before retrying. Do not approve twice.
-          </p>
-          <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Your wallet is opening' : 'Preparing secure payment'}>
+          {submissionState === 'SUBMISSION_IN_PROGRESS' ? (
+            <div className="pse-wallet-wait" role="status" aria-live="polite">
+              <span className="pse-wallet-wait-orbit" aria-hidden="true"><span /></span>
+              <p className="pse-wallet-wait-kicker">ACTION REQUIRED IN YOUR WALLET</p>
+              <h3>Approve the payment request</h3>
+              <p>{paymentProgress}</p>
+              <ol>
+                <li>Wait for your wallet app or wallet notification to open.</li>
+                <li>Check that the network is BNB Smart Chain and the amount and recipient match this quote.</li>
+                <li>Approve only if the details are correct, then return to this page.</li>
+              </ol>
+              <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Wallet handoff can take a little time. Do not tap Pay again or approve a duplicate request. If you reject the request, no payment is made.</div>
+              <p className="pse-block-meta">Wallet request in progress · no payment is confirmed yet</p>
+            </div>
+          ) : (
+            <div className="pse-wallet-wait">
+              <span className="pse-wallet-wait-orbit" aria-hidden="true"><span /></span>
+              <h3>Preparing your secure payment</h3>
+              <p role="status" aria-live="polite">{paymentProgress}</p>
+              <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+            </div>
+          )}
         </PseSection>
       )}
 

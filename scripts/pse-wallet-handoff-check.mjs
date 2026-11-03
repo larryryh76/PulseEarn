@@ -175,6 +175,7 @@ const calls = [];
 sessionStorage.clear();
 m.beginWalletTrace('send');
 const sent = await m.sendPaymentTransaction({
+  session: { namespaces: { eip155: { accounts: [`eip155:56:${ADDRESS}`], methods: ['eth_sendTransaction'] } } },
   request: async (args, chain) => { calls.push({ method: args.method, chain }); return HASH; },
   on() {}, removeListener() {},
 }, TX, 'walletConnect');

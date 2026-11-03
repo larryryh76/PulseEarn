@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/mine/cron/payment-reconciliation",
-      "schedule": "*/5 * * * *"
+      "schedule": "10 3 * * *"
     },
     {
       "path": "/api/mine/cron/lifecycle",

@@ -441,7 +441,7 @@
 .pse-stage[data-page="tools"] .pse-marketplace-heading { margin-bottom:9px; }
 .pse-stage[data-page="tools"] .pse-marketplace-heading p:not(.pse-marketplace-kicker) { margin-top:5px; }
 .pse-stage[data-page="tools"] .pse-marketplace-footnote { padding:12px 14px; border:1px solid rgba(156,181,226,.1); border-radius:12px; background:rgba(255,255,255,.015); }
-.pse-stage[data-page="tools"] .pse-marketplace-how { display:none; }
+
 .pse-stage[data-page="tools"] .pse-marketplace-rail { padding:14px; }
 .pse-stage[data-page="tools"] .pse-marketplace-inline-link { display:flex; align-items:center; min-height:44px; }
 @media(max-width:900px) {
@@ -468,4 +468,14 @@
 @media(max-width:360px) {
   .pse-stage[data-page="tools"] .pse-product-actions { flex-direction:column; align-items:stretch; }
   .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { width:100%; }
+}
+
+.pse-stage[data-page="tools"] .pse-marketplace-how { display:block; margin-top:12px; padding:12px 13px; }
+.pse-stage[data-page="tools"] .pse-marketplace-how h2 { font-size:13px; }
+.pse-stage[data-page="tools"] .pse-marketplace-checkout-line {
+  margin:7px 0 0; color:#a5b3ce; font-size:10px; line-height:1.6;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-checkout-line span { color:#8582ff; padding:0 4px; }
+@media(max-width:900px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-how { margin-top:0; }
 }

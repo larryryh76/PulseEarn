@@ -699,7 +699,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     }
     const expiresAt = pending.expiresAt;
     const live = expiresAt ? Date.parse(expiresAt) > nowMs() : false;
-    if (live && expiresAt && pending.quoteId && pending.walletProofNonce && pending.receiverWallet) {
+    if (live && expiresAt && pending.quoteId && pending.receiverWallet) {
       setResume({
         kind: 'live',
         purchase: pending,

@@ -147,7 +147,7 @@ check('send:walletconnect-method', wcSend.calls[0]?.method === 'eth_sendTransact
 check('send:walletconnect-chain-context', wcSend.calls[0]?.chain === 'eip155:56');
 check(
   'send:walletconnect-exact-quote-params',
-  JSON.stringify(wcSend.calls[0]?.params) === JSON.stringify([{ from: TX.from, to: TX.to, value: TX.value, chainId: '0x38' }]),
+  JSON.stringify(wcSend.calls[0]?.params) === JSON.stringify([{ from: TX.from, to: TX.to, value: TX.value }]),
 );
 
 const injectedSend = makeProvider(() => HASH);

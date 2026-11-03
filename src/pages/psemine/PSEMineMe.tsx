@@ -141,7 +141,7 @@ export const PSEMineMe: React.FC = () => {
             )}
             {activities.length === 0 ? (
               <PseEmptyNote title={feedErrors.activities ? "Activity unavailable" : "No activity yet"}>
-                Purchases, wallet changes, referral milestones and campaign events appear here when the backend records them.
+                {feedErrors.activities ? "The activity service could not return your recent events. Retry the activity feed to check again." : "Purchases, wallet changes, referral milestones and campaign events appear here when the backend records them."}
               </PseEmptyNote>
             ) : (
               <ul className="pse-notes">

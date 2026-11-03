@@ -973,6 +973,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (activeAddress !== connectedWallet.toLowerCase()) {
         return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
       }
+      // WalletConnect may expose a stale/default Ethereum namespace even when
+      // the quote targets BNB Smart Chain. Switch and verify the active chain
+      // before asking the wallet to sign; fail closed if the switch is refused.
+      const expectedChainId = Number(quote.chainId);
+      if (expectedChainId !== 56) {
+        return { success: false, error: 'This purchase quote is not for BNB Smart Chain. Refresh the quote before paying.' };
+      }
+      const chainReady = await ensurePaymentChain(expectedChainId);
+      if (!chainReady) {
+        return { success: false, error: 'Switch your wallet to BNB Smart Chain (56), then try again. No signature or payment was requested.' };
+      }
       const proofMessage = [
         'PulseEarn PSEmine Wallet Ownership Verification',
         'Sign this message to prove you control the payer wallet for this purchase.',
@@ -1014,7 +1025,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           : e instanceof Error ? e.message : 'Could not verify ownership of this wallet.',
       };
     }
-  }, [currentUser, connectedWallet, bumpStateEpoch]);
+  }, [currentUser, connectedWallet, bumpStateEpoch, ensurePaymentChain]);
 
   // 7. Submit Purchase Transaction Hash (for an ALREADY BOUND purchase) —
   // the backend verifies sender/recipient/amount/chain/confirmations and is the

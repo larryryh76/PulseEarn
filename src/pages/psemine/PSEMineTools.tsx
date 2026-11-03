@@ -876,7 +876,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
       //    free EIP-191 signature is quote/account-specific and sends no funds.
-      setPaymentProgress('Network confirmed. Preparing your quote-bound ownership signature…');
+      setPaymentProgress('Network confirmed. Preparing your quote-bound wallet payment approval…');
       const bound = await bindPurchaseIntent(quote);
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         setSubmissionState('NOT_SUBMITTED');
@@ -1327,7 +1327,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   ? 'Connect a wallet'
                   : walletLive
                     ? `Wallet connected — ${shortAddr(connectedWallet)}`
-                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`,
+                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to approve payment`,
               },
               {
                 ok: payerAligned,
@@ -1336,7 +1336,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   ? `Wallet changed — this purchase is locked to ${shortAddr(boundPayer)}`
                   : boundPayer
                     ? `Payer binding verified — only ${shortAddr(boundPayer)} can complete this purchase`
-                    : 'Payer is bound to this wallet before anything is signed',
+                    : 'Payer is bound to this wallet before payment',
               },
               {
                 ok: onRequiredChain && walletLive,

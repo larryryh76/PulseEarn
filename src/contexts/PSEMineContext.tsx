@@ -999,10 +999,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ].join('\n');
       const encodedMessage = '0x' + Array.from(new TextEncoder().encode(proofMessage))
         .map(byte => byte.toString(16).padStart(2, '0')).join('');
-      const walletSignature = await provider.request({
+      const ownershipSignatureRequest = {
         method: 'personal_sign',
         params: [encodedMessage, connectedWallet],
-      });
+      };
+      // UniversalProvider must receive the CAIP-2 chain explicitly for every
+      // request, not only eth_sendTransaction. Without this, personal_sign can
+      // be dispatched on its mutable/default Ethereum namespace even though
+      // the quote and message are for BNB Smart Chain (56).
+      const walletSignature = transportRef.current === 'walletConnect'
+        ? await provider.request(ownershipSignatureRequest, 'eip155:56')
+        : await provider.request(ownershipSignatureRequest);
       if (typeof walletSignature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(walletSignature)) {
         return { success: false, error: 'The wallet did not return a valid ownership signature. No payment was sent.' };
       }

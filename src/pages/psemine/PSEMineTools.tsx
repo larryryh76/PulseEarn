@@ -1533,8 +1533,7 @@ const WalletConnectStep: React.FC = () => {
   return (
     <PseSection title="Connect a wallet">
       <p className="pse-prose">
-        Connect the wallet you want to pay from. Before a purchase, it will ask you to sign a free ownership message
-        (no funds move), then show a separate BNB transfer for your approval. PSEmine never sends funds automatically.
+        Connect the wallet you want to pay from. When you purchase, your wallet opens a separate BNB transfer approval showing the exact amount and receiving address. PSEmine never sends funds automatically.
       </p>
 
       <div className="flex flex-wrap gap-2">

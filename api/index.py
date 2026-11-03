@@ -8290,9 +8290,9 @@ def verify_psemine_tool_purchase():
     purchase = purchase_snap.to_dict() or {}
     if purchase.get('userId') != uid:
         return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
-    if purchase.get('walletProofVerified') is not True:
-        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
-                        "message": "This purchase has no verified wallet-ownership proof. Request a fresh quote and sign the free ownership message before paying."}), 409
+    if purchase.get('payerBindingVerified') is not True and purchase.get('walletProofVerified') is not True:
+        return jsonify({"success": False, "error": "PAYER_BINDING_REQUIRED",
+                        "message": "This purchase has no server-confirmed payer binding. Request a fresh quote before paying."}), 409
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
@@ -9529,8 +9529,8 @@ def mine_create_purchase():
         return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
 
     # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
-    # The quote-bound EIP-191 proof was verified above. Persist this immutable
-    # payer binding before the value-transfer request; later create calls may
+    # The authenticated request establishes the immutable payer binding before
+    # the value-transfer request; canonical verification still checks the on-chain sender. Later create calls may
     # never move it to another wallet, and on-chain sender checks use this value.
     # The decision itself is a pure, unit-tested function.
     manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
@@ -9557,9 +9557,8 @@ def mine_create_purchase():
         if action == 'reuse':
             if stored.get('walletProofVerified') is not True:
                 db.collection('psemine_purchases').document(e.id).update({
-                    'walletProofVerified': True,
-                    'walletProofNonce': q.get('walletProofNonce'),
-                    'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+                    'payerBindingVerified': True,
+                    'payerBindingVerifiedAt': firestore.SERVER_TIMESTAMP,
                 })
                 stored['walletProofVerified'] = True
                 stored['walletProofNonce'] = q.get('walletProofNonce')
@@ -9605,9 +9604,8 @@ def mine_create_purchase():
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
-        'walletProofVerified': True,
-        'walletProofNonce': q.get('walletProofNonce'),
-        'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+        'payerBindingVerified': True,
+        'payerBindingVerifiedAt': firestore.SERVER_TIMESTAMP,
         'transactionHash': None,
         'network': 'BNB Smart Chain',
         'chainId': PSEMINE_BSC_CHAIN_ID,

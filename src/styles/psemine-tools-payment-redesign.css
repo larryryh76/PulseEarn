@@ -390,3 +390,82 @@
 @media(prefers-reduced-motion:reduce) {
  .pse-stage[data-page="tools"] .pse-product,.pse-stage[data-page="tools"] .pse-product:hover { transition:none; transform:none; }
 }
+
+
+/* 2026 product-first marketplace pass — replaces the oversized campaign hero
+   and long explainer with a compact catalogue lead-in. */
+.pse-stage[data-page="tools"] .pse-marketplace-intro {
+  display:flex; align-items:center; justify-content:space-between; gap:22px;
+  padding:clamp(17px,2.2vw,24px); border:1px solid rgba(119,139,255,.22);
+  border-radius:18px; background:
+    radial-gradient(ellipse at 90% 0%,rgba(105,91,255,.13),transparent 38%),
+    linear-gradient(115deg,#121d32,#0b1220 72%);
+}
+.pse-stage[data-page="tools"] .pse-marketplace-intro-copy { min-width:0; max-width:760px; }
+.pse-stage[data-page="tools"] .pse-marketplace-intro h2 {
+  margin:5px 0 7px; color:#f3f6ff; font-size:clamp(23px,3vw,32px);
+  line-height:1.08; letter-spacing:-.055em;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-intro-copy > p:last-child {
+  max-width:68ch; margin:0; color:#a5b3ce; font-size:12px; line-height:1.6;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-intro-state {
+  display:grid; justify-items:end; gap:10px; flex:none;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-network {
+  color:#8292b0; font-size:9px; font-weight:750; letter-spacing:.12em;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-summary {
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0;
+  border:1px solid rgba(156,181,226,.12); border-radius:14px; overflow:hidden;
+  background:rgba(13,20,34,.76);
+}
+.pse-stage[data-page="tools"] .pse-marketplace-summary > div { min-width:0; padding:12px 15px; }
+.pse-stage[data-page="tools"] .pse-marketplace-summary > div + div { border-left:1px solid rgba(156,181,226,.1); }
+.pse-stage[data-page="tools"] .pse-marketplace-summary dt {
+  color:#8493af; font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-summary dd {
+  margin:5px 0 0; color:#f1f5ff; font-size:19px; font-weight:730;
+  letter-spacing:-.045em; font-variant-numeric:tabular-nums; overflow-wrap:anywhere;
+}
+.pse-stage[data-page="tools"] .pse-marketplace-summary dd small { color:#8795af; font-size:10px; font-weight:550; letter-spacing:0; }
+.pse-stage[data-page="tools"] .pse-marketplace-layout { grid-template-columns:minmax(0,1fr) minmax(255px,.32fr); gap:17px; }
+.pse-stage[data-page="tools"] .pse-marketplace-products .pse-product {
+  grid-template-columns:88px minmax(0,1fr); padding:13px; gap:7px 14px;
+}
+.pse-stage[data-page="tools"] .pse-product .pse-tool-art { min-height:84px; }
+.pse-stage[data-page="tools"] .pse-product-specs { grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px 9px; }
+.pse-stage[data-page="tools"] .pse-product-spec dd { font-size:11px; }
+.pse-stage[data-page="tools"] .pse-product-actions .pse-btn { min-height:44px; padding-inline:16px; }
+.pse-stage[data-page="tools"] .pse-marketplace-heading { margin-bottom:9px; }
+.pse-stage[data-page="tools"] .pse-marketplace-heading p:not(.pse-marketplace-kicker) { margin-top:5px; }
+.pse-stage[data-page="tools"] .pse-marketplace-footnote { padding:12px 14px; border:1px solid rgba(156,181,226,.1); border-radius:12px; background:rgba(255,255,255,.015); }
+.pse-stage[data-page="tools"] .pse-marketplace-how { display:none; }
+.pse-stage[data-page="tools"] .pse-marketplace-rail { padding:14px; }
+.pse-stage[data-page="tools"] .pse-marketplace-inline-link { display:flex; align-items:center; min-height:44px; }
+@media(max-width:900px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-layout { grid-template-columns:minmax(0,1fr); }
+  .pse-stage[data-page="tools"] .pse-marketplace-rail { grid-template-columns:minmax(0,1fr); }
+}
+@media(max-width:620px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-intro { align-items:flex-start; flex-direction:column; gap:12px; padding:16px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-intro h2 { font-size:24px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-intro-copy > p:last-child { font-size:11px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-intro-state { display:flex; align-items:center; justify-items:start; flex-wrap:wrap; gap:10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary > div { padding:10px 12px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary > div:nth-child(odd) { border-left:0; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary > div:nth-child(n+3) { border-top:1px solid rgba(156,181,226,.1); }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary dd { font-size:17px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { grid-template-columns:64px minmax(0,1fr); gap:7px 10px; padding:11px; }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art { min-height:68px; }
+  .pse-stage[data-page="tools"] .pse-product-specs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-stage[data-page="tools"] .pse-product-actions { flex-direction:row; align-items:center; }
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { width:auto; flex:none; min-width:120px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-footnote { font-size:10px; }
+}
+@media(max-width:360px) {
+  .pse-stage[data-page="tools"] .pse-product-actions { flex-direction:column; align-items:stretch; }
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { width:100%; }
+}

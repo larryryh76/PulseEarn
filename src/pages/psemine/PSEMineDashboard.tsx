@@ -269,7 +269,7 @@ export const PSEMineDashboard: React.FC = () => {
             {knownStatus ? campaignView.label : 'Reading campaign'}
           </PseStatus>
           <span className="pse-dash-head-note">
-            {campaignPosition ?? 'Campaign dates not reported'}
+            {campaignPosition ? `Campaign-wide window · ${campaignPosition}` : 'Campaign-wide schedule not reported'}
           </span>
         </div>
       </header>
@@ -308,7 +308,7 @@ export const PSEMineDashboard: React.FC = () => {
             {nextAction.label}<span aria-hidden="true"> →</span>
           </Link>
           <div className="pse-account-aside-foot">
-            Campaign <strong>{knownStatus ? campaignView.label : 'status pending'}</strong>
+            Campaign-wide status <strong>{knownStatus ? campaignView.label : 'status pending'}</strong>
             {campaignPosition ? <span> · {campaignPosition}</span> : null}
           </div>
         </aside>

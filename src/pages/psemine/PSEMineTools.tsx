@@ -550,7 +550,7 @@ export const PSEMineTools: React.FC = () => {
             <h2 id="pse-how-title">From quote to activation</h2>
             <ol className="pse-marketplace-steps">
               <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Verify wallet ownership</strong><p>Your wallet asks for a free message signature tied to this quote. It does not send funds or approve a transfer.</p></div></li>
+              <li><span>02</span><div><strong>Bind your payer wallet</strong><p>Your connected wallet is bound to this quote. No message signature is requested; the next wallet prompt must be the native BNB transfer.</p></div></li>
               <li><span>03</span><div><strong>Approve the BNB payment</strong><p>Review the exact BNB amount and campaign destination, then approve the transfer yourself.</p></div></li>
               <li><span>04</span><div><strong>Wait for verification</strong><p>The backend checks the proven payer, recipient, exact amount and BNB Chain confirmations before activation.</p></div></li>
             </ol>
@@ -570,7 +570,7 @@ export const PSEMineTools: React.FC = () => {
 };
 
 /* ── Purchase flow (logic preserved; presentation minimal) ──────────────
- * ORDER IS THE POINT: quote → bind payer → chain assertion → sign → submit
+ * ORDER IS THE POINT: quote → bind payer → chain assertion → eth_sendTransaction → submit
  * hash. Refresh recovery resumes an existing intent with its ORIGINAL quote
  * and payer instead of creating a second one.
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -838,8 +838,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   };
 
   /**
-   * Proceeds to the wallet-signed payment.
-   * ORDER IS THE POINT: quote → prove wallet ownership → bind payer → chain assertion → send BNB → verify receipt.
+   * Proceeds to the native BNB transfer request.
+   * ORDER IS THE POINT: quote → bind payer → assert BNB Smart Chain → request eth_sendTransaction → persist hash → verify receipt.
    */
   const payNow = async () => {
     if (!quote) return;

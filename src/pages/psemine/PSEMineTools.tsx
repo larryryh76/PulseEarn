@@ -874,13 +874,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       // ensurePaymentChain has already verified the active chain. Avoid another
       // wallet RPC round trip here so the ownership prompt appears immediately.
 
-      // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
-      //    free EIP-191 signature is quote/account-specific and sends no funds.
-      setPaymentProgress('Network confirmed. Preparing your quote-bound wallet payment approval…');
+      // 2. Bind the payer wallet to this quote on the backend. No personal_sign
+      //    request is made; the native BNB transaction is the payment proof.
+      setPaymentProgress('Network confirmed. Binding your payer wallet to this quote…');
       const bound = await bindPurchaseIntent(quote);
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         setSubmissionState('NOT_SUBMITTED');
-        setResult({ ok: false, message: bound.error || 'Could not verify and bind this purchase to your wallet.' });
+        setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
         setStep('result');
         return;
       }

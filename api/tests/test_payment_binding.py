@@ -237,8 +237,9 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         # This marker now means the payer binding is established for the
         # transaction-verification path; it is not evidence of payment.
         self.assertIn("'walletProofVerified': True", self.create_handler)
-        self.assertIn("walletProofVerified", self.verify_handler)
+        self.assertIn("payerBindingVerified", self.verify_handler)
         self.assertNotIn("WALLET_PROOF_REQUIRED", self.create_handler)
+        self.assertNotIn("WALLET_PROOF_REQUIRED", self.verify_handler)
 
     def test_expired_submitted_hash_is_recorded_not_silently_discarded(self):
         self.assertIn("_flag_expired_purchase", self.verify_handler)

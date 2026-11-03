@@ -464,7 +464,8 @@ async function main() {
   const overflow = results.filter(r => r.horizontalOverflow);
   const leaks = results.filter(r => r.crossProductCalls.length || r.crossProductStoreReads.length);
   const errored = results.filter(r => r.pageErrors.length);
-  const taps = results.filter(r => (r.smallTargetsUnder44 || []).length && r.width <= 430);\n  const unsettled = results.filter(r => !r.settled);
+  const taps = results.filter(r => (r.smallTargetsUnder44 || []).length && r.width <= 430);
+  const unsettled = results.filter(r => !r.settled);
 
   console.log(`\nLoads: ${results.length} (${ROUTES.length} routes × ${WIDTHS.length} widths)`);
   console.log(`  redirected away from the console: ${redirects.length}`);

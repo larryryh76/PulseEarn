@@ -62,8 +62,9 @@ check('account-walletconnect:explicit-disconnect-clears-global-owner',
 check('account-wallet:explicit-disconnect-persists-account-tombstone',
   disconnectBlock.includes('persistWallet(null)'));
 
-check('payment:walletconnect-ownership-signature-explicitly-routed-to-bsc',
-  contextSource.includes("provider.request(ownershipSignatureRequest, 'eip155:56')"));
+check('payment:no-separate-ownership-signature-before-bsc-transaction',
+  !contextSource.includes("method: 'personal_sign'") &&
+  contextSource.includes('createPurchaseIntent(quote, connectedWallet)'));
 const bindStart = contextSource.indexOf('const bindPurchaseIntent = useCallback');
 const bindEnd = contextSource.indexOf('// 7. Submit Purchase Transaction Hash', bindStart);
 const bindBlock = bindStart >= 0 ? contextSource.slice(bindStart, bindEnd) : '';
@@ -205,6 +206,7 @@ const refusing = makeProvider(({ method }) => {
   if (method === 'wallet_switchEthereumChain') throw new Error('Wallet does not support switching');
   return null;
 });
+refusing.session = { namespaces: { eip155: { accounts: ['eip155:1:0x1111111111111111111111111111111111111111'], methods: ['eth_sendTransaction'] } } };
 check('chain:walletconnect-without-approved-bsc-fails-closed', (await m.ensureChain(refusing, 56, 'walletConnect')) === false);
 check('chain:walletconnect-unapproved-does-not-switch', !refusing.calls.some(c => c.method === 'wallet_switchEthereumChain'));
 

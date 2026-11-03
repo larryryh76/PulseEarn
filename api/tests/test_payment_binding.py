@@ -226,7 +226,7 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.quote_handler = tfg._handler_body(self.source, "generate_psemine_tool_quote")
 
     def test_legacy_unproven_intents_are_superseded_or_recovery_locked(self):
-        self.assertIn("stored.get('walletProofVerified') is not True", self.create_handler)
+        self.assertIn("stored.get('payerBindingVerified') is not True and stored.get('walletProofVerified') is not True", self.create_handler)
         self.assertIn("'status': 'superseded'", self.create_handler)
         self.assertIn("PAYMENT_RECOVERY_LOCKED", self.create_handler)
         self.assertIn("stored.get('transactionHash')", self.create_handler)
@@ -234,9 +234,8 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
     def test_purchase_intent_does_not_require_a_non_payment_signature(self):
         self.assertNotIn("walletSignature", self.create_handler)
         self.assertNotIn("verify_psemine_wallet_proof", self.create_handler)
-        # This marker now means the payer binding is established for the
-        # transaction-verification path; it is not evidence of payment.
-        self.assertIn("'walletProofVerified': True", self.create_handler)
+        # New intents carry a payer-binding marker; legacy signed intents remain supported.
+        self.assertIn("'payerBindingVerified': True", self.create_handler)
         self.assertIn("payerBindingVerified", self.verify_handler)
         self.assertNotIn("WALLET_PROOF_REQUIRED", self.create_handler)
         self.assertNotIn("WALLET_PROOF_REQUIRED", self.verify_handler)

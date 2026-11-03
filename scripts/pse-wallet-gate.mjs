@@ -319,6 +319,10 @@ const run = async () => {
     let requestedChain = null;
     let sendCount = 0;
     const provider = {
+      session: { namespaces: { eip155: {
+        accounts: ['eip155:56:0x1111111111111111111111111111111111111111'],
+        methods: ['eth_sendTransaction'],
+      } } },
       request: async (args, chain) => {
         if (args.method === 'eth_sendTransaction') {
           requestedChain = chain ?? null;

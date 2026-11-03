@@ -239,20 +239,11 @@ export const PSEMineTools: React.FC = () => {
   const toolCapacity = typeof state?.user?.toolCapacityGBPPerHour === 'number'
     ? state.user.toolCapacityGBPPerHour
     : typeof pseUser?.toolCapacityGBPPerHour === 'number' ? pseUser.toolCapacityGBPPerHour : null;
-  const totalCapacity = typeof state?.user?.totalCapacityGBPPerHour === 'number'
-    ? state.user.totalCapacityGBPPerHour
-    : typeof pseUser?.totalCapacityGBPPerHour === 'number' ? pseUser.totalCapacityGBPPerHour : null;
-  const referralCapacity = typeof state?.user?.referralCapacityGBPPerHour === 'number'
-    ? state.user.referralCapacityGBPPerHour
-    : typeof pseUser?.referralCapacityGBPPerHour === 'number' ? pseUser.referralCapacityGBPPerHour : null;
-  const referralQualified = state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0;
   const headroom = toolCapacity !== null
     ? Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity)
     : null;
   const toolCapacityLabel = toolCapacity !== null ? gbpHour(toolCapacity) : '—';
   const headroomLabel = headroom !== null ? gbpHour(headroom) : '—';
-  const referralCapacityLabel = referralCapacity !== null ? gbpHour(referralCapacity) : '—';
-  const totalCapacityLabel = totalCapacity !== null ? gbpHour(totalCapacity) : '—';
   // Ownership is counted from the backend's ownership records, not from the
   // catalogue and not from the account's cached counts: a record is proof.
   const tierSlotsLeft = TOOLS.reduce(
@@ -295,17 +286,9 @@ export const PSEMineTools: React.FC = () => {
   if (loading && !state) {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
-        <PseNotice tone="attention" title="Your tool cycle, at a glance">
-        <p>PSEmine units are virtual campaign-capacity tools, not physical mining hardware or rigs. Starter, Builder and Advanced follow this cycle:</p>
-        <PseFacts cols={2}>
-          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
-          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
-          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
-          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
-        </PseFacts>
-        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
-      </PseNotice>
-
+        <PseNotice tone="info" title="Campaign equipment">
+          <p>Choose from four virtual mining-capacity units. Each listing shows its fixed price, capacity, operating model and ownership limit. Payment is verified on BNB Smart Chain before activation.</p>
+        </PseNotice>
       <PseStatBar cols={4}>
           {['Equipment owned', 'Tool capacity', 'Capacity headroom', 'Referral capacity'].map(label => (
             <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
@@ -329,7 +312,6 @@ export const PSEMineTools: React.FC = () => {
   }
 
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
-  const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
 
   const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
 

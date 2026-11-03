@@ -973,6 +973,19 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (activeAddress !== connectedWallet.toLowerCase()) {
         return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
       }
+      // payNow has already performed the required network switch. Repeating
+      // it here causes a second WalletConnect/provider round trip and delays
+      // the ownership prompt. Verify the active chain with one read instead.
+      const expectedChainId = Number(quote.chainId);
+      if (expectedChainId !== 56) {
+        return { success: false, error: 'This purchase quote is not for BNB Smart Chain. Refresh the quote before paying.' };
+      }
+      const activeChainId = transportRef.current === 'walletConnect'
+        ? walletConnectChainId(provider)
+        : await getChainId(provider);
+      if (activeChainId !== expectedChainId) {
+        return { success: false, error: 'Your wallet is not on BNB Smart Chain (56). Switch networks and try again. No payment was sent.' };
+      }
       const proofMessage = [
         'PulseEarn PSEmine Wallet Ownership Verification',
         'Sign this message to prove you control the payer wallet for this purchase.',
@@ -986,10 +999,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ].join('\n');
       const encodedMessage = '0x' + Array.from(new TextEncoder().encode(proofMessage))
         .map(byte => byte.toString(16).padStart(2, '0')).join('');
-      const walletSignature = await provider.request({
+      const ownershipSignatureRequest = {
         method: 'personal_sign',
         params: [encodedMessage, connectedWallet],
-      });
+      };
+      // UniversalProvider must receive the CAIP-2 chain explicitly for every
+      // request, not only eth_sendTransaction. Without this, personal_sign can
+      // be dispatched on its mutable/default Ethereum namespace even though
+      // the quote and message are for BNB Smart Chain (56).
+      const walletSignature = transportRef.current === 'walletConnect'
+        ? await provider.request(ownershipSignatureRequest, 'eip155:56')
+        : await provider.request(ownershipSignatureRequest);
       if (typeof walletSignature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(walletSignature)) {
         return { success: false, error: 'The wallet did not return a valid ownership signature. No payment was sent.' };
       }

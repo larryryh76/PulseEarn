@@ -578,7 +578,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const {
     connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain, refreshWalletChain,
+    sendPayment, ensurePaymentChain,
   } = usePSEMine();
   const { refresh } = usePseState();
 
@@ -586,6 +586,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // connection step immediately instead of a dead quote screen.
   const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [paymentProgress, setPaymentProgress] = useState('Preparing your wallet request…');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean; diagnostic?: string } | null>(null);
   // Payer binding + submission state. The purchase is bound to a wallet BEFORE
@@ -856,10 +857,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     setStep('verifying');
+    setPaymentProgress('Checking BNB Smart Chain and preparing your secure wallet request…');
     recordWalletStage('payment_flow_started');
     try {
       // 1. VERIFY / SWITCH NETWORK before creating a purchase intent.
       // A failed switch must not leave a bound, unpaid pending purchase.
+      setPaymentProgress('Please approve the BNB Smart Chain network switch in your wallet if prompted…');
       const chainOk = await ensurePaymentChain(quote.chainId || 56);
       if (!chainOk) {
         recordWalletStage('payment_chain_not_ready', String(quote.chainId || 56));
@@ -868,11 +871,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
         return;
       }
-      // Refresh the displayed chain after the wallet approves the switch.
-      await refreshWalletChain();
+      // ensurePaymentChain has already verified the active chain. Avoid another
+      // wallet RPC round trip here so the ownership prompt appears immediately.
 
       // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
       //    free EIP-191 signature is quote/account-specific and sends no funds.
+      setPaymentProgress('Network confirmed. Preparing your quote-bound ownership signature…');
       const bound = await bindPurchaseIntent(quote);
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         setSubmissionState('NOT_SUBMITTED');
@@ -910,6 +914,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       // 5. EXACTLY ONE broadcast attempt.
       recordWalletStage('payment_send_started');
+      setPaymentProgress('Your payment request is being sent to your wallet. Keep the wallet open and approve the exact BNB amount there…');
       setSubmissionState('SUBMISSION_IN_PROGRESS');
       let txHash: string;
       try {
@@ -1400,9 +1405,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Step: verifying ── */}
       {!showingRecovery && step === 'verifying' && (
-        <PseSection title="Verifying on BNB Smart Chain">
+        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Waiting for wallet approval' : 'Preparing secure payment'}>
           <p className="pse-prose" role="status" aria-live="polite">
-            Confirming sender, recipient, amount and network confirmations. You may minimize this panel, but do not start another payment.
+            {paymentProgress} Keep this page and your wallet open. If the wallet prompt does not appear, return to the wallet app and check pending requests before retrying. Do not approve twice.
           </p>
           <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
         </PseSection>

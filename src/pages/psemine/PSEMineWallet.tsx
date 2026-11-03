@@ -79,7 +79,7 @@ function payoutAmount(w: PseWithdrawal): number | null {
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export const PSEMineWallet: React.FC = () => {
-  const { pseUser, campaign, updatePayoutWallet } = usePSEMine();
+  const { pseUser, campaign, updatePayoutWallet, connectedWallet, walletTransport, connectWallet, disconnectWallet, isConnectingWallet } = usePSEMine();
 
   const {
     state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed,
@@ -181,6 +181,17 @@ export const PSEMineWallet: React.FC = () => {
           </PseButton>
         )}
       />
+
+      <PseSection title="Payment wallet" meta={connectedWallet ? 'Connected' : 'Not connected'}>
+        <div className="pse-w-request-head">
+          <p className="pse-prose">{connectedWallet ? <>Connected wallet <strong>{shortAddr(connectedWallet)}</strong>{walletTransport ? ` · ${walletTransport}` : ''}. Use this wallet for PSEmine tool purchases on BNB Smart Chain.</> : 'Connect a wallet to verify ownership and pay for PSEmine tools on BNB Smart Chain.'}</p>
+          {connectedWallet ? (
+            <PseButton variant="secondary" size="sm" disabled={isConnectingWallet} busy={isConnectingWallet} onClick={() => void disconnectWallet()}>Disconnect wallet</PseButton>
+          ) : (
+            <PseButton size="sm" disabled={isConnectingWallet} busy={isConnectingWallet} onClick={() => void connectWallet()}>{isConnectingWallet ? 'Connecting…' : 'Connect wallet'}</PseButton>
+          )}
+        </div>
+      </PseSection>
 
       {/* THE BALANCE: settlement-available is what can be requested, so it is
           the figure the page leads with. Accrued and in-review sit beside it. */}

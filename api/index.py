@@ -9988,9 +9988,14 @@ def mine_cron_lifecycle():
 
 @app.route('/api/mine/cron/payment-reconciliation', methods=['POST'])
 def mine_cron_payment_reconciliation():
-    """Reconcile pending native-BNB purchase intents without trusting the browser.
-    The existing verifier is the sole settlement authority; this worker only
-    replays persisted transaction evidence and records a durable audit result."""
+    """Replay persisted BNB transaction evidence through the canonical verifier.
+
+    The scheduled worker has no browser input. It loads the canonical purchase
+    document, then invokes the same verifier used by the authenticated client
+    route inside an isolated request context. The cron secret is the worker's
+    authorization; the purchase's persisted userId supplies the owner context.
+    No alternate chain verification or activation logic exists here.
+    """
     import psemine_engine as _pse_engine
     secret = os.environ.get('CRON_SECRET')
     provided = request.headers.get('X-Cron-Secret')
@@ -10005,35 +10010,71 @@ def mine_cron_payment_reconciliation():
     db = get_db()
     if not db:
         return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    # Query only intents with persisted tx evidence. No browser-supplied hash,
-    # wallet, amount or destination is accepted by this scheduled endpoint.
-    candidates = db.collection('psemine_tool_purchase_intents').where('status', 'in', [
-        'transaction_submitted', 'verification_pending', 'manual_review'
+
+    candidates = db.collection('psemine_purchases').where('status', 'in', [
+        'transaction_submitted', 'confirming', 'submission_uncertain', 'manual_review'
     ]).limit(100).get()
     checked = 0
     reconciled = 0
+    already_activated = 0
     failures = []
+    verifier = verify_psemine_tool_purchase
+    # Unwrap only the HTTP authentication/access decorators. The exact same
+    # canonical verifier body still performs all quote, payer, chain, receipt,
+    # replay, confirmation and atomic settlement checks.
+    while hasattr(verifier, '__wrapped__'):
+        verifier = verifier.__wrapped__
+
     for snap in candidates:
-        intent = snap.to_dict() or {}
-        tx_hash = intent.get('transactionHash') or intent.get('txHash')
+        purchase = snap.to_dict() or {}
+        tx_hash = str(purchase.get('transactionHash') or '').strip().lower()
+        uid = str(purchase.get('userId') or '').strip()
         if not tx_hash:
             continue
         checked += 1
-        # Reuse the canonical verifier only if its implementation exposes a
-        # server-side helper. Otherwise preserve the lock and report review.
+        if not uid:
+            failures.append({"purchaseId": snap.id, "reason": "purchase_owner_missing"})
+            continue
+        if purchase.get('status') == 'activated':
+            already_activated += 1
+            continue
         try:
-            helper = getattr(_pse_engine, 'reconcile_purchase_intent', None)
-            if not callable(helper):
-                failures.append({"purchaseId": snap.id, "reason": "canonical_reconciler_unavailable"})
-                continue
-            outcome = helper(db, snap.id, tx_hash)
-            if outcome and outcome.get('verified') is True:
-                reconciled += 1
+            with app.test_request_context(
+                '/api/mine/tools/verify-purchase',
+                method='POST',
+                json={
+                    "purchaseId": snap.id,
+                    "transactionHash": tx_hash,
+                    "senderWallet": str(purchase.get('paymentWallet') or '').lower(),
+                },
+            ):
+                request.user = {"uid": uid}
+                result = verifier()
+                response = result[0] if isinstance(result, tuple) else result
+                status_code = result[1] if isinstance(result, tuple) else getattr(response, "status_code", 200)
+                body = response.get_json(silent=True) if hasattr(response, "get_json") else None
+                if status_code == 200 and body and body.get("success") is True:
+                    reconciled += 1
+                elif body and body.get("error") == "PURCHASE_ALREADY_ACTIVATED":
+                    already_activated += 1
+                else:
+                    failures.append({
+                        "purchaseId": snap.id,
+                        "reason": (body or {}).get("error") or "canonical_verification_not_settled",
+                        "httpStatus": status_code,
+                    })
         except Exception:
-            logging.exception("[PSEmine Cron] purchase intent reconciliation failed")
+            logging.exception("[PSEmine Cron] canonical purchase reconciliation failed")
             failures.append({"purchaseId": snap.id, "reason": "reconciliation_error"})
-    return jsonify({"success": True, "checked": checked, "reconciled": reconciled,
-                    "manualReview": len(failures), "failures": failures}), 200
+
+    return jsonify({
+        "success": True,
+        "checked": checked,
+        "reconciled": reconciled,
+        "alreadyActivated": already_activated,
+        "manualReview": len(failures),
+        "failures": failures,
+    }), 200
 
 
 @app.route('/api/admin/mine/payment-recovery', methods=['GET'])

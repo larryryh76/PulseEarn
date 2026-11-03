@@ -2,6 +2,12 @@ name: PSEmine authenticated Playwright QA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - automation/psemine-playwright-visual-qa
+    paths:
+      - '.github/workflows/psemine-authenticated-qa.yml'
+      - 'scripts/pse-authenticated-check.mjs'
   schedule:
     - cron: '30 4 * * 1'
 

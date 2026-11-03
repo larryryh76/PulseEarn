@@ -578,7 +578,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const {
     connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain, refreshWalletChain,
+    sendPayment, ensurePaymentChain,
   } = usePSEMine();
   const { refresh } = usePseState();
 

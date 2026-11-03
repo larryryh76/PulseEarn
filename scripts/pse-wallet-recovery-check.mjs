@@ -62,6 +62,15 @@ check('account-walletconnect:explicit-disconnect-clears-global-owner',
 check('account-wallet:explicit-disconnect-persists-account-tombstone',
   disconnectBlock.includes('persistWallet(null)'));
 
+check('payment:walletconnect-ownership-signature-explicitly-routed-to-bsc',
+  contextSource.includes("provider.request(ownershipSignatureRequest, 'eip155:56')"));
+const bindStart = contextSource.indexOf('const bindPurchaseIntent = useCallback');
+const bindEnd = contextSource.indexOf('// 7. Submit Purchase Transaction Hash', bindStart);
+const bindBlock = bindStart >= 0 ? contextSource.slice(bindStart, bindEnd) : '';
+check('payment:ownership-binding-does-not-repeat-chain-switch',
+  bindBlock.includes('walletConnectChainId(provider)') && !bindBlock.includes('ensurePaymentChain(expectedChainId)'));
+
+
 
 const NOW = Date.now();
 const ADDRESS = '0x1111111111111111111111111111111111111111';

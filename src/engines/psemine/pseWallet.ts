@@ -1270,6 +1270,7 @@ export const sendPaymentTransaction = async (
         from: tx.from,
         to: tx.to,
         value: tx.value,
+        ...(transport === 'walletConnect' ? { chainId: '0x38' } : {}),
       }],
     };
     // WalletConnect's UniversalProvider accepts an explicit CAIP-2 chain as

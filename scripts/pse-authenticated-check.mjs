@@ -401,8 +401,8 @@ async function main() {
       const onReq=r=>{if(apiReq(r))network.pendingApi++;};
       const onDone=r=>{if(apiReq(r))network.pendingApi=Math.max(0,network.pendingApi-1);};
       const onResp=r=>{if(safePath(r.url()).startsWith('/api/')){network.completedApi++;network.apiResponses.push({method:r.request().method(),path:safePath(r.url()),status:r.status()});}};
-      const onFail=r=>{if(apiReq(r))network.failedRequests.push({method:r.method(),path:safePath(r.url()),failure:r.failure()?.errorText||'failed'});};
-      authPage.on('request',onReq);authPage.on('requestfinished',onDone);authPage.on('requestfailed',r=>{onDone(r);onFail(r);});authPage.on('response',onResp);
+      const onFail=r=>{if(apiReq(r))network.failedRequests.push({method:r.method(),path:safePath(r.url()),failure:r.failure()?.errorText||'failed'});};\n      const onRequestFailed=r=>{onDone(r);onFail(r);};
+      authPage.on('request',onReq);authPage.on('requestfinished',onDone);authPage.on('requestfailed',onRequestFailed);authPage.on('response',onResp);
       try{
         await authPage.goto(`${base}${route.path}`,{waitUntil:'domcontentloaded',timeout:30000});
         readiness=await waitForRenderedPage(authPage,network,60000);
@@ -412,7 +412,7 @@ async function main() {
         await authPage.screenshot({path:path.join(OUT,`${stem}-viewport.png`),fullPage:false,animations:'disabled',timeout:30000});
         fs.writeFileSync(path.join(OUT,`${stem}.json`),JSON.stringify({route:route.path,width,landedOn,title,readiness,measured,visibleText:await authPage.locator('body').innerText().catch(()=>''),html:await authPage.locator('body').evaluate(e=>e.innerHTML).catch(()=> '')},null,2));
       }catch(e){pageErrors.push(`HARNESS: ${String(e).slice(0,220)}`);}
-      finally{authPage.off('request',onReq);authPage.off('requestfinished',onDone);authPage.off('response',onResp);}
+      finally{authPage.off('request',onReq);authPage.off('requestfinished',onDone);authPage.off('requestfailed',onRequestFailed);authPage.off('response',onResp);}
       results.push({route:route.path,id:route.id,width,landedOn,title,settled:readiness?.ready===true,readiness,reachedConsole:landedOn===route.path,...(measured||{}),horizontalOverflow:measured?measured.scrollWidth>measured.clientWidth+1:null,apiResponses:network.apiResponses,failedApiRequests:network.failedRequests,consoleErrors:[...consoleErrors],pageErrors:[...pageErrors],crossProductCalls:[...new Set(productCalls)],crossProductStoreReads:[...new Set(productStores)]});
     }
   }

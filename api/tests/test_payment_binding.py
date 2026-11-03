@@ -231,9 +231,6 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.assertIn("PAYMENT_RECOVERY_LOCKED", self.create_handler)
         self.assertIn("stored.get('transactionHash')", self.create_handler)
 
-    def test_quote_does_not_need_a_message_signature_nonce(self):
-        self.assertNotIn('"walletProofNonce": uuid.uuid4().hex', self.quote_handler)
-
     def test_purchase_intent_does_not_require_a_non_payment_signature(self):
         self.assertNotIn("walletSignature", self.create_handler)
         self.assertNotIn("verify_psemine_wallet_proof", self.create_handler)

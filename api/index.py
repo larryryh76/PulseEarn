@@ -9985,6 +9985,57 @@ def mine_cron_lifecycle():
                     "referralRepairErrors": repair_errors,
                     "settlementFinalized": settlement_finalized})
 
+
+@app.route('/api/mine/cron/payment-reconciliation', methods=['POST'])
+def mine_cron_payment_reconciliation():
+    """Reconcile pending native-BNB purchase intents without trusting the browser.
+    The existing verifier is the sole settlement authority; this worker only
+    replays persisted transaction evidence and records a durable audit result."""
+    import psemine_engine as _pse_engine
+    secret = os.environ.get('CRON_SECRET')
+    provided = request.headers.get('X-Cron-Secret')
+    if not provided:
+        authz = request.headers.get('Authorization') or ''
+        if authz.startswith('Bearer '):
+            provided = authz.split(' ', 1)[1].strip()
+    allowed, deny = _pse_engine.cron_lifecycle_authorized(provided, secret)
+    if not allowed:
+        status = 503 if deny == _pse_engine.CRON_NOT_CONFIGURED else 403
+        return jsonify({"success": False, "error": "CRON_NOT_CONFIGURED" if status == 503 else "FORBIDDEN"}), status
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    # Query only intents with persisted tx evidence. No browser-supplied hash,
+    # wallet, amount or destination is accepted by this scheduled endpoint.
+    candidates = db.collection('psemine_tool_purchase_intents').where('status', 'in', [
+        'transaction_submitted', 'verification_pending', 'manual_review'
+    ]).limit(100).get()
+    checked = 0
+    reconciled = 0
+    failures = []
+    for snap in candidates:
+        intent = snap.to_dict() or {}
+        tx_hash = intent.get('transactionHash') or intent.get('txHash')
+        if not tx_hash:
+            continue
+        checked += 1
+        # Reuse the canonical verifier only if its implementation exposes a
+        # server-side helper. Otherwise preserve the lock and report review.
+        try:
+            helper = getattr(_pse_engine, 'reconcile_purchase_intent', None)
+            if not callable(helper):
+                failures.append({"purchaseId": snap.id, "reason": "canonical_reconciler_unavailable"})
+                continue
+            outcome = helper(db, snap.id, tx_hash)
+            if outcome and outcome.get('verified') is True:
+                reconciled += 1
+        except Exception:
+            logging.exception("[PSEmine Cron] purchase intent reconciliation failed")
+            failures.append({"purchaseId": snap.id, "reason": "reconciliation_error"})
+    return jsonify({"success": True, "checked": checked, "reconciled": reconciled,
+                    "manualReview": len(failures), "failures": failures}), 200
+
+
 @app.route('/api/admin/mine/payment-recovery', methods=['GET'])
 @verify_token
 def admin_mine_payment_recovery():

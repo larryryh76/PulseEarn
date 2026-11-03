@@ -973,16 +973,18 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (activeAddress !== connectedWallet.toLowerCase()) {
         return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
       }
-      // WalletConnect may expose a stale/default Ethereum namespace even when
-      // the quote targets BNB Smart Chain. Switch and verify the active chain
-      // before asking the wallet to sign; fail closed if the switch is refused.
+      // payNow has already performed the required network switch. Repeating
+      // it here causes a second WalletConnect/provider round trip and delays
+      // the ownership prompt. Verify the active chain with one read instead.
       const expectedChainId = Number(quote.chainId);
       if (expectedChainId !== 56) {
         return { success: false, error: 'This purchase quote is not for BNB Smart Chain. Refresh the quote before paying.' };
       }
-      const chainReady = await ensurePaymentChain(expectedChainId);
-      if (!chainReady) {
-        return { success: false, error: 'Switch your wallet to BNB Smart Chain (56), then try again. No signature or payment was requested.' };
+      const activeChainId = transportRef.current === 'walletConnect'
+        ? walletConnectChainId(provider)
+        : await getChainId(provider);
+      if (activeChainId !== expectedChainId) {
+        return { success: false, error: 'Your wallet is not on BNB Smart Chain (56). Switch networks and try again. No payment was sent.' };
       }
       const proofMessage = [
         'PulseEarn PSEmine Wallet Ownership Verification',
@@ -1025,7 +1027,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           : e instanceof Error ? e.message : 'Could not verify ownership of this wallet.',
       };
     }
-  }, [currentUser, connectedWallet, bumpStateEpoch, ensurePaymentChain]);
+  }, [currentUser, connectedWallet, bumpStateEpoch]);
 
   // 7. Submit Purchase Transaction Hash (for an ALREADY BOUND purchase) —
   // the backend verifies sender/recipient/amount/chain/confirmations and is the

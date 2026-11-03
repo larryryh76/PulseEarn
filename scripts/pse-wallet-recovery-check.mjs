@@ -139,7 +139,8 @@ const makeProvider = handler => {
 const TX = { from: ADDRESS, to: '0x8b32a461d3106b3356e9a389dfeb74ac084c8f33', value: '1000000000000000' };
 const HASH = `0x${'a'.repeat(64)}`;
 
-const wcSend = makeProvider(() => HASH);\nwcSend.session = { namespaces: { eip155: { accounts: [bnAccount(56)], methods: ['personal_sign', 'eth_sendTransaction'] } } };
+const wcSend = makeProvider(() => HASH);
+wcSend.session = { namespaces: { eip155: { accounts: [bnAccount(56)], methods: ['personal_sign', 'eth_sendTransaction'] } } };
 const wcHash = await m.sendPaymentTransaction(wcSend, TX, 'walletConnect');
 check('send:walletconnect-hash', wcHash === HASH);
 check('send:walletconnect-one-attempt', wcSend.calls.length === 1, { calls: wcSend.calls.length });

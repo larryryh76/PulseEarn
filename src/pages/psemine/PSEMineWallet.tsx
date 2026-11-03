@@ -390,6 +390,16 @@ export const PSEMineWallet: React.FC = () => {
                     </PseSection>
             </div>
             <div className="pse-wallet-manage-secondary">
+              <PseSection title="Payment wallet" meta={connectedWallet ? 'Connected' : 'Not connected'}>
+                <div className="pse-w-request-head">
+                  <p className="pse-prose">{connectedWallet ? <>Connected wallet <strong>{shortAddr(connectedWallet)}</strong>{walletTransport ? ` · ${walletTransport}` : ''}. This wallet approves tool purchases on BNB Smart Chain.</> : 'Connect your own wallet when you are ready to purchase a tool. You will review and approve the exact BNB transfer in your wallet app.'}</p>
+                  {connectedWallet ? (
+                    <PseButton variant="secondary" size="sm" disabled={isConnectingWallet} busy={isConnectingWallet} onClick={() => void disconnectWallet()}>Disconnect wallet</PseButton>
+                  ) : (
+                    <PseButton size="sm" disabled={isConnectingWallet} busy={isConnectingWallet} onClick={() => void connectWallet()}>{isConnectingWallet ? 'Connecting…' : 'Connect wallet'}</PseButton>
+                  )}
+                </div>
+              </PseSection>
               <PseSection title="Payment and payout networks">
                 <dl className="pse-w-net">
                   <div className="pse-w-net-row"><span className="pse-w-net-key">Tool purchases</span><span className="pse-w-net-val">Direct wallet payment</span></div>
@@ -398,7 +408,7 @@ export const PSEMineWallet: React.FC = () => {
                   <div className="pse-w-net-row"><span className="pse-w-net-key">Payout network</span><span className="pse-w-net-val">BNB Smart Chain</span></div>
                 </dl>
                 <p className="pse-prose--sm">
-                  Choose your payment asset and network on the secure checkout page. Your payout destination is a separate
+                  Connect the wallet you want to pay from when starting a tool purchase. Your payout destination is a separate
                   address that you enter and save manually.
                 </p>
               </PseSection>

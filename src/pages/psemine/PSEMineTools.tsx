@@ -19,7 +19,7 @@ import {
   CYCLE_STATE_MAP, cycleStateView, operatingModelView,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
+  PseButton, PseErrorNotice, PseNotice,
   PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';

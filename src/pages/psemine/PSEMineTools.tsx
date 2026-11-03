@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import '../../styles/psemine-tools-payment-redesign.css';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -339,64 +340,26 @@ export const PSEMineTools: React.FC = () => {
       objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
-        <div className="pse-marketplace-hero-copy">
-          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE CAMPAIGN UNITS</span>
-          <h2 id="pse-marketplace-hero-title">Build your <em>campaign setup.</em></h2>
-          <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
-          <div className="pse-marketplace-hero-actions">
-            <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
-            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
-          </div>
+      <section className="pse-marketplace-intro" aria-labelledby="pse-marketplace-title">
+        <div className="pse-marketplace-intro-copy">
+          <p className="pse-marketplace-kicker">PSEMINE EQUIPMENT MARKETPLACE</p>
+          <h2 id="pse-marketplace-title">Choose your mining capacity.</h2>
+          <p>Compare the four campaign units, review the fixed GBP price and capacity, then pay in BNB. Your tool activates only after on-chain verification.</p>
         </div>
-        <div className="pse-marketplace-hero-object" aria-hidden="true">
-          <div className="pse-marketplace-orbit pse-marketplace-orbit--one" />
-          <div className="pse-marketplace-orbit pse-marketplace-orbit--two" />
-          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--top"><span>AVAILABLE TIERS</span><strong>{TOOLS.length.toString().padStart(2, '0')}</strong></div>
-          <div className="pse-marketplace-hero-machine"><ToolArt tier={4} name="Elite mining unit" /></div>
-          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--bottom"><span>PAYMENT NETWORK</span><strong>BNB SMART CHAIN</strong></div>
-        </div>
-        <div className="pse-marketplace-hero-foot">
-          <div><span>YOUR EQUIPMENT</span><strong>{ownedTools.length.toString().padStart(2, '0')} <small>owned</small></strong></div>
-          <div><span>HOURLY TOOL CAPACITY</span><strong>{toolCapacityLabel}</strong></div>
-          <div><span>ACCOUNT SLOT HEADROOM</span><strong>{tierSlotsLeft} <small>slots</small></strong></div>
-          <a href="#pse-catalogue">Compare equipment <span aria-hidden="true">↗</span></a>
+        <div className="pse-marketplace-intro-state">
+          <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}>
+            <span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}
+          </span>
+          <span className="pse-marketplace-network">BNB SMART CHAIN</span>
         </div>
       </section>
 
-      <PseNotice tone="attention" title="Your tool cycle, at a glance">
-        <p>PSEmine units are virtual campaign-capacity tools, not physical mining rigs. Starter, Builder and Advanced follow this cycle:</p>
-        <PseFacts cols={2}>
-          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
-          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
-          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
-          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
-        </PseFacts>
-        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
-      </PseNotice>
-
-      <PseStatBar cols={4}>
-        <PseStat
-          label="Equipment owned"
-          value={`${ownedTools.length}`}
-          note={`${operatingOwned} operating · ${TOOLS.reduce((a, t) => a + t.maxPerUser, 0)} account slots`}
-        />
-        <PseStat
-          label="Tool capacity"
-          value={toolCapacityLabel}
-          note={`Max ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}`}
-        />
-        <PseStat
-          label="Capacity headroom"
-          value={headroomLabel}
-          note={`${tierSlotsLeft} tier slot${tierSlotsLeft === 1 ? '' : 's'} open`}
-        />
-        <PseStat
-          label="Referral capacity"
-          value={referralCapacityLabel}
-          note={`${referralQualified} qualified · total ${totalCapacityLabel}`}
-        />
-      </PseStatBar>
+      <dl className="pse-marketplace-summary" aria-label="Your equipment summary">
+        <div><dt>Equipment owned</dt><dd>{ownedTools.length}<small> units</small></dd></div>
+        <div><dt>Hourly tool capacity</dt><dd>{toolCapacityLabel}</dd></div>
+        <div><dt>Capacity headroom</dt><dd>{headroomLabel}</dd></div>
+        <div><dt>Available tool slots</dt><dd>{tierSlotsLeft}<small> slots</small></dd></div>
+      </dl>
 
       {pendingPurchase && (
         <PseNotice tone="attention" title={pendingNeedsReview ? "Payment under manual review" : "Purchase in progress"}>

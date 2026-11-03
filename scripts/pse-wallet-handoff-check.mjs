@@ -207,7 +207,7 @@ const wcWrongSession = {
 const wcWrongChain = await m.ensureChain(wcWrongSession, 56, 'walletConnect');
 check('walletconnect:unapproved-chain-fails-closed', wcWrongChain === false);
 
-const failing = { request: async () => { const error = new Error('No matching key. session topic doesn\'t exist'); throw error; }, on() {}, removeListener() {} };
+const failing = { session: { namespaces: { eip155: { accounts: [`eip155:56:${ADDRESS}`], methods: ['eth_sendTransaction'] } } }, request: async () => { const error = new Error('No matching key. session topic doesn\'t exist'); throw error; }, on() {}, removeListener() {} };
 sessionStorage.clear();
 m.beginWalletTrace('send-predispatch');
 let failure = null;

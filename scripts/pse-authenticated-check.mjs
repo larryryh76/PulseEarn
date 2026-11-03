@@ -418,6 +418,52 @@ async function main() {
     }
   }
 
+  // ── Interactive overlays: notification sheet and quote modal ──────────────
+  // These checks open read-only UI surfaces. The quote may be requested, but the
+  // harness never connects a wallet, signs, submits, or approves a transaction.
+  const overlays = {
+    notifications: { opened: false, screenshot: null, text: '', error: '' },
+    quote: { opened: false, screenshot: null, text: '', error: '', paymentStarted: false },
+  };
+  try {
+    await authPage.setViewportSize({ width: 390, height: 844 });
+    await authPage.goto(`${base}/mine/dashboard`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    const notificationButton = authPage.getByRole('button', { name: /^Notifications(?:,.*)?$/i }).first();
+    await notificationButton.waitFor({ state: 'visible', timeout: 12_000 });
+    await notificationButton.click();
+    const notificationDialog = authPage.getByRole('dialog', { name: 'Notifications' });
+    await notificationDialog.waitFor({ state: 'visible', timeout: 8_000 });
+    overlays.notifications.opened = true;
+    overlays.notifications.text = (await notificationDialog.innerText()).slice(0, 1800);
+    overlays.notifications.screenshot = 'notifications-390.png';
+    await authPage.screenshot({ path: path.join(OUT, overlays.notifications.screenshot), fullPage: false, animations: 'disabled' });
+    await authPage.getByRole('button', { name: /close notifications/i }).click();
+  } catch (e) {
+    overlays.notifications.error = String(e).slice(0, 220);
+  }
+  try {
+    await authPage.goto(`${base}/mine/tools`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    const buy = authPage.getByRole('button', { name: /buy this tool/i }).first();
+    await buy.waitFor({ state: 'visible', timeout: 12_000 });
+    if (await buy.isEnabled()) {
+      await buy.click();
+      const dialog = authPage.locator('.pse-purchase-dialog');
+      await dialog.waitFor({ state: 'visible', timeout: 20_000 });
+      overlays.quote.opened = true;
+      overlays.quote.text = (await dialog.innerText()).slice(0, 2600);
+      overlays.quote.screenshot = 'purchase-quote-390.png';
+      await authPage.screenshot({ path: path.join(OUT, overlays.quote.screenshot), fullPage: false, animations: 'disabled' });
+      overlays.quote.paymentStarted = false;
+      const close = dialog.getByRole('button', { name: /^Close$/i }).first();
+      if (await close.count()) await close.click();
+    } else {
+      overlays.quote.error = 'First purchase action is disabled by live campaign/account state; modal not opened.';
+    }
+  } catch (e) {
+    overlays.quote.error = String(e).slice(0, 220);
+  }
+  fs.writeFileSync(path.join(OUT, 'overlay-interactions.json'), JSON.stringify(overlays, null, 2));
+
   // ── Logout: the session must actually end ──────────────────────────────────
   // Runs in the SAME signed-in context (a fresh context is signed out by
   // definition and would report a fabricated pass). Reported as an observation,
@@ -452,7 +498,7 @@ async function main() {
   if (server) server.close();
   fs.writeFileSync(
     path.join(OUT, 'authenticated-report.json'),
-    JSON.stringify({ enrollment, routes: results, logout }, null, 2),
+    JSON.stringify({ enrollment, routes: results, overlays, logout }, null, 2),
   );
   if (enrollment.attempted) {
     console.log(`\nEnrollment: gate ${enrollment.gateFound ? 'found' : 'NOT FOUND'} · clicked ${enrollment.clicked} · cleared ${enrollment.cleared}${enrollment.reason ? ` (${enrollment.reason})` : ''}`);

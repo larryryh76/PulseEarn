@@ -401,7 +401,8 @@ async function main() {
       const onReq=r=>{if(apiReq(r))network.pendingApi++;};
       const onDone=r=>{if(apiReq(r))network.pendingApi=Math.max(0,network.pendingApi-1);};
       const onResp=r=>{if(safePath(r.url()).startsWith('/api/')){network.completedApi++;network.apiResponses.push({method:r.request().method(),path:safePath(r.url()),status:r.status()});}};
-      const onFail=r=>{if(apiReq(r))network.failedRequests.push({method:r.method(),path:safePath(r.url()),failure:r.failure()?.errorText||'failed'});};\n      const onRequestFailed=r=>{onDone(r);onFail(r);};
+      const onFail=r=>{if(apiReq(r))network.failedRequests.push({method:r.method(),path:safePath(r.url()),failure:r.failure()?.errorText||'failed'});};
+      const onRequestFailed=r=>{onDone(r);onFail(r);};
       authPage.on('request',onReq);authPage.on('requestfinished',onDone);authPage.on('requestfailed',onRequestFailed);authPage.on('response',onResp);
       try{
         await authPage.goto(`${base}${route.path}`,{waitUntil:'domcontentloaded',timeout:30000});
@@ -474,7 +475,9 @@ async function main() {
   leaks.slice(0, 6).forEach(r => console.log(
     `    ${r.route} @${r.width} → ${[...r.crossProductCalls, ...r.crossProductStoreReads].join(', ')}`,
   ));
-  console.log(`  pages not fully settled: ${unsettled.length}`);\n  unsettled.slice(0,12).forEach(r=>console.log(`    ${r.route} @${r.width}: ${r.readiness?.reason||'unknown'}; skeletons=${r.readiness?.skeletons?.length||0}`));\n  console.log(`  page errors: ${errored.length}`);
+  console.log(`  pages not fully settled: ${unsettled.length}`);
+  unsettled.slice(0,12).forEach(r=>console.log(`    ${r.route} @${r.width}: ${r.readiness?.reason||'unknown'}; skeletons=${r.readiness?.skeletons?.length||0}`));
+  console.log(`  page errors: ${errored.length}`);
   errored.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} → ${r.pageErrors[0]}`));
   console.log(`  mobile pages with taps under 44px: ${taps.length}`);
   taps.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width}: ${r.smallTargetsUnder44.slice(0, 3).join(' | ')}`));

@@ -126,6 +126,8 @@ const makeProvider = handler => {
   const calls = [];
   return {
     calls,
+    // Default approved BSC namespace for WalletConnect transaction-path tests.
+    session: { namespaces: { eip155: { accounts: [bnAccount(56)], methods: ['personal_sign', 'eth_sendTransaction'] } } },
     request: async (args, chain) => {
       calls.push({ method: args.method, params: args.params, chain: chain ?? null });
       return handler(args, chain, calls);

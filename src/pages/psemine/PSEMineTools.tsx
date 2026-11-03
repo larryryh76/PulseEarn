@@ -550,7 +550,7 @@ export const PSEMineTools: React.FC = () => {
             <h2 id="pse-how-title">From quote to activation</h2>
             <ol className="pse-marketplace-steps">
               <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Verify wallet ownership</strong><p>Your wallet asks for a free message signature tied to this quote. It does not send funds or approve a transfer.</p></div></li>
+              <li><span>02</span><div><strong>Bind your payer wallet</strong><p>Your connected wallet is bound to this quote. No message signature is requested; the next wallet prompt must be the native BNB transfer.</p></div></li>
               <li><span>03</span><div><strong>Approve the BNB payment</strong><p>Review the exact BNB amount and campaign destination, then approve the transfer yourself.</p></div></li>
               <li><span>04</span><div><strong>Wait for verification</strong><p>The backend checks the proven payer, recipient, exact amount and BNB Chain confirmations before activation.</p></div></li>
             </ol>
@@ -570,7 +570,7 @@ export const PSEMineTools: React.FC = () => {
 };
 
 /* ── Purchase flow (logic preserved; presentation minimal) ──────────────
- * ORDER IS THE POINT: quote → bind payer → chain assertion → sign → submit
+ * ORDER IS THE POINT: quote → bind payer → chain assertion → eth_sendTransaction → submit
  * hash. Refresh recovery resumes an existing intent with its ORIGINAL quote
  * and payer instead of creating a second one.
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -699,7 +699,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     }
     const expiresAt = pending.expiresAt;
     const live = expiresAt ? Date.parse(expiresAt) > nowMs() : false;
-    if (live && expiresAt && pending.quoteId && pending.walletProofNonce && pending.receiverWallet) {
+    if (live && expiresAt && pending.quoteId && pending.receiverWallet) {
       setResume({
         kind: 'live',
         purchase: pending,
@@ -838,8 +838,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   };
 
   /**
-   * Proceeds to the wallet-signed payment.
-   * ORDER IS THE POINT: quote → prove wallet ownership → bind payer → chain assertion → send BNB → verify receipt.
+   * Proceeds to the native BNB transfer request.
+   * ORDER IS THE POINT: quote → bind payer → assert BNB Smart Chain → request eth_sendTransaction → persist hash → verify receipt.
    */
   const payNow = async () => {
     if (!quote) return;
@@ -874,13 +874,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       // ensurePaymentChain has already verified the active chain. Avoid another
       // wallet RPC round trip here so the ownership prompt appears immediately.
 
-      // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
-      //    free EIP-191 signature is quote/account-specific and sends no funds.
-      setPaymentProgress('Network confirmed. Preparing your quote-bound ownership signature…');
+      // 2. Bind the payer wallet to this quote on the backend. No personal_sign
+      //    request is made; the native BNB transaction is the payment proof.
+      setPaymentProgress('Network confirmed. Binding your payer wallet to this quote…');
       const bound = await bindPurchaseIntent(quote);
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         setSubmissionState('NOT_SUBMITTED');
-        setResult({ ok: false, message: bound.error || 'Could not verify and bind this purchase to your wallet.' });
+        setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
         setStep('result');
         return;
       }
@@ -1327,7 +1327,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   ? 'Connect a wallet'
                   : walletLive
                     ? `Wallet connected — ${shortAddr(connectedWallet)}`
-                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`,
+                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to approve payment`,
               },
               {
                 ok: payerAligned,
@@ -1336,7 +1336,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   ? `Wallet changed — this purchase is locked to ${shortAddr(boundPayer)}`
                   : boundPayer
                     ? `Payer binding verified — only ${shortAddr(boundPayer)} can complete this purchase`
-                    : 'Payer is bound to this wallet before anything is signed',
+                    : 'Payer is bound to this wallet before payment',
               },
               {
                 ok: onRequiredChain && walletLive,
@@ -1405,11 +1405,29 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Step: verifying ── */}
       {!showingRecovery && step === 'verifying' && (
-        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Waiting for wallet approval' : 'Preparing secure payment'}>
-          <p className="pse-prose" role="status" aria-live="polite">
-            {paymentProgress} Keep this page and your wallet open. If the wallet prompt does not appear, return to the wallet app and check pending requests before retrying. Do not approve twice.
-          </p>
-          <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Your wallet is opening' : 'Preparing secure payment'}>
+          {submissionState === 'SUBMISSION_IN_PROGRESS' ? (
+            <div className="pse-wallet-wait" role="status" aria-live="polite">
+              <span className="pse-wallet-wait-orbit" aria-hidden="true"><span /></span>
+              <p className="pse-wallet-wait-kicker">ACTION REQUIRED IN YOUR WALLET</p>
+              <h3>Approve the payment request</h3>
+              <p>{paymentProgress}</p>
+              <ol>
+                <li>Wait for your wallet app or wallet notification to open.</li>
+                <li>Check that the network is BNB Smart Chain and the amount and recipient match this quote.</li>
+                <li>Approve only if the details are correct, then return to this page.</li>
+              </ol>
+              <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Wallet handoff can take a little time. Do not tap Pay again or approve a duplicate request. If you reject the request, no payment is made.</div>
+              <p className="pse-block-meta">Wallet request in progress · no payment is confirmed yet</p>
+            </div>
+          ) : (
+            <div className="pse-wallet-wait">
+              <span className="pse-wallet-wait-orbit" aria-hidden="true"><span /></span>
+              <h3>Preparing your secure payment</h3>
+              <p role="status" aria-live="polite">{paymentProgress}</p>
+              <p className="pse-block-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+            </div>
+          )}
         </PseSection>
       )}
 
@@ -1515,8 +1533,7 @@ const WalletConnectStep: React.FC = () => {
   return (
     <PseSection title="Connect a wallet">
       <p className="pse-prose">
-        Connect the wallet you want to pay from. Before a purchase, it will ask you to sign a free ownership message
-        (no funds move), then show a separate BNB transfer for your approval. PSEmine never sends funds automatically.
+        Connect the wallet you want to pay from. When you purchase, your wallet opens a separate BNB transfer approval showing the exact amount and receiving address. PSEmine never sends funds automatically.
       </p>
 
       <div className="flex flex-wrap gap-2">

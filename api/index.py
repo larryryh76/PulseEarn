@@ -8290,9 +8290,9 @@ def verify_psemine_tool_purchase():
     purchase = purchase_snap.to_dict() or {}
     if purchase.get('userId') != uid:
         return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
-    if purchase.get('walletProofVerified') is not True:
-        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
-                        "message": "This purchase has no verified wallet-ownership proof. Request a fresh quote and sign the free ownership message before paying."}), 409
+    if purchase.get('payerBindingVerified') is not True and purchase.get('walletProofVerified') is not True:
+        return jsonify({"success": False, "error": "PAYER_BINDING_REQUIRED",
+                        "message": "This purchase has no server-confirmed payer binding. Request a fresh quote before paying."}), 409
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
@@ -9509,16 +9509,12 @@ def mine_create_purchase():
     except Exception:
         return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
 
-    wallet_signature = (data.get('walletSignature') or '').strip()
-    try:
-        from psemine_wallet_proof import verify_psemine_wallet_proof
-        wallet_proof_valid = verify_psemine_wallet_proof(uid, q, payment_wallet, wallet_signature)
-    except Exception:
-        logging.exception('[PSEmine] wallet ownership proof verification failed')
-        wallet_proof_valid = False
-    if not wallet_proof_valid:
-        return jsonify({"success": False, "error": "WALLET_PROOF_REQUIRED",
-                        "message": "Sign the free wallet-ownership message in your connected wallet before creating this purchase. No funds are transferred by that signature."}), 403
+    # The wallet's signed native BNB transaction is the payer proof. Do not
+    # require a separate personal_sign prompt: it is not a payment and has
+    # caused mobile WalletConnect sessions to stop before eth_sendTransaction.
+    # The immutable payer binding below is still enforced against the on-chain
+    # transaction sender during canonical verification.
+    
 
     tool_id = q.get('toolId')
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
@@ -9533,8 +9529,8 @@ def mine_create_purchase():
         return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
 
     # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
-    # The quote-bound EIP-191 proof was verified above. Persist this immutable
-    # payer binding before the value-transfer request; later create calls may
+    # The authenticated request establishes the immutable payer binding before
+    # the value-transfer request; canonical verification still checks the on-chain sender. Later create calls may
     # never move it to another wallet, and on-chain sender checks use this value.
     # The decision itself is a pure, unit-tested function.
     manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
@@ -9559,11 +9555,10 @@ def mine_create_purchase():
             stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
         )
         if action == 'reuse':
-            if stored.get('walletProofVerified') is not True:
+            if stored.get('payerBindingVerified') is not True and stored.get('walletProofVerified') is not True:
                 db.collection('psemine_purchases').document(e.id).update({
-                    'walletProofVerified': True,
-                    'walletProofNonce': q.get('walletProofNonce'),
-                    'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+                    'payerBindingVerified': True,
+                    'payerBindingVerifiedAt': firestore.SERVER_TIMESTAMP,
                 })
                 stored['walletProofVerified'] = True
                 stored['walletProofNonce'] = q.get('walletProofNonce')
@@ -9609,9 +9604,8 @@ def mine_create_purchase():
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
-        'walletProofVerified': True,
-        'walletProofNonce': q.get('walletProofNonce'),
-        'walletProofVerifiedAt': firestore.SERVER_TIMESTAMP,
+        'payerBindingVerified': True,
+        'payerBindingVerifiedAt': firestore.SERVER_TIMESTAMP,
         'transactionHash': None,
         'network': 'BNB Smart Chain',
         'chainId': PSEMINE_BSC_CHAIN_ID,
@@ -9990,6 +9984,98 @@ def mine_cron_lifecycle():
                     "ownershipsChecked": checked, "referralRepairs": repaired,
                     "referralRepairErrors": repair_errors,
                     "settlementFinalized": settlement_finalized})
+
+
+@app.route('/api/mine/cron/payment-reconciliation', methods=['POST'])
+def mine_cron_payment_reconciliation():
+    """Replay persisted BNB transaction evidence through the canonical verifier.
+
+    The scheduled worker has no browser input. It loads the canonical purchase
+    document, then invokes the same verifier used by the authenticated client
+    route inside an isolated request context. The cron secret is the worker's
+    authorization; the purchase's persisted userId supplies the owner context.
+    No alternate chain verification or activation logic exists here.
+    """
+    import psemine_engine as _pse_engine
+    secret = os.environ.get('CRON_SECRET')
+    provided = request.headers.get('X-Cron-Secret')
+    if not provided:
+        authz = request.headers.get('Authorization') or ''
+        if authz.startswith('Bearer '):
+            provided = authz.split(' ', 1)[1].strip()
+    allowed, deny = _pse_engine.cron_lifecycle_authorized(provided, secret)
+    if not allowed:
+        status = 503 if deny == _pse_engine.CRON_NOT_CONFIGURED else 403
+        return jsonify({"success": False, "error": "CRON_NOT_CONFIGURED" if status == 503 else "FORBIDDEN"}), status
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+
+    candidates = db.collection('psemine_purchases').where('status', 'in', [
+        'transaction_submitted', 'confirming', 'submission_uncertain', 'manual_review'
+    ]).limit(100).get()
+    checked = 0
+    reconciled = 0
+    already_activated = 0
+    failures = []
+    verifier = verify_psemine_tool_purchase
+    # Unwrap only the HTTP authentication/access decorators. The exact same
+    # canonical verifier body still performs all quote, payer, chain, receipt,
+    # replay, confirmation and atomic settlement checks.
+    while hasattr(verifier, '__wrapped__'):
+        verifier = verifier.__wrapped__
+
+    for snap in candidates:
+        purchase = snap.to_dict() or {}
+        tx_hash = str(purchase.get('transactionHash') or '').strip().lower()
+        uid = str(purchase.get('userId') or '').strip()
+        if not tx_hash:
+            continue
+        checked += 1
+        if not uid:
+            failures.append({"purchaseId": snap.id, "reason": "purchase_owner_missing"})
+            continue
+        if purchase.get('status') == 'activated':
+            already_activated += 1
+            continue
+        try:
+            with app.test_request_context(
+                '/api/mine/tools/verify-purchase',
+                method='POST',
+                json={
+                    "purchaseId": snap.id,
+                    "transactionHash": tx_hash,
+                    "senderWallet": str(purchase.get('paymentWallet') or '').lower(),
+                },
+            ):
+                request.user = {"uid": uid}
+                result = verifier()
+                response = result[0] if isinstance(result, tuple) else result
+                status_code = result[1] if isinstance(result, tuple) else getattr(response, "status_code", 200)
+                body = response.get_json(silent=True) if hasattr(response, "get_json") else None
+                if status_code == 200 and body and body.get("success") is True:
+                    reconciled += 1
+                elif body and body.get("error") == "PURCHASE_ALREADY_ACTIVATED":
+                    already_activated += 1
+                else:
+                    failures.append({
+                        "purchaseId": snap.id,
+                        "reason": (body or {}).get("error") or "canonical_verification_not_settled",
+                        "httpStatus": status_code,
+                    })
+        except Exception:
+            logging.exception("[PSEmine Cron] canonical purchase reconciliation failed")
+            failures.append({"purchaseId": snap.id, "reason": "reconciliation_error"})
+
+    return jsonify({
+        "success": True,
+        "checked": checked,
+        "reconciled": reconciled,
+        "alreadyActivated": already_activated,
+        "manualReview": len(failures),
+        "failures": failures,
+    }), 200
+
 
 @app.route('/api/admin/mine/payment-recovery', methods=['GET'])
 @verify_token

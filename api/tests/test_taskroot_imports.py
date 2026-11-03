@@ -99,7 +99,7 @@ class TestBootstrapShape(unittest.TestCase):
         #   * psemine_public 1 -> 2: the public tool projection is imported by
         #     the app's _public_tool_view, beside public_campaign_view.
         per_file = {
-            "index.py": {"psemine_engine": 27, "psemine_core": 11,
+            "index.py": {"psemine_engine": 28, "psemine_core": 11,
                          "psemine_public": 2, "services.provider_cache": 6},
             "psemine_engine.py": {"psemine_engine": 0, "psemine_core": 1,
                                   "psemine_public": 0},

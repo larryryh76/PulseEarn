@@ -946,78 +946,36 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveQuote(null);
   }, []);
 
-  // 6. WALLET OWNERSHIP PROOF + PAYER BINDING.
-  // The wallet signs a quote-specific, non-spending EIP-191 message first.
-  // The backend recovers the signer and binds that address to this Firebase
-  // account and quote before any BNB transaction can be requested.
+  // 6. PAYER BINDING — no separate personal_sign prompt.
+  // The connected address is bound to the quote on the server. The actual
+  // native BNB transaction is the proof of payer ownership: backend settlement
+  // independently verifies its sender against this immutable binding.
   const bindPurchaseIntent = useCallback(async (quote: PSEMineQuote): Promise<{
     success: boolean; purchaseId?: string; payerWallet?: string; error?: string;
   }> => {
-    if (!currentUser) {
-      return { success: false, error: 'User not authenticated' };
-    }
+    if (!currentUser) return { success: false, error: 'User not authenticated' };
     if (!connectedWallet || !/^0x[0-9a-fA-F]{40}$/.test(connectedWallet)) {
       return { success: false, error: 'Connect a valid BNB Smart Chain wallet before creating this purchase.' };
     }
-
     try {
-      if (!quote.walletProofNonce) {
-        return { success: false, error: 'This quote predates wallet ownership verification. Refresh the quote before paying.' };
-      }
       const provider = providerRef.current;
-      if (!provider) {
-        return { success: false, error: 'Reconnect your wallet before verifying ownership.' };
-      }
+      if (!provider) return { success: false, error: 'Reconnect your wallet before paying.' };
       const accounts = await provider.request({ method: 'eth_accounts' });
       const activeAddress = Array.isArray(accounts) ? String(accounts[0] || '').toLowerCase() : '';
       if (activeAddress !== connectedWallet.toLowerCase()) {
         return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
       }
-      // payNow has already performed the required network switch. Repeating
-      // it here causes a second WalletConnect/provider round trip and delays
-      // the ownership prompt. Verify the active chain with one read instead.
-      const expectedChainId = Number(quote.chainId);
-      if (expectedChainId !== 56) {
-        return { success: false, error: 'This purchase quote is not for BNB Smart Chain. Refresh the quote before paying.' };
+      if (Number(quote.chainId) !== 56) {
+        return { success: false, error: 'This quote is not for BNB Smart Chain. Refresh the quote before paying.' };
       }
       const activeChainId = transportRef.current === 'walletConnect'
         ? walletConnectChainId(provider)
         : await getChainId(provider);
-      if (activeChainId !== expectedChainId) {
-        return { success: false, error: 'Your wallet is not on BNB Smart Chain (56). Switch networks and try again. No payment was sent.' };
+      if (activeChainId !== 56) {
+        return { success: false, error: 'Switch your wallet to BNB Smart Chain (56). No payment was sent.' };
       }
-      const proofMessage = [
-        'PulseEarn PSEmine Wallet Ownership Verification',
-        'Sign this message to prove you control the payer wallet for this purchase.',
-        'This signature does not send funds or approve a token transfer.',
-        `Account UID: ${currentUser.uid}`,
-        `Quote ID: ${quote.quoteId}`,
-        `Wallet: ${connectedWallet.toLowerCase()}`,
-        `Chain ID: ${quote.chainId}`,
-        `Nonce: ${quote.walletProofNonce}`,
-        `Expires At: ${quote.expiresAt}`,
-      ].join('\n');
-      const encodedMessage = '0x' + Array.from(new TextEncoder().encode(proofMessage))
-        .map(byte => byte.toString(16).padStart(2, '0')).join('');
-      const ownershipSignatureRequest = {
-        method: 'personal_sign',
-        params: [encodedMessage, connectedWallet],
-      };
-      // UniversalProvider must receive the CAIP-2 chain explicitly for every
-      // request, not only eth_sendTransaction. Without this, personal_sign can
-      // be dispatched on its mutable/default Ethereum namespace even though
-      // the quote and message are for BNB Smart Chain (56).
-      const walletSignature = transportRef.current === 'walletConnect'
-        ? await provider.request(ownershipSignatureRequest, 'eip155:56')
-        : await provider.request(ownershipSignatureRequest);
-      if (typeof walletSignature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(walletSignature)) {
-        return { success: false, error: 'The wallet did not return a valid ownership signature. No payment was sent.' };
-      }
-      const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet, walletSignature);
+      const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet);
       recordWalletStage('purchase_intent_bound');
-      // The intent is now a PENDING purchase: the console resumes it from
-      // /api/mine/state's pendingPurchases projection, so refresh immediately
-      // rather than waiting for the tick.
       bumpStateEpoch();
       return {
         success: true,
@@ -1026,12 +984,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     } catch (e: unknown) {
       console.error('[PSEMineContext] bindPurchaseIntent error:', e);
-      const code = Number((e as { code?: number | string } | null)?.code);
       return {
         success: false,
-        error: code === 4001
-          ? 'Wallet ownership signature was cancelled. No payment was sent.'
-          : e instanceof Error ? e.message : 'Could not verify ownership of this wallet.',
+        error: e instanceof Error ? e.message : 'Could not prepare this purchase.',
       };
     }
   }, [currentUser, connectedWallet, bumpStateEpoch]);

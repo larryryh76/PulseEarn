@@ -62,8 +62,9 @@ check('account-walletconnect:explicit-disconnect-clears-global-owner',
 check('account-wallet:explicit-disconnect-persists-account-tombstone',
   disconnectBlock.includes('persistWallet(null)'));
 
-check('payment:walletconnect-ownership-signature-explicitly-routed-to-bsc',
-  contextSource.includes("provider.request(ownershipSignatureRequest, 'eip155:56')"));
+check('payment:no-separate-ownership-signature-before-bsc-transaction',
+  !contextSource.includes("method: 'personal_sign'") &&
+  contextSource.includes('createPurchaseIntent(quote, connectedWallet)'));
 const bindStart = contextSource.indexOf('const bindPurchaseIntent = useCallback');
 const bindEnd = contextSource.indexOf('// 7. Submit Purchase Transaction Hash', bindStart);
 const bindBlock = bindStart >= 0 ? contextSource.slice(bindStart, bindEnd) : '';
@@ -126,6 +127,8 @@ const makeProvider = handler => {
   const calls = [];
   return {
     calls,
+    // Default approved BSC namespace for WalletConnect transaction-path tests.
+    session: { namespaces: { eip155: { accounts: [bnAccount(56)], methods: ['personal_sign', 'eth_sendTransaction'] } } },
     request: async (args, chain) => {
       calls.push({ method: args.method, params: args.params, chain: chain ?? null });
       return handler(args, chain, calls);
@@ -138,6 +141,7 @@ const TX = { from: ADDRESS, to: '0x8b32a461d3106b3356e9a389dfeb74ac084c8f33', va
 const HASH = `0x${'a'.repeat(64)}`;
 
 const wcSend = makeProvider(() => HASH);
+wcSend.session = { namespaces: { eip155: { accounts: [bnAccount(56)], methods: ['personal_sign', 'eth_sendTransaction'] } } };
 const wcHash = await m.sendPaymentTransaction(wcSend, TX, 'walletConnect');
 check('send:walletconnect-hash', wcHash === HASH);
 check('send:walletconnect-one-attempt', wcSend.calls.length === 1, { calls: wcSend.calls.length });
@@ -202,6 +206,7 @@ const refusing = makeProvider(({ method }) => {
   if (method === 'wallet_switchEthereumChain') throw new Error('Wallet does not support switching');
   return null;
 });
+refusing.session = { namespaces: { eip155: { accounts: ['eip155:1:0x1111111111111111111111111111111111111111'], methods: ['eth_sendTransaction'] } } };
 check('chain:walletconnect-without-approved-bsc-fails-closed', (await m.ensureChain(refusing, 56, 'walletConnect')) === false);
 check('chain:walletconnect-unapproved-does-not-switch', !refusing.calls.some(c => c.method === 'wallet_switchEthereumChain'));
 

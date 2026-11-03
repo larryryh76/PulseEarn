@@ -356,7 +356,6 @@ export class PSEMineEngine {
   public static async createPurchaseIntent(
     quote: PSEMineQuote,
     paymentWallet: string,
-    walletSignature: string,
   ): Promise<PSEMinePurchase> {
     const tool = LOCKED_PSEMINE_TOOLS[quote.toolId];
     const { getAuth } = await import('firebase/auth');
@@ -372,7 +371,7 @@ export class PSEMineEngine {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet, walletSignature })
+      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet })
     });
 
     const data = await res.json().catch(() => ({}));

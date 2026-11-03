@@ -319,6 +319,10 @@ const run = async () => {
     let requestedChain = null;
     let sendCount = 0;
     const provider = {
+      session: { namespaces: { eip155: {
+        accounts: ['eip155:56:0x1111111111111111111111111111111111111111'],
+        methods: ['eth_sendTransaction'],
+      } } },
       request: async (args, chain) => {
         if (args.method === 'eth_sendTransaction') {
           requestedChain = chain ?? null;
@@ -560,8 +564,7 @@ const run = async () => {
   const payBody = payStart === -1 ? '' : toolsSrc.slice(payStart, toolsSrc.indexOf('\n  };', payStart));
   const bindStart = contextSrc.indexOf('const bindPurchaseIntent');
   const bindBody = bindStart === -1 ? '' : contextSrc.slice(bindStart, contextSrc.indexOf('\n  }, [currentUser, connectedWallet', bindStart));
-  const iProof = bindBody.indexOf("method: 'personal_sign'");
-  const iIntent = bindBody.indexOf('createPurchaseIntent(quote, connectedWallet, walletSignature)');
+  const iIntent = bindBody.indexOf('createPurchaseIntent(quote, connectedWallet)');
   const iBind = payBody.indexOf('bindPurchaseIntent');
   const iGuard = payBody.indexOf('resolvePaymentPayer');
   const iSend = payBody.indexOf('sendPayment(');
@@ -570,12 +573,13 @@ const run = async () => {
   const iRetryGate = payBody.indexOf('canRetryPayment');
   step('purchase-flow-order', {
     foundPayNow: payStart !== -1,
-    ownershipProofBeforeIntent: iProof !== -1 && iIntent > iProof,
+    noSeparateSignaturePrompt: !bindBody.includes("method: 'personal_sign'"),
+    payerIntentCreatedBeforeTransaction: iIntent !== -1,
     payerGuardBetweenBindAndSend: iGuard > iBind && iGuard < iSend,
     hashSubmittedAfterSend: iSubmit > iSend,
     ambiguousBranchHandled: iUncertain > iSend,
     retryGatePresent: iRetryGate !== -1 && iRetryGate < iBind,
-    pass: payStart !== -1 && iProof !== -1 && iIntent > iProof && iBind !== -1
+    pass: payStart !== -1 && iIntent !== -1 && !bindBody.includes("method: 'personal_sign'") && iBind !== -1
       && iGuard > iBind && iSend > iGuard && iSubmit > iSend
       && iUncertain > iSend && iRetryGate !== -1 && iRetryGate < iBind,
   });

@@ -2,6 +2,10 @@
   "version": 2,
   "crons": [
     {
+      "path": "/api/mine/cron/payment-reconciliation",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/mine/cron/lifecycle",
       "schedule": "0 3 * * *"
     }

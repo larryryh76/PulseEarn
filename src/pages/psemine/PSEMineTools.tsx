@@ -471,9 +471,8 @@ export const PSEMineTools: React.FC = () => {
             })}
           </div>
           <div className="pse-marketplace-footnote">
-            <strong>Operating rules</strong>
-            <span>Starter, Builder and Advanced run for 24 hours. After a session ends, you have 6 hours to request free manual maintenance. The next session is scheduled 10 minutes after that request; no rewards accrue during this delay. Each owned unit shows its backend-reported timing.</span>
-            <span>Elite tools operate continuously while campaign mining is enabled. Displayed specifications are catalogue definitions; live state and timing are always taken from your account’s backend records.</span>
+            <strong>Operating model</strong>
+            <span>Starter, Builder and Advanced run 24-hour sessions, with a free maintenance window and 10-minute restart. Elite runs continuously while campaign mining is active. Your owned-unit status always comes from the backend.</span>
           </div>
         </section>
 
@@ -511,12 +510,7 @@ export const PSEMineTools: React.FC = () => {
           <section className="pse-marketplace-how" aria-labelledby="pse-how-title">
             <p className="pse-marketplace-kicker">Purchase protocol</p>
             <h2 id="pse-how-title">From quote to activation</h2>
-            <ol className="pse-marketplace-steps">
-              <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Bind your payer wallet</strong><p>Your connected wallet is bound to this quote. No message signature is requested; the next wallet prompt must be the native BNB transfer.</p></div></li>
-              <li><span>03</span><div><strong>Approve the BNB payment</strong><p>Review the exact BNB amount and campaign destination, then approve the transfer yourself.</p></div></li>
-              <li><span>04</span><div><strong>Wait for verification</strong><p>The backend checks the proven payer, recipient, exact amount and BNB Chain confirmations before activation.</p></div></li>
-            </ol>
+            <p className="pse-marketplace-checkout-line">Quote <span>→</span> Wallet approval <span>→</span> On-chain verification <span>→</span> Tool activation</p>
           </section>
         </aside>
       </div>

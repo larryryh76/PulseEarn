@@ -871,8 +871,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
         return;
       }
-      // Refresh the displayed chain after the wallet approves the switch.
-      await refreshWalletChain();
+      // ensurePaymentChain has already verified the active chain. Avoid another
+      // wallet RPC round trip here so the ownership prompt appears immediately.
 
       // 2. PROVE WALLET OWNERSHIP and bind the payer on the backend. This
       //    free EIP-191 signature is quote/account-specific and sends no funds.

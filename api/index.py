@@ -9555,7 +9555,7 @@ def mine_create_purchase():
             stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
         )
         if action == 'reuse':
-            if stored.get('walletProofVerified') is not True:
+            if stored.get('payerBindingVerified') is not True and stored.get('walletProofVerified') is not True:
                 db.collection('psemine_purchases').document(e.id).update({
                     'payerBindingVerified': True,
                     'payerBindingVerifiedAt': firestore.SERVER_TIMESTAMP,

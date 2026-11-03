@@ -15,7 +15,7 @@ concurrency:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -62,6 +62,36 @@ jobs:
 
       - name: Wallet handoff reload recovery and diagnostics regression
         run: bun scripts/pse-wallet-handoff-check.mjs
+
+      - name: Require authenticated PSEmine QA credentials
+        env:
+          PSE_TEST_EMAIL: ${{ secrets.PSE_TEST_EMAIL }}
+          PSE_TEST_PASSWORD: ${{ secrets.PSE_TEST_PASSWORD }}
+        run: |
+          if [ -z "$PSE_TEST_EMAIL" ] || [ -z "$PSE_TEST_PASSWORD" ]; then
+            echo "::error::Missing dedicated authenticated PSEmine QA credentials."
+            exit 1
+          fi
+
+      - name: Inspect every authenticated PSEmine page at all target widths
+        env:
+          PSE_TEST_EMAIL: ${{ secrets.PSE_TEST_EMAIL }}
+          PSE_TEST_PASSWORD: ${{ secrets.PSE_TEST_PASSWORD }}
+          PSE_TEST_BASE_URL: https://www.pulseearn.online
+          PSE_WIDTHS: 390,375,430,768,1024,1440
+          PSE_OUT: artifacts/psemine-authenticated-qa
+        run: |
+          mkdir -p "$PSE_OUT"
+          node scripts/pse-authenticated-check.mjs
+
+      - name: Upload complete authenticated page evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psemine-authenticated-qa-${{ github.run_number }}
+          path: artifacts/psemine-authenticated-qa/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Mobile/desktop console rendering smoke tests
         run: bun scripts/pse-console-check.mjs

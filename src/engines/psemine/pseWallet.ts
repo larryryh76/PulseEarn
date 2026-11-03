@@ -1239,9 +1239,39 @@ export const sendPaymentTransaction = async (
     // Use the wallet-standard EIP-1193 call directly. ethers BrowserProvider
     // performs several optional node RPC probes before presenting approval;
     // some mobile wallet bridges reject those probes as unknown methods.
+    // Include chainId in the transaction payload as well as the CAIP-2
+    // routing context. Some mobile WalletConnect clients use the transaction
+    // object's chainId when constructing their approval screen; relying only
+    // on UniversalProvider's second argument can leave the signing request
+    // routed but not render a transaction confirmation in the wallet.
+    if (transport === 'walletConnect') {
+      const session = (provider as WcUniversalProviderLike).session;
+      if (!walletConnectSessionCanSendTransactions(session)) {
+        recordWalletStage('wallet_method_unsupported', 'approved session lacks eth_sendTransaction');
+        throw new PseWalletConnectError(
+          'SESSION_UNSUPPORTED',
+          'This wallet connection can sign messages but is not approved to send transactions. Reconnect and approve the full PSEmine wallet request.',
+          'session namespace missing eth_sendTransaction',
+        );
+      }
+      const approvedPayer = walletConnectSessionAccounts(session).includes(tx.from.toLowerCase());
+      if (!approvedPayer) {
+        recordWalletStage('wallet_account_mismatch', 'payer is not an approved BNB Smart Chain session account');
+        throw new PseWalletConnectError(
+          'SESSION_UNSUPPORTED',
+          'The connected wallet account is not approved for BNB Smart Chain payments. Reconnect the intended wallet account.',
+          'session account mismatch',
+        );
+      }
+    }
     const request = {
       method: 'eth_sendTransaction',
-      params: [{ from: tx.from, to: tx.to, value: tx.value }],
+      params: [{
+        from: tx.from,
+        to: tx.to,
+        value: tx.value,
+        chainId: '0x38',
+      }],
     };
     // WalletConnect's UniversalProvider accepts an explicit CAIP-2 chain as
     // its second request argument. Do not rely on its mutable/default chain:

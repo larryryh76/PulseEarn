@@ -231,16 +231,17 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
         self.assertIn("PAYMENT_RECOVERY_LOCKED", self.create_handler)
         self.assertIn("stored.get('transactionHash')", self.create_handler)
 
-    def test_quote_issues_a_unique_wallet_proof_nonce(self):
-        self.assertIn('"walletProofNonce": uuid.uuid4().hex', self.quote_handler)
+    def test_quote_does_not_need_a_message_signature_nonce(self):
+        self.assertNotIn('"walletProofNonce": uuid.uuid4().hex', self.quote_handler)
 
-    def test_purchase_requires_a_quote_bound_wallet_ownership_signature(self):
-        self.assertIn("walletSignature", self.create_handler)
-        self.assertIn("verify_psemine_wallet_proof", self.create_handler)
+    def test_purchase_intent_does_not_require_a_non_payment_signature(self):
+        self.assertNotIn("walletSignature", self.create_handler)
+        self.assertNotIn("verify_psemine_wallet_proof", self.create_handler)
+        # This marker now means the payer binding is established for the
+        # transaction-verification path; it is not evidence of payment.
         self.assertIn("'walletProofVerified': True", self.create_handler)
         self.assertIn("walletProofVerified", self.verify_handler)
-        self.assertIn("WALLET_PROOF_REQUIRED", self.create_handler)
-        self.assertIn("WALLET_PROOF_REQUIRED", self.verify_handler)
+        self.assertNotIn("WALLET_PROOF_REQUIRED", self.create_handler)
 
     def test_expired_submitted_hash_is_recorded_not_silently_discarded(self):
         self.assertIn("_flag_expired_purchase", self.verify_handler)

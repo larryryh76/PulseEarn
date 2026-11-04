@@ -133,7 +133,9 @@ export const PSEMineMe: React.FC = () => {
               </PseNotice>
             )}
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Recent activity</span><small>Latest account events</small></summary>
           <PseSection title="Recent activity" meta={activities.length ? `${activities.length} recent records loaded` : 'Account event ledger'}>
             {feedErrors.activities && (
               <PseNotice tone="attention" title="Activity could not be synchronized">
@@ -162,6 +164,7 @@ export const PSEMineMe: React.FC = () => {
               )}
             </div>
           </PseSection>
+          </details>
 
           <details className="pse-account-disclosure"><summary><span>Security</span><small>Password and sign-in settings</small></summary>
           <PseSection title="Security">
@@ -226,7 +229,9 @@ export const PSEMineMe: React.FC = () => {
               )}
             </div>
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Notifications</span><small>Unread updates and account alerts</small></summary>
           <PseSection title="Notifications" meta={`${notifications.filter(n => !n.read).length} unread`}>
             <PseFacts cols={2}>
               <PseFact label="Unread" value={String(notifications.filter(n => !n.read).length)} />
@@ -287,6 +292,7 @@ export const PSEMineMe: React.FC = () => {
               </li>
             </ul>
           </PseSection>
+          </details>
         </PseStack>
       </PseSplit>
     </PsePage>

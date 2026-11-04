@@ -660,3 +660,66 @@
   .pse-route-account .pse-block { padding:13px; }
   .pse-route-account .pse-fact { padding:10px; }
 }
+
+
+/* PsePage derives its route class from the visible title ("Mining tools"),
+   therefore the canonical route hook is pse-route-mining-tools. */
+.pse-route-mining-tools .pse-marketplace-intro { min-height:0; }
+.pse-route-mining-tools .pse-marketplace-intro-copy > p:last-child { max-width:62ch; }
+.pse-route-mining-tools .pse-marketplace-heading p:not(.pse-marketplace-kicker) { max-width:58ch; }
+.pse-route-mining-tools .pse-marketplace-products .pse-product { min-width:0; }
+.pse-route-mining-tools .pse-product-specs { min-width:0; }
+.pse-route-mining-tools .pse-product-spec dt,
+.pse-route-mining-tools .pse-product-spec dd { overflow-wrap:anywhere; }
+.pse-route-mining-tools .pse-product-actions .pse-btn { min-height:44px; }
+.pse-route-mining-tools .pse-marketplace-owned,
+.pse-route-mining-tools .pse-marketplace-how { min-width:0; }
+@media (min-width:381px) and (max-width:620px) {
+  .pse-route-mining-tools .pse-marketplace-products {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-items:stretch; gap:10px;
+  }
+  .pse-route-mining-tools .pse-marketplace-products .pse-product {
+    display:flex; flex-direction:column; align-items:stretch; gap:8px;
+    padding:11px; border-radius:15px;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art {
+    width:100%; height:68px; min-height:68px; max-height:68px; grid-row:auto;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art svg { height:62px; }
+  .pse-route-mining-tools .pse-product-id { min-width:0; }
+  .pse-route-mining-tools .pse-product-name { font-size:14px; line-height:1.2; }
+  .pse-route-mining-tools .pse-product-name .pse-rowitem-meta {
+    display:block; margin-top:3px; font-size:9px; line-height:1.35;
+  }
+  .pse-route-mining-tools .pse-product-desc { display:none; }
+  .pse-route-mining-tools .pse-product-tier { font-size:8px; }
+  .pse-route-mining-tools .pse-product-specs {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 6px;
+  }
+  .pse-route-mining-tools .pse-product-spec { min-width:0; padding-top:6px; }
+  .pse-route-mining-tools .pse-product-spec dt { font-size:8px; line-height:1.2; }
+  .pse-route-mining-tools .pse-product-spec dd { font-size:11px; line-height:1.25; }
+  .pse-route-mining-tools .pse-product-actions {
+    display:flex; flex-direction:column; align-items:stretch; gap:7px;
+    margin-top:auto; padding-top:9px;
+  }
+  .pse-route-mining-tools .pse-product-avail { min-height:24px; font-size:9px; line-height:1.3; }
+  .pse-route-mining-tools .pse-product-actions .pse-btn {
+    width:100%; min-width:0; min-height:44px; padding-inline:5px; font-size:11px;
+  }
+}
+@media (max-width:620px) {
+  .pse-route-mining-tools .pse-marketplace-layout { gap:12px; }
+  .pse-route-mining-tools .pse-marketplace-intro { gap:9px; }
+  .pse-route-mining-tools .pse-marketplace-intro-copy > p:last-child { line-height:1.45; }
+  .pse-route-mining-tools .pse-marketplace-summary { margin-top:0; }
+  .pse-route-mining-tools .pse-marketplace-rail { gap:10px; }
+  .pse-route-mining-tools .pse-marketplace-owned { padding:13px; }
+  .pse-route-mining-tools .pse-marketplace-empty { padding:14px 10px; }
+  .pse-route-mining-tools .pse-marketplace-how { padding:11px 12px; }
+}
+@media (max-width:380px) {
+  .pse-route-mining-tools .pse-marketplace-products .pse-product { gap:7px; }
+  .pse-route-mining-tools .pse-product .pse-tool-art { height:64px; min-height:64px; }
+}

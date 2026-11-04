@@ -288,9 +288,6 @@ export const PSEMineDashboard: React.FC = () => {
               <strong>{availableStr}</strong>
             </div>
             <div className="pse-account-actions">
-              <Link to="/mine/wallet" className="pse-btn pse-btn--sm">
-                {payoutWallet ? 'Open wallet' : 'Set up wallet'}
-              </Link>
               <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">
                 Explore tools
               </Link>
@@ -307,10 +304,6 @@ export const PSEMineDashboard: React.FC = () => {
           <Link to={nextAction.to} className="pse-account-next-link">
             {nextAction.label}<span aria-hidden="true"> →</span>
           </Link>
-          <div className="pse-account-aside-foot">
-            Campaign-wide status <strong>{knownStatus ? campaignView.label : 'status pending'}</strong>
-            {campaignPosition ? <span> · {campaignPosition}</span> : null}
-          </div>
         </aside>
       </section>
 
@@ -509,7 +502,6 @@ export const PSEMineDashboard: React.FC = () => {
           <section className="pse-block" aria-labelledby="pse-settlement-label">
             <div className="pse-block-head">
               <h2 className="pse-block-title" id="pse-settlement-label">Settlement</h2>
-              <Link to="/mine/wallet" className="pse-textlink">Manage wallet</Link>
             </div>
 
             <div className="pse-settle">

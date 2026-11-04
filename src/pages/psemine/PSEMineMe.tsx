@@ -110,6 +110,7 @@ export const PSEMineMe: React.FC = () => {
       </section>
       <PseSplit>
         <PseStack>
+          <details className="pse-account-disclosure"><summary><span>Identity</span><small>Profile and verification details</small></summary>
           <PseSection title="Identity">
             <PseFacts cols={2}>
               <PseFact label="Email" value={currentUser?.email || '—'} text />
@@ -132,7 +133,9 @@ export const PSEMineMe: React.FC = () => {
               </PseNotice>
             )}
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Recent activity</span><small>Latest account events</small></summary>
           <PseSection title="Recent activity" meta={activities.length ? `${activities.length} recent records loaded` : 'Account event ledger'}>
             {feedErrors.activities && (
               <PseNotice tone="attention" title="Activity could not be synchronized">
@@ -161,7 +164,9 @@ export const PSEMineMe: React.FC = () => {
               )}
             </div>
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Security</span><small>Password and sign-in settings</small></summary>
           <PseSection title="Security">
             {isPasswordAccount ? (
               <form onSubmit={changePassword} className="pse-security-form" noValidate>
@@ -189,9 +194,11 @@ export const PSEMineMe: React.FC = () => {
               </PseNotice>
             )}
           </PseSection>
+          </details>
         </PseStack>
 
         <PseStack>
+          <details className="pse-account-disclosure"><summary><span>Wallets</span><small>Connected and payout wallets</small></summary>
           <PseSection title="Wallets">
             <PseFacts cols={1}>
               <PseFact
@@ -222,7 +229,9 @@ export const PSEMineMe: React.FC = () => {
               )}
             </div>
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Notifications</span><small>Unread updates and account alerts</small></summary>
           <PseSection title="Notifications" meta={`${notifications.filter(n => !n.read).length} unread`}>
             <PseFacts cols={2}>
               <PseFact label="Unread" value={String(notifications.filter(n => !n.read).length)} />
@@ -245,7 +254,9 @@ export const PSEMineMe: React.FC = () => {
               )}
             </div>
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Account session</span><small>Sign out and session information</small></summary>
           <PseSection
             title="Account session"
             meta={campaignStatus !== null ? `Campaign ${campaignStatusView(campaignStatus).label.toLowerCase()}` : 'Campaign status not reported'}
@@ -260,7 +271,9 @@ export const PSEMineMe: React.FC = () => {
               </PseButton>
             </div>
           </PseSection>
+          </details>
 
+          <details className="pse-account-disclosure"><summary><span>Help and documentation</span><small>Guides, support and policies</small></summary>
           <PseSection title="Help and documentation">
             <ul className="pse-notes">
               <li>
@@ -279,6 +292,7 @@ export const PSEMineMe: React.FC = () => {
               </li>
             </ul>
           </PseSection>
+          </details>
         </PseStack>
       </PseSplit>
     </PsePage>

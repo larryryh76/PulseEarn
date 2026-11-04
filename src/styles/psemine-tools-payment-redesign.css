@@ -479,3 +479,247 @@
 @media(max-width:900px) {
   .pse-stage[data-page="tools"] .pse-marketplace-how { margin-top:0; }
 }
+
+
+/* QA-587 follow-up: compact the catalogue and keep checkout legible on phones. */
+@media (max-width: 620px) {
+  .pse-stage[data-page="tools"] .pse-page { gap:16px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero {
+    min-height:0; grid-template-columns:minmax(0,1fr); gap:10px;
+    padding:17px 16px; border-radius:18px;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero h2 {
+    margin:8px 0; font-size:clamp(23px,7vw,30px); line-height:1.04;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-copy>p {
+    margin:7px 0; font-size:12px; line-height:1.5;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-foot { margin-top:10px; padding-top:10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-intro { padding:16px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary { gap:7px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary>div { padding:9px 10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-heading { margin:0 0 8px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-heading p:not(.pse-marketplace-kicker) { display:none; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products { gap:9px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product {
+    grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto auto auto;
+    align-items:stretch; gap:8px; padding:12px; border-radius:15px;
+  }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art {
+    grid-column:1; grid-row:auto; min-height:74px; height:74px; max-height:74px;
+  }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art svg { height:66px; }
+  .pse-stage[data-page="tools"] .pse-product-id,
+  .pse-stage[data-page="tools"] .pse-product-specs,
+  .pse-stage[data-page="tools"] .pse-product-actions { grid-column:1; }
+  .pse-stage[data-page="tools"] .pse-product-name { font-size:14px; }
+  .pse-stage[data-page="tools"] .pse-product-desc { display:none; }
+  .pse-stage[data-page="tools"] .pse-product-specs { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+  .pse-stage[data-page="tools"] .pse-product-spec dt { font-size:8px; }
+  .pse-stage[data-page="tools"] .pse-product-spec dd { font-size:11px; }
+  .pse-stage[data-page="tools"] .pse-product-actions { gap:6px; }
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { min-height:42px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-rail { gap:10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-how { padding:12px; }
+  .pse-purchase-dialog .pse-steps { grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; }
+  .pse-purchase-dialog .pse-step {
+    min-width:0; padding:8px 1px; font-size:clamp(7px,2.1vw,9px);
+    white-space:nowrap; overflow-wrap:normal; word-break:normal; letter-spacing:-.035em;
+  }
+  .pse-purchase-dialog .pse-page-head { flex-wrap:wrap; }
+  .pse-purchase-dialog .pse-page-actions { flex:0 0 auto; }
+}
+@media (min-width: 621px) and (max-width: 900px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-products { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { grid-template-columns:minmax(0,1fr); }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art { grid-column:1; grid-row:auto; }
+  .pse-stage[data-page="tools"] .pse-product-specs,
+  .pse-stage[data-page="tools"] .pse-product-actions { grid-column:1; }
+}
+
+
+/* Final mobile acceptance overrides — target the live marketplace markup, not
+   the retired hero/product selectors from the earlier concept. */
+.pse-route-tools .pse-marketplace-intro { min-height:0; }
+.pse-route-tools .pse-marketplace-intro-copy > p:last-child { max-width:62ch; }
+.pse-route-tools .pse-marketplace-heading p:not(.pse-marketplace-kicker) { max-width:58ch; }
+.pse-route-tools .pse-marketplace-products .pse-product { min-width:0; }
+.pse-route-tools .pse-product-specs { min-width:0; }
+.pse-route-tools .pse-product-spec dt,
+.pse-route-tools .pse-product-spec dd { overflow-wrap:anywhere; }
+.pse-route-tools .pse-product-actions .pse-btn { min-height:44px; }
+.pse-route-tools .pse-marketplace-owned,
+.pse-route-tools .pse-marketplace-how { min-width:0; }
+.pse-purchase-dialog .pse-steps {
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:5px !important;
+  width:100%;
+  padding:0;
+  margin:0 0 18px;
+  list-style:none;
+}
+.pse-purchase-dialog .pse-step {
+  display:flex;
+  min-width:0;
+  min-height:40px;
+  align-items:center;
+  justify-content:center;
+  padding:7px 3px;
+  border-radius:9px;
+  text-align:center;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  font-size:11px;
+  line-height:1.15;
+}
+.pse-purchase-dialog .pse-step[data-state="current"] { color:#f5f6ff; }
+.pse-purchase-dialog .pse-step[data-state="done"] { color:#b9d8ff; }
+.pse-purchase-dialog .pse-page { min-width:0; }
+.pse-purchase-dialog .pse-page-head { min-width:0; }
+.pse-purchase-dialog .pse-page-title { min-width:0; overflow-wrap:anywhere; }
+.pse-route-account .pse-account-overview-main { min-width:0; }
+.pse-route-account .pse-account-overview-actions { min-width:0; }
+.pse-route-account .pse-account-shortcut { min-width:0; }
+.pse-route-account .pse-account-shortcut small { overflow-wrap:anywhere; }
+@media (min-width:381px) and (max-width:620px) {
+  /* Two compact columns remove almost two full screens of catalogue scrolling
+     while keeping every purchase fact and action visible on each card. */
+  .pse-route-tools .pse-marketplace-products {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-items:stretch;
+    gap:10px;
+  }
+  .pse-route-tools .pse-marketplace-products .pse-product {
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+    padding:11px;
+    border-radius:15px;
+  }
+  .pse-route-tools .pse-product .pse-tool-art {
+    width:100%;
+    height:68px;
+    min-height:68px;
+    max-height:68px;
+    grid-row:auto;
+  }
+  .pse-route-tools .pse-product .pse-tool-art svg { height:62px; }
+  .pse-route-tools .pse-product-id { min-width:0; }
+  .pse-route-tools .pse-product-name { font-size:14px; line-height:1.2; }
+  .pse-route-tools .pse-product-name .pse-rowitem-meta {
+    display:block;
+    margin-top:3px;
+    font-size:9px;
+    line-height:1.35;
+  }
+  .pse-route-tools .pse-product-desc { display:none; }
+  .pse-route-tools .pse-product-tier { font-size:8px; }
+  .pse-route-tools .pse-product-specs {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px 6px;
+  }
+  .pse-route-tools .pse-product-spec { min-width:0; padding-top:6px; }
+  .pse-route-tools .pse-product-spec dt { font-size:8px; line-height:1.2; }
+  .pse-route-tools .pse-product-spec dd { font-size:11px; line-height:1.25; }
+  .pse-route-tools .pse-product-actions {
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:7px;
+    margin-top:auto;
+    padding-top:9px;
+  }
+  .pse-route-tools .pse-product-avail { min-height:24px; font-size:9px; line-height:1.3; }
+  .pse-route-tools .pse-product-actions .pse-btn { width:100%; min-width:0; min-height:44px; padding-inline:5px; font-size:11px; }
+  .pse-route-tools .pse-marketplace-footnote { margin-top:10px; }
+}
+@media (max-width:380px) {
+  .pse-route-tools .pse-marketplace-products .pse-product { gap:7px; }
+  .pse-route-tools .pse-product .pse-tool-art { height:64px; min-height:64px; }
+  .pse-purchase-dialog .pse-step { font-size:9px; padding-inline:1px; }
+}
+@media (max-width:620px) {
+  .pse-route-tools .pse-marketplace-layout { gap:12px; }
+  .pse-route-tools .pse-marketplace-intro { gap:9px; }
+  .pse-route-tools .pse-marketplace-intro-copy > p:last-child { line-height:1.45; }
+  .pse-route-tools .pse-marketplace-summary { margin-top:0; }
+  .pse-route-tools .pse-marketplace-rail { gap:10px; }
+  .pse-route-tools .pse-marketplace-owned { padding:13px; }
+  .pse-route-tools .pse-marketplace-empty { padding:14px 10px; }
+  .pse-route-tools .pse-marketplace-how { padding:11px 12px; }
+  .pse-purchase-dialog .pse-steps { gap:3px !important; margin-bottom:13px; }
+  .pse-purchase-dialog .pse-step { min-height:36px; font-size:9px; letter-spacing:-.02em; }
+  .pse-route-account .pse-account-overview { padding:14px; }
+  .pse-route-account .pse-account-overview-actions { gap:8px; }
+  .pse-route-account .pse-account-shortcut { min-height:56px; padding:10px; }
+  .pse-route-account .pse-account-shortcut small { font-size:10px; }
+  .pse-route-account .pse-block { padding:13px; }
+  .pse-route-account .pse-fact { padding:10px; }
+}
+
+
+/* PsePage derives its route class from the visible title ("Mining tools"),
+   therefore the canonical route hook is pse-route-mining-tools. */
+.pse-route-mining-tools .pse-marketplace-intro { min-height:0; }
+.pse-route-mining-tools .pse-marketplace-intro-copy > p:last-child { max-width:62ch; }
+.pse-route-mining-tools .pse-marketplace-heading p:not(.pse-marketplace-kicker) { max-width:58ch; }
+.pse-route-mining-tools .pse-marketplace-products .pse-product { min-width:0; }
+.pse-route-mining-tools .pse-product-specs { min-width:0; }
+.pse-route-mining-tools .pse-product-spec dt,
+.pse-route-mining-tools .pse-product-spec dd { overflow-wrap:anywhere; }
+.pse-route-mining-tools .pse-product-actions .pse-btn { min-height:44px; }
+.pse-route-mining-tools .pse-marketplace-owned,
+.pse-route-mining-tools .pse-marketplace-how { min-width:0; }
+@media (min-width:381px) and (max-width:620px) {
+  .pse-route-mining-tools .pse-marketplace-products {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    align-items:stretch; gap:10px;
+  }
+  .pse-route-mining-tools .pse-marketplace-products .pse-product {
+    display:flex; flex-direction:column; align-items:stretch; gap:8px;
+    padding:11px; border-radius:15px;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art {
+    width:100%; height:68px; min-height:68px; max-height:68px; grid-row:auto;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art svg { height:62px; }
+  .pse-route-mining-tools .pse-product-id { min-width:0; }
+  .pse-route-mining-tools .pse-product-name { font-size:14px; line-height:1.2; }
+  .pse-route-mining-tools .pse-product-name .pse-rowitem-meta {
+    display:block; margin-top:3px; font-size:9px; line-height:1.35;
+  }
+  .pse-route-mining-tools .pse-product-desc { display:none; }
+  .pse-route-mining-tools .pse-product-tier { font-size:8px; }
+  .pse-route-mining-tools .pse-product-specs {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 6px;
+  }
+  .pse-route-mining-tools .pse-product-spec { min-width:0; padding-top:6px; }
+  .pse-route-mining-tools .pse-product-spec dt { font-size:8px; line-height:1.2; }
+  .pse-route-mining-tools .pse-product-spec dd { font-size:11px; line-height:1.25; }
+  .pse-route-mining-tools .pse-product-actions {
+    display:flex; flex-direction:column; align-items:stretch; gap:7px;
+    margin-top:auto; padding-top:9px;
+  }
+  .pse-route-mining-tools .pse-product-avail { min-height:24px; font-size:9px; line-height:1.3; }
+  .pse-route-mining-tools .pse-product-actions .pse-btn {
+    width:100%; min-width:0; min-height:44px; padding-inline:5px; font-size:11px;
+  }
+}
+@media (max-width:620px) {
+  .pse-route-mining-tools .pse-marketplace-layout { gap:12px; }
+  .pse-route-mining-tools .pse-marketplace-intro { gap:9px; }
+  .pse-route-mining-tools .pse-marketplace-intro-copy > p:last-child { line-height:1.45; }
+  .pse-route-mining-tools .pse-marketplace-summary { margin-top:0; }
+  .pse-route-mining-tools .pse-marketplace-rail { gap:10px; }
+  .pse-route-mining-tools .pse-marketplace-owned { padding:13px; }
+  .pse-route-mining-tools .pse-marketplace-empty { padding:14px 10px; }
+  .pse-route-mining-tools .pse-marketplace-how { padding:11px 12px; }
+}
+@media (max-width:380px) {
+  .pse-route-mining-tools .pse-marketplace-products .pse-product { gap:7px; }
+  .pse-route-mining-tools .pse-product .pse-tool-art { height:64px; min-height:64px; }
+}

@@ -55,6 +55,7 @@
  * product state of its own beyond which overlay is open.
  */
 import React from 'react';
+import '../../styles/psemine-product-system.css';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';

@@ -1457,3 +1457,41 @@
   .pse-console-shell--docked .pse-stage { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
   .pse-console-shell--docked .pse-dock { padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
 }
+
+
+/* QA-587: compact repeated account/dashboard content and improve touch targets. */
+.pse-console-shell .pse-bar-signout { min-height:44px; padding-inline:12px; }
+.pse-console-shell .pse-bar-brand,
+.pse-console-shell .pse-dock-link,
+.pse-console-shell .pse-footer a { min-height:44px; }
+.pse-console-shell .pse-page-head { margin-bottom:18px; padding-bottom:18px; }
+.pse-console-shell .pse-page-objective { line-height:1.55; }
+.pse-route-dashboard .pse-dash-grid { gap:14px; }
+.pse-route-dashboard .pse-dash-col { gap:14px; }
+.pse-route-dashboard .pse-block,
+.pse-route-account .pse-block { padding:clamp(14px,2vw,20px); }
+.pse-route-dashboard .pse-account-band { padding:18px; }
+.pse-route-dashboard .pse-account-band h2 { font-size:clamp(23px,5vw,32px); }
+.pse-route-dashboard .pse-settle-row { padding:9px 0; }
+.pse-route-account .pse-account-shortcut { min-height:64px; padding:12px; }
+.pse-route-account .pse-security-form { padding:13px; }
+.pse-route-account input,
+.pse-route-account select,
+.pse-route-account textarea { min-height:44px; max-width:100%; }
+.pse-console-shell .pse-textlink,
+.pse-console-shell .pse-page a:not(.pse-btn):not(.pse-nav-link) { text-underline-offset:3px; }
+@media (max-width: 620px) {
+  .pse-console-shell .pse-stage { padding-inline:14px; }
+  .pse-console-shell .pse-page { gap:14px; }
+  .pse-console-shell .pse-page-head { gap:8px; margin-bottom:12px; padding-top:8px; padding-bottom:14px; }
+  .pse-console-shell .pse-page-objective { margin-top:7px; font-size:12px; line-height:1.5; }
+  .pse-route-dashboard .pse-dash-head { padding:16px; border-radius:18px; }
+  .pse-route-dashboard .pse-dash-grid { grid-template-columns:minmax(0,1fr); }
+  .pse-route-dashboard .pse-dash-col { gap:12px; }
+  .pse-route-dashboard .pse-block { border-radius:15px; }
+  .pse-route-account .pse-account-overview { padding:16px; border-radius:18px; }
+  .pse-route-account .pse-account-shortcut { min-height:60px; }
+  .pse-route-account .pse-security-form { margin-top:10px; }
+  .pse-route-account .pse-account-section { gap:10px; }
+  .pse-console-shell .pse-footer { padding-block:16px; }
+}

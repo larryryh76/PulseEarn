@@ -326,7 +326,7 @@ export const PSEMineTools: React.FC = () => {
         <div className="pse-marketplace-intro-copy">
           <p className="pse-marketplace-kicker">PSEMINE EQUIPMENT MARKETPLACE</p>
           <h2 id="pse-marketplace-title">Choose your mining capacity.</h2>
-          <p>Compare the four campaign units, review the fixed GBP price and capacity, then pay in BNB. Your tool activates only after on-chain verification.</p>
+          <p>These are virtual campaign-capacity units, not physical mining hardware. Compare the four campaign units, review the fixed GBP price and capacity, then pay in BNB. Your tool activates only after on-chain verification.</p>
         </div>
         <div className="pse-marketplace-intro-state">
           <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}>

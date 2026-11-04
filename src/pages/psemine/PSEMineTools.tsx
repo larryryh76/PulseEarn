@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import '../../styles/psemine-tools-payment-redesign.css';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -18,7 +19,7 @@ import {
   CYCLE_STATE_MAP, cycleStateView, operatingModelView,
 } from '../../components/psemine/pseCore';
 import {
-  PseButton, PseErrorNotice, PseFact, PseFacts, PseLoading, PseNotice,
+  PseButton, PseErrorNotice, PseNotice, PseLoading, PseFacts, PseFact,
   PsePage, PseSection, PseSkeleton, PseSkeletonRows, PseStat, PseStatBar,
 } from '../../components/psemine/PseBasics';
 import toast from 'react-hot-toast';
@@ -238,20 +239,11 @@ export const PSEMineTools: React.FC = () => {
   const toolCapacity = typeof state?.user?.toolCapacityGBPPerHour === 'number'
     ? state.user.toolCapacityGBPPerHour
     : typeof pseUser?.toolCapacityGBPPerHour === 'number' ? pseUser.toolCapacityGBPPerHour : null;
-  const totalCapacity = typeof state?.user?.totalCapacityGBPPerHour === 'number'
-    ? state.user.totalCapacityGBPPerHour
-    : typeof pseUser?.totalCapacityGBPPerHour === 'number' ? pseUser.totalCapacityGBPPerHour : null;
-  const referralCapacity = typeof state?.user?.referralCapacityGBPPerHour === 'number'
-    ? state.user.referralCapacityGBPPerHour
-    : typeof pseUser?.referralCapacityGBPPerHour === 'number' ? pseUser.referralCapacityGBPPerHour : null;
-  const referralQualified = state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0;
   const headroom = toolCapacity !== null
     ? Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity)
     : null;
   const toolCapacityLabel = toolCapacity !== null ? gbpHour(toolCapacity) : '—';
   const headroomLabel = headroom !== null ? gbpHour(headroom) : '—';
-  const referralCapacityLabel = referralCapacity !== null ? gbpHour(referralCapacity) : '—';
-  const totalCapacityLabel = totalCapacity !== null ? gbpHour(totalCapacity) : '—';
   // Ownership is counted from the backend's ownership records, not from the
   // catalogue and not from the account's cached counts: a record is proof.
   const tierSlotsLeft = TOOLS.reduce(
@@ -294,17 +286,9 @@ export const PSEMineTools: React.FC = () => {
   if (loading && !state) {
     return (
       <PsePage title="Mining tools" objective={toolsObjective}>
-        <PseNotice tone="attention" title="Your tool cycle, at a glance">
-        <p>PSEmine units are virtual campaign-capacity tools, not physical mining hardware or rigs. Starter, Builder and Advanced follow this cycle:</p>
-        <PseFacts cols={2}>
-          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
-          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
-          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
-          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
-        </PseFacts>
-        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
-      </PseNotice>
-
+        <PseNotice tone="info" title="Campaign equipment">
+          <p>Choose from four virtual mining-capacity units. Each listing shows its fixed price, capacity, operating model and ownership limit. Payment is verified on BNB Smart Chain before activation.</p>
+        </PseNotice>
       <PseStatBar cols={4}>
           {['Equipment owned', 'Tool capacity', 'Capacity headroom', 'Referral capacity'].map(label => (
             <PseStat key={label} label={label} value={<PseSkeleton width="5ch" height="1.0625rem" />} />
@@ -328,7 +312,6 @@ export const PSEMineTools: React.FC = () => {
   }
 
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
-  const operatingOwned = ownedTools.filter(t => (t.cycleState || t.status) === 'active').length;
 
   const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
 
@@ -339,64 +322,26 @@ export const PSEMineTools: React.FC = () => {
       objective="Fixed-price campaign units. Pay in BNB; campaign capacity activates after on-chain verification."
       actions={<PseButton variant="secondary" size="sm" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync'}</PseButton>}
     >
-      <section className="pse-marketplace-hero" aria-labelledby="pse-marketplace-hero-title">
-        <div className="pse-marketplace-hero-copy">
-          <span className="pse-marketplace-eyebrow"><span className="pse-marketplace-live-dot" /> PSEMINE CAMPAIGN UNITS</span>
-          <h2 id="pse-marketplace-hero-title">Build your <em>campaign setup.</em></h2>
-          <p>Choose a tool, review its fixed price and capacity, then buy securely with your wallet. Your equipment activates only after payment is verified on-chain.</p>
-          <div className="pse-marketplace-hero-actions">
-            <a className="pse-marketplace-buy-cta" href="#pse-catalogue">{purchaseOpen ? 'Explore tools' : 'View equipment'} <span aria-hidden="true">↓</span></a>
-            <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}><span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}</span>
-          </div>
+      <section className="pse-marketplace-intro" aria-labelledby="pse-marketplace-title">
+        <div className="pse-marketplace-intro-copy">
+          <p className="pse-marketplace-kicker">PSEMINE EQUIPMENT MARKETPLACE</p>
+          <h2 id="pse-marketplace-title">Choose your mining capacity.</h2>
+          <p>These are virtual campaign-capacity units, not physical mining hardware. Compare the four campaign units, review the fixed GBP price and capacity, then pay in BNB. Your tool activates only after on-chain verification.</p>
         </div>
-        <div className="pse-marketplace-hero-object" aria-hidden="true">
-          <div className="pse-marketplace-orbit pse-marketplace-orbit--one" />
-          <div className="pse-marketplace-orbit pse-marketplace-orbit--two" />
-          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--top"><span>AVAILABLE TIERS</span><strong>{TOOLS.length.toString().padStart(2, '0')}</strong></div>
-          <div className="pse-marketplace-hero-machine"><ToolArt tier={4} name="Elite mining unit" /></div>
-          <div className="pse-marketplace-hero-chip pse-marketplace-hero-chip--bottom"><span>PAYMENT NETWORK</span><strong>BNB SMART CHAIN</strong></div>
-        </div>
-        <div className="pse-marketplace-hero-foot">
-          <div><span>YOUR EQUIPMENT</span><strong>{ownedTools.length.toString().padStart(2, '0')} <small>owned</small></strong></div>
-          <div><span>HOURLY TOOL CAPACITY</span><strong>{toolCapacityLabel}</strong></div>
-          <div><span>ACCOUNT SLOT HEADROOM</span><strong>{tierSlotsLeft} <small>slots</small></strong></div>
-          <a href="#pse-catalogue">Compare equipment <span aria-hidden="true">↗</span></a>
+        <div className="pse-marketplace-intro-state">
+          <span className={'pse-marketplace-campaign-state' + (purchaseOpen ? ' is-open' : '')}>
+            <span />{purchaseOpen ? 'Purchases open' : walletSetupRequired ? 'Wallet setup pending' : 'Purchases ' + (campaign?.status || 'unavailable')}
+          </span>
+          <span className="pse-marketplace-network">BNB SMART CHAIN</span>
         </div>
       </section>
 
-      <PseNotice tone="attention" title="Your tool cycle, at a glance">
-        <p>PSEmine units are virtual campaign-capacity tools, not physical mining rigs. Starter, Builder and Advanced follow this cycle:</p>
-        <PseFacts cols={2}>
-          <PseFact label="01 · Operate" value="24 hours" hint="Eligible hourly accrual" />
-          <PseFact label="02 · Maintain" value="Within 6 hours" hint="Free · manual action" />
-          <PseFact label="03 · Restart" value="10 minutes" hint="No accrual during delay" />
-          <PseFact label="04 · Resume" value="Next session" hint="Fresh 24-hour cycle" />
-        </PseFacts>
-        <p>The 6-hour window is reserved for free manual maintenance. Earnings accrue during active operating sessions; maintenance itself does not add earnings. Elite operates continuously while the campaign is active. The GBP/hour figure is the campaign accounting rate used to calculate eligible earnings. Recorded eligible earnings are settled in GBP at campaign end. You can then request payout in BNB; approved requests are paid after review.</p>
-      </PseNotice>
-
-      <PseStatBar cols={4}>
-        <PseStat
-          label="Equipment owned"
-          value={`${ownedTools.length}`}
-          note={`${operatingOwned} operating · ${TOOLS.reduce((a, t) => a + t.maxPerUser, 0)} account slots`}
-        />
-        <PseStat
-          label="Tool capacity"
-          value={toolCapacityLabel}
-          note={`Max ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}`}
-        />
-        <PseStat
-          label="Capacity headroom"
-          value={headroomLabel}
-          note={`${tierSlotsLeft} tier slot${tierSlotsLeft === 1 ? '' : 's'} open`}
-        />
-        <PseStat
-          label="Referral capacity"
-          value={referralCapacityLabel}
-          note={`${referralQualified} qualified · total ${totalCapacityLabel}`}
-        />
-      </PseStatBar>
+      <dl className="pse-marketplace-summary" aria-label="Your equipment summary">
+        <div><dt>Equipment owned</dt><dd>{ownedTools.length}<small> units</small></dd></div>
+        <div><dt>Hourly tool capacity</dt><dd>{toolCapacityLabel}</dd></div>
+        <div><dt>Capacity headroom</dt><dd>{headroomLabel}</dd></div>
+        <div><dt>Available tool slots</dt><dd>{tierSlotsLeft}<small> slots</small></dd></div>
+      </dl>
 
       {pendingPurchase && (
         <PseNotice tone="attention" title={pendingNeedsReview ? "Payment under manual review" : "Purchase in progress"}>
@@ -508,9 +453,8 @@ export const PSEMineTools: React.FC = () => {
             })}
           </div>
           <div className="pse-marketplace-footnote">
-            <strong>Operating rules</strong>
-            <span>Starter, Builder and Advanced run for 24 hours. After a session ends, you have 6 hours to request free manual maintenance. The next session is scheduled 10 minutes after that request; no rewards accrue during this delay. Each owned unit shows its backend-reported timing.</span>
-            <span>Elite tools operate continuously while campaign mining is enabled. Displayed specifications are catalogue definitions; live state and timing are always taken from your account’s backend records.</span>
+            <strong>Operating model</strong>
+            <span>Starter, Builder and Advanced run 24-hour sessions, with a free maintenance window and 10-minute restart. Elite runs continuously while campaign mining is active. Your owned-unit status always comes from the backend.</span>
           </div>
         </section>
 
@@ -548,12 +492,7 @@ export const PSEMineTools: React.FC = () => {
           <section className="pse-marketplace-how" aria-labelledby="pse-how-title">
             <p className="pse-marketplace-kicker">Purchase protocol</p>
             <h2 id="pse-how-title">From quote to activation</h2>
-            <ol className="pse-marketplace-steps">
-              <li><span>01</span><div><strong>Get a quote</strong><p>The GBP price is fixed and converted to an exact BNB amount for the quote window.</p></div></li>
-              <li><span>02</span><div><strong>Bind your payer wallet</strong><p>Your connected wallet is bound to this quote. No message signature is requested; the next wallet prompt must be the native BNB transfer.</p></div></li>
-              <li><span>03</span><div><strong>Approve the BNB payment</strong><p>Review the exact BNB amount and campaign destination, then approve the transfer yourself.</p></div></li>
-              <li><span>04</span><div><strong>Wait for verification</strong><p>The backend checks the proven payer, recipient, exact amount and BNB Chain confirmations before activation.</p></div></li>
-            </ol>
+            <p className="pse-marketplace-checkout-line">Quote <span>→</span> Wallet approval <span>→</span> On-chain verification <span>→</span> Tool activation</p>
           </section>
         </aside>
       </div>

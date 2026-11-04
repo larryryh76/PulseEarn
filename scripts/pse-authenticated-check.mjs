@@ -256,6 +256,33 @@ const MEASURE = () => {
   };
 };
 
+async function waitForRenderedPage(page, network, timeoutMs = 60000) {
+  const started=Date.now(), out={ready:false,reason:'',elapsedMs:0,skeletons:[],pendingApi:0};
+  const sels=['[aria-busy="true"]','[data-loading="true"]','[class*="skeleton" i]','[class*="shimmer" i]','[class*="placeholder" i]'];
+  let prior='',stable=0;
+  try {
+    await page.waitForLoadState('domcontentloaded',{timeout:15000});
+    await page.evaluate(async()=>{if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,8000))]);});
+    while(Date.now()-started<timeoutMs){
+      const v=await page.evaluate(ss=>{
+        const vis=e=>{const c=getComputedStyle(e),r=e.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)!==0&&r.width>0&&r.height>0;};
+        const skeletons=ss.flatMap(sel=>[...document.querySelectorAll(sel)].filter(vis).map(e=>({selector:sel,className:String(e.className?.baseVal||e.className||'').slice(0,90)}))).slice(0,25);
+        const text=(document.querySelector('#root')||document.body).innerText.replace(/\\s+/g,' ').trim();
+        return {chars:text.length,head:text.slice(0,350),skeletons,busy:!!document.querySelector('[aria-busy="true"],[data-loading="true"]'),images:[...document.images].filter(i=>!i.complete).length};
+      },sels);
+      out.skeletons=v.skeletons;out.pendingApi=network.pendingApi;
+      const sig=JSON.stringify([v.chars,v.head,v.skeletons.length,v.images,network.pendingApi]);stable=sig===prior?stable+1:0;prior=sig;
+      if(v.chars>100&&!v.skeletons.length&&!v.busy&&!v.images&&!network.pendingApi&&stable>=3){out.ready=true;out.reason='content rendered; placeholders gone; API idle; DOM stable';break;}
+      if(network.completedApi>0&&!network.pendingApi&&stable>=7&&Date.now()-started>15000){out.reason='API settled but page remains loading/empty';break;}
+      await page.waitForTimeout(500);
+    }
+    if(!out.reason)out.reason='readiness timeout';
+    await page.evaluate(async()=>{const step=Math.max(400,Math.floor(innerHeight*.75));for(let y=0;y<document.documentElement.scrollHeight;y+=step){scrollTo(0,y);await new Promise(r=>setTimeout(r,100));}scrollTo(0,0);await Promise.all([...document.images].map(i=>i.complete?Promise.resolve():Promise.race([new Promise(r=>{i.addEventListener('load',r,{once:true});i.addEventListener('error',r,{once:true});}),new Promise(r=>setTimeout(r,5000))])));});
+    await page.waitForTimeout(700);
+  }catch(e){out.reason='readiness exception: '+String(e).slice(0,180);}
+  out.elapsedMs=Date.now()-started;out.pendingApi=network.pendingApi;out.apiResponses=network.apiResponses.slice(-30);out.failedRequests=network.failedRequests.slice(-20);return out;
+}
+
 async function main() {
   if (!EMAIL || !PASSWORD) {
     console.log('PSEmine authenticated verification: SKIPPED');
@@ -368,40 +395,74 @@ async function main() {
       resetCapture();
       await authPage.setViewportSize({ width, height: 900 });
 
-      let measured = null, landedOn = '', title = '', settled = false;
-      try {
-        await authPage.goto(`${base}${route.path}`, { waitUntil: 'load', timeout: 25_000 });
-        // Wait for the page's own loading skeleton to resolve before measuring.
-        // A fixed 1.2s wait measured "LOADING …" on the API-backed console
-        // pages, which would report a skeleton as if it were the product.
-        try {
-          await authPage.waitForFunction(
-            () => !/\bLOADING\b/.test(document.body.innerText),
-            null,
-            { timeout: 25_000, polling: 250 },
-          );
-          settled = true;
-        } catch { /* reported as settled:false, never assumed */ }
-        await authPage.waitForTimeout(700);
-        landedOn = await authPage.evaluate(() => location.pathname);
-        title = await authPage.title();
-        measured = await authPage.evaluate(MEASURE);
-        await authPage.screenshot({ path: path.join(OUT, `${route.id}-${width}.png`), fullPage: true, animations: 'disabled' });
-      } catch (e) {
-        pageErrors.push(`HARNESS: ${String(e).slice(0, 160)}`);
-      }
-
-      results.push({
-        route: route.path, id: route.id, width, landedOn, title, settled,
-        reachedConsole: landedOn === route.path,
-        ...(measured || {}),
-        horizontalOverflow: measured ? measured.scrollWidth > measured.clientWidth + 1 : null,
-        consoleErrors: [...consoleErrors], pageErrors: [...pageErrors],
-        crossProductCalls: [...new Set(productCalls)],
-        crossProductStoreReads: [...new Set(productStores)],
-      });
+      let measured=null,landedOn='',title='',readiness=null;
+      const network={pendingApi:0,completedApi:0,apiResponses:[],failedRequests:[]};
+      const apiReq=r=>safePath(r.url()).startsWith('/api/');
+      const onReq=r=>{if(apiReq(r))network.pendingApi++;};
+      const onDone=r=>{if(apiReq(r))network.pendingApi=Math.max(0,network.pendingApi-1);};
+      const onResp=r=>{if(safePath(r.url()).startsWith('/api/')){network.completedApi++;network.apiResponses.push({method:r.request().method(),path:safePath(r.url()),status:r.status()});}};
+      const onFail=r=>{if(apiReq(r))network.failedRequests.push({method:r.method(),path:safePath(r.url()),failure:r.failure()?.errorText||'failed'});};
+      const onRequestFailed=r=>{onDone(r);onFail(r);};
+      authPage.on('request',onReq);authPage.on('requestfinished',onDone);authPage.on('requestfailed',onRequestFailed);authPage.on('response',onResp);
+      try{
+        await authPage.goto(`${base}${route.path}`,{waitUntil:'domcontentloaded',timeout:30000});
+        readiness=await waitForRenderedPage(authPage,network,60000);
+        landedOn=await authPage.evaluate(()=>location.pathname);title=await authPage.title();measured=await authPage.evaluate(MEASURE);
+        const stem=`${route.id}-${width}`;
+        await authPage.screenshot({path:path.join(OUT,`${stem}-full.png`),fullPage:true,animations:'disabled',timeout:30000});
+        await authPage.screenshot({path:path.join(OUT,`${stem}-viewport.png`),fullPage:false,animations:'disabled',timeout:30000});
+        fs.writeFileSync(path.join(OUT,`${stem}.json`),JSON.stringify({route:route.path,width,landedOn,title,readiness,measured,visibleText:await authPage.locator('body').innerText().catch(()=>''),html:await authPage.locator('body').evaluate(e=>e.innerHTML).catch(()=> '')},null,2));
+      }catch(e){pageErrors.push(`HARNESS: ${String(e).slice(0,220)}`);}
+      finally{authPage.off('request',onReq);authPage.off('requestfinished',onDone);authPage.off('requestfailed',onRequestFailed);authPage.off('response',onResp);}
+      results.push({route:route.path,id:route.id,width,landedOn,title,settled:readiness?.ready===true,readiness,reachedConsole:landedOn===route.path,...(measured||{}),horizontalOverflow:measured?measured.scrollWidth>measured.clientWidth+1:null,apiResponses:network.apiResponses,failedApiRequests:network.failedRequests,consoleErrors:[...consoleErrors],pageErrors:[...pageErrors],crossProductCalls:[...new Set(productCalls)],crossProductStoreReads:[...new Set(productStores)]});
     }
   }
+
+  // ── Interactive overlays: notification sheet and quote modal ──────────────
+  // These checks open read-only UI surfaces. The quote may be requested, but the
+  // harness never connects a wallet, signs, submits, or approves a transaction.
+  const overlays = {
+    notifications: { opened: false, screenshot: null, text: '', error: '' },
+    quote: { opened: false, screenshot: null, text: '', error: '', paymentStarted: false },
+  };
+  try {
+    await authPage.setViewportSize({ width: 390, height: 844 });
+    await authPage.goto(`${base}/mine/dashboard`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    const notificationButton = authPage.getByRole('button', { name: /^Notifications(?:,.*)?$/i }).first();
+    await notificationButton.waitFor({ state: 'visible', timeout: 12_000 });
+    await notificationButton.click();
+    const notificationDialog = authPage.getByRole('dialog', { name: 'Notifications' });
+    await notificationDialog.waitFor({ state: 'visible', timeout: 8_000 });
+    overlays.notifications.opened = true;
+    overlays.notifications.text = (await notificationDialog.innerText()).slice(0, 1800);
+    overlays.notifications.screenshot = 'notifications-390.png';
+    await authPage.screenshot({ path: path.join(OUT, overlays.notifications.screenshot), fullPage: false, animations: 'disabled' });
+    await authPage.getByRole('button', { name: /close notifications/i }).click();
+  } catch (e) {
+    overlays.notifications.error = String(e).slice(0, 220);
+  }
+  try {
+    await authPage.goto(`${base}/mine/tools`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    const buy = authPage.getByRole('button', { name: /buy this tool/i }).first();
+    await buy.waitFor({ state: 'visible', timeout: 12_000 });
+    if (await buy.isEnabled()) {
+      await buy.click();
+      const dialog = authPage.locator('.pse-purchase-dialog');
+      await dialog.waitFor({ state: 'visible', timeout: 20_000 });
+      overlays.quote.opened = true;
+      overlays.quote.text = (await dialog.innerText()).slice(0, 2600);
+      overlays.quote.screenshot = 'purchase-quote-390.png';
+      await authPage.screenshot({ path: path.join(OUT, overlays.quote.screenshot), fullPage: false, animations: 'disabled' });
+      overlays.quote.paymentStarted = false;
+      const close = dialog.getByRole('button', { name: /^Close$/i }).first();
+      if (await close.count()) await close.click();
+    } else {
+      overlays.quote.error = 'First purchase action is disabled by live campaign/account state; modal not opened.';
+    }
+  } catch (e) {
+    overlays.quote.error = String(e).slice(0, 220);
+  }
+  fs.writeFileSync(path.join(OUT, 'overlay-interactions.json'), JSON.stringify(overlays, null, 2));
 
   // ── Logout: the session must actually end ──────────────────────────────────
   // Runs in the SAME signed-in context (a fresh context is signed out by
@@ -437,7 +498,7 @@ async function main() {
   if (server) server.close();
   fs.writeFileSync(
     path.join(OUT, 'authenticated-report.json'),
-    JSON.stringify({ enrollment, routes: results, logout }, null, 2),
+    JSON.stringify({ enrollment, routes: results, overlays, logout }, null, 2),
   );
   if (enrollment.attempted) {
     console.log(`\nEnrollment: gate ${enrollment.gateFound ? 'found' : 'NOT FOUND'} · clicked ${enrollment.clicked} · cleared ${enrollment.cleared}${enrollment.reason ? ` (${enrollment.reason})` : ''}`);
@@ -450,6 +511,7 @@ async function main() {
   const leaks = results.filter(r => r.crossProductCalls.length || r.crossProductStoreReads.length);
   const errored = results.filter(r => r.pageErrors.length);
   const taps = results.filter(r => (r.smallTargetsUnder44 || []).length && r.width <= 430);
+  const unsettled = results.filter(r => !r.settled);
 
   console.log(`\nLoads: ${results.length} (${ROUTES.length} routes × ${WIDTHS.length} widths)`);
   console.log(`  redirected away from the console: ${redirects.length}`);
@@ -460,6 +522,8 @@ async function main() {
   leaks.slice(0, 6).forEach(r => console.log(
     `    ${r.route} @${r.width} → ${[...r.crossProductCalls, ...r.crossProductStoreReads].join(', ')}`,
   ));
+  console.log(`  pages not fully settled: ${unsettled.length}`);
+  unsettled.slice(0,12).forEach(r=>console.log(`    ${r.route} @${r.width}: ${r.readiness?.reason||'unknown'}; skeletons=${r.readiness?.skeletons?.length||0}`));
   console.log(`  page errors: ${errored.length}`);
   errored.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} → ${r.pageErrors[0]}`));
   console.log(`  mobile pages with taps under 44px: ${taps.length}`);

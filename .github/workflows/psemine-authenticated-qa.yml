@@ -1,0 +1,71 @@
+name: PSEmine authenticated Playwright QA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - automation/psemine-playwright-visual-qa
+    paths:
+      - '.github/workflows/psemine-authenticated-qa.yml'
+      - 'scripts/pse-authenticated-check.mjs'
+  schedule:
+    - cron: '30 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psemine-authenticated-qa
+  cancel-in-progress: true
+
+jobs:
+  authenticated-visual-qa:
+    name: Mobile-first authenticated UI inspection
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Require dedicated PSEmine QA credentials
+        env:
+          PSE_TEST_EMAIL: ${{ secrets.PSE_TEST_EMAIL }}
+          PSE_TEST_PASSWORD: ${{ secrets.PSE_TEST_PASSWORD }}
+        run: |
+          if [ -z "$PSE_TEST_EMAIL" ] || [ -z "$PSE_TEST_PASSWORD" ]; then
+            echo "::error::Add repository Actions secrets PSE_TEST_EMAIL and PSE_TEST_PASSWORD for a dedicated, email-verified PSEmine QA account."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts/psemine-authenticated-qa
+
+      - name: Sign in and inspect PSEmine at mobile and desktop widths
+        env:
+          PSE_TEST_EMAIL: ${{ secrets.PSE_TEST_EMAIL }}
+          PSE_TEST_PASSWORD: ${{ secrets.PSE_TEST_PASSWORD }}
+          PSE_TEST_BASE_URL: https://www.pulseearn.online
+          PSE_WIDTHS: 390,375,430,768,1024,1440
+          PSE_OUT: artifacts/psemine-authenticated-qa
+        run: node scripts/pse-authenticated-check.mjs
+
+      - name: Upload screenshots and authenticated QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psemine-authenticated-qa-${{ github.run_number }}
+          path: artifacts/psemine-authenticated-qa/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1447,3 +1447,13 @@
 .pse-notice-title, .pse-notice-content { display: block; width: 100%; min-width: 0; grid-column: 1 / -1; }
 .pse-notice-content > * { max-width: 100%; min-width: 0; }
 @media (max-width: 620px) { .pse-notice { padding-inline: 12px; } .pse-notice-content .pse-facts { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* Shared mobile clearance and accessible control sizing. */
+.pse-console-shell .pse-btn--sm { min-height:44px; }
+.pse-console-shell .pse-bar-signout { min-height:44px; }
+.pse-console-shell .pse-icon-btn { width:44px; min-width:44px; height:44px; min-height:44px; }
+@media(max-width:900px) {
+  .pse-console-shell--docked .pse-stage { padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
+  .pse-console-shell--docked .pse-dock { padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+}

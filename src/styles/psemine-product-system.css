@@ -1,0 +1,114 @@
+/* PSEmine product-wide visual pass — hierarchy, density, responsive behavior and accessible controls.
+   Presentation only: all page data, payment sequencing and backend actions remain owned by existing components. */
+.pse-console-shell {
+  --pse-bg:#070912; --pse-surface:#0d1220; --pse-surface-2:#121b2d;
+  --pse-rule:rgba(151,174,222,.13); --pse-rule-2:rgba(151,174,222,.24);
+  --pse-ink:#f4f7ff; --pse-ink-2:#a8b5ce; --pse-ink-3:#74839f;
+  --pse-accent:#788cff; --pse-accent-strong:#5b70ff; --pse-cyan:#54dff4;
+  --pse-danger:#ff708d; --pse-amber:#f5bd66; --pse-radius:18px;
+  color:var(--pse-ink); background:
+    radial-gradient(ellipse at 14% -8%,rgba(68,103,225,.16),transparent 36rem),
+    radial-gradient(ellipse at 92% 18%,rgba(113,79,215,.10),transparent 34rem),#070912;
+}
+.pse-console-shell .pse-stage { width:min(1320px,100%); padding:clamp(22px,3vw,40px) clamp(16px,3vw,36px) 84px; }
+.pse-console-shell .pse-page-head { align-items:flex-end; gap:20px; padding-bottom:20px; margin-bottom:22px; border-color:var(--pse-rule); }
+.pse-console-shell .pse-page-title { font-size:clamp(29px,4vw,43px); letter-spacing:-.065em; line-height:1.02; }
+.pse-console-shell .pse-page-objective { max-width:62ch; color:#9aa9c4; font-size:13px; line-height:1.65; }
+.pse-console-shell .pse-block { border:1px solid var(--pse-rule); border-radius:18px; background:linear-gradient(145deg,rgba(17,26,45,.94),rgba(10,15,27,.98)); box-shadow:0 16px 38px rgba(0,0,0,.13); }
+.pse-console-shell .pse-block-title { letter-spacing:-.04em; }
+.pse-console-shell .pse-block-head { align-items:center; gap:14px; }
+.pse-console-shell .pse-btn { min-height:44px; border-radius:12px; font-weight:650; letter-spacing:-.01em; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+.pse-console-shell .pse-btn:not(:disabled):active { transform:translateY(1px); }
+.pse-console-shell .pse-icon-btn { width:44px; height:44px; min-width:44px; border-radius:12px; }
+.pse-console-shell :where(input,select,textarea) { min-height:44px; border-radius:11px; }
+.pse-console-shell :where(a,button,input,select,textarea):focus-visible { outline:2px solid #7f9cff; outline-offset:3px; }
+.pse-console-shell .pse-bar { background:rgba(7,10,19,.88); border-color:var(--pse-rule); }
+.pse-console-shell .pse-bar-inner { max-width:1320px; min-height:70px; padding-inline:clamp(16px,3vw,36px); }
+.pse-console-shell .pse-nav-link { min-height:42px; border-radius:11px; font-weight:620; }
+.pse-console-shell .pse-nav-link.active { color:#eef1ff!important; background:linear-gradient(120deg,rgba(102,125,255,.2),rgba(129,99,245,.12)); box-shadow:inset 0 0 0 1px rgba(132,151,255,.2); }
+.pse-console-shell .pse-strip { background:rgba(12,18,32,.7); border-color:var(--pse-rule); }
+.pse-console-shell .pse-strip-inner { max-width:1320px; min-height:42px; padding-inline:clamp(16px,3vw,36px); }
+.pse-console-shell .pse-dock { background:rgba(8,12,22,.94); border:1px solid rgba(151,174,222,.16); box-shadow:0 14px 42px rgba(0,0,0,.48); backdrop-filter:blur(22px); }
+.pse-console-shell .pse-dock-link { min-height:58px; }
+.pse-console-shell .pse-dock-link.active { color:#eaf0ff; }
+.pse-console-shell .pse-dock-link.active .pse-dock-glyph { color:#8ea4ff; }
+.pse-console-shell .pse-console-foot { border-color:var(--pse-rule); }
+.pse-console-shell .pse-console-main { gap:22px; }
+.pse-console-shell .pse-statbar { gap:10px; }
+.pse-console-shell .pse-stat { min-width:0; border:1px solid var(--pse-rule); border-radius:15px; background:rgba(15,23,39,.78); padding:15px 16px; }
+.pse-console-shell .pse-stat-value { font-variant-numeric:tabular-nums; letter-spacing:-.045em; }
+.pse-console-shell .pse-notice { border-radius:13px; }
+.pse-console-shell .pse-empty-note { border:1px dashed rgba(151,174,222,.22); border-radius:16px; background:rgba(12,19,33,.55); }
+.pse-console-shell .pse-sheet-scrim { background:rgba(2,5,12,.72); backdrop-filter:blur(7px); }
+.pse-console-shell .pse-sheet { width:min(480px,100%); background:#0b1120; border-left:1px solid rgba(151,174,222,.2); box-shadow:-24px 0 80px rgba(0,0,0,.42); }
+.pse-console-shell .pse-sheet-head { border-color:var(--pse-rule); }
+.pse-console-shell .pse-sheet-row { padding:15px 16px; border:1px solid var(--pse-rule); border-radius:13px; background:rgba(16,25,42,.7); margin-bottom:9px; }
+.pse-console-shell .pse-sheet-row.is-unread { border-color:rgba(116,143,255,.34); background:linear-gradient(110deg,rgba(67,91,174,.16),rgba(16,25,42,.76)); }
+.pse-console-shell .pse-sheet-row-title { font-weight:680; line-height:1.4; }
+.pse-console-shell .pse-sheet-row-note { color:#9aa9c4; line-height:1.55; }
+.pse-console-shell .pse-sheet-row-meta { color:#7888a5; font-size:11px; }
+.pse-console-shell [data-page="tools"] .pse-marketplace-hero { min-height:0; padding:clamp(18px,2.4vw,28px); border:1px solid rgba(119,143,255,.25); border-radius:20px; background:radial-gradient(ellipse at 90% 0%,rgba(103,92,255,.19),transparent 38%),linear-gradient(120deg,#131f3a,#0c1425 70%); }
+.pse-console-shell [data-page="tools"] .pse-marketplace-hero h2 { font-size:clamp(25px,3vw,34px); letter-spacing:-.055em; line-height:1.08; }
+.pse-console-shell [data-page="tools"] .pse-marketplace-hero p { color:#aab8d2; font-size:12px; line-height:1.65; }
+.pse-console-shell [data-page="tools"] .pse-marketplace-products { gap:10px; }
+.pse-console-shell [data-page="tools"] .pse-product { border:1px solid var(--pse-rule); border-radius:17px; background:linear-gradient(115deg,rgba(17,27,46,.98),rgba(10,16,29,.98)); padding:15px; }
+.pse-console-shell [data-page="tools"] .pse-product:hover { border-color:rgba(125,147,255,.4); }
+.pse-console-shell [data-page="tools"] .pse-product-name { font-size:16px; letter-spacing:-.035em; }
+.pse-console-shell [data-page="tools"] .pse-product-desc { color:#9baac4; line-height:1.55; }
+.pse-console-shell [data-page="tools"] .pse-product-specs { color:#aebbd2; }
+.pse-console-shell [data-page="tools"] .pse-product-price { font-size:clamp(20px,2vw,25px); font-variant-numeric:tabular-nums; letter-spacing:-.05em; }
+.pse-console-shell [data-page="tools"] .pse-tool-art { border-radius:14px; }
+.pse-console-shell [data-page="tools"] .pse-marketplace-layout { gap:18px; }
+.pse-console-shell [data-page="tools"] .pse-marketplace-owned { border:1px solid var(--pse-rule); border-radius:17px; background:rgba(12,19,33,.82); }
+.pse-console-shell [data-page="tools"] .pse-purchase-modal,
+.pse-console-shell [data-page="tools"] .pse-quote-modal,
+.pse-console-shell [data-page="tools"] .pse-dialog { border:1px solid rgba(144,164,226,.22); border-radius:22px; background:linear-gradient(145deg,#121d32,#0a101e); box-shadow:0 32px 100px rgba(0,0,0,.62); }
+.pse-console-shell [data-page="tools"] .pse-payment-steps { display:flex; flex-wrap:wrap; gap:8px; }
+.pse-console-shell [data-page="tools"] .pse-payment-step { min-width:0; white-space:nowrap; }
+.pse-console-shell [data-page="dashboard"] .pse-dashboard-hero { border-radius:20px; }
+.pse-console-shell [data-page="wallet"] .pse-wallet-hero { border-radius:20px; }
+.pse-console-shell [data-page="activity"] .pse-activity-row { border-bottom:1px solid var(--pse-rule); }
+@media (max-width: 760px) {
+  .pse-console-shell .pse-stage { padding:20px 14px calc(100px + env(safe-area-inset-bottom)); }
+  .pse-console-shell .pse-bar-inner { min-height:62px; padding-inline:14px; gap:10px; }
+  .pse-console-shell .pse-bar-context { display:none; }
+  .pse-console-shell .pse-page-head { display:grid; align-items:start; gap:12px; margin-bottom:17px; padding-bottom:16px; }
+  .pse-console-shell .pse-page-title { font-size:clamp(27px,8vw,34px); }
+  .pse-console-shell .pse-page-objective { font-size:12px; line-height:1.6; }
+  .pse-console-shell .pse-page-actions { width:100%; display:flex; flex-wrap:wrap; gap:8px; }
+  .pse-console-shell .pse-page-actions > * { flex:1 1 auto; }
+  .pse-console-shell .pse-block { padding:15px; border-radius:16px; }
+  .pse-console-shell .pse-statbar { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-console-shell .pse-stat { padding:12px; }
+  .pse-console-shell .pse-console-main { gap:15px; }
+  .pse-console-shell [data-page="tools"] .pse-marketplace-layout { display:flex; flex-direction:column; gap:14px; }
+  .pse-console-shell [data-page="tools"] .pse-marketplace-catalogue,
+  .pse-console-shell [data-page="tools"] .pse-marketplace-owned { width:100%; min-width:0; }
+  .pse-console-shell [data-page="tools"] .pse-marketplace-products { display:grid; grid-template-columns:minmax(0,1fr); gap:9px; }
+  .pse-console-shell [data-page="tools"] .pse-product { grid-template-columns:82px minmax(0,1fr); gap:8px 12px; padding:12px; }
+  .pse-console-shell [data-page="tools"] .pse-product .pse-tool-art { min-height:82px; }
+  .pse-console-shell [data-page="tools"] .pse-product-name { font-size:15px; }
+  .pse-console-shell [data-page="tools"] .pse-product-desc { font-size:11px; }
+  .pse-console-shell [data-page="tools"] .pse-product-specs { grid-column:2; }
+  .pse-console-shell [data-page="tools"] .pse-product-actions { grid-column:2; flex-wrap:wrap; }
+  .pse-console-shell [data-page="tools"] .pse-marketplace-hero { padding:17px; }
+  .pse-console-shell [data-page="tools"] .pse-marketplace-hero-object { opacity:.35; transform:scale(.7); }
+  .pse-console-shell [data-page="tools"] .pse-payment-steps { gap:5px; }
+  .pse-console-shell [data-page="tools"] .pse-payment-step { font-size:10px; padding-inline:7px; }
+  .pse-console-shell .pse-sheet { width:100%; max-width:none; border-radius:20px 20px 0 0; border:1px solid rgba(151,174,222,.2); }
+  .pse-console-shell .pse-sheet-scrim { align-items:flex-end; }
+  .pse-console-shell .pse-dock { left:10px; right:10px; bottom:calc(8px + env(safe-area-inset-bottom)); border-radius:18px; }
+  .pse-console-shell .pse-dock-link { min-height:58px; padding:7px 2px; }
+  .pse-console-shell .pse-dock-label { font-size:10px; }
+  .pse-console-shell .pse-console-foot { padding-bottom:10px; }
+}
+@media (max-width: 390px) {
+  .pse-console-shell .pse-stage { padding-inline:12px; }
+  .pse-console-shell [data-page="tools"] .pse-product { grid-template-columns:70px minmax(0,1fr); gap:8px 10px; }
+  .pse-console-shell [data-page="tools"] .pse-product-price { font-size:19px; }
+  .pse-console-shell .pse-dock { left:6px; right:6px; }
+  .pse-console-shell .pse-dock-label { font-size:9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pse-console-shell *, .pse-console-shell *::before, .pse-console-shell *::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}

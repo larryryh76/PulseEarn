@@ -479,3 +479,60 @@
 @media(max-width:900px) {
   .pse-stage[data-page="tools"] .pse-marketplace-how { margin-top:0; }
 }
+
+
+/* QA-587 follow-up: compact the catalogue and keep checkout legible on phones. */
+@media (max-width: 620px) {
+  .pse-stage[data-page="tools"] .pse-page { gap:16px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero {
+    min-height:0; grid-template-columns:minmax(0,1fr); gap:10px;
+    padding:17px 16px; border-radius:18px;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero h2 {
+    margin:8px 0; font-size:clamp(23px,7vw,30px); line-height:1.04;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-copy>p {
+    margin:7px 0; font-size:12px; line-height:1.5;
+  }
+  .pse-stage[data-page="tools"] .pse-marketplace-hero-foot { margin-top:10px; padding-top:10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-intro { padding:16px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary { gap:7px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-summary>div { padding:9px 10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-heading { margin:0 0 8px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-heading p:not(.pse-marketplace-kicker) { display:none; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products { gap:9px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product {
+    grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto auto auto;
+    align-items:stretch; gap:8px; padding:12px; border-radius:15px;
+  }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art {
+    grid-column:1; grid-row:auto; min-height:74px; height:74px; max-height:74px;
+  }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art svg { height:66px; }
+  .pse-stage[data-page="tools"] .pse-product-id,
+  .pse-stage[data-page="tools"] .pse-product-specs,
+  .pse-stage[data-page="tools"] .pse-product-actions { grid-column:1; }
+  .pse-stage[data-page="tools"] .pse-product-name { font-size:14px; }
+  .pse-stage[data-page="tools"] .pse-product-desc { display:none; }
+  .pse-stage[data-page="tools"] .pse-product-specs { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+  .pse-stage[data-page="tools"] .pse-product-spec dt { font-size:8px; }
+  .pse-stage[data-page="tools"] .pse-product-spec dd { font-size:11px; }
+  .pse-stage[data-page="tools"] .pse-product-actions { gap:6px; }
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { min-height:42px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-rail { gap:10px; }
+  .pse-stage[data-page="tools"] .pse-marketplace-how { padding:12px; }
+  .pse-purchase-dialog .pse-steps { grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; }
+  .pse-purchase-dialog .pse-step {
+    min-width:0; padding:8px 1px; font-size:clamp(7px,2.1vw,9px);
+    white-space:nowrap; overflow-wrap:normal; word-break:normal; letter-spacing:-.035em;
+  }
+  .pse-purchase-dialog .pse-page-head { flex-wrap:wrap; }
+  .pse-purchase-dialog .pse-page-actions { flex:0 0 auto; }
+}
+@media (min-width: 621px) and (max-width: 900px) {
+  .pse-stage[data-page="tools"] .pse-marketplace-products { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { grid-template-columns:minmax(0,1fr); }
+  .pse-stage[data-page="tools"] .pse-product .pse-tool-art { grid-column:1; grid-row:auto; }
+  .pse-stage[data-page="tools"] .pse-product-specs,
+  .pse-stage[data-page="tools"] .pse-product-actions { grid-column:1; }
+}

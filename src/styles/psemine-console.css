@@ -1495,3 +1495,69 @@
   .pse-route-account .pse-account-section { gap:10px; }
   .pse-console-shell .pse-footer { padding-block:16px; }
 }
+
+
+/* Account: keep the overview visible and move secondary settings into native,
+   keyboard-accessible disclosure rows instead of a very long mobile stack. */
+.pse-route-account .pse-account-disclosure {
+  min-width:0;
+  overflow:hidden;
+  border:1px solid rgba(158,174,217,.14);
+  border-radius:15px;
+  background:linear-gradient(145deg,rgba(16,23,39,.82),rgba(8,12,21,.9));
+}
+.pse-route-account .pse-account-disclosure + .pse-account-disclosure { margin-top:10px; }
+.pse-route-account .pse-account-disclosure > summary {
+  display:flex;
+  min-height:54px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 15px;
+  color:#edf2ff;
+  font-size:13px;
+  font-weight:700;
+  list-style:none;
+  cursor:pointer;
+}
+.pse-route-account .pse-account-disclosure > summary::-webkit-details-marker { display:none; }
+.pse-route-account .pse-account-disclosure > summary::after {
+  content:"+";
+  flex:none;
+  display:grid;
+  width:26px;
+  height:26px;
+  place-items:center;
+  border:1px solid rgba(153,157,255,.22);
+  border-radius:8px;
+  color:#b8b6ff;
+  font-size:18px;
+  line-height:1;
+}
+.pse-route-account .pse-account-disclosure[open] > summary::after { content:"−"; }
+.pse-route-account .pse-account-disclosure > summary small {
+  margin-left:auto;
+  color:#8997b1;
+  font-size:10px;
+  font-weight:500;
+  text-align:right;
+}
+.pse-route-account .pse-account-disclosure > .pse-block {
+  margin:0;
+  padding:0 14px 14px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.pse-route-account .pse-account-disclosure > .pse-block > .pse-block-head { display:none; }
+.pse-route-account .pse-account-disclosure > .pse-block > :first-child { margin-top:0; }
+.pse-route-account .pse-account-disclosure > summary:focus-visible {
+  outline:2px solid #aaa7ff;
+  outline-offset:-3px;
+}
+@media(max-width:620px) {
+  .pse-route-account .pse-account-disclosure > summary { min-height:50px; padding:11px 12px; }
+  .pse-route-account .pse-account-disclosure > summary small { max-width:48%; font-size:9px; }
+  .pse-route-account .pse-account-disclosure > .pse-block { padding:0 11px 12px; }
+}

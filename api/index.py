@@ -6788,6 +6788,7 @@ def _psemine_bsc_rpc_urls():
     extra = [x.strip() for x in os.environ.get('PSEMINE_BSC_RPC_FALLBACKS', '').split(',') if x.strip()]
     public_fallbacks = [
         'https://bsc-dataseed.bnbchain.org',
+        'https://bsc-dataseed-public.bnbchain.org',
         'https://bsc-dataseed1.bnbchain.org',
         'https://bsc-dataseed2.bnbchain.org',
         'https://bsc-dataseed3.bnbchain.org',

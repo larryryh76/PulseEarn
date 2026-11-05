@@ -280,3 +280,5 @@
 .pse-wallet-lab-quote-result dt { color:#8194ae; font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
 .pse-wallet-lab-quote-result dd { margin:4px 0 0; color:#e0e8f7; font-size:11px; font-weight:650; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 @media(max-width:520px) { .pse-wallet-lab-quote-result dl { grid-template-columns:minmax(0,1fr); } }
+
+.pse-wallet-lab-quote-result .pse-status[data-tone="good"] { color:#a9e9f5; border-color:rgba(84,204,231,.25); background:rgba(84,204,231,.08); }

@@ -630,3 +630,28 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
             self.assertEqual("attached", second["status"])
         finally:
             psemine_engine.firestore_server_ts = original_ts
+
+    def test_admin_can_attach_hash_evidence_to_uncertain_or_user_closed_intent(self):
+        for status in ("submission_uncertain", "abandoned_no_broadcast"):
+            db = tpc.FakeDB()
+            original_ts = psemine_engine.firestore_server_ts
+            psemine_engine.firestore_server_ts = lambda: tpc.TS
+            try:
+                db.collection("psemine_purchases").document("purchase1").set({
+                    "id": "purchase1", "userId": "user1", "quoteId": "quote1",
+                    "status": status, "transactionHash": None,
+                })
+                recovery_id = psemine_engine.create_payment_recovery(
+                    db, "user1", tx_hash=self.TX_A, quote_id="quote1",
+                    purchase_id="purchase1", reason="LATE_HASH_RECOVERY",
+                )
+                result = psemine_engine.admin_resolve_payment_recovery(
+                    db, recovery_id, "admin1", "attach_to_purchase",
+                    purchase_id="purchase1",
+                )
+                self.assertTrue(result["ok"], f"status={status}: {result}")
+                purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+                self.assertEqual("manual_review", purchase["status"])
+                self.assertEqual(self.TX_A, purchase["transactionHash"])
+            finally:
+                psemine_engine.firestore_server_ts = original_ts

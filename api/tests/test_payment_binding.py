@@ -657,3 +657,38 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
                 self.assertEqual(self.TX_A, purchase["transactionHash"])
             finally:
                 psemine_engine.firestore_server_ts = original_ts
+
+    def test_admin_recovery_cannot_orphan_another_live_purchase_lock(self):
+        import uuid
+        db = tpc.FakeDB()
+        original_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        try:
+            db.collection("psemine_purchases").document("purchase1").set({
+                "id": "purchase1", "userId": "user1", "toolId": "starter",
+                "quoteId": "quote1", "status": "manual_review",
+            })
+            db.collection("psemine_purchases").document("purchase2").set({
+                "id": "purchase2", "userId": "user1", "toolId": "starter",
+                "quoteId": "quote2", "status": "awaiting_payment",
+            })
+            lock_id = uuid.uuid5(uuid.NAMESPACE_URL, "psemine-purchase:user1:starter").hex
+            db.collection("psemine_purchase_locks").document(lock_id).set({
+                "userId": "user1", "toolId": "starter", "purchaseId": "purchase2",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=self.TX_A, quote_id="quote1",
+                purchase_id="purchase1", reason="LATE_HASH_RECOVERY",
+            )
+            result = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual("PURCHASE_LOCK_CONFLICT", result["error"])
+            lock = db.collection("psemine_purchase_locks").document(lock_id).get().to_dict()
+            self.assertEqual("purchase2", lock["purchaseId"])
+            recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+            self.assertEqual("open", recovery["status"])
+        finally:
+            psemine_engine.firestore_server_ts = original_ts

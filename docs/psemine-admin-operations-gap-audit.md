@@ -6,11 +6,11 @@
 
 ### P0 — Money destination configuration (remediated in fail-closed wallet PR)
 - There is one permitted receiving destination: the active campaign's explicitly configured `receiverWalletAddress`.
-- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero. They also require `receiverWalletConfigured`, `receiverWalletConfiguredAt`, and `receiverWalletConfiguredBy`, written only by the super-admin configuration action; this prevents an old seeded Firestore value from silently remaining payable.
-- The old `PSEMINE_PAYMENT_ADDRESS` constant, hardcoded fallback address, frontend default receiver, and bootstrap receiver assignment have been removed. New campaign bootstrap records an empty receiver and remains non-payable until a super-admin configures it.
+- Both canonical and legacy quote endpoints now use the same strict validator and refuse to issue a quote when the campaign document/address is absent, malformed, or zero. They also require `receiverWalletConfigured`, `receiverWalletConfiguredAt`, and `receiverWalletConfiguredBy`, written only by the global platform-admin configuration action; this prevents an old seeded Firestore value from silently remaining payable.
+- The old `PSEMINE_PAYMENT_ADDRESS` constant, hardcoded fallback address, frontend default receiver, and bootstrap receiver assignment have been removed. New campaign bootstrap records an empty receiver and remains non-payable until a global platform admin configures it.
 - Both verification paths use the immutable destination stored on the server-created quote/order and validate the BNB Smart Chain network. They do not fall back to a second wallet.
 - The legacy quote amount is rounded to the same eight decimal places displayed by its checkout UI before the exact wei amount is calculated. This closes a mismatch that could otherwise reject a payment after it had been sent.
-- If a user submits a transaction hash after a quote expires or the stored expiry is malformed/missing, the purchase is put into `manual_review`, a recovery case is opened, and the user is explicitly told not to pay again. New purchases for that tool are blocked while the case is open. A super-admin can attach the recovery case only to the matching user's exact purchase/quote/hash; the canonical verifier then re-checks the same on-chain terms and closes the case after activation.
+- If a user submits a transaction hash after a quote expires or the stored expiry is malformed/missing, the purchase is put into `manual_review`, a recovery case is opened, and the user is explicitly told not to pay again. New purchases for that tool are blocked while the case is open. A global platform admin can attach the recovery case only to the matching user's exact purchase/quote/hash; the canonical verifier then re-checks the same on-chain terms and closes the case after activation.
 - A wallet change affects new quotes only. Existing quotes retain their original recipient and amount so an in-flight payment is not silently redirected.
 - Production database configuration still requires the admin to reconfirm the intended wallet in the live console before launch; source changes cannot prove which address is currently stored in Firestore. Until that confirmation is saved, purchase quotes fail closed.
 
@@ -43,3 +43,10 @@
 - No change to locked tool prices, hourly rates, referral capacity, campaign duration, user balances, payout thresholds, or existing quote/payment records.
 - No display of fabricated treasury balances or fake transactions.
 - No browser-side Firestore write for the receiving address; the authenticated backend action is the authority.
+
+
+## Payment-state implementation update (PR #434)
+The three user-facing payment mutation endpoints now use the engine's shared Firestore transaction guard. Transaction hashes are immutable, repeated same-hash reports preserve later states, and no-broadcast closure cannot overwrite a submitted hash. The canonical verifier also requires the exact persisted hash and rechecks hash/state inside the activation transaction. The BSC verifier now supports a bounded ordered RPC failover pool; it never treats RPC unavailability as payment success.
+
+## Global admin permission contract
+Receiving-wallet configuration, campaign management, recovery attachment/resolution, and tool operations are authorized by the single global PulseEarn platform-admin check. No separate PSEmine super-admin role is required. The client UI may hide controls based on its profile, but every write is enforced by the backend.

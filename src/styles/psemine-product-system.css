@@ -112,3 +112,21 @@
 @media (prefers-reduced-motion: reduce) {
   .pse-console-shell *, .pse-console-shell *::before, .pse-console-shell *::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
 }
+
+/* Touch targets on the authenticated mobile console are 44px minimum.
+   Preserve the small visual type while enlarging the actual link hit area. */
+.pse-console-shell .pse-nav-link { min-height:44px; }
+.pse-console-shell .pse-foot-brand-id,
+.pse-console-shell .pse-console-foot-links a {
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding-block:8px;
+}
+.pse-console-shell .pse-wallet-settlement-note a,
+.pse-console-shell .pse-wallet-settlement-note .pse-link {
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding-block:8px;
+}

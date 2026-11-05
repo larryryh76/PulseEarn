@@ -6781,71 +6781,135 @@ def fetch_psemine_bnb_gbp_quote():
     print("[PSEmine Quote] Error: Live quote providers unavailable and no fresh cache present.", flush=True)
     return None, "PRICE_UNAVAILABLE"
 
+
+def _psemine_bsc_rpc_urls():
+    """Ordered, de-duplicated BSC RPC pool; an operator URL always has priority."""
+    configured = os.environ.get('PSEMINE_BSC_RPC_URL', '').strip()
+    extra = [x.strip() for x in os.environ.get('PSEMINE_BSC_RPC_FALLBACKS', '').split(',') if x.strip()]
+    public_fallbacks = [
+        'https://bsc-dataseed.bnbchain.org',
+        'https://bsc-dataseed-public.bnbchain.org',
+        'https://bsc-dataseed1.bnbchain.org',
+        'https://bsc-dataseed2.bnbchain.org',
+        'https://bsc-dataseed3.bnbchain.org',
+    ]
+    ordered = ([configured] if configured else []) + extra + public_fallbacks
+    seen = set()
+    result = []
+    for url in ordered:
+        if url.startswith('https://') and url not in seen:
+            seen.add(url)
+            result.append(url)
+    return result
+
+
 def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
-    """Verify BSC transaction on-chain via JSON-RPC.
-    Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
+    """Verify a native BNB transfer on BSC using a failover RPC pool.
+
+    One endpoint must provide a coherent chain-id, transaction, receipt and
+    latest-block view. Transport/rate-limit/lag failures move to the next RPC;
+    a transaction that is actually found is still checked against the exact
+    server quote and payer. No RPC result can itself activate a purchase.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
+    rpc_urls = _psemine_bsc_rpc_urls()
+    if not rpc_urls:
+        return False, "RPC_NOT_CONFIGURED", "BSC transaction verification is temporarily unavailable.", 0, None
 
-    try:
-        # 1. Chain ID check
-        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}, timeout=8)
-        chain_res = r.json()
-        if not chain_res.get('result'):
-            return False, "RPC_ERROR", "Could not verify BSC network chain ID", 0, None
-        chain_id = int(chain_res['result'], 16)
-        if chain_id != PSEMINE_BSC_CHAIN_ID:
-            return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0, None
+    saw_wrong_network = False
+    saw_transaction = False
+    saw_receipt = False
+    last_rpc_error = None
+    import time as _rpc_time
+    # A bounded total budget matters on serverless request runtimes: a dead
+    # primary must not multiply its timeout by every RPC method and fallback.
+    rpc_deadline = _rpc_time.monotonic() + 22.0
 
-        # 2. Get Transaction
+    def rpc_call(endpoint, method, params, request_id):
+        remaining = rpc_deadline - _rpc_time.monotonic()
+        if remaining <= 0.25:
+            raise TimeoutError("RPC_FAILOVER_BUDGET_EXHAUSTED")
+        response = requests.post(
+            endpoint,
+            json={"jsonrpc": "2.0", "method": method, "params": params, "id": request_id},
+            timeout=min(6.0, remaining),
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get('error') or 'result' not in payload:
+            raise RuntimeError("RPC_METHOD_ERROR")
+        return payload.get('result')
+
+    for rpc_url in rpc_urls:
         try:
-            r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
-            tx_data = r.json().get('result')
-            if not tx_data:
-                return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0, None
-        except Exception:
-            return False, "RPC_ERROR", "Transaction verification failed, please try again later.", 0, None
+            chain_raw = rpc_call(rpc_url, 'eth_chainId', [], 1)
+            if not chain_raw:
+                raise RuntimeError("RPC_CHAIN_ID_MISSING")
+            chain_id = int(str(chain_raw), 16)
+            if chain_id != PSEMINE_BSC_CHAIN_ID:
+                saw_wrong_network = True
+                continue
 
-        # 3. Get Receipt
-        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionReceipt", "params": [tx_hash], "id": 3}, timeout=8)
-        receipt_data = r.json().get('result')
-        if not receipt_data:
-            return False, "RECEIPT_NOT_FOUND", "Transaction receipt not available yet", 0, None
+            tx_data = rpc_call(rpc_url, 'eth_getTransactionByHash', [tx_hash], 2)
+            if not isinstance(tx_data, dict):
+                continue
+            saw_transaction = True
+            returned_hash = str(tx_data.get('hash') or '').strip().lower()
+            if returned_hash and returned_hash != tx_hash.lower():
+                return False, "TRANSACTION_HASH_MISMATCH", "The BSC node returned a different transaction hash.", 0, None
 
-        block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
-        receipt_status = int(receipt_data.get('status', '0x0'), 16)
-        if receipt_status != 1:
-            return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1)", 0, block_number
+            receipt_data = rpc_call(rpc_url, 'eth_getTransactionReceipt', [tx_hash], 3)
+            if not isinstance(receipt_data, dict):
+                continue
+            saw_receipt = True
 
-        to_addr = (tx_data.get('to') or '').lower()
-        exp_addr = expected_destination.lower()
-        if to_addr != exp_addr:
-            return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0, block_number
+            block_raw = receipt_data.get('blockNumber')
+            if not block_raw:
+                raise RuntimeError("RPC_RECEIPT_BLOCK_MISSING")
+            block_number = int(str(block_raw), 16)
+            receipt_status = int(str(receipt_data.get('status') or '0x0'), 16)
+            if receipt_status != 1:
+                return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1).", 0, block_number
 
-        from_addr = (tx_data.get('from') or '').lower()
-        if expected_sender and expected_sender.strip():
-            if from_addr != expected_sender.strip().lower():
-                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) on-chain does not match order payment wallet ({expected_sender.strip().lower()})", 0, block_number
+            to_addr = str(tx_data.get('to') or '').lower()
+            exp_addr = str(expected_destination or '').lower()
+            if to_addr != exp_addr:
+                return False, "DESTINATION_MISMATCH", "The transaction recipient does not match the campaign receiving wallet.", 0, block_number
 
-        value_wei = int(tx_data.get('value', '0x0'), 16)
-        if value_wei != int(expected_wei_amount):
-            return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0, block_number
+            from_addr = str(tx_data.get('from') or '').lower()
+            if expected_sender and expected_sender.strip() and from_addr != expected_sender.strip().lower():
+                return False, "SENDER_MISMATCH", "The transaction sender does not match the wallet bound to this purchase.", 0, block_number
 
-        # 4. Check Block Confirmation Depth
-        # Get latest block number
-        r_block = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 4}, timeout=8)
-        latest_block_hex = r_block.json().get('result')
-        latest_block = int(latest_block_hex, 16) if latest_block_hex else block_number
+            value_wei = int(str(tx_data.get('value') or '0x0'), 16)
+            if value_wei != int(expected_wei_amount):
+                return False, "AMOUNT_MISMATCH", "The transaction value does not match the exact quoted BNB amount.", 0, block_number
 
-        depth = max(1, latest_block - block_number + 1)
-        if depth < min_confirmations:
-            return False, "INSUFFICIENT_CONFIRMATIONS", f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) required.", depth, block_number
+            latest_raw = rpc_call(rpc_url, 'eth_blockNumber', [], 4)
+            if not latest_raw:
+                raise RuntimeError("RPC_LATEST_BLOCK_MISSING")
+            latest_block = int(str(latest_raw), 16)
+            depth = max(0, latest_block - block_number + 1)
+            if depth < min_confirmations:
+                return False, "INSUFFICIENT_CONFIRMATIONS", (
+                    f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) are required."
+                ), depth, block_number
+            return True, None, None, depth, block_number
 
-        return True, None, None, depth, block_number
+        except Exception as exc:
+            # Do not expose RPC URLs, provider credentials, or raw node payloads
+            # to the user. Continue to the next independent BSC endpoint.
+            last_rpc_error = type(exc).__name__
+            logging.warning("[PSEmine RPC] BSC endpoint attempt failed (%s)", last_rpc_error)
+            continue
 
-    except Exception as e:
-        return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0, None
+    if saw_transaction and not saw_receipt:
+        return False, "RECEIPT_NOT_FOUND", "The transaction is visible on BNB Smart Chain, but its receipt is not available yet. Check again shortly.", 0, None
+    if not saw_transaction:
+        if saw_wrong_network and last_rpc_error is None:
+            return False, "WRONG_NETWORK", "The available verification endpoints did not report BNB Smart Chain (56).", 0, None
+        if last_rpc_error is None:
+            return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BNB Smart Chain yet. Check again shortly.", 0, None
+    return False, "RPC_ERROR", "BNB Smart Chain verification is temporarily unavailable. Your payment has not been marked successful; try checking the same transaction again.", 0, None
 
 def recalculate_psemine_user_mining_state(db, user_id):
     """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state bounded by campaign expiry."""
@@ -7701,6 +7765,8 @@ def admin_psemine_overview():
         "receiverWalletConfiguredAt": campaign_config.get("receiverWalletConfiguredAt"),
         "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
         "purchaseReady": bool(configured_receiver),
+        "purchaseEnabled": campaign_config.get("purchaseEnabled") is True,
+        "purchaseEnabledUpdatedAt": campaign_config.get("purchaseEnabledUpdatedAt"),
         "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
         # Return the effective backend permissions so the console never guesses
         # whether a cached client profile can perform a protected operation.
@@ -8298,6 +8364,17 @@ def verify_psemine_tool_purchase():
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
 
+    # Verification is only allowed for the exact hash atomically persisted by
+    # report-submission. This prevents a client from bypassing the submission
+    # lock and racing two different hashes through independent RPC checks.
+    persisted_hash = str(purchase.get('transactionHash') or '').strip().lower()
+    if not persisted_hash:
+        return jsonify({"success": False, "error": "TRANSACTION_SUBMISSION_REQUIRED",
+                        "message": "Record the wallet-returned transaction hash before requesting verification."}), 409
+    if persisted_hash != tx_hash:
+        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
+                        "message": "This purchase is already bound to a different transaction hash. Do not send another payment."}), 409
+
     # 1b. Campaign lifecycle gate at verification time (server clock is the authority).
     # Terminal states settle/payout/closed/archived are all economically closed,
     # not just 'ended' — activation must be impossible in every one of them.
@@ -8325,7 +8402,7 @@ def verify_psemine_tool_purchase():
         recovery_authorized = (
             _recovery_data.get('status') == 'attached'
             and _recovery_data.get('attachedPurchaseId') == purchase_id
-            and str(_recovery_data.get('txHash') or '').lower() == tx_hash
+            and str(_recovery_data.get('txHash') or _recovery_data.get('transactionHash') or '').strip().lower() == tx_hash
         )
 
     def _flag_expired_purchase(reason, message, recipient=None):
@@ -8584,8 +8661,22 @@ def verify_psemine_tool_purchase():
                 raise Exception("TRANSACTION_ALREADY_REDEEMED")
 
             p_curr = purchase_ref.get(transaction=txn)
-            if not p_curr.exists or p_curr.to_dict().get('status') == 'activated':
+            if not p_curr.exists:
+                raise Exception("PURCHASE_NOT_FOUND")
+            p_curr_data = p_curr.to_dict() or {}
+            if p_curr_data.get('status') == 'activated':
                 raise Exception("PURCHASE_ALREADY_ACTIVATED")
+            # Recheck the immutable hash and legal state INSIDE the same
+            # transaction that creates ownership and redeems the hash. A stale
+            # verifier must never activate against a hash replaced by a racing
+            # report or overwrite a manual-review/abandoned terminal state.
+            if str(p_curr_data.get('transactionHash') or '').strip().lower() != tx_hash:
+                raise Exception("SUBMISSION_HASH_CONFLICT")
+            allowed_activation_states = ('transaction_submitted', 'confirming')
+            if recovery_authorized:
+                allowed_activation_states = allowed_activation_states + ('manual_review',)
+            if p_curr_data.get('status') not in allowed_activation_states:
+                raise Exception("PURCHASE_STATE_NOT_ACTIVATABLE")
 
             u_curr = user_ref.get(transaction=txn)
             u_dict = u_curr.to_dict() if u_curr.exists else {}
@@ -8595,6 +8686,22 @@ def verify_psemine_tool_purchase():
             _mig_exists = _mig_ref.get(transaction=txn).exists
             # Read-ahead for the campaign counters block.
             c_snap = camp_ref.get(transaction=txn)
+
+            # Recovery authorization can be revoked or changed while the RPC
+            # check is in flight. Re-read the exact attached case in this
+            # activation transaction so a stale verifier cannot activate after
+            # an administrator has rejected/reassigned the recovery.
+            if recovery_authorized and recovery_case_id:
+                recovery_ref = db.collection('psemine_payment_recovery').document(recovery_case_id)
+                recovery_curr = recovery_ref.get(transaction=txn)
+                recovery_data = recovery_curr.to_dict() if recovery_curr.exists else {}
+                if (
+                    not recovery_curr.exists
+                    or recovery_data.get('status') != 'attached'
+                    or recovery_data.get('attachedPurchaseId') != purchase_id
+                    or str(recovery_data.get('txHash') or recovery_data.get('transactionHash') or '').strip().lower() != tx_hash
+                ):
+                    raise Exception("RECOVERY_CASE_NOT_ATTACHED")
 
             counts = dict(u_dict.get('toolOwnershipCounts') or {})
             counts[tool_id] = counts.get(tool_id, 0) + 1
@@ -9737,63 +9844,57 @@ def mine_create_purchase():
     response_payload['createdAt'] = now_dt.isoformat()
     return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
 
+
 @app.route('/api/mine/purchases/mark-uncertain', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_mark_purchase_uncertain():
-    """Persist an ambiguous wallet broadcast on the server so every device is locked."""
+    """Atomically persist an ambiguous wallet broadcast across all devices."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
     if not purchase_id:
         return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    status = purchase.get('status')
-    if status == 'activated':
-        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED"}), 409
-    if purchase.get('transactionHash') or purchase.get('txHash'):
-        # Once a hash is known, uncertainty cannot replace the submitted state.
-        # Preserve the hash and route the user to verification of that same tx.
-        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
-                        "message": "A transaction hash is already recorded. Verify that same transaction; do not mark it as an unknown submission or pay again.",
-                        "transactionHash": purchase.get('transactionHash') or purchase.get('txHash'),
-                        "status": status}), 409
-    if status not in ('awaiting_payment', 'submission_uncertain'):
-        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE",
-                        "message": "Only an awaiting or already-uncertain purchase without a recorded hash can be marked uncertain."}), 409
-    if status == 'submission_uncertain':
-        return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
-    ref.update({
-        'status': 'submission_uncertain',
-        'submissionUncertainAt': firestore.SERVER_TIMESTAMP,
-        'statusMessage': 'Wallet submission outcome is unknown. Do not send another payment until reconciled.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    mine_notify(uid,
-        notif_id=f"notif_purchase_uncertain_{purchase_id}",
-        type='purchase',
-        title='Payment needs your attention',
-        message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
-        related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "mark_uncertain",
+        updated_at=firestore.SERVER_TIMESTAMP,
     )
-    return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        if error == "TRANSACTION_HASH_ALREADY_RECORDED":
+            return jsonify({"success": False, "error": error,
+                            "message": "A transaction hash is already recorded. Verify that same transaction; do not pay again.",
+                            "transactionHash": result.get("transactionHash"),
+                            "status": result.get("status")}), status_code
+        return jsonify({"success": False, "error": error,
+                        "message": "This purchase can no longer be marked as an unknown wallet submission."}), status_code
+
+    if not result.get("idempotent"):
+        purchase = db.collection('psemine_purchases').document(purchase_id).get().to_dict() or {}
+        mine_notify(uid,
+            notif_id=f"notif_purchase_uncertain_{purchase_id}",
+            type='purchase',
+            title='Payment needs your attention',
+            message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
+            related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+        )
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": result.get("status")})
 
 
 @app.route('/api/mine/purchases/report-submission', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_report_purchase_submission():
-    """Persist a returned transaction hash before attempting chain verification."""
+    """Atomically persist one immutable transaction hash before verification."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
@@ -9803,84 +9904,67 @@ def mine_report_purchase_submission():
     if not purchase_id or not _re.fullmatch(r'0x[0-9a-f]{64}', tx_hash):
         return jsonify({"success": False, "error": "INVALID_SUBMISSION",
                         "message": "A purchase ID and valid transaction hash are required."}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    if purchase.get('status') == 'activated':
-        return jsonify({"success": True, "purchaseId": purchase_id, "status": "activated",
-                        "transactionHash": purchase.get('transactionHash')})
-    bound = str(purchase.get('paymentWallet') or '').lower()
-    if sender and bound and sender != bound:
-        return jsonify({"success": False, "error": "WALLET_MISMATCH",
-                        "message": "The sending wallet does not match the wallet bound to this purchase."}), 409
-    existing_hash = str(purchase.get('transactionHash') or '').lower()
-    if existing_hash and existing_hash != tx_hash:
-        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
-                        "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
-    # Idempotent duplicate report: preserve a later verification state. A retry
-    # of the same hash must never move confirming back to transaction_submitted
-    # or emit duplicate "submitted" notifications.
-    if existing_hash == tx_hash and purchase.get('status') in ('transaction_submitted', 'confirming'):
-        return jsonify({"success": True, "purchaseId": purchase_id,
-                        "status": purchase.get('status'), "transactionHash": tx_hash})
-    if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
-        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE"}), 409
-    ref.update({
-        'transactionHash': tx_hash,
-        'status': 'transaction_submitted',
-        'submissionReportedAt': firestore.SERVER_TIMESTAMP,
-        'statusMessage': 'Transaction hash recorded. Waiting for on-chain verification.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    mine_notify(uid,
-        notif_id=f"notif_purchase_submitted_{purchase_id}",
-        type='purchase',
-        title='Payment submitted — verification pending',
-        message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
-        related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': 'transaction_submitted'},
+
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "report_submission",
+        tx_hash=tx_hash, sender_wallet=sender,
+        updated_at=firestore.SERVER_TIMESTAMP,
     )
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        messages = {
+            "WALLET_MISMATCH": "The sending wallet does not match the wallet bound to this purchase.",
+            "SUBMISSION_HASH_CONFLICT": "A different transaction hash is already attached to this purchase. Contact support.",
+            "PURCHASE_NOT_RECOVERABLE": "This purchase is not accepting a new transaction submission.",
+        }
+        return jsonify({"success": False, "error": error,
+                        "message": messages.get(error, "The transaction could not be attached to this purchase.")}), status_code
+
+    status = result.get("status")
+    if not result.get("idempotent") and status == "transaction_submitted":
+        purchase = db.collection('psemine_purchases').document(purchase_id).get().to_dict() or {}
+        mine_notify(uid,
+            notif_id=f"notif_purchase_submitted_{purchase_id}",
+            type='purchase',
+            title='Payment submitted — verification pending',
+            message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
+            related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': status},
+        )
     return jsonify({"success": True, "purchaseId": purchase_id,
-                    "status": "transaction_submitted", "transactionHash": tx_hash})
+                    "status": status, "transactionHash": result.get("transactionHash") or tx_hash})
 
 
 @app.route('/api/mine/purchases/resolve-no-broadcast', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_resolve_purchase_no_broadcast():
-    """Close an uncertain intent only after the user explicitly attests no tx exists."""
+    """Atomically close an uncertain intent only after explicit user attestation."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
-    confirmed = data.get('confirmedNoTransaction') is True
-    if not purchase_id or not confirmed:
+    if not purchase_id or data.get('confirmedNoTransaction') is not True:
         return jsonify({"success": False, "error": "EXPLICIT_CONFIRMATION_REQUIRED"}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    if purchase.get('status') != 'submission_uncertain':
-        return jsonify({"success": False, "error": "PURCHASE_NOT_UNCERTAIN"}), 409
-    if purchase.get('transactionHash'):
-        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
-                        "message": "A transaction hash is attached. Reconcile that transaction instead of closing this intent."}), 409
-    ref.update({
-        'status': 'abandoned_no_broadcast',
-        'noBroadcastConfirmedAt': firestore.SERVER_TIMESTAMP,
-        'noBroadcastConfirmedBy': uid,
-        'statusMessage': 'User confirmed no transaction was broadcast. This intent is closed.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    return jsonify({"success": True, "purchaseId": purchase_id, "status": "abandoned_no_broadcast"})
 
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "resolve_no_broadcast",
+        updated_at=firestore.SERVER_TIMESTAMP,
+    )
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        if error == "TRANSACTION_HASH_ALREADY_RECORDED":
+            return jsonify({"success": False, "error": error,
+                            "message": "A transaction hash is attached. Reconcile that transaction instead of closing this intent.",
+                            "transactionHash": result.get("transactionHash")}), status_code
+        return jsonify({"success": False, "error": error,
+                        "message": "Only an uncertain purchase without a transaction hash can be closed this way."}), status_code
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": result.get("status")})
 
 @app.route('/api/mine/wallet', methods=['POST'])
 @verify_token
@@ -10199,7 +10283,11 @@ def admin_mine_payment_recovery():
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
     import psemine_engine as _pse_engine
-    status = (request.args.get('status') or 'open').strip()
+    status = (request.args.get('status') or 'open').strip().lower()
+    allowed_statuses = {'open', 'attached', 'reviewed', 'rejected', 'resolved'}
+    if status not in allowed_statuses:
+        return jsonify({"success": False, "error": "INVALID_RECOVERY_STATUS",
+                        "message": "Choose a supported payment-recovery status."}), 400
     return jsonify({"success": True, "cases": _pse_engine.admin_list_payment_recovery(db, status=status)})
 
 @app.route('/api/admin/mine/payment-recovery/<recovery_id>/resolve', methods=['POST'])

@@ -438,12 +438,18 @@ export const PSEMineTools: React.FC = () => {
                   </dl>
 
                   <div className="pse-product-actions">
-                    <span className="pse-product-avail" data-state={atLimit ? 'locked' : purchaseOpen ? 'available' : 'unavailable'}>
-                      {atLimit
-                        ? 'Ownership limit reached'
-                        : purchaseOpen
-                          ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
-                          : walletSetupRequired ? 'Wallet setup pending' : 'Campaign purchases closed'}
+                    <span className="pse-product-avail" data-state={productState}>
+                      {activeOwned
+                        ? `${owned} owned · active`
+                        : pendingForTool
+                          ? 'Purchase pending verification'
+                          : atLimit
+                            ? 'Ownership limit reached'
+                            : owned > 0
+                              ? `${owned} owned · ${remaining} slot${remaining === 1 ? '' : 's'} available`
+                              : purchaseOpen
+                                ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
+                                : walletSetupRequired ? 'Wallet setup pending' : 'Campaign purchases closed'}
                     </span>
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>

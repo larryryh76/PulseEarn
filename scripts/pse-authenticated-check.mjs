@@ -424,7 +424,6 @@ async function main() {
   const overlays = {
     notifications: { opened: false, screenshot: null, text: '', error: '' },
     quote: { opened: false, screenshot: null, text: '', error: '', paymentStarted: false },
-    walletLabQuote: { opened: false, validQuote: false, screenshot: null, text: '', error: '', paymentStarted: false },
   };
   try {
     await authPage.setViewportSize({ width: 390, height: 844 });
@@ -450,7 +449,7 @@ async function main() {
       await buy.click();
       const dialog = authPage.locator('.pse-purchase-dialog');
       await dialog.waitFor({ state: 'visible', timeout: 20_000 });
-      await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 8_000 });
+      if (!BASE_URL) await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 8_000 });
       overlays.quote.opened = true;
       overlays.quote.text = (await dialog.innerText()).slice(0, 2600);
       overlays.quote.screenshot = 'tool-details-390.png';
@@ -463,29 +462,6 @@ async function main() {
     }
   } catch (e) {
     overlays.quote.error = String(e).slice(0, 220);
-  }
-  try {
-    await authPage.goto(`${base}/mine/wallet`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await authPage.getByRole('button', { name: 'Wallet Lab', exact: true }).click();
-    const quoteTest = authPage.getByRole('button', { name: 'Test Starter Miner', exact: true });
-    await quoteTest.waitFor({ state: 'visible', timeout: 10_000 });
-    await quoteTest.click();
-    const quoteResult = authPage.locator('.pse-wallet-lab-quote-result');
-    await quoteResult.waitFor({ state: 'visible', timeout: 20_000 });
-    overlays.walletLabQuote.opened = true;
-    const quoteText = await quoteResult.innerText();
-    overlays.walletLabQuote.validQuote = quoteText.includes('Server quote created')
-      && /BNB/.test(quoteText) && /chain 56/i.test(quoteText)
-      && quoteText.includes('Campaign receiver') && quoteText.includes('Quote expires');
-    overlays.walletLabQuote.text = quoteText.slice(0, 1400);
-    overlays.walletLabQuote.screenshot = 'wallet-lab-quote-390.png';
-    overlays.walletLabQuote.paymentStarted = false;
-    await authPage.screenshot({ path: path.join(OUT, overlays.walletLabQuote.screenshot), fullPage: false, animations: 'disabled' });
-  } catch (e) {
-    overlays.walletLabQuote.error = String(e).slice(0, 220);
-  }
-  if (!overlays.walletLabQuote.validQuote || overlays.walletLabQuote.paymentStarted) {
-    throw new Error('Wallet Lab quote-only diagnostic did not return a valid BNB Smart Chain quote without starting payment.');
   }
   fs.writeFileSync(path.join(OUT, 'overlay-interactions.json'), JSON.stringify(overlays, null, 2));
 

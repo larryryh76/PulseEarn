@@ -13,9 +13,9 @@ The purchase receiver is the campaign receiving wallet configured and explicitly
 3. The browser asks the connected wallet to switch to BNB Smart Chain if needed and requests one explicit `eth_sendTransaction` approval for the exact native BNB transfer. No transfer is sent without the user's wallet approval.
 4. The wallet returns a transaction hash only after the wallet provider accepts the submission; an interrupted or uncertain handoff remains pending and is never treated as payment success.
 5. The client submits the transaction hash to the authenticated verification endpoint.
-7. The backend independently verifies the transaction receipt and on-chain transaction: BSC chain, successful receipt, exact receiver, exact wei amount, bound sender, quote expiry, and required confirmations.
-8. Settlement is idempotent. A verified payment activates exactly one tool ownership and writes the corresponding purchase/revenue records atomically. Duplicate hashes, repeated requests, mismatched wallets, late payments, and uncertain broadcasts cannot silently activate or charge twice.
-9. If wallet submission is uncertain, the user must check wallet activity and provide the existing transaction hash for verification; the UI must never automatically broadcast a second transfer.
+6. The backend independently verifies the transaction receipt and on-chain transaction: BSC chain, successful receipt, exact receiver, exact wei amount, bound sender, quote expiry, and required confirmations.
+7. Settlement is idempotent. A verified payment activates exactly one tool ownership and writes the corresponding purchase/revenue records atomically. Duplicate hashes, repeated requests, mismatched wallets, late payments, and uncertain broadcasts cannot silently activate or charge twice.
+8. If wallet submission is uncertain, the user must check wallet activity and provide the existing transaction hash for verification; the UI must never automatically broadcast a second transfer.
 
 ## Trust boundaries
 

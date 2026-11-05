@@ -327,7 +327,7 @@ for (const pagePath of PAGES) {
           const quoteText = await quoteResult.innerText();
           walletLabQuoteInteraction = {
             opened: true,
-            quoteValid: quoteText.includes('Server quote created') && /BNB/.test(quoteText) && /chain 56/i.test(quoteText) && quoteText.includes('Campaign receiver') && quoteText.includes('Quote expires'),
+            quoteValid: /server quote created/i.test(quoteText) && /BNB/.test(quoteText) && /chain 56/i.test(quoteText) && quoteText.includes('Campaign receiver') && quoteText.includes('Quote expires'),
             paymentStarted: false,
             text: quoteText.slice(0, 800),
           };

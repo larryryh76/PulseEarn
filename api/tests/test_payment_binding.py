@@ -377,3 +377,26 @@ class TestPurchaseSubmissionStateMonotonicity(unittest.TestCase):
             handler.index("ref.update({"),
             "idempotent same-hash return must happen before status mutation",
         )
+
+
+class TestAtomicPurchaseIntentReservation(unittest.TestCase):
+    """The per-user/tool lock and purchase write must share one Firestore txn."""
+
+    def test_create_handler_uses_transactional_lock(self):
+        handler = _create_handler()
+        self.assertIn("psemine_purchase_locks", handler)
+        self.assertIn("@firestore.transactional", handler)
+        self.assertIn("lock_ref.get(transaction=txn)", handler)
+        self.assertIn("txn.set(purchase_ref, payload)", handler)
+        self.assertIn("txn.set(lock_ref", handler)
+
+    def test_concurrent_reuse_and_conflict_are_decided_inside_lock_transaction(self):
+        handler = _create_handler()
+        txn_start = handler.index("def _create_purchase_once(txn):")
+        txn_end = handler.index("try:\n        create_result", txn_start)
+        txn = handler[txn_start:txn_end]
+        self.assertIn("purchase_intent_reuse_decision", txn)
+        self.assertIn("'kind': 'reuse'", txn)
+        self.assertIn("'kind': 'mismatch'", txn)
+        self.assertIn("'kind': 'blocked'", txn)
+        self.assertIn("txn.update(locked_ref", txn)

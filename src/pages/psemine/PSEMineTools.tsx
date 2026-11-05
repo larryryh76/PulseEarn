@@ -1195,13 +1195,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           ) : null}
           <div className="pse-tool-detail-actions">
             <PseButton variant="secondary" onClick={onClose}>Back to tools</PseButton>
-            <PseButton onClick={() => setStep(connectedWallet ? 'quote' : 'connect')} disabled={owned >= tool.maxPerUser || !purchaseReadyForTool}>
-              {pending && pending.toolId === tool.id ? 'Resume existing purchase' : connectedWallet ? 'Review live quote' : 'Connect wallet & continue'}
+            <PseButton onClick={() => setStep(connectedWallet ? 'quote' : 'connect')} disabled={owned >= tool.maxPerUser || quoteLoading || !purchaseReadyForTool}>
+              {quoteLoading ? 'Preparing quote…' : pending && pending.toolId === tool.id ? 'Resume existing purchase' : connectedWallet ? 'Review live quote' : 'Connect wallet & continue'}
             </PseButton>
           </div>
-          {!purchaseReadyForTool && owned < tool.maxPerUser && (
-            <PseNotice tone="attention">Purchases are currently unavailable. Check the campaign status and receiving-wallet setup on the Tools page.</PseNotice>
-          )}
+          {quoteLoading ? (
+            <PseNotice tone="info">Preparing a fresh, time-limited quote from the PSEmine backend. No transaction is being sent.</PseNotice>
+          ) : !purchaseReadyForTool && owned < tool.maxPerUser ? (
+            <PseNotice tone="attention">A live quote is not ready. Continue to the quote step to retry; no payment can be submitted until the backend returns a valid quote.</PseNotice>
+          ) : null}
         </PseSection>
       )}
 

@@ -393,11 +393,15 @@ export const PSEMineTools: React.FC = () => {
           <div className="pse-marketplace-products">
             {TOOLS.map((tool, index) => {
               const owned = ownedByTool(tool.id);
+              const ownedRows = ownedTools.filter(item => (item.toolId || '') === tool.id);
+              const activeOwned = ownedRows.some(item => (item.cycleState || item.status) === 'active');
+              const pendingForTool = (state?.pendingPurchases || []).some(item => item.toolId === tool.id && ['created', 'awaiting_payment', 'transaction_submitted', 'confirming', 'submission_uncertain', 'manual_review'].includes(String(item.status)));
               const atLimit = owned >= tool.maxPerUser;
               const remaining = Math.max(0, tool.maxPerUser - owned);
               const continuous = dutyOf(tool) === 'continuous';
+              const productState = activeOwned ? 'active' : pendingForTool ? 'pending' : atLimit ? 'locked' : owned > 0 ? 'owned' : purchaseOpen ? 'available' : 'unavailable';
               return (
-                <article className="pse-product" key={tool.id} data-product-index={index + 1} data-state={atLimit ? 'locked' : purchaseOpen ? 'available' : 'unavailable'} data-owned={owned > 0 ? 'true' : 'false'}>
+                <article className="pse-product" key={tool.id} data-product-index={index + 1} data-state={productState} data-owned={owned > 0 ? 'true' : 'false'}>
                   <ToolArt tier={tool.tier} name={tool.name} />
                   <div className="pse-product-id">
                     <h3 className="pse-product-name">

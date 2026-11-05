@@ -1,0 +1,85 @@
+name: PSEmine Wallet and Console QA
+
+on:
+  push:
+    branches:
+      - feat/psemine-product-wallet-lab-stabilization
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/pages/psemine/**"
+      - "src/engines/psemine/**"
+      - "src/contexts/PSEMineContext.tsx"
+      - "src/components/psemine/**"
+      - "src/styles/psemine-*.css"
+      - "scripts/pse-wallet-*.mjs"
+      - "scripts/pse-console-check.mjs"
+      - "scripts/pse-a11y-check.mjs"
+      - "api/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/psemine-wallet-qa.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psemine-wallet-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wallet-console:
+    name: Build, wallet regression and responsive console
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium for browser harnesses
+        run: npx playwright install --with-deps chromium
+
+      - name: TypeScript and production build
+        run: npm run build
+
+      - name: API regression tests
+        run: npm run test:api
+
+      - name: Product isolation check
+        run: npm run check:isolation
+
+      - name: Wallet session and payment recovery regression
+        run: |
+          bun scripts/pse-wallet-recovery-check.mjs
+          bun scripts/pse-wallet-handoff-check.mjs
+
+      - name: Wallet transaction runtime gate
+        run: bun scripts/pse-wallet-gate.mjs
+
+      - name: Dashboard and wallet responsive console check
+        run: bun scripts/pse-console-check.mjs --quick --widths 320,360,390,430,768,1024,1440
+
+      - name: Tools, wallet and dashboard accessibility measurements
+        run: >-
+          bun scripts/pse-a11y-check.mjs
+          --routes /mine/tools,/mine/wallet,/mine/dashboard
+          --viewports 320x844,360x800,390x844,430x932,768x1024,1024x768,1440x900
+          --theme dark

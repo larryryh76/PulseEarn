@@ -369,14 +369,14 @@ class TestPurchaseSubmissionStateMonotonicity(unittest.TestCase):
 
     def test_same_hash_retry_preserves_confirming_status_without_duplicate_write(self):
         handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_report_purchase_submission")
-        self.assertIn("existing_hash == tx_hash", handler)
-        self.assertIn("purchase.get('status') in ('transaction_submitted', 'confirming')", handler)
-        self.assertIn('"status": purchase.get(\'status\')', handler)
-        self.assertLess(
-            handler.index("existing_hash == tx_hash"),
-            handler.index("ref.update({"),
-            "idempotent same-hash return must happen before status mutation",
-        )
+        self.assertIn("transition_purchase_state", handler)
+        self.assertIn('"report_submission"', handler)
+        decision = tfg._read(tfg.ENGINE_SRC) if hasattr(tfg, "ENGINE_SRC") else open(
+            os.path.join(os.path.dirname(tfg.INDEX_SRC), "psemine_engine.py"), encoding="utf-8"
+        ).read()
+        self.assertIn('existing_hash == requested_hash', decision)
+        self.assertIn('"transaction_submitted", "confirming", "manual_review"', decision)
+        self.assertIn('"idempotent": True', decision)
 
 
 class TestAtomicPurchaseIntentReservation(unittest.TestCase):
@@ -407,14 +407,13 @@ class TestUncertainRecoveryPreservesKnownHash(unittest.TestCase):
 
     def test_mark_uncertain_refuses_when_hash_is_already_recorded(self):
         handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_mark_purchase_uncertain")
-        self.assertIn("purchase.get('transactionHash') or purchase.get('txHash')", handler)
-        self.assertIn('"error": "TRANSACTION_HASH_ALREADY_RECORDED"', handler)
-        self.assertIn("status not in ('awaiting_payment', 'submission_uncertain')", handler)
-        self.assertLess(
-            handler.index("TRANSACTION_HASH_ALREADY_RECORDED"),
-            handler.index("ref.update({"),
-            "known hash must be checked before uncertainty status is written",
-        )
+        self.assertIn("transition_purchase_state", handler)
+        self.assertIn('"mark_uncertain"', handler)
+        decision = open(
+            os.path.join(os.path.dirname(tfg.INDEX_SRC), "psemine_engine.py"), encoding="utf-8"
+        ).read()
+        self.assertIn('if existing_hash:', decision)
+        self.assertIn('"TRANSACTION_HASH_ALREADY_RECORDED"', decision)
 
 
 class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
@@ -462,7 +461,7 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
         self.assertEqual("TRANSACTION_HASH_ALREADY_RECORDED", uncertain["error"])
         closed = self._transition(db, "resolve_no_broadcast")
         self.assertFalse(closed["ok"])
-        self.assertEqual("TRANSACTION_HASH_ALREADY_RECORDED", closed["error"])
+        self.assertEqual("PURCHASE_NOT_UNCERTAIN", closed["error"])
         purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
         self.assertEqual("transaction_submitted", purchase["status"])
         self.assertEqual(self.TX_A, purchase["transactionHash"])

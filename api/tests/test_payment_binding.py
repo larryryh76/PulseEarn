@@ -400,3 +400,18 @@ class TestAtomicPurchaseIntentReservation(unittest.TestCase):
         self.assertIn("'kind': 'mismatch'", txn)
         self.assertIn("'kind': 'blocked'", txn)
         self.assertIn("txn.update(locked_ref", txn)
+
+
+class TestUncertainRecoveryPreservesKnownHash(unittest.TestCase):
+    """A known transaction hash must never be downgraded to unknown submission."""
+
+    def test_mark_uncertain_refuses_when_hash_is_already_recorded(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_mark_purchase_uncertain")
+        self.assertIn("purchase.get('transactionHash') or purchase.get('txHash')", handler)
+        self.assertIn('"error": "TRANSACTION_HASH_ALREADY_RECORDED"', handler)
+        self.assertIn("status not in ('awaiting_payment', 'submission_uncertain')", handler)
+        self.assertLess(
+            handler.index("TRANSACTION_HASH_ALREADY_RECORDED"),
+            handler.index("ref.update({"),
+            "known hash must be checked before uncertainty status is written",
+        )

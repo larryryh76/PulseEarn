@@ -1538,18 +1538,25 @@ const WalletConnectStep: React.FC = () => {
         Connect the wallet you want to pay from. When you purchase, your wallet opens a separate BNB transfer approval showing the exact amount and receiving address. PSEmine never sends funds automatically.
       </p>
 
-      <div className="flex flex-wrap gap-2">
-        {walletConnectAvailable ? (
-          <PseButton onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
-            Connect Wallet
-          </PseButton>
-        ) : (
-          injectedWallets.map(w => (
-            <PseButton key={w.id} onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {walletConnectAvailable && (
+          <div className="min-w-0 rounded-xl border border-violet-400/20 bg-violet-400/[.06] p-3">
+            <div className="text-xs font-semibold text-white">Wallet app</div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Connect with WalletConnect and approve the PSEmine connection in your installed wallet.</p>
+            <PseButton className="mt-3 w-full" onClick={() => void connectWalletConnectTransport()} disabled={isConnectingWallet}>
+              Connect with WalletConnect
+            </PseButton>
+          </div>
+        )}
+        {injectedWallets.map(w => (
+          <div key={w.id} className="min-w-0 rounded-xl border border-cyan-400/20 bg-cyan-400/[.04] p-3">
+            <div className="text-xs font-semibold text-white">Browser wallet</div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{w.name} is available in this browser. Connect directly without leaving this tab.</p>
+            <PseButton className="mt-3 w-full" onClick={() => void connectWallet(w.id)} disabled={isConnectingWallet}>
               Connect {w.name}
             </PseButton>
-          ))
-        )}
+          </div>
+        ))}
       </div>
 
       {isConnectingWallet && (

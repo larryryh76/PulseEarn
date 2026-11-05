@@ -159,7 +159,7 @@ const OwnedToolRow: React.FC<{
   );
 };
 
-type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
+type FlowStep = 'details' | 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
 
 /** Human wording for the submission state machine (see pseWallet.ts). */
 const SUBMISSION_LABEL: Record<PsePaymentSubmissionState, string> = {
@@ -178,6 +178,7 @@ type ResumeState =
   | { kind: 'expired'; purchase: PsePendingPurchase };
 
 const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
+  { id: 'details', label: 'Details' },
   { id: 'connect', label: 'Wallet' },
   { id: 'quote', label: 'Quote' },
   { id: 'pay', label: 'Pay in BNB' },
@@ -444,7 +445,7 @@ export const PSEMineTools: React.FC = () => {
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
                       <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'Buy this tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
+                        {purchaseOpen ? 'View details' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>
@@ -521,9 +522,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   } = usePSEMine();
   const { refresh } = usePseState();
 
-  // Start on the wallet step when no wallet is connected yet; the flow opens the
-  // connection step immediately instead of a dead quote screen.
-  const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
+  // Every catalogue selection opens a dedicated product-details view first.
+  // Wallet connection and the server quote remain explicit next steps inside
+  // this same dialog; a recovered purchase is advanced by the recovery effects.
+  const [step, setStep] = useState<FlowStep>('details');
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState('Preparing your wallet request…');
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -1076,6 +1078,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const ss = String(secondsLeft % 60).padStart(2, '0');
   const stepIndex = STEP_ORDER.findIndex(s => s.id === step);
   const continuous = dutyOf(tool) === 'continuous';
+  const purchaseReadyForTool = Boolean(quote) && (resume?.kind === 'live' || !pending || pending.toolId !== tool.id || pending.status === 'awaiting_payment');
 
   return (
     <>
@@ -1104,8 +1107,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         style={{ width: 'min(100%, 820px)', maxHeight: '100%', overflowY: 'auto', overscrollBehavior: 'contain', border: '1px solid rgba(129, 156, 210, .22)', borderRadius: 22, background: '#080e1b', boxShadow: '0 28px 100px rgba(0,0,0,.6)', outline: 'none' }}
       >
     <PsePage
-      title={`Purchase ${tool.name}`}
-      objective={`${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
+      title={step === 'details' ? tool.name : `Purchase ${tool.name}`}
+      objective={step === 'details' ? 'Review this campaign unit before requesting a live BNB quote.' : `${continuous ? 'Continuous duty' : 'Session duty'} · ${gbp(tool.purchasePriceGBP)} · adds ${gbpHour(tool.hourlyRateGBP)} of capacity`}
       actions={<PseButton variant="secondary" size="sm" onClick={() => step === 'verifying' ? setMinimized(true) : onClose()}>{step === 'verifying' ? 'Minimize' : 'Close'}</PseButton>}
     >
       <ol className="pse-steps" aria-label="Purchase progress">
@@ -1147,6 +1150,48 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseButton>
             <PseButton onClick={onClose}>Close</PseButton>
           </div>
+        </PseSection>
+      )}
+
+      {/* ── Step: product details ── */}
+      {!showingRecovery && step === 'details' && (
+        <PseSection title="Tool overview">
+          <div className="pse-tool-detail-hero">
+            <ToolArt tier={tool.tier} name={tool.name} />
+            <div className="pse-tool-detail-copy">
+              <p className="pse-marketplace-kicker">PSEMINE / TIER {tool.tier}</p>
+              <h2>{tool.name}</h2>
+              <p>{tool.description}</p>
+              <span className="pse-tool-detail-model">{continuous ? 'Continuous campaign operation' : '24-hour operating sessions'}</span>
+            </div>
+          </div>
+          <PseFacts cols={2}>
+            <PseFact label="Campaign access" value="90-day campaign" text />
+            <PseFact label="Purchase price" value={gbp(tool.purchasePriceGBP)} />
+            <PseFact label="Hourly capacity" value={gbpHour(tool.hourlyRateGBP)} />
+            <PseFact label="Your ownership" value={`${owned} / ${tool.maxPerUser}`} />
+            <PseFact label="Session length" value={continuous ? 'Continuous' : `${tool.operating.sessionDurationHours ?? 24} hours`} />
+            <PseFact label="Restart delay" value={continuous ? 'Not required' : `${tool.operating.restartDelayMinutes ?? 10} minutes`} />
+          </PseFacts>
+          <div className="pse-tool-detail-benefits">
+            <div><strong>Managed campaign access</strong><span>Mining operation and equipment management run within the PSEmine campaign.</span></div>
+            <div><strong>Backend-tracked ownership</strong><span>Your tool appears as owned only after the payment is verified and the backend activates it.</span></div>
+            <div><strong>Direct wallet payment</strong><span>Pay the exact server-quoted native BNB amount on BNB Smart Chain from your connected wallet.</span></div>
+          </div>
+          {owned >= tool.maxPerUser ? (
+            <PseNotice tone="attention">You have reached the ownership limit for this tool.</PseNotice>
+          ) : pending && pending.toolId === tool.id ? (
+            <PseNotice tone="attention">A purchase for this tool is already recorded. Continue the existing payment rather than creating another.</PseNotice>
+          ) : null}
+          <div className="pse-tool-detail-actions">
+            <PseButton variant="secondary" onClick={onClose}>Back to tools</PseButton>
+            <PseButton onClick={() => setStep(connectedWallet ? 'quote' : 'connect')} disabled={owned >= tool.maxPerUser || !purchaseReadyForTool}>
+              {pending && pending.toolId === tool.id ? 'Resume existing purchase' : connectedWallet ? 'Review live quote' : 'Connect wallet & continue'}
+            </PseButton>
+          </div>
+          {!purchaseReadyForTool && owned < tool.maxPerUser && (
+            <PseNotice tone="attention">Purchases are currently unavailable. Check the campaign status and receiving-wallet setup on the Tools page.</PseNotice>
+          )}
         </PseSection>
       )}
 

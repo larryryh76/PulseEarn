@@ -899,11 +899,11 @@ export const PaymentConsole: React.FC<{
 }> = ({ tier, priceGBP }) => (
   <Reveal className="pse-pay" delay={80}>
     <div className="pse-pay-bar">
-      <span className="pse-pay-bar-title">Secure checkout</span>
+      <span className="pse-pay-bar-title">Wallet purchase</span>
       <span className="pse-pay-bar-id">Unit · {tier.name}</span>
       <span className="pse-chip" data-tone="bnb">
         <span className="pse-chip-dot" aria-hidden="true" />
-        Crypto
+        Native BNB
       </span>
     </div>
 

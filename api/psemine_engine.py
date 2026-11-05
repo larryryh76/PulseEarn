@@ -1859,6 +1859,28 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
             purchase_hash = str(purchase.get("transactionHash") or "").strip().lower()
             if not recovery_hash or (purchase_hash and purchase_hash != recovery_hash):
                 return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
+
+            # The deterministic user/tool lock serializes recovery attachment
+            # against a concurrent checkout. If a different live intent already
+            # owns the lock, leave both records untouched and ask the operator
+            # to reconcile that intent first; never silently orphan it.
+            import uuid
+            lock_id = uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"psemine-purchase:{recovery.get('userId')}:{purchase.get('toolId')}",
+            ).hex
+            lock_ref = db.collection("psemine_purchase_locks").document(lock_id)
+            lock_snap = txn.get(lock_ref)
+            locked_id = str((lock_snap.to_dict() or {}).get("purchaseId") or "").strip() if lock_snap.exists else ""
+            if locked_id and locked_id != purchase_id:
+                locked_ref = db.collection("psemine_purchases").document(locked_id)
+                locked_snap = txn.get(locked_ref)
+                locked_data = locked_snap.to_dict() or {} if locked_snap.exists else {}
+                locked_status = str(locked_data.get("status") or "unknown")
+                if locked_status not in ("activated", "superseded", "abandoned_no_broadcast", "failed", "cancelled"):
+                    return {"ok": False, "error": "PURCHASE_LOCK_CONFLICT",
+                            "conflictingPurchaseId": locked_id, "conflictingStatus": locked_status}
+
             txn.update(purchase_ref, {
                 "status": "manual_review",
                 "transactionHash": recovery_hash,
@@ -1872,6 +1894,12 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 "attachedPurchaseId": purchase_id,
                 "reviewedBy": admin_uid,
                 "reviewNotes": notes,
+                "updatedAt": now,
+            })
+            txn.set(lock_ref, {
+                "userId": recovery.get("userId"),
+                "toolId": purchase.get("toolId"),
+                "purchaseId": purchase_id,
                 "updatedAt": now,
             })
             txn.set(audit_ref, _audit_payload("attached"))

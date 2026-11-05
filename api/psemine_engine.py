@@ -1836,7 +1836,10 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
             purchase = purchase_snap.to_dict() or {}
             if purchase.get("status") == "activated":
                 return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
-            if purchase.get("status") not in ("manual_review", "awaiting_payment", "transaction_submitted", "confirming"):
+            if purchase.get("status") not in (
+                "manual_review", "awaiting_payment", "submission_uncertain",
+                "abandoned_no_broadcast", "transaction_submitted", "confirming",
+            ):
                 return {"ok": False, "error": "PURCHASE_STATE_NOT_ATTACHABLE"}
             if purchase.get("userId") != recovery.get("userId"):
                 return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}

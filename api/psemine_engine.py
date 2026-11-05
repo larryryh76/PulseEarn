@@ -1799,60 +1799,108 @@ def admin_list_payment_recovery(db, status="open", limit=100):
 
 
 def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="", purchase_id=None):
-    """Actions: mark_reviewed | attach_to_purchase | reject. Never activates a tool;
-    attachment only records the linkage — activation stays with the canonical
-    verify-purchase endpoint after an administrator re-runs it."""
-    ref = db.collection("psemine_payment_recovery").document(recovery_id)
-    snap = ref.get()
-    if not snap.exists:
-        return {"ok": False, "error": "NOT_FOUND"}
+    """Resolve a recovery case atomically; attachment never activates a tool.
+
+    The canonical verifier is the only activation path. Recovery attachment and
+    purchase manual-review binding commit together, so a concurrent verifier
+    can never observe only half of an administrator's decision.
+    """
     if action not in ("mark_reviewed", "attach_to_purchase", "reject"):
         return {"ok": False, "error": "INVALID_ACTION"}
-    recovery = snap.to_dict() or {}
-    if action == "attach_to_purchase":
-        if not purchase_id:
-            return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
-        if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
-            return {"ok": False, "error": "PURCHASE_MISMATCH"}
-        purchase_ref = db.collection("psemine_purchases").document(purchase_id)
-        purchase_snap = purchase_ref.get()
-        if not purchase_snap.exists:
-            return {"ok": False, "error": "NOT_FOUND"}
-        purchase = purchase_snap.to_dict() or {}
-        if purchase.get("status") == "activated":
-            return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
-        if purchase.get("status") not in ("manual_review", "awaiting_payment", "transaction_submitted", "confirming"):
-            return {"ok": False, "error": "PURCHASE_STATE_NOT_ATTACHABLE"}
-        if purchase.get("userId") != recovery.get("userId"):
-            return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
-        if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
-            return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
-        if str(purchase.get("transactionHash") or recovery.get("txHash") or "").lower() != str(recovery.get("txHash") or "").lower():
-            return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
-        purchase_ref.update({
-            "status": "manual_review",
-            "transactionHash": str(recovery.get("txHash") or "").lower(),
-            "recoveryCaseId": recovery_id,
-            "reviewReason": recovery.get("reason") or "PAYMENT_RECOVERY_ATTACHED",
-            "statusMessage": "Payment recovery attached by an administrator. Retry on-chain verification.",
-            "updatedAt": firestore_server_ts(),
-        })
-    ref.update({
-        "status": {"mark_reviewed": "reviewed", "attach_to_purchase": "attached", "reject": "rejected"}[action],
-        "attachedPurchaseId": purchase_id if action == "attach_to_purchase" else None,
-        "reviewedBy": admin_uid,
-        "reviewNotes": notes,
-        "updatedAt": firestore_server_ts(),
-    })
-    db.collection("admin_audit_logs").add({
-        "timestamp": firestore_server_ts(),
-        "adminId": admin_uid,
-        "action": f"PSEMINE_RECOVERY_{action.upper()}",
-        "targetEntity": f"psemine_payment_recovery/{recovery_id}",
-        "metadata": {"notes": notes, "purchaseId": purchase_id},
-    })
-    return {"ok": True}
+    recovery_ref = db.collection("psemine_payment_recovery").document(recovery_id)
+    purchase_ref = (
+        db.collection("psemine_purchases").document(purchase_id)
+        if purchase_id else None
+    )
+    now = firestore_server_ts()
 
+    def _resolve(txn):
+        recovery_snap = txn.get(recovery_ref)
+        if not recovery_snap.exists:
+            return {"ok": False, "error": "NOT_FOUND"}
+        recovery = recovery_snap.to_dict() or {}
+        current_status = str(recovery.get("status") or "open")
+
+        if action == "attach_to_purchase":
+            if not purchase_id:
+                return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
+            if current_status not in ("open", "reviewed"):
+                return {"ok": False, "error": "RECOVERY_NOT_ATTACHABLE"}
+            if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
+                return {"ok": False, "error": "PURCHASE_MISMATCH"}
+            purchase_snap = txn.get(purchase_ref)
+            if not purchase_snap.exists:
+                return {"ok": False, "error": "NOT_FOUND"}
+            purchase = purchase_snap.to_dict() or {}
+            if purchase.get("status") == "activated":
+                return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
+            if purchase.get("status") not in ("manual_review", "awaiting_payment", "transaction_submitted", "confirming"):
+                return {"ok": False, "error": "PURCHASE_STATE_NOT_ATTACHABLE"}
+            if purchase.get("userId") != recovery.get("userId"):
+                return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
+            if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
+                return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
+            recovery_hash = str(recovery.get("txHash") or "").strip().lower()
+            purchase_hash = str(purchase.get("transactionHash") or "").strip().lower()
+            if not recovery_hash or (purchase_hash and purchase_hash != recovery_hash):
+                return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
+            txn.update(purchase_ref, {
+                "status": "manual_review",
+                "transactionHash": recovery_hash,
+                "recoveryCaseId": recovery_id,
+                "reviewReason": recovery.get("reason") or "PAYMENT_RECOVERY_ATTACHED",
+                "statusMessage": "Payment recovery attached by an administrator. The same transaction will be re-verified on BNB Smart Chain.",
+                "updatedAt": now,
+            })
+            txn.update(recovery_ref, {
+                "status": "attached",
+                "attachedPurchaseId": purchase_id,
+                "reviewedBy": admin_uid,
+                "reviewNotes": notes,
+                "updatedAt": now,
+            })
+            return {"ok": True, "status": "attached"}
+
+        if action == "mark_reviewed":
+            if current_status != "open":
+                return {"ok": False, "error": "RECOVERY_NOT_OPEN"}
+            txn.update(recovery_ref, {
+                "status": "reviewed",
+                "reviewedBy": admin_uid,
+                "reviewNotes": notes,
+                "updatedAt": now,
+            })
+            return {"ok": True, "status": "reviewed"}
+
+        # Rejecting a recovery that already names a purchase/hash would discard
+        # the only operational pointer while leaving the user's purchase locked.
+        # Keep those money cases available for attachment/re-verification.
+        if current_status not in ("open", "reviewed"):
+            return {"ok": False, "error": "RECOVERY_NOT_REJECTABLE"}
+        if recovery.get("purchaseId") or recovery.get("attachedPurchaseId") or recovery.get("txHash"):
+            return {"ok": False, "error": "PAYMENT_CASE_REQUIRES_RECONCILIATION"}
+        txn.update(recovery_ref, {
+            "status": "rejected",
+            "reviewedBy": admin_uid,
+            "reviewNotes": notes,
+            "updatedAt": now,
+        })
+        return {"ok": True, "status": "rejected"}
+
+    result = _run_transaction(db, _resolve)
+    if not result.get("ok"):
+        return result
+    try:
+        db.collection("admin_audit_logs").add({
+            "timestamp": now,
+            "adminId": admin_uid,
+            "action": f"PSEMINE_RECOVERY_{action.upper()}",
+            "targetEntity": f"psemine_payment_recovery/{recovery_id}",
+            "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
+        })
+    except Exception:
+        logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
+    return result
 
 def admin_deprecate_tool(db, tool_id, admin_uid, reason=""):
     """Safely deprecate a non-canonical seeded tool (growth/pro). Refuses canonical ids."""

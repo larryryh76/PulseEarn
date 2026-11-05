@@ -10305,7 +10305,18 @@ def admin_mine_payment_recovery_resolve(recovery_id):
         notes=(data.get('notes') or '').strip(),
         purchase_id=(data.get('purchaseId') or '').strip() or None)
     if not result.get("ok"):
-        return jsonify({"success": False, "error": result.get("error")}), 404 if result.get("error") == "NOT_FOUND" else 400
+        error = result.get("error")
+        status_code = 404 if error == "NOT_FOUND" else 409 if error in (
+            "PURCHASE_LOCK_CONFLICT", "RECOVERY_NOT_ATTACHABLE",
+            "PAYMENT_CASE_REQUIRES_RECONCILIATION",
+        ) else 400
+        return jsonify({
+            "success": False,
+            "error": error,
+            "message": "Another live purchase owns this account/tool lock. Reconcile it before attaching this recovery case." if error == "PURCHASE_LOCK_CONFLICT" else "The recovery action could not be applied to the current case state.",
+            "conflictingPurchaseId": result.get("conflictingPurchaseId"),
+            "conflictingStatus": result.get("conflictingStatus"),
+        }), status_code
     return jsonify({"success": True})
 
 @app.route('/api/admin/mine/tools/<tool_id>/deprecate', methods=['POST'])

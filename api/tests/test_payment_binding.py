@@ -543,3 +543,22 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
             self.assertNotIn("ref.update({", handler)
 
 
+
+    def test_verifier_uses_bounded_bsc_rpc_failover_without_exposing_provider_errors(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        pool_start = source.index("def _psemine_bsc_rpc_urls(")
+        verifier_start = source.index("def verify_bsc_transaction(", pool_start)
+        verifier_end = source.index("\ndef recalculate_psemine_user_mining_state", verifier_start)
+        pool = source[pool_start:verifier_start]
+        verifier = source[verifier_start:verifier_end]
+        self.assertIn("PSEMINE_BSC_RPC_URL", pool)
+        self.assertIn("PSEMINE_BSC_RPC_FALLBACKS", pool)
+        self.assertIn("https://bsc-dataseed.bnbchain.org", pool)
+        self.assertIn("https://bsc-dataseed-public.bnbchain.org", pool)
+        self.assertIn("for rpc_url in rpc_urls", verifier)
+        self.assertIn("rpc_deadline", verifier)
+        self.assertIn("timeout=min(6.0, remaining)", verifier)
+        self.assertIn("continue", verifier)
+        self.assertNotIn("str(exc)", verifier)
+        self.assertIn("TRANSACTION_NOT_FOUND", verifier)
+        self.assertIn("INSUFFICIENT_CONFIRMATIONS", verifier)

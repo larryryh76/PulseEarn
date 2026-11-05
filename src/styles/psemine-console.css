@@ -1582,3 +1582,25 @@
     padding:0 4px;
   }
 }
+
+
+/* Consistent touch targets across the authenticated console. Small typography
+   remains small; only the interactive hit area is enlarged. */
+@media(max-width:900px) {
+  .pse-console-shell :is(button, input, select, textarea, .pse-btn, a[role="button"]) {
+    min-height:44px;
+  }
+  .pse-console-shell .pse-foot-brand-id {
+    display:inline-flex;
+    align-items:center;
+    min-height:44px;
+    padding:0 4px;
+  }
+  .pse-wallet .pse-wallet-settlement-note > a,
+  .pse-wallet .pse-link {
+    display:inline-flex;
+    align-items:center;
+    min-height:44px;
+    padding-block:8px;
+  }
+}

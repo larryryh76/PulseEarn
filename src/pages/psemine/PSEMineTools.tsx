@@ -983,6 +983,24 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       if (!submissionRecorded) {
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
         void refresh();
+        const recoveredPurchase: PsePendingPurchase = {
+          ...(pending?.purchaseId === intentId ? pending : {}),
+          purchaseId: intentId,
+          toolId: tool.id,
+          status: 'submission_uncertain',
+          transactionHash: txHash,
+          paymentWallet: payer,
+          receiverWallet: quote.receiverWallet,
+          quoteId: quote.quoteId,
+          quotedBNBAmount: quote.bnbAmount,
+          quotedBNBWei: String(quote.bnbAmountWei || ''),
+          chainId: quote.chainId,
+          expiresAt: quote.expiresAt,
+        };
+        setPurchaseId(intentId);
+        setBoundPayer(payer);
+        setResume({ kind: 'submitted', purchase: recoveredPurchase });
+        setSubmissionState('CONFIRMING');
         setResult({ ok: false, uncertain: true, hash: txHash, message: 'Your wallet returned a transaction hash, but the server could not confirm that it saved it. The hash has been kept on this device for safe recovery. Do not send again.' });
         setUncertainRecovery(false);
         setStep('result');
@@ -1513,15 +1531,20 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           )}
 
           {result.uncertain && (
-            <PseNotice tone="attention" title="Check your wallet before retrying">
-              The wallet did not return a transaction result, so PSEmine cannot tell whether the transfer was submitted.
-              This does not mean the payment failed. Check the activity for the sending wallet
-              {boundPayer ? <> (<a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>)</> : ''}.
-              If a transfer appears, do not pay again. Keep its transaction hash and the sending wallet address so support
-              can reconcile that exact on-chain transfer. If no transfer appears, confirm below before requesting a new quote.
+            <PseNotice tone="attention" title={result.hash ? "Recover this exact transaction" : "Check your wallet before retrying"}>
+              {result.hash
+                ? 'Your wallet returned a transaction hash, but the server has not confirmed that it saved the submission. PSEmine retained the hash on this device. Reconcile this same transfer below — never send a second payment.'
+                : 'The wallet did not return a transaction result, so PSEmine cannot tell whether the transfer was submitted. This does not mean the payment failed. Check the activity for the sending wallet.'}
+              {boundPayer ? <> Sending wallet: <a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>.</> : ''}
+              {result.hash ? <> Transaction: <a className="pse-link" href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer">{shortHash(result.hash)} on BscScan</a>.</> : ' If a transfer appears, do not pay again. Keep its transaction hash for reconciliation.'}
             </PseNotice>
           )}
-          {result.uncertain && !confirmedNoTransaction && (
+          {result.uncertain && result.hash && (
+            <PseButton variant="secondary" onClick={() => void recheckRecovered()} disabled={rechecking}>
+              {rechecking ? 'Reconciling transaction…' : 'Recover this transaction'}
+            </PseButton>
+          )}
+          {result.uncertain && !result.hash && !confirmedNoTransaction && (
             <PseButton variant="secondary" onClick={() => void confirmNoBroadcast()} disabled={rechecking}>
               {rechecking ? 'Checking with server…' : 'I checked — no transaction is listed'}
             </PseButton>

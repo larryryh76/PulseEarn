@@ -235,10 +235,26 @@ const MEASURE = () => {
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
       overflowX: style.overflowX,
+      boxSizing: style.boxSizing,
+      marginLeft: style.marginLeft,
+      marginRight: style.marginRight,
+      paddingLeft: style.paddingLeft,
+      paddingRight: style.paddingRight,
+      transform: style.transform,
+      parent: el.parentElement ? (() => {
+        const p = el.parentElement.getBoundingClientRect();
+        return {
+          tag: el.parentElement.tagName.toLowerCase(),
+          className: String(el.parentElement.className?.baseVal || el.parentElement.className || '').slice(0, 100),
+          left: Math.round(p.left * 10) / 10,
+          right: Math.round(p.right * 10) / 10,
+          width: Math.round(p.width * 10) / 10,
+        };
+      })() : null,
     };
   }).filter(x => x.width > 0 && (x.left < -1 || x.right > viewportWidth + 1))
     .sort((a, b) => (b.right - viewportWidth) - (a.right - viewportWidth))
-    .slice(0, 20);
+    .slice(0, 40);
 
   // Composition law, measured from the rendered DOM: top-level bordered
   // containers only (ledgers/plates). A sub-plate INSIDE a ledger is not a

@@ -213,3 +213,30 @@
     grid-column: auto;
   }
 }
+
+
+/* Wallet Lab — live, read-only diagnostics for the connected payment wallet. */
+.pse-wallet .pse-wallet-lab { display:grid; gap:18px; min-width:0; }
+.pse-wallet .pse-wallet-lab-intro {
+  position:relative; overflow:hidden; padding:clamp(18px,3vw,26px);
+  border:1px solid rgba(124,145,255,.22); border-radius:18px;
+  background:radial-gradient(ellipse at 92% 0%,rgba(102,117,255,.16),transparent 42%),linear-gradient(135deg,#111a2c,#0a101d 72%);
+}
+.pse-wallet .pse-wallet-lab-kicker { color:#9aaeff; font-size:9px; font-weight:800; letter-spacing:.16em; }
+.pse-wallet .pse-wallet-lab-intro h2 { margin:8px 0 6px; color:#f4f6ff; font-size:clamp(22px,3vw,29px); letter-spacing:-.045em; }
+.pse-wallet .pse-wallet-lab-intro p { max-width:650px; margin:0; color:#aab7d0; font-size:12px; line-height:1.65; }
+.pse-wallet .pse-wallet-lab-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:start; }
+.pse-wallet .pse-wallet-lab-grid > * { min-width:0; }
+.pse-wallet .pse-wallet-lab .pse-w-net { margin-top:0; }
+.pse-wallet .pse-wallet-lab .pse-w-net-row { gap:12px; }
+.pse-wallet .pse-wallet-lab .pse-w-net-val { text-align:right; overflow-wrap:anywhere; }
+.pse-wallet .pse-wallet-lab-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+.pse-wallet .pse-wallet-lab-wallets { display:grid; gap:7px; margin:12px 0 0; padding:0; list-style:none; }
+.pse-wallet .pse-wallet-lab-wallets li { display:flex; justify-content:space-between; align-items:center; gap:10px; min-width:0; padding:10px 11px; border:1px solid rgba(145,164,207,.13); border-radius:10px; background:rgba(7,12,22,.42); color:#d9e2f5; font-size:11px; }
+.pse-wallet .pse-wallet-lab-wallets li span:last-child { color:#8494b2; font-size:9px; overflow-wrap:anywhere; text-align:right; }
+.pse-wallet .pse-wallet-lab-correlation { margin:13px 0 0; color:#8594ae; font-size:10px; overflow-wrap:anywhere; }
+.pse-wallet .pse-wallet-lab-correlation code { color:#aabaff; }
+@media(max-width:680px) {
+  .pse-wallet .pse-wallet-lab-grid { grid-template-columns:minmax(0,1fr); }
+  .pse-wallet .pse-wallet-lab-actions > * { flex:1 1 145px; }
+}

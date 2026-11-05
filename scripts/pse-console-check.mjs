@@ -323,6 +323,7 @@ for (const pagePath of PAGES) {
           await quoteTest.click();
           const quoteResult = page.locator('.pse-wallet-lab-quote-result');
           await quoteResult.waitFor({ state: 'visible', timeout: 8_000 });
+          await quoteResult.getByText('Server quote created', { exact: true }).waitFor({ state: 'visible', timeout: 5_000 });
           const quoteText = await quoteResult.innerText();
           walletLabQuoteInteraction = {
             opened: true,
@@ -330,7 +331,7 @@ for (const pagePath of PAGES) {
             paymentStarted: false,
             text: quoteText.slice(0, 800),
           };
-          if (!walletLabQuoteInteraction.quoteValid) throw new Error('Wallet Lab did not render the fixture BNB quote, chain, receiver and expiry.');
+          if (!walletLabQuoteInteraction.quoteValid) throw new Error('Wallet Lab quote response missing required BNB fields: ' + quoteText.slice(0, 500));
         } catch (error) {
           interactionProblems.push('Wallet Lab quote-only test: ' + String(error).slice(0, 180));
         }

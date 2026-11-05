@@ -9591,7 +9591,14 @@ def mine_create_purchase():
         # untouched as audit evidence.
 
     now_dt = datetime.now(timezone.utc)
-    purchase_id = f"pse_pur_{tool_id}_{int(now_dt.timestamp() * 1000)}_{uid[:6]}"
+    # Serialize concurrent create requests for the same account/tool. The
+    # deterministic lock document is read and written in the SAME Firestore
+    # transaction as the purchase intent, so two requests cannot both pass the
+    # preflight queries and create independent live intents.
+    lock_id = uuid.uuid5(uuid.NAMESPACE_URL, f"psemine-purchase:{uid}:{tool_id}").hex
+    lock_ref = db.collection('psemine_purchase_locks').document(lock_id)
+    purchase_id = f"pse_pur_{tool_id}_{uuid.uuid4().hex}"
+    purchase_ref = db.collection('psemine_purchases').document(purchase_id)
     payload = {
         'id': purchase_id,
         'userId': uid,
@@ -9618,7 +9625,105 @@ def mine_create_purchase():
         'confirmedAt': None,
         'activatedAt': None,
     }
-    db.collection('psemine_purchases').document(purchase_id).set(payload)
+
+    @firestore.transactional
+    def _create_purchase_once(txn):
+        lock_snap = lock_ref.get(transaction=txn)
+        locked_purchase = None
+        locked_ref = None
+        if lock_snap.exists:
+            locked_id = str((lock_snap.to_dict() or {}).get('purchaseId') or '').strip()
+            if locked_id:
+                locked_ref = db.collection('psemine_purchases').document(locked_id)
+                locked_snap = locked_ref.get(transaction=txn)
+                if locked_snap.exists:
+                    locked_purchase = locked_snap.to_dict() or {}
+
+        if locked_purchase:
+            locked_status = str(locked_purchase.get('status') or '')
+            if locked_status in ('manual_review', 'submission_uncertain', 'transaction_submitted', 'confirming'):
+                return {
+                    'kind': 'blocked',
+                    'status': locked_status,
+                    'purchaseId': locked_ref.id,
+                }
+            if locked_status in ('awaiting_payment', 'created'):
+                action, code = _pse_engine.purchase_intent_reuse_decision(
+                    locked_purchase.get('paymentWallet'), payment_wallet,
+                    locked_purchase.get('expiresAt'),
+                    stored_quote_id=locked_purchase.get('quoteId'),
+                    requested_quote_id=quote_id,
+                )
+                if action == 'reuse':
+                    return {'kind': 'reuse', 'purchaseId': locked_ref.id, 'purchase': locked_purchase}
+                if action == 'rebind_forbidden':
+                    return {
+                        'kind': 'mismatch',
+                        'code': code or 'WALLET_MISMATCH',
+                        'purchaseId': locked_ref.id,
+                        'boundWallet': str(locked_purchase.get('paymentWallet') or '').lower(),
+                    }
+                # A lapsed or deliberately re-quoted intent cannot be verified
+                # against the new terms. Preserve it as audit evidence, then
+                # atomically replace the lock with the new immutable intent.
+                txn.update(locked_ref, {
+                    'status': 'superseded',
+                    'statusMessage': 'Superseded by a fresh server quote before any payment submission.',
+                    'supersededAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                })
+            elif locked_status not in ('activated', 'superseded', 'abandoned_no_broadcast', 'failed', 'cancelled'):
+                # Unknown states fail closed; a new payment must not bypass an
+                # intent whose economic state the current code does not know.
+                return {
+                    'kind': 'blocked',
+                    'status': locked_status or 'unknown',
+                    'purchaseId': locked_ref.id,
+                }
+
+        txn.set(purchase_ref, payload)
+        txn.set(lock_ref, {
+            'userId': uid,
+            'toolId': tool_id,
+            'purchaseId': purchase_id,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+        return {'kind': 'created', 'purchaseId': purchase_id}
+
+    try:
+        create_result = _create_purchase_once(db.transaction())
+    except Exception:
+        logging.exception('[PSEmine] atomic purchase intent creation failed')
+        return jsonify({
+            'success': False,
+            'error': 'PURCHASE_INTENT_UNAVAILABLE',
+            'message': 'The purchase could not be safely reserved. No payment was sent; try again.',
+        }), 503
+
+    if create_result['kind'] == 'blocked':
+        return jsonify({
+            'success': False,
+            'error': 'PAYMENT_RECOVERY_LOCKED',
+            'message': 'A previous payment is still active or needs reconciliation. Do not send another payment.',
+            'purchaseId': create_result['purchaseId'],
+            'status': create_result['status'],
+        }), 409
+    if create_result['kind'] == 'mismatch':
+        return jsonify({
+            'success': False,
+            'error': create_result['code'],
+            'message': 'This live purchase is bound to a different wallet. Continue with that wallet or wait for the quote to expire.',
+            'purchaseId': create_result['purchaseId'],
+            'boundWallet': create_result['boundWallet'],
+        }), 409
+    if create_result['kind'] == 'reuse':
+        return jsonify({
+            'success': True,
+            'purchaseId': create_result['purchaseId'],
+            'existing': True,
+            'purchase': create_result['purchase'],
+        })
+
     mine_notify(uid,
         notif_id=f"notif_purchase_started_{purchase_id}",
         type='purchase',
@@ -9626,17 +9731,11 @@ def mine_create_purchase():
         message=f"Your {tool_cfg['name']} purchase is awaiting wallet approval. Quoted amount: {q.get('bnbAmount')} BNB on BNB Smart Chain. No payment is confirmed yet.",
         related={'source': 'mine_create_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'status': 'awaiting_payment'},
     )
-    # The stored payload carries firestore.SERVER_TIMESTAMP for createdAt — a
-    # Firestore Sentinel that is valid for the WRITE but not JSON-serializable
-    # for the RESPONSE (jsonify raises TypeError: Sentinel). Respond with a
-    # concrete UTC ISO timestamp instead; the authoritative server value lands
-    # in Firestore via the sentinel. (Production incident 2026-09-19: every
-    # FRESH intent creation 500'd before the user could reach the payment
-    # step. Hidden for weeks because the reuse path always returned first.)
+    # Firestore SERVER_TIMESTAMP is valid for the committed document but not
+    # JSON serializable. Return a concrete UTC timestamp in the response.
     response_payload = dict(payload)
     response_payload['createdAt'] = now_dt.isoformat()
     return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
-
 
 @app.route('/api/mine/purchases/mark-uncertain', methods=['POST'])
 @verify_token

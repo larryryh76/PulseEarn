@@ -594,3 +594,10 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
         self.assertIn("'attached'", handler)
         self.assertIn("'reviewed'", handler)
         self.assertIn("INVALID_RECOVERY_STATUS", handler)
+
+    def test_admin_overview_exposes_separate_purchase_gate_state(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "admin_psemine_overview")
+        self.assertIn('"purchaseReady": bool(configured_receiver)', handler)
+        self.assertIn('"purchaseEnabled": campaign_config.get("purchaseEnabled") is True', handler)
+        self.assertIn('"canManageCampaign": is_admin(request.user["uid"])', handler)

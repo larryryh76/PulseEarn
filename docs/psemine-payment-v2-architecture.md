@@ -62,3 +62,8 @@ The authenticated client mutation routes now share the engine's transactional pu
 - Verification requires the exact persisted hash and rechecks that hash plus an allowed state inside the same Firestore transaction that redeems the hash and creates ownership/revenue records.
 
 BSC verification now uses an ordered RPC pool: the configured `PSEMINE_BSC_RPC_URL`, optional comma-separated `PSEMINE_BSC_RPC_FALLBACKS`, then BNB Chain public mainnet endpoints. A single bounded 22-second request budget prevents serial endpoint timeouts from exhausting the serverless request. Every endpoint must report chain ID 56, and transaction, receipt, recipient, sender, exact wei amount and confirmation depth are checked against one endpoint's coherent response. RPC failures never mark a payment successful.
+
+
+### Interrupted client report recovery
+
+After the wallet returns a transaction hash, the client writes that hash, purchase ID and bound payer to a device-local recovery marker before calling the report endpoint. It retries the same idempotent report once. If both attempts fail, the UI retains the hash and does not offer another broadcast. On refresh, the client reconstructs the same purchase intent from the server pending row plus the saved hash, re-attaches that exact hash to the backend, and only then retries verification. The local marker is cleared after verified activation. This is recovery evidence, not payment authority; the backend still validates the quote, payer, receiver, exact wei amount, chain, receipt and confirmations.

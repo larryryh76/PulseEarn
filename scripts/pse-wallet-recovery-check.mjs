@@ -42,6 +42,23 @@ const check = (name, pass, detail) => results.push({ name, pass: Boolean(pass), 
 // Source-contract checks cover the origin-wide AppKit session, which the
 // provider-only harness cannot instantiate without a browser/Reown runtime.
 const contextSource = fs.readFileSync('src/contexts/PSEMineContext.tsx', 'utf8');
+const engineSource = fs.readFileSync('src/engines/psemine/PSEMineEngine.ts', 'utf8');
+const toolsSource = fs.readFileSync('src/pages/psemine/PSEMineTools.tsx', 'utf8');
+const activationStart = engineSource.indexOf('public static async activateToolPurchase(');
+const activationEnd = engineSource.indexOf('Referral Qualification Engine:', activationStart);
+const activationBlock = activationStart >= 0 ? engineSource.slice(activationStart, activationEnd) : '';
+check('payment:verification-does-not-depend-on-client-purchase-read',
+  activationBlock.includes('/api/mine/tools/verify-purchase')
+  && !activationBlock.includes('getDoc(purchaseRef)')
+  && !activationBlock.includes('purchaseSnap'));
+check('payment:verification-timeout-has-retryable-machine-code',
+  activationBlock.includes("code: 'VERIFICATION_TIMEOUT'")
+  && activationBlock.includes("code: 'VERIFICATION_UNAVAILABLE'"));
+check('payment:same-hash-can-be-rechecked-after-transport-timeout',
+  toolsSource.includes("res.code === 'VERIFICATION_TIMEOUT'")
+  && toolsSource.includes("res.code === 'VERIFICATION_UNAVAILABLE'")
+  && toolsSource.includes('recheckable: verificationCanBeRetried'));
+
 const restoreStart = contextSource.indexOf("const walletConnectOwnerUid = localStorage.getItem('psemine_walletconnect_owner_uid')");
 const restoreEnd = contextSource.indexOf('// A first-time WalletConnect handoff', restoreStart);
 const restoreBlock = restoreStart >= 0 ? contextSource.slice(restoreStart, restoreEnd) : '';

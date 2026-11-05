@@ -974,11 +974,16 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
       } else {
         const stillConfirming = res.code === 'INSUFFICIENT_CONFIRMATIONS';
+        const verificationCanBeRetried = stillConfirming
+          || res.code === 'VERIFICATION_TIMEOUT'
+          || res.code === 'VERIFICATION_UNAVAILABLE';
         setSubmissionState(stillConfirming ? 'CONFIRMING' : 'SUBMITTED');
         setResult({
           ok: false,
-          recheckable: stillConfirming,
-          message: res.error || 'Verification failed. If you already sent the payment, keep the transaction hash — support can reconcile it from the on-chain record.',
+          recheckable: verificationCanBeRetried,
+          message: verificationCanBeRetried
+            ? (res.error || 'The same transaction is still being reconciled. Check this transaction again; do not send another payment.')
+            : (res.error || 'Verification failed. If you already sent the payment, keep the transaction hash — support can reconcile it from the on-chain record.'),
           hash: txHash,
         });
       }

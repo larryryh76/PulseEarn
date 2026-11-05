@@ -352,3 +352,66 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTransactionHashValidation(unittest.TestCase):
+    """The verification endpoint must reject malformed hashes before any RPC."""
+
+    def test_verifier_requires_exact_32_byte_hex_hash(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "verify_psemine_tool_purchase")
+        self.assertIn("_tx_re.fullmatch(r'0x[0-9a-f]{64}', tx_hash)", handler)
+        self.assertIn('"error": "INVALID_TRANSACTION_HASH"', handler)
+        self.assertNotIn("len(tx_hash) != 66", handler)
+
+
+class TestPurchaseSubmissionStateMonotonicity(unittest.TestCase):
+    """Duplicate client reports must not regress a later backend status."""
+
+    def test_same_hash_retry_preserves_confirming_status_without_duplicate_write(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_report_purchase_submission")
+        self.assertIn("existing_hash == tx_hash", handler)
+        self.assertIn("purchase.get('status') in ('transaction_submitted', 'confirming')", handler)
+        self.assertIn('"status": purchase.get(\'status\')', handler)
+        self.assertLess(
+            handler.index("existing_hash == tx_hash"),
+            handler.index("ref.update({"),
+            "idempotent same-hash return must happen before status mutation",
+        )
+
+
+class TestAtomicPurchaseIntentReservation(unittest.TestCase):
+    """The per-user/tool lock and purchase write must share one Firestore txn."""
+
+    def test_create_handler_uses_transactional_lock(self):
+        handler = _create_handler()
+        self.assertIn("psemine_purchase_locks", handler)
+        self.assertIn("@firestore.transactional", handler)
+        self.assertIn("lock_ref.get(transaction=txn)", handler)
+        self.assertIn("txn.set(purchase_ref, payload)", handler)
+        self.assertIn("txn.set(lock_ref", handler)
+
+    def test_concurrent_reuse_and_conflict_are_decided_inside_lock_transaction(self):
+        handler = _create_handler()
+        txn_start = handler.index("def _create_purchase_once(txn):")
+        txn_end = handler.index("try:\n        create_result", txn_start)
+        txn = handler[txn_start:txn_end]
+        self.assertIn("purchase_intent_reuse_decision", txn)
+        self.assertIn("'kind': 'reuse'", txn)
+        self.assertIn("'kind': 'mismatch'", txn)
+        self.assertIn("'kind': 'blocked'", txn)
+        self.assertIn("txn.update(locked_ref", txn)
+
+
+class TestUncertainRecoveryPreservesKnownHash(unittest.TestCase):
+    """A known transaction hash must never be downgraded to unknown submission."""
+
+    def test_mark_uncertain_refuses_when_hash_is_already_recorded(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_mark_purchase_uncertain")
+        self.assertIn("purchase.get('transactionHash') or purchase.get('txHash')", handler)
+        self.assertIn('"error": "TRANSACTION_HASH_ALREADY_RECORDED"', handler)
+        self.assertIn("status not in ('awaiting_payment', 'submission_uncertain')", handler)
+        self.assertLess(
+            handler.index("TRANSACTION_HASH_ALREADY_RECORDED"),
+            handler.index("ref.update({"),
+            "known hash must be checked before uncertainty status is written",
+        )

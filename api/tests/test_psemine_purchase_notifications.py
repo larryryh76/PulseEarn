@@ -21,9 +21,11 @@ def handler(name):
 class TestPSEMinePurchaseNotifications(unittest.TestCase):
     def test_new_intent_notifies_only_after_purchase_record_is_written(self):
         body = handler("mine_create_purchase")
-        write = body.index("db.collection('psemine_purchases').document(purchase_id).set(payload)")
+        write = body.index("txn.set(purchase_ref, payload)")
+        committed = body.index("create_result = _create_purchase_once(db.transaction())")
         notice = body.index("notif_purchase_started_")
-        self.assertGreater(notice, write)
+        self.assertLess(write, committed)
+        self.assertGreater(notice, committed)
         self.assertIn("type='purchase'", body[notice:notice + 900])
         self.assertIn("'status': 'awaiting_payment'", body[notice:notice + 900])
         self.assertIn("No payment is confirmed yet", body[notice:notice + 900])

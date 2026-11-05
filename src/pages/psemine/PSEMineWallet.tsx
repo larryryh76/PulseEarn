@@ -463,6 +463,18 @@ export const PSEMineWallet: React.FC = () => {
               {walletCorrelationId && <p className="pse-wallet-lab-correlation">Support reference: <code>{walletCorrelationId}</code></p>}
             </PseSection>
           </div>
+          <section className="pse-wallet-lab-safety" aria-labelledby="pse-wallet-lab-safety-title">
+            <h3 id="pse-wallet-lab-safety-title">Safe transaction testing</h3>
+            <p>This lab is connection-only. It does not broadcast BNB, sign a payment, activate a tool, or change your balance.</p>
+            <ul>
+              <li>Connection and network checks are read-only wallet diagnostics.</li>
+              <li>Requesting a quote from a tool details flow asks the backend for a time-limited price; it does not create an on-chain transfer.</li>
+              <li>A payment intent is bound to your authenticated account, quote, payer, receiver, exact wei amount and BNB Smart Chain.</li>
+              <li>Only the backend can verify the transaction and activate ownership. A wallet callback or local status is never enough.</li>
+              <li>If submission is uncertain or awaiting confirmation, resume the same purchase and never broadcast a second transfer.</li>
+            </ul>
+            <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Open tool details &amp; quote flow</Link>
+          </section>
           <PseNotice tone="attention">A connected wallet is not proof of payment. Every purchase still requires a fresh server quote, explicit wallet approval, and independent on-chain verification.</PseNotice>
         </div>
       )}

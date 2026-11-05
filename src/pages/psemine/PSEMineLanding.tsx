@@ -317,14 +317,14 @@ const PURCHASE: ReadonlyArray<PseFlowStep> = [
     id: 'pay',
     glyph: 'wallet',
     name: 'Pay with crypto',
-    note: 'Open secure checkout, choose an available cryptocurrency and network, then pay from your preferred wallet.',
-    denom: <Denom tone="bnb">Crypto</Denom>,
+    note: 'Connect your wallet, verify BNB Smart Chain (56), then approve the exact server-quoted native-BNB amount.',
+    denom: <Denom tone="bnb">BNB</Denom>,
   },
   {
     id: 'verify',
     glyph: 'verify',
     name: 'Verified on-chain',
-    note: 'The provider payment is independently reconciled against your order before the tool can activate.',
+    note: 'The backend verifies the transaction hash, sender, receiver, exact value and on-chain success before activation.',
   },
   {
     id: 'activate',
@@ -396,7 +396,7 @@ const PAYOUT_TERMS = [
   },
   {
     term: 'Record',
-    rule: 'Tool purchases are confirmed through authenticated provider records; approved BNB payouts are separately recorded on BNB Smart Chain.',
+    rule: 'Tool purchases are verified on BNB Smart Chain (chain ID 56); approved BNB payouts are separately recorded on the same network.',
   },
 ];
 
@@ -478,7 +478,7 @@ const TRUST = [
   {
     glyph: 'chain' as const,
     name: 'Verified on-chain',
-    note: 'A provider-confirmed payment is reconciled by the backend before any unit is activated.',
+    note: 'The backend verifies the native-BNB transaction on BNB Smart Chain before any unit is activated.',
   },
   {
     glyph: 'audit' as const,
@@ -499,7 +499,7 @@ const FAQ: ReadonlyArray<{ q: string; a: React.ReactNode }> = [
     q: 'What is PSEmine, in one paragraph?',
     a: (
       <>
-        PSEmine is a managed, 90-day SHA-mining campaign-access product. You purchase a campaign unit through secure crypto checkout; each
+        PSEmine is a managed, 90-day SHA-mining campaign-access product. You purchase a campaign unit by approving native BNB in your connected wallet on BNB Smart Chain; each
         unit adds published hourly capacity recorded in GBP. Eligible earnings accrue while your unit is operating and
         the campaign is live. At campaign end, those earnings are settled in GBP. You can then request payout in BNB to your registered
         wallet; approved requests are paid after review. PSEmine manages the campaign operations, so you can participate without buying,
@@ -626,7 +626,7 @@ const FaqItem: React.FC<{ q: string; a: React.ReactNode; index: number }> = ({ q
 /* ── The page ───────────────────────────────────────────────────────────── */
 
 export const PSEMineLanding: React.FC = () => {
-  usePseDocumentTitle('Campaign mining and crypto checkout');
+  usePseDocumentTitle('PSEmine SHA-mining campaign');
 
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -1010,8 +1010,8 @@ export const PSEMineLanding: React.FC = () => {
           <PlateHead
             num="05"
             kicker="Payment"
-            title="Choose how you pay at secure checkout."
-            meta="GBP → supported crypto"
+            title="Approve your purchase in your wallet."
+            meta="GBP price → native BNB · BSC 56"
             lede="The SHA-mining unit has a fixed GBP price. Request a server quote for the exact native BNB amount, verify the recipient and BNB Smart Chain network, then approve the transfer in your wallet."
           />
           <Split object="start" className="pse-section-object">
@@ -1027,7 +1027,7 @@ export const PSEMineLanding: React.FC = () => {
                 rather than hides. */}
             <Reveal delay={120} className="pse-quote">
               <div className="pse-quote-head">
-                <span className="pse-quote-title">Checkout terms</span>
+                <span className="pse-quote-title">Wallet payment terms</span>
                 <span className="pse-quote-meta">What the server quote confirms</span>
               </div>
 
@@ -1133,8 +1133,7 @@ export const PSEMineLanding: React.FC = () => {
                 quietest heading on the page. */}
             <h2 className="pse-plate-title mt-4">Choose your first unit.</h2>
             <p className="pse-body mt-3">
-              An account is free. You spend nothing until you choose a unit and continue to secure checkout — the price, hourly
-              capacity and ownership limit are shown first, and you choose a supported crypto asset and network to pay.
+              An account is free. You spend nothing until you choose a unit and review its live server quote. The quote fixes the exact native-BNB amount and campaign receiving wallet on BNB Smart Chain before you approve the transfer in your wallet.
             </p>
           </Reveal>
           {/*

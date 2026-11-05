@@ -50,3 +50,13 @@ The three user-facing payment mutation endpoints now use the engine's shared Fir
 
 ## Global admin permission contract
 Receiving-wallet configuration, campaign management, recovery attachment/resolution, and tool operations are authorized by the single global PulseEarn platform-admin check. No separate PSEmine super-admin role is required. The client UI may hide controls based on its profile, but every write is enforced by the backend.
+
+
+## Admin workflow improvements in the current engineering pass
+
+- Receiving-wallet configuration and the new-purchase gate are separate audited actions. Saving a receiver never silently enables checkout; the current gate state is returned by the admin overview and shown explicitly.
+- The recovery register can filter open, attached, reviewed, rejected and resolved cases, and supports searching by case, user, purchase and transaction hash.
+- A recovery with a purchase or transaction hash cannot be rejected as if no money moved. It must be attached to the exact purchase and re-verified, or remain available for reconciliation.
+- Recovery attachment updates the purchase and case in one Firestore transaction. Repeated identical admin actions are idempotent.
+- Read-only history is retained for reviewed/rejected/resolved cases; operational actions are only available where the current case state permits them.
+- The authenticated PSEmine user console now offers both WalletConnect and injected-browser-wallet connection choices. The mobile approval handoff is certified separately in PR #433.

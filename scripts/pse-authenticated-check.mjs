@@ -220,6 +220,16 @@ const MEASURE = () => {
     const bordered = parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none';
     if (bordered && bg !== 'rgba(0, 0, 0, 0)' && r.width > 160 && r.height > 60) cardLike++;
   }
+  const viewportWidth = document.documentElement.clientWidth;
+  const overflowElements = els.map(el => {
+    const r = el.getBoundingClientRect();
+    return { tag: el.tagName.toLowerCase(), className: String(el.className?.baseVal || el.className || '').slice(0, 120),
+      text: (el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 70),
+      left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10,
+      width: Math.round(r.width * 10) / 10 };
+  }).filter(el => el.left < -1 || el.right > viewportWidth + 1)
+    .sort((a, b) => Math.max(b.right - viewportWidth, -b.left) - Math.max(a.right - viewportWidth, -a.left))
+    .slice(0, 20);
   const bodyText = (document.body.innerText || '').replace(/\s+/g, ' ').trim();
 
   // Composition law, measured from the rendered DOM: top-level bordered
@@ -238,6 +248,7 @@ const MEASURE = () => {
     docHeight: document.documentElement.scrollHeight,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
+    overflowElements,
     headingSizes: [...new Set(headings.map(h => h.size))].sort((a, b) => b - a),
     headings: headings.slice(0, 12),
     cardLike, surfaces: surfaces.size,
@@ -530,6 +541,22 @@ async function main() {
   console.log(`  mobile pages with taps under 44px: ${taps.length}`);
   taps.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width}: ${r.smallTargetsUnder44.slice(0, 3).join(' | ')}`));
   console.log(`\nReport + screenshots: ${OUT}`);
+  // A report is evidence, not a pass: fail the job when critical responsive or
+  // runtime invariants are violated so a green workflow cannot hide a defect.
+  const failures = [];
+  if (redirects.length) failures.push(`${redirects.length} authenticated routes redirected away from their destination`);
+  if (overflow.length) failures.push(`${overflow.length} route/viewport combinations have horizontal overflow`);
+  if (leaks.length) failures.push(`${leaks.length} cross-product calls or store reads detected`);
+  if (unsettled.length) failures.push(`${unsettled.length} route/viewport combinations did not settle`);
+  if (errored.length) failures.push(`${errored.length} route/viewport combinations have uncaught page errors`);
+  if (!logout.signedOut) failures.push('authenticated QA account did not complete the logout check');
+  if (failures.length) {
+    console.error('\nAUTHENTICATED QA FAILED:');
+    failures.forEach(reason => console.error(`  - ${reason}`));
+    process.exitCode = 1;
+  } else {
+    console.log('\nAUTHENTICATED QA PASSED: no overflow, route, isolation, readiness, page-error, or logout failures.');
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

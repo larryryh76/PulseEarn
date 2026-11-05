@@ -1840,7 +1840,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
             if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
                 return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
-            recovery_hash = str(recovery.get("txHash") or "").strip().lower()
+            recovery_hash = str(recovery.get("txHash") or recovery.get("transactionHash") or "").strip().lower()
             purchase_hash = str(purchase.get("transactionHash") or "").strip().lower()
             if not recovery_hash or (purchase_hash and purchase_hash != recovery_hash):
                 return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
@@ -1877,7 +1877,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         # Keep those money cases available for attachment/re-verification.
         if current_status not in ("open", "reviewed"):
             return {"ok": False, "error": "RECOVERY_NOT_REJECTABLE"}
-        if recovery.get("purchaseId") or recovery.get("attachedPurchaseId") or recovery.get("txHash"):
+        if recovery.get("purchaseId") or recovery.get("attachedPurchaseId") or recovery.get("txHash") or recovery.get("transactionHash"):
             return {"ok": False, "error": "PAYMENT_CASE_REQUIRES_RECONCILIATION"}
         txn.update(recovery_ref, {
             "status": "rejected",

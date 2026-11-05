@@ -625,12 +625,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         purchaseId?: string; transactionHash?: string; payerWallet?: string;
       } | null;
       const savedHash = String(saved?.transactionHash || '').trim();
-      if (saved?.purchaseId === pending.purchaseId && /^0x[0-9a-fA-F]{64}$/.test(savedHash)) {
-        if (!resume || resume.kind !== 'submitted' || resume.purchase.transactionHash !== savedHash) {
+      const pendingHash = String(pending.transactionHash || '').trim();
+      const recoveredHash = saved?.purchaseId === pending.purchaseId
+        && /^0x[0-9a-fA-F]{64}$/.test(savedHash)
+        ? savedHash
+        : /^0x[0-9a-fA-F]{64}$/.test(pendingHash) ? pendingHash : '';
+      if (recoveredHash) {
+        if (!resume || resume.kind !== 'submitted' || resume.purchase.transactionHash !== recoveredHash) {
           const recoveredPurchase = {
             ...pending,
-            transactionHash: savedHash,
-            paymentWallet: pending.paymentWallet || saved.payerWallet || '',
+            transactionHash: recoveredHash,
+            paymentWallet: pending.paymentWallet || (saved?.purchaseId === pending.purchaseId ? saved.payerWallet : '') || '',
           };
           setPurchaseId(pending.purchaseId);
           setBoundPayer(recoveredPurchase.paymentWallet || null);

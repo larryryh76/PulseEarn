@@ -8684,6 +8684,22 @@ def verify_psemine_tool_purchase():
             # Read-ahead for the campaign counters block.
             c_snap = camp_ref.get(transaction=txn)
 
+            # Recovery authorization can be revoked or changed while the RPC
+            # check is in flight. Re-read the exact attached case in this
+            # activation transaction so a stale verifier cannot activate after
+            # an administrator has rejected/reassigned the recovery.
+            if recovery_authorized and recovery_case_id:
+                recovery_ref = db.collection('psemine_payment_recovery').document(recovery_case_id)
+                recovery_curr = recovery_ref.get(transaction=txn)
+                recovery_data = recovery_curr.to_dict() if recovery_curr.exists else {}
+                if (
+                    not recovery_curr.exists
+                    or recovery_data.get('status') != 'attached'
+                    or recovery_data.get('attachedPurchaseId') != purchase_id
+                    or str(recovery_data.get('txHash') or '').strip().lower() != tx_hash
+                ):
+                    raise Exception("RECOVERY_CASE_NOT_ATTACHED")
+
             counts = dict(u_dict.get('toolOwnershipCounts') or {})
             counts[tool_id] = counts.get(tool_id, 0) + 1
 

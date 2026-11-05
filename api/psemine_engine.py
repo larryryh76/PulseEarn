@@ -1813,6 +1813,16 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         if purchase_id else None
     )
     now = firestore_server_ts()
+    audit_ref = db.collection("admin_audit_logs").document()
+
+    def _audit_payload(status):
+        return {
+            "timestamp": now,
+            "adminId": admin_uid,
+            "action": f"PSEMINE_RECOVERY_{action.upper()}",
+            "targetEntity": f"psemine_payment_recovery/{recovery_id}",
+            "metadata": {"notes": notes, "purchaseId": purchase_id, "status": status},
+        }
 
     def _resolve(txn):
         recovery_snap = txn.get(recovery_ref)
@@ -1864,6 +1874,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 "reviewNotes": notes,
                 "updatedAt": now,
             })
+            txn.set(audit_ref, _audit_payload("attached"))
             return {"ok": True, "status": "attached"}
 
         if action == "mark_reviewed":
@@ -1877,6 +1888,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 "reviewNotes": notes,
                 "updatedAt": now,
             })
+            txn.set(audit_ref, _audit_payload("reviewed"))
             return {"ok": True, "status": "reviewed"}
 
         # Rejecting a recovery that already names a purchase/hash would discard
@@ -1894,23 +1906,10 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
             "reviewNotes": notes,
             "updatedAt": now,
         })
+        txn.set(audit_ref, _audit_payload("rejected"))
         return {"ok": True, "status": "rejected"}
 
-    result = _run_transaction(db, _resolve)
-    if not result.get("ok"):
-        return result
-    if not result.get("idempotent"):
-        try:
-            db.collection("admin_audit_logs").add({
-                "timestamp": now,
-                "adminId": admin_uid,
-                "action": f"PSEMINE_RECOVERY_{action.upper()}",
-                "targetEntity": f"psemine_payment_recovery/{recovery_id}",
-                "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
-            })
-        except Exception:
-            logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
-    return result
+    return _run_transaction(db, _resolve)
 
 def admin_deprecate_tool(db, tool_id, admin_uid, reason=""):
     """Safely deprecate a non-canonical seeded tool (growth/pro). Refuses canonical ids."""

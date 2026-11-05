@@ -91,13 +91,132 @@ def _run_transaction(db, txn_fn):
       txn_fn returned a validation rejection before buffering any writes.
     """
     txn = db.transaction()
-    if _firestore is not None and hasattr(_firestore, "transactional"):
+    # In-memory test transactions expose their buffered operations explicitly.
+    # Do not pass these doubles through firebase_admin's Transaction wrapper
+    # merely because the SDK is installed in the test environment.
+    is_test_double = hasattr(txn, "_ops")
+    if _firestore is not None and hasattr(_firestore, "transactional") and not is_test_double:
         return _firestore.transactional(txn_fn)(txn)
     result = txn_fn(txn)
     commit = getattr(txn, "commit", None)
     if callable(commit):
         commit()
     return result
+
+# ----------------------------------------------------------------------------
+# Purchase payment state machine (server-side, transactional)
+# ----------------------------------------------------------------------------
+
+PURCHASE_PAYMENT_STATES = {
+    "awaiting_payment", "submission_uncertain", "transaction_submitted",
+    "confirming", "manual_review", "activated", "abandoned_no_broadcast",
+    "superseded", "failed",
+}
+
+
+def purchase_transition_decision(purchase, uid, action, *, tx_hash=None,
+                                 sender_wallet=None):
+    """Pure transition guard shared by every client submission/recovery route.
+
+    A submitted transaction hash is immutable. Once present, an intent can
+    never be marked uncertain or closed as a no-broadcast. Activation and
+    manual review are terminal from the user's point of view; retry requests
+    may observe them but cannot overwrite them.
+    """
+    purchase = purchase or {}
+    if purchase.get("userId") != uid:
+        return {"ok": False, "error": "FORBIDDEN"}
+    status = str(purchase.get("status") or "")
+    existing_hash = str(purchase.get("transactionHash") or purchase.get("txHash") or "").strip().lower()
+    bound_wallet = str(purchase.get("paymentWallet") or "").strip().lower()
+    sender = str(sender_wallet or "").strip().lower()
+    requested_hash = str(tx_hash or "").strip().lower()
+
+    if action == "mark_uncertain":
+        if status == "activated":
+            return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
+        if existing_hash:
+            return {"ok": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                    "transactionHash": existing_hash, "status": status}
+        if status == "submission_uncertain":
+            return {"ok": True, "idempotent": True, "status": status, "updates": None}
+        if status != "awaiting_payment":
+            return {"ok": False, "error": "PURCHASE_NOT_RECOVERABLE"}
+        return {"ok": True, "status": "submission_uncertain", "updates": {
+            "status": "submission_uncertain",
+            "submissionUncertainAt": None,
+            "statusMessage": "Wallet submission outcome is unknown. Do not send another payment until reconciled.",
+        }}
+
+    if action == "report_submission":
+        if status == "activated":
+            return {"ok": True, "idempotent": True, "status": status,
+                    "transactionHash": existing_hash}
+        if sender and bound_wallet and sender != bound_wallet:
+            return {"ok": False, "error": "WALLET_MISMATCH"}
+        if existing_hash and existing_hash != requested_hash:
+            return {"ok": False, "error": "SUBMISSION_HASH_CONFLICT"}
+        if existing_hash == requested_hash and existing_hash and status in (
+            "transaction_submitted", "confirming", "manual_review"
+        ):
+            # Never regress a later state or duplicate notifications.
+            return {"ok": True, "idempotent": True, "status": status,
+                    "transactionHash": existing_hash, "updates": None}
+        if status not in ("awaiting_payment", "submission_uncertain"):
+            return {"ok": False, "error": "PURCHASE_NOT_RECOVERABLE"}
+        return {"ok": True, "status": "transaction_submitted",
+                "transactionHash": requested_hash, "updates": {
+                    "transactionHash": requested_hash,
+                    "status": "transaction_submitted",
+                    "submissionReportedAt": None,
+                    "statusMessage": "Transaction hash recorded. Waiting for on-chain verification.",
+                }}
+
+    if action == "resolve_no_broadcast":
+        if status != "submission_uncertain":
+            return {"ok": False, "error": "PURCHASE_NOT_UNCERTAIN"}
+        if existing_hash:
+            return {"ok": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                    "transactionHash": existing_hash}
+        return {"ok": True, "status": "abandoned_no_broadcast", "updates": {
+            "status": "abandoned_no_broadcast",
+            "noBroadcastConfirmedAt": None,
+            "noBroadcastConfirmedBy": uid,
+            "statusMessage": "User confirmed no transaction was broadcast. This intent is closed.",
+        }}
+
+    return {"ok": False, "error": "INVALID_PURCHASE_TRANSITION"}
+
+
+def transition_purchase_state(db, purchase_id, uid, action, *,
+                              tx_hash=None, sender_wallet=None, updated_at=None):
+    """Apply a guarded purchase transition using a Firestore transaction."""
+    ref = db.collection("psemine_purchases").document(purchase_id)
+
+    def _transition(txn):
+        snap = txn.get(ref)
+        if not snap.exists:
+            return {"ok": False, "error": "PURCHASE_NOT_FOUND"}
+        purchase = snap.to_dict() or {}
+        decision = purchase_transition_decision(
+            purchase, uid, action, tx_hash=tx_hash, sender_wallet=sender_wallet,
+        )
+        updates = decision.get("updates")
+        if decision.get("ok") and updates:
+            # Firestore server timestamps are injected by the API caller. The
+            # helper remains SDK-independent and directly testable.
+            if updated_at is not None:
+                updates["updatedAt"] = updated_at
+            for key in ("submissionUncertainAt", "submissionReportedAt",
+                        "noBroadcastConfirmedAt"):
+                if key in updates and updated_at is not None:
+                    updates[key] = updated_at
+            txn.update(ref, updates)
+        return decision
+
+    return _run_transaction(db, _transition)
+
+
 # ----------------------------------------------------------------------------
 # Lifecycle (cron) authorization
 # ----------------------------------------------------------------------------
@@ -1680,60 +1799,114 @@ def admin_list_payment_recovery(db, status="open", limit=100):
 
 
 def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="", purchase_id=None):
-    """Actions: mark_reviewed | attach_to_purchase | reject. Never activates a tool;
-    attachment only records the linkage — activation stays with the canonical
-    verify-purchase endpoint after an administrator re-runs it."""
-    ref = db.collection("psemine_payment_recovery").document(recovery_id)
-    snap = ref.get()
-    if not snap.exists:
-        return {"ok": False, "error": "NOT_FOUND"}
+    """Resolve a recovery case atomically; attachment never activates a tool.
+
+    The canonical verifier is the only activation path. Recovery attachment and
+    purchase manual-review binding commit together, so a concurrent verifier
+    can never observe only half of an administrator's decision.
+    """
     if action not in ("mark_reviewed", "attach_to_purchase", "reject"):
         return {"ok": False, "error": "INVALID_ACTION"}
-    recovery = snap.to_dict() or {}
-    if action == "attach_to_purchase":
-        if not purchase_id:
-            return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
-        if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
-            return {"ok": False, "error": "PURCHASE_MISMATCH"}
-        purchase_ref = db.collection("psemine_purchases").document(purchase_id)
-        purchase_snap = purchase_ref.get()
-        if not purchase_snap.exists:
-            return {"ok": False, "error": "NOT_FOUND"}
-        purchase = purchase_snap.to_dict() or {}
-        if purchase.get("status") == "activated":
-            return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
-        if purchase.get("status") not in ("manual_review", "awaiting_payment", "transaction_submitted", "confirming"):
-            return {"ok": False, "error": "PURCHASE_STATE_NOT_ATTACHABLE"}
-        if purchase.get("userId") != recovery.get("userId"):
-            return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
-        if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
-            return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
-        if str(purchase.get("transactionHash") or recovery.get("txHash") or "").lower() != str(recovery.get("txHash") or "").lower():
-            return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
-        purchase_ref.update({
-            "status": "manual_review",
-            "transactionHash": str(recovery.get("txHash") or "").lower(),
-            "recoveryCaseId": recovery_id,
-            "reviewReason": recovery.get("reason") or "PAYMENT_RECOVERY_ATTACHED",
-            "statusMessage": "Payment recovery attached by an administrator. Retry on-chain verification.",
-            "updatedAt": firestore_server_ts(),
-        })
-    ref.update({
-        "status": {"mark_reviewed": "reviewed", "attach_to_purchase": "attached", "reject": "rejected"}[action],
-        "attachedPurchaseId": purchase_id if action == "attach_to_purchase" else None,
-        "reviewedBy": admin_uid,
-        "reviewNotes": notes,
-        "updatedAt": firestore_server_ts(),
-    })
-    db.collection("admin_audit_logs").add({
-        "timestamp": firestore_server_ts(),
-        "adminId": admin_uid,
-        "action": f"PSEMINE_RECOVERY_{action.upper()}",
-        "targetEntity": f"psemine_payment_recovery/{recovery_id}",
-        "metadata": {"notes": notes, "purchaseId": purchase_id},
-    })
-    return {"ok": True}
+    recovery_ref = db.collection("psemine_payment_recovery").document(recovery_id)
+    purchase_ref = (
+        db.collection("psemine_purchases").document(purchase_id)
+        if purchase_id else None
+    )
+    now = firestore_server_ts()
 
+    def _resolve(txn):
+        recovery_snap = txn.get(recovery_ref)
+        if not recovery_snap.exists:
+            return {"ok": False, "error": "NOT_FOUND"}
+        recovery = recovery_snap.to_dict() or {}
+        current_status = str(recovery.get("status") or "open")
+
+        if action == "attach_to_purchase":
+            if not purchase_id:
+                return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
+            if current_status == "attached" and recovery.get("attachedPurchaseId") == purchase_id:
+                return {"ok": True, "status": "attached", "idempotent": True}
+            if current_status not in ("open", "reviewed"):
+                return {"ok": False, "error": "RECOVERY_NOT_ATTACHABLE"}
+            if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
+                return {"ok": False, "error": "PURCHASE_MISMATCH"}
+            purchase_snap = txn.get(purchase_ref)
+            if not purchase_snap.exists:
+                return {"ok": False, "error": "NOT_FOUND"}
+            purchase = purchase_snap.to_dict() or {}
+            if purchase.get("status") == "activated":
+                return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
+            if purchase.get("status") not in ("manual_review", "awaiting_payment", "transaction_submitted", "confirming"):
+                return {"ok": False, "error": "PURCHASE_STATE_NOT_ATTACHABLE"}
+            if purchase.get("userId") != recovery.get("userId"):
+                return {"ok": False, "error": "PURCHASE_USER_MISMATCH"}
+            if recovery.get("quoteId") and purchase.get("quoteId") != recovery.get("quoteId"):
+                return {"ok": False, "error": "PURCHASE_QUOTE_MISMATCH"}
+            recovery_hash = str(recovery.get("txHash") or recovery.get("transactionHash") or "").strip().lower()
+            purchase_hash = str(purchase.get("transactionHash") or "").strip().lower()
+            if not recovery_hash or (purchase_hash and purchase_hash != recovery_hash):
+                return {"ok": False, "error": "PURCHASE_TRANSACTION_MISMATCH"}
+            txn.update(purchase_ref, {
+                "status": "manual_review",
+                "transactionHash": recovery_hash,
+                "recoveryCaseId": recovery_id,
+                "reviewReason": recovery.get("reason") or "PAYMENT_RECOVERY_ATTACHED",
+                "statusMessage": "Payment recovery attached by an administrator. The same transaction will be re-verified on BNB Smart Chain.",
+                "updatedAt": now,
+            })
+            txn.update(recovery_ref, {
+                "status": "attached",
+                "attachedPurchaseId": purchase_id,
+                "reviewedBy": admin_uid,
+                "reviewNotes": notes,
+                "updatedAt": now,
+            })
+            return {"ok": True, "status": "attached"}
+
+        if action == "mark_reviewed":
+            if current_status == "reviewed":
+                return {"ok": True, "status": "reviewed", "idempotent": True}
+            if current_status != "open":
+                return {"ok": False, "error": "RECOVERY_NOT_OPEN"}
+            txn.update(recovery_ref, {
+                "status": "reviewed",
+                "reviewedBy": admin_uid,
+                "reviewNotes": notes,
+                "updatedAt": now,
+            })
+            return {"ok": True, "status": "reviewed"}
+
+        # Rejecting a recovery that already names a purchase/hash would discard
+        # the only operational pointer while leaving the user's purchase locked.
+        # Keep those money cases available for attachment/re-verification.
+        if current_status == "rejected":
+            return {"ok": True, "status": "rejected", "idempotent": True}
+        if current_status not in ("open", "reviewed"):
+            return {"ok": False, "error": "RECOVERY_NOT_REJECTABLE"}
+        if recovery.get("purchaseId") or recovery.get("attachedPurchaseId") or recovery.get("txHash") or recovery.get("transactionHash"):
+            return {"ok": False, "error": "PAYMENT_CASE_REQUIRES_RECONCILIATION"}
+        txn.update(recovery_ref, {
+            "status": "rejected",
+            "reviewedBy": admin_uid,
+            "reviewNotes": notes,
+            "updatedAt": now,
+        })
+        return {"ok": True, "status": "rejected"}
+
+    result = _run_transaction(db, _resolve)
+    if not result.get("ok"):
+        return result
+    try:
+        db.collection("admin_audit_logs").add({
+            "timestamp": now,
+            "adminId": admin_uid,
+            "action": f"PSEMINE_RECOVERY_{action.upper()}",
+            "targetEntity": f"psemine_payment_recovery/{recovery_id}",
+            "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
+        })
+    except Exception:
+        logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
+    return result
 
 def admin_deprecate_tool(db, tool_id, admin_uid, reason=""):
     """Safely deprecate a non-canonical seeded tool (growth/pro). Refuses canonical ids."""

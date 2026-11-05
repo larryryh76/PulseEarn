@@ -194,6 +194,20 @@ export const AdminPSEMine: React.FC = () => {
     finally { setBusy(false); }
   };
 
+  const setPurchaseGate = async (enabled: boolean) => {
+    if (!isAdmin) { toast.error('Your account needs platform admin permission to change the purchase gate.'); return; }
+    if (enabled && !config?.purchaseReady) { toast.error('Confirm the campaign receiving wallet before enabling purchases.'); return; }
+    const phrase = enabled ? 'ENABLE PURCHASES' : 'PAUSE PURCHASES';
+    if (window.prompt(`Type ${phrase} to confirm this change. Existing submitted transactions will still be reconciled.`) !== phrase) return;
+    setBusy(true);
+    try {
+      await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_purchase_enabled', enabled, reason: actionReason || 'PSEmine purchase gate update' }) });
+      toast.success(enabled ? 'New tool purchases are now enabled.' : 'New tool purchases are paused. Submitted transactions remain verifiable.');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Purchase gate update failed.'); }
+    finally { setBusy(false); }
+  };
+
   const saveWallet = async () => {
     if (!canConfigureReceiverWallet) { toast.error('Your account needs platform admin permission to configure the campaign receiver.'); return; }
     const address = walletInput.trim();
@@ -308,8 +322,16 @@ export const AdminPSEMine: React.FC = () => {
             <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!canConfigureReceiverWallet || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
             <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
             <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
-            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
+            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : 'Save receiving wallet'}</button>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination. Saving the address does not open purchases — manage the purchase gate separately below.</p>
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><div className="text-xs font-semibold text-white">Tool purchase gate</div><p className="mt-1 text-[10px] text-slate-400">New checkouts are {config?.purchaseEnabled ? 'open' : 'paused'}. Existing submitted transactions remain verifiable.</p></div>
+                <Pill value={config?.purchaseEnabled ? 'Purchases open' : 'Purchases paused'} />
+              </div>
+              <button type="button" onClick={() => void setPurchaseGate(!config?.purchaseEnabled)} disabled={!isAdmin || busy || (!config?.purchaseEnabled && !config?.purchaseReady)} className={`mt-3 min-h-11 w-full rounded-xl border px-4 py-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${config?.purchaseEnabled ? 'border-amber-400/25 bg-amber-400/10 text-amber-100' : 'border-cyan-400/25 bg-cyan-400/10 text-cyan-100'}`}>{config?.purchaseEnabled ? 'Pause new purchases' : 'Enable new purchases'}</button>
+              {!config?.purchaseReady && <p className="mt-2 text-[10px] text-amber-200">Configure and confirm the receiving wallet before enabling purchases.</p>}
+            </div>
           </Panel>
         </div>
 

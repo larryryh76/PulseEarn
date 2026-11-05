@@ -6781,71 +6781,127 @@ def fetch_psemine_bnb_gbp_quote():
     print("[PSEmine Quote] Error: Live quote providers unavailable and no fresh cache present.", flush=True)
     return None, "PRICE_UNAVAILABLE"
 
+
+def _psemine_bsc_rpc_urls():
+    """Ordered, de-duplicated BSC RPC pool; an operator URL always has priority."""
+    configured = os.environ.get('PSEMINE_BSC_RPC_URL', '').strip()
+    extra = [x.strip() for x in os.environ.get('PSEMINE_BSC_RPC_FALLBACKS', '').split(',') if x.strip()]
+    public_fallbacks = [
+        'https://bsc-dataseed.bnbchain.org',
+        'https://bsc-dataseed1.bnbchain.org',
+        'https://bsc-dataseed2.bnbchain.org',
+        'https://bsc-dataseed3.bnbchain.org',
+    ]
+    ordered = ([configured] if configured else []) + extra + public_fallbacks
+    seen = set()
+    result = []
+    for url in ordered:
+        if url.startswith('https://') and url not in seen:
+            seen.add(url)
+            result.append(url)
+    return result
+
+
 def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
-    """Verify BSC transaction on-chain via JSON-RPC.
-    Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
+    """Verify a native BNB transfer on BSC using a failover RPC pool.
+
+    One endpoint must provide a coherent chain-id, transaction, receipt and
+    latest-block view. Transport/rate-limit/lag failures move to the next RPC;
+    a transaction that is actually found is still checked against the exact
+    server quote and payer. No RPC result can itself activate a purchase.
     """
-    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.bnbchain.org'
     min_confirmations = PSEMINE_MIN_CONFIRMATIONS
+    rpc_urls = _psemine_bsc_rpc_urls()
+    if not rpc_urls:
+        return False, "RPC_NOT_CONFIGURED", "BSC transaction verification is temporarily unavailable.", 0, None
 
-    try:
-        # 1. Chain ID check
-        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}, timeout=8)
-        chain_res = r.json()
-        if not chain_res.get('result'):
-            return False, "RPC_ERROR", "Could not verify BSC network chain ID", 0, None
-        chain_id = int(chain_res['result'], 16)
-        if chain_id != PSEMINE_BSC_CHAIN_ID:
-            return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0, None
+    saw_wrong_network = False
+    saw_transaction = False
+    saw_receipt = False
+    last_rpc_error = None
 
-        # 2. Get Transaction
+    def rpc_call(endpoint, method, params, request_id):
+        response = requests.post(
+            endpoint,
+            json={"jsonrpc": "2.0", "method": method, "params": params, "id": request_id},
+            timeout=6,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get('error') or 'result' not in payload:
+            raise RuntimeError("RPC_METHOD_ERROR")
+        return payload.get('result')
+
+    for rpc_url in rpc_urls:
         try:
-            r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
-            tx_data = r.json().get('result')
-            if not tx_data:
-                return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0, None
-        except Exception:
-            return False, "RPC_ERROR", "Transaction verification failed, please try again later.", 0, None
+            chain_raw = rpc_call(rpc_url, 'eth_chainId', [], 1)
+            if not chain_raw:
+                raise RuntimeError("RPC_CHAIN_ID_MISSING")
+            chain_id = int(str(chain_raw), 16)
+            if chain_id != PSEMINE_BSC_CHAIN_ID:
+                saw_wrong_network = True
+                continue
 
-        # 3. Get Receipt
-        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionReceipt", "params": [tx_hash], "id": 3}, timeout=8)
-        receipt_data = r.json().get('result')
-        if not receipt_data:
-            return False, "RECEIPT_NOT_FOUND", "Transaction receipt not available yet", 0, None
+            tx_data = rpc_call(rpc_url, 'eth_getTransactionByHash', [tx_hash], 2)
+            if not isinstance(tx_data, dict):
+                continue
+            saw_transaction = True
+            returned_hash = str(tx_data.get('hash') or '').strip().lower()
+            if returned_hash and returned_hash != tx_hash.lower():
+                return False, "TRANSACTION_HASH_MISMATCH", "The BSC node returned a different transaction hash.", 0, None
 
-        block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
-        receipt_status = int(receipt_data.get('status', '0x0'), 16)
-        if receipt_status != 1:
-            return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1)", 0, block_number
+            receipt_data = rpc_call(rpc_url, 'eth_getTransactionReceipt', [tx_hash], 3)
+            if not isinstance(receipt_data, dict):
+                continue
+            saw_receipt = True
 
-        to_addr = (tx_data.get('to') or '').lower()
-        exp_addr = expected_destination.lower()
-        if to_addr != exp_addr:
-            return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0, block_number
+            block_raw = receipt_data.get('blockNumber')
+            if not block_raw:
+                raise RuntimeError("RPC_RECEIPT_BLOCK_MISSING")
+            block_number = int(str(block_raw), 16)
+            receipt_status = int(str(receipt_data.get('status') or '0x0'), 16)
+            if receipt_status != 1:
+                return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1).", 0, block_number
 
-        from_addr = (tx_data.get('from') or '').lower()
-        if expected_sender and expected_sender.strip():
-            if from_addr != expected_sender.strip().lower():
-                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) on-chain does not match order payment wallet ({expected_sender.strip().lower()})", 0, block_number
+            to_addr = str(tx_data.get('to') or '').lower()
+            exp_addr = str(expected_destination or '').lower()
+            if to_addr != exp_addr:
+                return False, "DESTINATION_MISMATCH", "The transaction recipient does not match the campaign receiving wallet.", 0, block_number
 
-        value_wei = int(tx_data.get('value', '0x0'), 16)
-        if value_wei != int(expected_wei_amount):
-            return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0, block_number
+            from_addr = str(tx_data.get('from') or '').lower()
+            if expected_sender and expected_sender.strip() and from_addr != expected_sender.strip().lower():
+                return False, "SENDER_MISMATCH", "The transaction sender does not match the wallet bound to this purchase.", 0, block_number
 
-        # 4. Check Block Confirmation Depth
-        # Get latest block number
-        r_block = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 4}, timeout=8)
-        latest_block_hex = r_block.json().get('result')
-        latest_block = int(latest_block_hex, 16) if latest_block_hex else block_number
+            value_wei = int(str(tx_data.get('value') or '0x0'), 16)
+            if value_wei != int(expected_wei_amount):
+                return False, "AMOUNT_MISMATCH", "The transaction value does not match the exact quoted BNB amount.", 0, block_number
 
-        depth = max(1, latest_block - block_number + 1)
-        if depth < min_confirmations:
-            return False, "INSUFFICIENT_CONFIRMATIONS", f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) required.", depth, block_number
+            latest_raw = rpc_call(rpc_url, 'eth_blockNumber', [], 4)
+            if not latest_raw:
+                raise RuntimeError("RPC_LATEST_BLOCK_MISSING")
+            latest_block = int(str(latest_raw), 16)
+            depth = max(0, latest_block - block_number + 1)
+            if depth < min_confirmations:
+                return False, "INSUFFICIENT_CONFIRMATIONS", (
+                    f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) are required."
+                ), depth, block_number
+            return True, None, None, depth, block_number
 
-        return True, None, None, depth, block_number
+        except Exception as exc:
+            # Do not expose RPC URLs, provider credentials, or raw node payloads
+            # to the user. Continue to the next independent BSC endpoint.
+            last_rpc_error = type(exc).__name__
+            logging.warning("[PSEmine RPC] BSC endpoint attempt failed (%s)", last_rpc_error)
+            continue
 
-    except Exception as e:
-        return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0, None
+    if saw_transaction and not saw_receipt:
+        return False, "RECEIPT_NOT_FOUND", "The transaction is visible on BNB Smart Chain, but its receipt is not available yet. Check again shortly.", 0, None
+    if not saw_transaction:
+        if saw_wrong_network and last_rpc_error is None:
+            return False, "WRONG_NETWORK", "The available verification endpoints did not report BNB Smart Chain (56).", 0, None
+        if last_rpc_error is None:
+            return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BNB Smart Chain yet. Check again shortly.", 0, None
+    return False, "RPC_ERROR", "BNB Smart Chain verification is temporarily unavailable. Your payment has not been marked successful; try checking the same transaction again.", 0, None
 
 def recalculate_psemine_user_mining_state(db, user_id):
     """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state bounded by campaign expiry."""

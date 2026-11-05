@@ -50,3 +50,15 @@ Required before real-money launch:
 - End-to-end mocked tests for duplicate/out-of-order requests, wallet cancellation, ambiguous broadcast, hash persistence, confirmations, expiry, recovery attachment, and exactly-once activation/revenue.
 - Remove or fully integrate the unused wallet-proof nonce/helper.
 - Verify the production BSC RPC sources, confirmation policy, and admin receiver setup without broadcasting a production payment.
+
+
+## Payment-state and RPC reliability hardening (PR #434)
+
+The authenticated client mutation routes now share the engine's transactional purchase-state transition guard:
+- `mark-uncertain` may only move an un-hashed `awaiting_payment` intent to `submission_uncertain`.
+- `report-submission` atomically persists one immutable transaction hash and advances an awaiting/uncertain intent to `transaction_submitted`.
+- A repeated report of the same hash is idempotent and cannot regress `confirming` or `manual_review`; a different hash is rejected.
+- `resolve-no-broadcast` only closes an un-hashed uncertain intent.
+- Verification requires the exact persisted hash and rechecks that hash plus an allowed state inside the same Firestore transaction that redeems the hash and creates ownership/revenue records.
+
+BSC verification now uses an ordered RPC pool: the configured `PSEMINE_BSC_RPC_URL`, optional comma-separated `PSEMINE_BSC_RPC_FALLBACKS`, then BNB Chain public mainnet endpoints. A single bounded 22-second request budget prevents serial endpoint timeouts from exhausting the serverless request. Every endpoint must report chain ID 56, and transaction, receipt, recipient, sender, exact wei amount and confirmation depth are checked against one endpoint's coherent response. RPC failures never mark a payment successful.

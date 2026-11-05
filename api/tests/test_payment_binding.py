@@ -562,3 +562,12 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
         self.assertNotIn("str(exc)", verifier)
         self.assertIn("TRANSACTION_NOT_FOUND", verifier)
         self.assertIn("INSUFFICIENT_CONFIRMATIONS", verifier)
+
+    def test_recovery_attachment_is_revalidated_inside_activation_transaction(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "verify_psemine_tool_purchase")
+        self.assertIn("recovery_ref.get(transaction=txn)", handler)
+        self.assertIn("recovery_data.get('status') != 'attached'", handler)
+        self.assertIn("recovery_data.get('attachedPurchaseId') != purchase_id", handler)
+        self.assertIn("recovery_data.get('txHash')", handler)
+        self.assertIn("RECOVERY_CASE_NOT_ATTACHED", handler)

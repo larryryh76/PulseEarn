@@ -278,14 +278,14 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'activation',
         h: 'Verification and activation',
         p: [
-          'The provider notification is authenticated and the payment is independently retrieved and reconciled by the backend. Only a final, matching payment activates the unit. A unit begins to add capacity at activation, not when you leave the checkout page.',
+          'The backend independently retrieves and verifies the submitted transaction on BNB Smart Chain against the authenticated user, unexpired quote, payer, campaign receiver, exact amount, transaction hash and successful on-chain status. Only a matching, confirmed payment activates the unit. A unit begins to add capacity at activation, not when you approve the wallet request.',
         ],
       },
       {
         id: 'refunds',
         h: 'Refunds',
         p: [
-          'A completed crypto transfer is generally irreversible. Where a payment was made in error and the unit is not activated, the order is reviewed and any approved return is processed through the provider or originating payment route where supported. Nothing in this section affects rights you have under applicable consumer law.',
+          'A confirmed native-BNB transfer is generally irreversible. Where a payment was made in error and the unit is not activated, the transaction is reviewed against its on-chain record and any approved return is handled separately where supported. Nothing in this section affects rights you have under applicable consumer law.',
         ],
       },
     ],

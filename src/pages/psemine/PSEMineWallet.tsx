@@ -244,7 +244,7 @@ export const PSEMineWallet: React.FC = () => {
         </section>
       )}
 
-      {/* Hosted checkout does not require a browser wallet connection. */}
+      {/* These actions manage payouts. Tool purchases use the separate direct-BNB wallet flow. */}
       <div className="pse-w-actions" aria-label="Wallet actions">
         <button type="button" className="pse-w-action pse-w-action--primary" onClick={() => {
             setWalletTab('overview');
@@ -264,6 +264,16 @@ export const PSEMineWallet: React.FC = () => {
           <span className="pse-w-action-label">History</span>
         </button>
       </div>
+      <section className="pse-wallet-purchase-note" aria-label="Tool purchase wallet information">
+        <div>
+          <strong>Tool purchases use direct BNB</strong>
+          <p>Connect with Reown/WalletConnect on the Tools page, review the exact server-quoted amount and campaign receiver, then approve native BNB on BNB Smart Chain. Your payout address is separate and is never used as the purchase receiver.</p>
+        </div>
+        <div className="pse-wallet-purchase-actions">
+          <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Browse tools</Link>
+          <button type="button" className="pse-btn pse-btn--ghost pse-btn--sm" onClick={() => setWalletTab('lab')}>Open Wallet Lab</button>
+        </div>
+      </section>
 
       <nav className="pse-wallet-tabs" aria-label="Wallet sections">
         <button type="button" className={walletTab === 'overview' ? 'is-active' : ''} aria-current={walletTab === 'overview' ? 'page' : undefined} onClick={() => setWalletTab('overview')}>Overview</button>

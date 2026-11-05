@@ -8400,7 +8400,7 @@ def verify_psemine_tool_purchase():
         recovery_authorized = (
             _recovery_data.get('status') == 'attached'
             and _recovery_data.get('attachedPurchaseId') == purchase_id
-            and str(_recovery_data.get('txHash') or '').lower() == tx_hash
+            and str(_recovery_data.get('txHash') or _recovery_data.get('transactionHash') or '').strip().lower() == tx_hash
         )
 
     def _flag_expired_purchase(reason, message, recipient=None):
@@ -8697,7 +8697,7 @@ def verify_psemine_tool_purchase():
                     not recovery_curr.exists
                     or recovery_data.get('status') != 'attached'
                     or recovery_data.get('attachedPurchaseId') != purchase_id
-                    or str(recovery_data.get('txHash') or '').strip().lower() != tx_hash
+                    or str(recovery_data.get('txHash') or recovery_data.get('transactionHash') or '').strip().lower() != tx_hash
                 ):
                     raise Exception("RECOVERY_CASE_NOT_ATTACHED")
 

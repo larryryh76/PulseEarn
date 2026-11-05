@@ -32,16 +32,18 @@ class TestPSEMinePurchaseNotifications(unittest.TestCase):
 
     def test_uncertain_submission_warns_user_not_to_pay_again(self):
         body = handler("mine_mark_purchase_uncertain")
-        write = body.index("'status': 'submission_uncertain'")
+        transition = body.index('transition_purchase_state')
         notice = body.index("notif_purchase_uncertain_")
-        self.assertGreater(notice, write)
+        self.assertGreater(notice, transition)
+        self.assertIn('"mark_uncertain"', body[transition:notice])
         self.assertIn("Do not send another payment", body[notice:notice + 900])
 
     def test_returned_hash_notifies_verification_pending_not_activation(self):
         body = handler("mine_report_purchase_submission")
-        write = body.index("'status': 'transaction_submitted'")
+        transition = body.index('transition_purchase_state')
         notice = body.index("notif_purchase_submitted_")
-        self.assertGreater(notice, write)
+        self.assertGreater(notice, transition)
+        self.assertIn('"report_submission"', body[transition:notice])
         self.assertIn("tool is not active yet", body[notice:notice + 900])
 
     def test_expired_submitted_payment_notifies_manual_review(self):

@@ -98,7 +98,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         h: 'Your account',
         p: [
           'You need one PSEmine account to hold mining units, and you must be able to enter into a binding agreement where you live. One person, one account.',
-          'You are responsible for your account credentials and personal wallet security. PSEmine never asks for a private key or seed phrase. Only pay through the hosted invoice created for your account order.',
+          'You are responsible for your account credentials and personal wallet security. PSEmine never asks for a private key or seed phrase. Only approve a purchase from the PSEmine purchase dialog after checking the server quote, receiving address, exact BNB amount and BNB Smart Chain network in your connected wallet.',
         ],
       },
       {
@@ -112,7 +112,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
           'Units are sold at the published price list, each with a fixed capacity per hour and a per-account ownership limit.',
           'Capacity accrues campaign earnings on the server\u2019s own record of when mining was live, and accrual runs to the end of the campaign window.',
           'Settled earnings are paid out in BNB to the payout wallet on your account, in campaign accounting kept in GBP.',
-          'You approve each purchase through the payment provider using the wallet and asset you choose. PSEmine never asks for a private key or seed phrase.',
+          'You approve each purchase in your connected wallet using native BNB on BNB Smart Chain (chain ID 56). The backend verifies the transaction before activating the unit. PSEmine never asks for a private key or seed phrase.',
           'A payout passes review before it is sent, and the payout record states the settled GBP figure and the BNB amount sent.',
         ],
       },
@@ -228,7 +228,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'verification',
         h: 'Verification and records',
         p: [
-          'A purchase activates a unit only after the payment provider notification is authenticated and reconciled against the provider payment record. Every change to your account \u2014 a purchase, a capacity change, a referral stage, a payout \u2014 is written to your own activity record, so the history of a figure is auditable rather than asserted.',
+          'A purchase activates a unit only after the backend independently verifies the on-chain transaction against the authenticated user, unexpired server quote, tool, payer, confirmed campaign receiver, exact BNB value, BNB Smart Chain (chain ID 56), transaction success and transaction uniqueness. Every change to your account \u2014 a purchase, a capacity change, a referral stage, a payout \u2014 is written to your own activity record, so the history of a figure is auditable rather than asserted.',
         ],
       },
     ],
@@ -237,7 +237,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
   'purchase-terms': {
     id: 'purchase-terms',
     title: 'PSEmine Purchase Terms',
-    summary: 'What you are buying, how hosted crypto checkout works, and what happens if a payment does not match its order.',
+    summary: 'What you are buying, how direct native-BNB wallet payment works, and how PSEmine verifies or recovers a transaction.',
     status: DOC_STATUS,
     revision: REVISION,
     updated: UPDATED,
@@ -252,26 +252,26 @@ const DOCS: Record<PseDocId, PseDoc> = {
       },
       {
         id: 'quote',
-        h: 'The hosted invoice and crypto amount',
+        h: 'The server quote and exact BNB amount',
         p: [
-          'A unit\u2019s price is fixed in GBP and does not change during a campaign. Checkout converts the server-priced order into the selected supported cryptocurrency using the provider rate shown on the invoice. Each invoice is time-limited; its expiry and exact amount are shown before you pay.',
-          'The crypto amount and network fee can vary by asset and provider quote. If an invoice expires, start a new checkout rather than reusing an old payment address or amount.',
+          'A unit’s price is fixed in GBP and does not change during a campaign. The PSEmine backend creates a time-limited quote for the exact native BNB amount on BNB Smart Chain (chain ID 56), bound to your account, selected tool, payer and confirmed campaign receiving wallet. The quote expiry and exact amount are shown before wallet approval.',
+          'The BNB amount is fixed for the lifetime of the quote. If it expires or the payer or tool changes, request a fresh quote; never reuse an expired amount or submit a stale transaction.',
         ],
       },
       {
         id: 'payment',
         h: 'Paying',
         list: [
-          'Continue to the secure hosted checkout and choose an available cryptocurrency and network. Pay only the invoice created for your authenticated PSEmine order.',
-          'Do not copy a payment address from an old invoice or send funds outside the hosted checkout. The invoice is linked to your account order and is verified server-side.',
-          'Crypto transfers are generally irreversible. Check the selected asset, network, amount and destination displayed by the provider before confirming.',
+          'Connect your wallet through the PSEmine WalletConnect/Reown flow and confirm it is on BNB Smart Chain (chain ID 56). Review the exact BNB amount and campaign receiver in your wallet before approving.',
+          'Do not send a manual transfer or reuse a previous transaction request. Start payment only from the active PSEmine purchase dialog; the server binds the transaction to your authenticated account and quote.',
+          'Native BNB transfers are generally irreversible. Check BNB Smart Chain, the exact amount and the campaign receiving address displayed by your wallet before confirming.',
         ],
       },
       {
         id: 'mismatch',
         h: 'Expired, underpaid and mismatched payments',
         p: [
-          'An expired, incomplete, mismatched, refunded or late payment is not treated as successful. The order is recorded as underpaid, expired or held for manual review and reconciled against the provider record before activation or any approved return.',
+          'An expired quote, rejected wallet request, reverted transaction, wrong chain, wrong payer, wrong recipient, incorrect amount or duplicate transaction is never treated as successful. A submitted transaction may remain pending until the backend verifies its on-chain status and required confirmations; a mismatched transfer is held for reconciliation and never activates a tool automatically.',
         ],
       },
       {
@@ -335,7 +335,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'review',
         h: 'Review, and why a payout can be held',
         p: [
-          'A payout is reviewed against the account and payment records before it is sent. If a figure needs reconciling, a hosted provider payment needs review, referral activity needs checking, or an account is restricted, the payout is placed on hold while the issue is reviewed. The reason and status are recorded on the payout.',
+          'A payout is reviewed against the account and payment records before it is sent. If a figure needs reconciling, a mismatched or interrupted on-chain payment needs review, referral activity needs checking, or an account is restricted, the payout is placed on hold while the issue is reviewed. The reason and status are recorded on the payout.',
         ],
       },
       {
@@ -364,7 +364,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         ],
         list: [
           'Registered — signed up with your referral code. Nothing is credited at this stage.',
-          'Checkout opened — opened the secure hosted payment page for a tool purchase.',
+          'Quote prepared — the backend prepared a time-limited native-BNB purchase quote for a tool.',
           'Unit purchased — bought a mining unit with their own funds.',
           'Mining active — the unit is operating inside the campaign.',
           'Qualified — all four stages verified; referral capacity is added from here.',
@@ -428,8 +428,8 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'purchase',
         h: 'A purchase is a payment, made once',
         p: [
-          "A unit is a one-off purchase at the published price, paid through hosted crypto checkout using an asset and network selected by the customer. The purchase gives your account the unit’s published hourly capacity for the campaign window. Eligible earnings are calculated from actual operating time and settled at the end of the campaign.",
-          "Once the provider confirms a payment, it is recorded against the order. If a payment is made in error and the unit is not activated, the purchase is reviewed and any approved return is processed through the provider or originating payment route where supported. Your rights under applicable consumer law remain unchanged.",
+          "A unit is a one-off purchase at the published price, paid by approving a native-BNB transaction from your connected wallet on BNB Smart Chain (chain ID 56). The purchase gives your account the unit’s published hourly capacity for the campaign window only after backend verification and activation. Eligible earnings are calculated from actual operating time and settled at the end of the campaign.",
+          "After you approve the transaction, the backend checks the transaction hash, chain, sender, recipient, exact value, success status and uniqueness before it records the payment and activates the unit. If a transfer is made in error or does not match the quote, it is reviewed against the originating on-chain transaction; any approved return is handled separately where supported. Your rights under applicable consumer law remain unchanged.",
         ],
       },
       {
@@ -446,15 +446,15 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'market',
         h: 'Payment and currency risk',
         p: [
-          "Campaign accounting and tool prices are in GBP. Customers choose a supported crypto asset and network at checkout; the crypto amount depends on the provider's rate and any network fee. Approved payouts are separately made in BNB, whose market value changes. The payout record shows the settled GBP amount and BNB sent at processing time.",
+          "Campaign accounting and tool prices are in GBP. Each purchase quote fixes the exact native-BNB amount for its validity period on BNB Smart Chain. BNB’s market value changes; the payout record separately shows the settled GBP amount and BNB sent at processing time.",
         ],
       },
       {
         id: 'chain',
         h: 'Blockchain and wallet risk',
         list: [
-          'A crypto transaction on the network selected at checkout is generally final. PSEmine cannot recall it, reverse it, or guarantee recovery of funds sent to an incorrect address.',
-          'Pay only through the invoice for your order. Confirm the asset, network, amount and destination shown by the provider. Payments made on unsupported networks or for incorrect amounts are recorded and reviewed rather than corrected automatically.',
+          'A native-BNB transaction on BNB Smart Chain is generally final once confirmed. PSEmine cannot recall or reverse it, or guarantee recovery of funds sent to an incorrect address.',
+          'Pay only from the active PSEmine purchase dialog. Confirm BNB Smart Chain (chain ID 56), the exact BNB amount and the campaign receiving address in your wallet. Transactions on another network or for an incorrect amount are not automatically corrected and are held for reconciliation.',
           'You are responsible for your own wallet, its keys and its security. PSEmine never takes custody of your funds and will never ask for your private key or seed phrase.',
         ],
       },
@@ -498,7 +498,7 @@ const DOCS: Record<PseDocId, PseDoc> = {
         id: 'chain',
         h: 'On-chain data',
         p: [
-          'Crypto purchases are processed by the payment provider and may be recorded on the selected public blockchain; approved BNB payouts are recorded on BNB Smart Chain. Public blockchain data can include addresses and transaction amounts and cannot be made private or removed by PSEmine.',
+          'Tool purchases are native-BNB transactions recorded on the public BNB Smart Chain; approved BNB payouts are also recorded on BNB Smart Chain. Public blockchain data can include wallet addresses and transaction amounts and cannot be made private or removed by PSEmine.',
         ],
       },
       {

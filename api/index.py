@@ -6819,12 +6819,19 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
     saw_transaction = False
     saw_receipt = False
     last_rpc_error = None
+    import time as _rpc_time
+    # A bounded total budget matters on serverless request runtimes: a dead
+    # primary must not multiply its timeout by every RPC method and fallback.
+    rpc_deadline = _rpc_time.monotonic() + 22.0
 
     def rpc_call(endpoint, method, params, request_id):
+        remaining = rpc_deadline - _rpc_time.monotonic()
+        if remaining <= 0.25:
+            raise TimeoutError("RPC_FAILOVER_BUDGET_EXHAUSTED")
         response = requests.post(
             endpoint,
             json={"jsonrpc": "2.0", "method": method, "params": params, "id": request_id},
-            timeout=6,
+            timeout=min(6.0, remaining),
         )
         response.raise_for_status()
         payload = response.json()

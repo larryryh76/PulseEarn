@@ -604,12 +604,12 @@ const run = async () => {
   const recoveryVerify = recoveredBody.indexOf('submitPurchaseTx(');
   step('returned-hash-refresh-recovery', {
     hashPersistedBeforeServerReport: hashPersist > iSend && hashPersist < reportHash,
-    serverReportRetriedIdempotently: retryLoop > reportHash,
+    serverReportRetriedIdempotently: retryLoop !== -1 && retryLoop < reportHash,
     recoveryReportsBeforeVerify: recoveryReport !== -1 && recoveryVerify > recoveryReport,
-    recoveryUsesSavedHash: recoveredBody.includes('saved.transactionHash'),
-    pass: hashPersist > iSend && hashPersist < reportHash && retryLoop > reportHash
+    recoveryUsesSavedHash: recoveredBody.includes('saved?.transactionHash'),
+    pass: hashPersist > iSend && hashPersist < reportHash && retryLoop !== -1 && retryLoop < reportHash
       && recoveryReport !== -1 && recoveryVerify > recoveryReport
-      && recoveredBody.includes('saved.transactionHash'),
+      && recoveredBody.includes('saved?.transactionHash'),
   });
 
   fs.writeFileSync(path.join(tmpDir, 'report.json'), JSON.stringify(report, null, 2));

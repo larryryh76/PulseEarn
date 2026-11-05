@@ -362,3 +362,18 @@ class TestTransactionHashValidation(unittest.TestCase):
         self.assertIn("_tx_re.fullmatch(r'0x[0-9a-f]{64}', tx_hash)", handler)
         self.assertIn('"error": "INVALID_TRANSACTION_HASH"', handler)
         self.assertNotIn("len(tx_hash) != 66", handler)
+
+
+class TestPurchaseSubmissionStateMonotonicity(unittest.TestCase):
+    """Duplicate client reports must not regress a later backend status."""
+
+    def test_same_hash_retry_preserves_confirming_status_without_duplicate_write(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_report_purchase_submission")
+        self.assertIn("existing_hash == tx_hash", handler)
+        self.assertIn("purchase.get('status') in ('transaction_submitted', 'confirming')", handler)
+        self.assertIn('"status": purchase.get(\'status\')', handler)
+        self.assertLess(
+            handler.index("existing_hash == tx_hash"),
+            handler.index("ref.update({"),
+            "idempotent same-hash return must happen before status mutation",
+        )

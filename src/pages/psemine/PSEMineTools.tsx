@@ -607,35 +607,6 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
 
 
-  // Prepare the server-side purchase intent BEFORE the Pay tap. Mobile wallet
-  // apps require eth_sendTransaction to be invoked directly from the user's
-  // gesture; awaiting a backend bind or chain switch inside the click handler
-  // can lose that gesture and leave the wallet approval prompt unopened.
-  const bindAttemptRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || purchaseId || boundPayer) return;
-    const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
-    if (bindAttemptRef.current === key) return;
-    bindAttemptRef.current = key;
-    let cancelled = false;
-    void bindPurchaseIntent(quote).then(bound => {
-      if (cancelled) return;
-      if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
-        bindAttemptRef.current = null;
-        toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
-        return;
-      }
-      setPurchaseId(bound.purchaseId);
-      setBoundPayer(bound.payerWallet);
-      void refresh();
-    }).catch(error => {
-      if (cancelled) return;
-      bindAttemptRef.current = null;
-      toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
-    });
-    return () => { cancelled = true; };
-  }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
-
   // ── Refresh recovery (runs before the quote effect) ────────────────────────
   // A live awaiting_payment intent is resumed with its ORIGINAL quote and payer;
   // a submitted intent opens the verification-recovery panel; an expired one
@@ -807,6 +778,35 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     return null;
   })();
   const payBlocked = blockedReason !== null;
+
+  // Prepare the server-side purchase intent BEFORE the Pay tap. Mobile wallet
+  // apps require eth_sendTransaction to be invoked directly from the user's
+  // gesture; awaiting a backend bind or chain switch inside the click handler
+  // can lose that gesture and leave the wallet approval prompt unopened.
+  const bindAttemptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || purchaseId || boundPayer) return;
+    const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
+    if (bindAttemptRef.current === key) return;
+    bindAttemptRef.current = key;
+    let cancelled = false;
+    void bindPurchaseIntent(quote).then(bound => {
+      if (cancelled) return;
+      if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
+        bindAttemptRef.current = null;
+        toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
+        return;
+      }
+      setPurchaseId(bound.purchaseId);
+      setBoundPayer(bound.payerWallet);
+      void refresh();
+    }).catch(error => {
+      if (cancelled) return;
+      bindAttemptRef.current = null;
+      toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
+    });
+    return () => { cancelled = true; };
+  }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
 
   const refreshQuoteNow = () => {
     setResume(null);

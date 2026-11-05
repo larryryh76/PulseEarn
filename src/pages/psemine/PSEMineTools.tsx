@@ -1074,6 +1074,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       } else {
         toast.error(res.error || 'Verification has not completed for this transaction yet.');
       }
+    } catch (error) {
+      toast.error(error instanceof Error
+        ? `The existing transaction could not be reconciled: ${error.message}. Do not send another payment.`
+        : 'The existing transaction could not be reconciled. Do not send another payment.');
     } finally {
       setRechecking(false);
       void refresh();

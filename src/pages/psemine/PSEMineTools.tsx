@@ -528,7 +528,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const {
     connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain,
+    sendPayment, ensurePaymentChain, refreshWalletChain,
   } = usePSEMine();
   const { refresh } = usePseState();
 
@@ -537,6 +537,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // this same dialog; a recovered purchase is advanced by the recovery effects.
   const [step, setStep] = useState<FlowStep>('details');
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [switchingNetwork, setSwitchingNetwork] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState('Preparing your wallet request…');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean; diagnostic?: string } | null>(null);
@@ -816,6 +817,24 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     setQuoteLoading(true);
     setStep('quote');
     requestQuote(tool.id).finally(() => setQuoteLoading(false));
+  };
+
+  const switchToPaymentNetwork = async () => {
+    if (switchingNetwork) return;
+    setSwitchingNetwork(true);
+    try {
+      const ready = await ensurePaymentChain(requiredChainId);
+      const actual = await refreshWalletChain();
+      if (!ready || actual !== requiredChainId) {
+        toast.error(`Could not confirm ${networkName}. Reconnect and approve BNB Smart Chain in your wallet.`);
+        return;
+      }
+      toast.success(`${networkName} is ready. Your payment approval can now open directly.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not switch wallet network.');
+    } finally {
+      setSwitchingNetwork(false);
+    }
   };
 
   /**
@@ -1347,8 +1366,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           )}
 
           <div className="flex flex-wrap gap-2">
-            <PseButton onClick={() => void payNow()} disabled={payBlocked}>
-              Open wallet &amp; pay {exactBnb} BNB
+            {!onRequiredChain && (
+              <PseButton variant="secondary" onClick={() => void switchToPaymentNetwork()} disabled={switchingNetwork || !walletLive}>
+                {switchingNetwork ? 'Checking network…' : `Switch to ${networkName}`}
+              </PseButton>
+            )}
+            <PseButton onClick={() => void payNow()} disabled={payBlocked || !onRequiredChain || !purchaseId || !boundPayer}>
+              {!purchaseId || !boundPayer ? 'Preparing secure checkout…' : !onRequiredChain ? 'Switch network to continue' : `Open wallet & pay ${exactBnb} BNB`}
             </PseButton>
             {!walletLive && (
               <PseButton onClick={() => setStep('connect')}>
@@ -1360,6 +1384,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseButton>
           </div>
           {payBlocked && <PseNotice tone="attention">{blockedReason}</PseNotice>}
+          {!purchaseId && !payBlocked && <PseNotice tone="info">Securing your purchase quote and binding it to this wallet. The payment button becomes active when this is ready.</PseNotice>}
+          {walletLive && !onRequiredChain && <PseNotice tone="attention">Switch and confirm BNB Smart Chain before paying. Network switching is a separate wallet action so the payment approval can open immediately from your Pay tap.</PseNotice>}
           <p className="pse-block-note">
             After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and
             confirmation depth — before the tool activates.

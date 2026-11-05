@@ -1896,7 +1896,8 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
     result = _run_transaction(db, _resolve)
     if not result.get("ok"):
         return result
-    try:
+    if not result.get("idempotent"):
+      try:
         db.collection("admin_audit_logs").add({
             "timestamp": now,
             "adminId": admin_uid,
@@ -1904,7 +1905,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
             "targetEntity": f"psemine_payment_recovery/{recovery_id}",
             "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
         })
-    except Exception:
+      except Exception:
         logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
     return result
 

@@ -555,33 +555,40 @@ const run = async () => {
       && walletConnectRoute.sendCount === 1 && walletConnectRoute.rejected === true,
   });
 
-  // 10. PURCHASE-FLOW ORDER: the wallet signs a quote/account-bound message,
-  //     the backend verifies it during intent binding, then the UI rechecks the
-  //     payer and sends exactly once before submitting the transaction hash.
+  // 10. PURCHASE-FLOW ORDER: preflight binds the immutable server intent
+  //     before the final Pay gesture. The Pay handler itself must call the
+  //     wallet provider immediately, without awaiting network or backend work.
   const toolsSrc = fs.readFileSync(path.join(process.cwd(), 'src/pages/psemine/PSEMineTools.tsx'), 'utf8');
   const contextSrc = fs.readFileSync(path.join(process.cwd(), 'src/contexts/PSEMineContext.tsx'), 'utf8');
   const payStart = toolsSrc.indexOf('const payNow = async () => {');
   const payBody = payStart === -1 ? '' : toolsSrc.slice(payStart, toolsSrc.indexOf('\n  };', payStart));
   const bindStart = contextSrc.indexOf('const bindPurchaseIntent');
   const bindBody = bindStart === -1 ? '' : contextSrc.slice(bindStart, contextSrc.indexOf('\n  }, [currentUser, connectedWallet', bindStart));
+  const prebindStart = toolsSrc.indexOf('Prepare the server-side purchase intent BEFORE the Pay tap');
+  const prebindEnd = toolsSrc.indexOf('const refreshQuoteNow', prebindStart);
+  const prebindBody = prebindStart === -1 || prebindEnd === -1 ? '' : toolsSrc.slice(prebindStart, prebindEnd);
   const iIntent = bindBody.indexOf('createPurchaseIntent(quote, connectedWallet)');
-  const iBind = payBody.indexOf('bindPurchaseIntent');
+  const iPrebind = prebindBody.indexOf('bindPurchaseIntent(quote)');
+  const iBindInPay = payBody.indexOf('bindPurchaseIntent');
+  const iChainInPay = payBody.indexOf('ensurePaymentChain');
   const iGuard = payBody.indexOf('resolvePaymentPayer');
   const iSend = payBody.indexOf('sendPayment(');
   const iSubmit = payBody.indexOf('submitPurchaseTx(');
   const iUncertain = payBody.indexOf('isSubmissionUncertain');
-  const iRetryGate = payBody.indexOf('canRetryPayment');
+  const iRetryGate = toolsSrc.indexOf('canRetryPayment(');
   step('purchase-flow-order', {
     foundPayNow: payStart !== -1,
     noSeparateSignaturePrompt: !bindBody.includes("method: 'personal_sign'"),
-    payerIntentCreatedBeforeTransaction: iIntent !== -1,
-    payerGuardBetweenBindAndSend: iGuard > iBind && iGuard < iSend,
+    intentPreparedBeforePay: iIntent !== -1 && iPrebind !== -1,
+    payHasNoAsyncPreflight: iBindInPay === -1 && iChainInPay === -1,
+    payerGuardBeforeSend: iGuard !== -1 && iGuard < iSend,
     hashSubmittedAfterSend: iSubmit > iSend,
     ambiguousBranchHandled: iUncertain > iSend,
-    retryGatePresent: iRetryGate !== -1 && iRetryGate < iBind,
-    pass: payStart !== -1 && iIntent !== -1 && !bindBody.includes("method: 'personal_sign'") && iBind !== -1
-      && iGuard > iBind && iSend > iGuard && iSubmit > iSend
-      && iUncertain > iSend && iRetryGate !== -1 && iRetryGate < iBind,
+    retryGateExists: iRetryGate !== -1,
+    pass: payStart !== -1 && iIntent !== -1 && iPrebind !== -1
+      && !bindBody.includes("method: 'personal_sign'") && iBindInPay === -1 && iChainInPay === -1
+      && iGuard !== -1 && iGuard < iSend && iSend !== -1 && iSubmit > iSend
+      && iUncertain > iSend && iRetryGate !== -1,
   });
 
   fs.writeFileSync(path.join(tmpDir, 'report.json'), JSON.stringify(report, null, 2));

@@ -9,7 +9,7 @@ The purchase receiver is the campaign receiving wallet configured and explicitly
 ## Purchase lifecycle
 
 1. The authenticated user selects a tool.
-2. The backend creates an immutable purchase intent using the canonical GBP tool price and a fresh server-side BNB/GBP quote. The intent binds the authenticated UID, selected tool, payer wallet, receiver wallet, chain ID, exact wei amount, quote ID, and expiry.
+2. The backend creates an immutable purchase intent using the canonical GBP tool price and a fresh server-side BNB/GBP quote. The intent binds the authenticated UID, selected tool, declared payer wallet, receiver wallet, chain ID, exact wei amount, quote ID, and expiry. The payer address is only a declaration at this stage; it is not independently proven until the transaction sender is verified on chain.
 3. The browser asks the connected wallet to switch to BNB Smart Chain if needed and requests one explicit `eth_sendTransaction` approval for the exact native BNB transfer. No transfer is sent without the user's wallet approval.
 4. The wallet returns a transaction hash only after the wallet provider accepts the submission; an interrupted or uncertain handoff remains pending and is never treated as payment success.
 5. The client submits the transaction hash to the authenticated verification endpoint.
@@ -21,7 +21,7 @@ The purchase receiver is the campaign receiving wallet configured and explicitly
 
 - The server, not the browser, chooses the GBP price, exchange quote, receiver, exact wei amount, chain ID, quote expiry, and order ownership.
 - The frontend may only submit the transaction hash and the declared payer address. Neither is proof of payment.
-- A quote-specific EIP-191 signature proves control of the payer wallet for this Firebase account before an intent is created. The backend recovers the signer; it never trusts a client-supplied address alone.
+- The current implementation binds the payer address supplied by the authenticated client to the immutable purchase intent, then verifies that the actual on-chain transaction sender matches that binding. The binding field is not itself a cryptographic ownership proof; control is demonstrated only by the later BNB transaction from that address. Do not describe the unused `walletProofNonce` or `api/psemine_wallet_proof.py` as active protections until a quote-specific signature is wired into the create-intent endpoint and tested end to end.
 - The backend verifies the actual chain transaction and receipt before settlement.
 - A wallet address from one browser session must never be substituted for another user's wallet or silently rebound to a live purchase intent.
 - Pending, failed, expired, unverified, and legacy/test records are excluded from confirmed purchase revenue.
@@ -36,3 +36,17 @@ The purchase receiver is the campaign receiving wallet configured and explicitly
 - Do not add NOWPayments, hosted invoices, merchant credentials, provider callbacks, or a scheduled provider reconciler.
 - Keep purchases disabled if the receiver wallet is missing or unconfirmed.
 - Before announcing real-money readiness, test with a low-value live BSC payment and verify the receipt, exact receiver/amount/sender, idempotent activation, and admin revenue total.
+
+
+## Known hardening work (do not treat as launch sign-off)
+
+The current implementation still needs an atomic one-active-intent-per-user/tool guard. Existing purchase checks and the subsequent intent write are separate Firestore operations, so simultaneous create requests need a transactional lock/idempotency design. Payment statuses also need one canonical transition table shared by create, mark-uncertain, report-submission, verification, recovery, and no-broadcast resolution endpoints.
+
+The current `walletProofNonce` and EIP-191 proof helper are not part of the live create-intent request. The documented trust model above intentionally describes the actual deployed behavior rather than claiming a signature check that does not run.
+
+Required before real-money launch:
+- Atomic concurrent intent creation and idempotency.
+- Explicit allowed state transitions and terminal-state guards on every payment endpoint.
+- End-to-end mocked tests for duplicate/out-of-order requests, wallet cancellation, ambiguous broadcast, hash persistence, confirmations, expiry, recovery attachment, and exactly-once activation/revenue.
+- Remove or fully integrate the unused wallet-proof nonce/helper.
+- Verify the production BSC RPC sources, confirmation policy, and admin receiver setup without broadcasting a production payment.

@@ -601,3 +601,32 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
         self.assertIn('"purchaseReady": bool(configured_receiver)', handler)
         self.assertIn('"purchaseEnabled": campaign_config.get("purchaseEnabled") is True', handler)
         self.assertIn('"canManageCampaign": is_admin(request.user["uid"])', handler)
+
+    def test_repeated_admin_recovery_attachment_is_idempotent(self):
+        db = tpc.FakeDB()
+        original_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        tx_hash = self.TX_A
+        try:
+            db.collection("psemine_purchases").document("purchase1").set({
+                "id": "purchase1", "userId": "user1", "quoteId": "quote1",
+                "transactionHash": tx_hash, "status": "manual_review",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=tx_hash, quote_id="quote1",
+                purchase_id="purchase1", reason="RPC_ERROR",
+            )
+            first = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            second = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            self.assertTrue(first["ok"])
+            self.assertTrue(second["ok"])
+            self.assertTrue(second.get("idempotent"))
+            self.assertEqual("attached", second["status"])
+        finally:
+            psemine_engine.firestore_server_ts = original_ts

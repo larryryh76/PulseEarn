@@ -10281,7 +10281,11 @@ def admin_mine_payment_recovery():
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
     import psemine_engine as _pse_engine
-    status = (request.args.get('status') or 'open').strip()
+    status = (request.args.get('status') or 'open').strip().lower()
+    allowed_statuses = {'open', 'attached', 'reviewed', 'rejected', 'resolved'}
+    if status not in allowed_statuses:
+        return jsonify({"success": False, "error": "INVALID_RECOVERY_STATUS",
+                        "message": "Choose a supported payment-recovery status."}), 400
     return jsonify({"success": True, "cases": _pse_engine.admin_list_payment_recovery(db, status=status)})
 
 @app.route('/api/admin/mine/payment-recovery/<recovery_id>/resolve', methods=['POST'])

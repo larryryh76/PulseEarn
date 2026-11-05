@@ -54,6 +54,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install API test dependencies
+        run: pip install -r api/requirements.txt
+
       - name: Install Chromium for browser harnesses
         run: npx playwright install --with-deps chromium
 

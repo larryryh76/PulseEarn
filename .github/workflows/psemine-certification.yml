@@ -38,6 +38,8 @@ jobs:
           cache: pip
           cache-dependency-path: api/requirements.txt
 
+      # The remediation branch regenerates the lock from explicit safe overrides,
+      # then installs exactly that lock before audit/build/test.
       - name: Refresh lockfile for dependency remediation branch
         if: github.ref == 'refs/heads/fix/psemine-atomic-payment-state-machine-v2'
         run: npm install --package-lock-only --ignore-scripts

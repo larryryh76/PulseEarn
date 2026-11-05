@@ -616,6 +616,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // keeps the old record as audit evidence).
   useEffect(() => {
     if (confirmedNoTransaction || !pending || pending.toolId !== tool.id) return;
+
     // A wallet can return a real hash while the follow-up API request fails.
     // Recover that exact hash from this account's local evidence and re-submit
     // it to the idempotent backend endpoint before attempting verification.
@@ -641,11 +642,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       }
       if (saved?.purchaseId === pending.purchaseId) setUncertainRecovery(true);
     } catch { /* malformed local marker is ignored; server state remains locked */ }
-  }, [pending, tool.id, confirmedNoTransaction, resume]);
 
-  useEffect(() => {
-    if (confirmedNoTransaction) return;
-    if (uncertainRecovery && pending && pending.toolId === tool.id) {
+    if (uncertainRecovery) {
       setPurchaseId(pending.purchaseId);
       setBoundPayer(pending.paymentWallet || null);
       setSubmissionState('UNKNOWN_SUBMISSION_STATE');
@@ -653,7 +651,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       setStep('result');
       return;
     }
-    if (resume || !pending || pending.toolId !== tool.id) return;
+    if (resume) return;
     if (pending.status === 'submission_uncertain') {
       setPurchaseId(pending.purchaseId);
       setBoundPayer(pending.paymentWallet || null);

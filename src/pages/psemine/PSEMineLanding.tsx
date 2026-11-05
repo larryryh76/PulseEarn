@@ -930,7 +930,7 @@ export const PSEMineLanding: React.FC = () => {
               <ol className="pse-ladder">
                 {[
                   ['Registered', 'Signed up with your referral code. Nothing is credited at this stage.'],
-                  ['Checkout opened', 'Opened the secure hosted payment page for a tool purchase.'],
+                  ['Quote prepared', 'Prepared a time-limited server quote for native BNB payment on BNB Smart Chain.'],
                   ['Unit purchased', 'Bought a mining unit with their own funds.'],
                   ['Mining active', 'The unit is operating inside the campaign.'],
                   ['Qualified', 'All four stages verified — capacity is added from here, not before.'],

@@ -790,9 +790,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
     if (bindAttemptRef.current === key) return;
     bindAttemptRef.current = key;
-    let cancelled = false;
     void bindPurchaseIntent(quote).then(bound => {
-      if (cancelled) return;
+      if (bindAttemptRef.current !== key) return;
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         bindAttemptRef.current = null;
         toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
@@ -802,11 +801,10 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       setBoundPayer(bound.payerWallet);
       void refresh();
     }).catch(error => {
-      if (cancelled) return;
+      if (bindAttemptRef.current !== key) return;
       bindAttemptRef.current = null;
       toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
     });
-    return () => { cancelled = true; };
   }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
 
   const refreshQuoteNow = () => {

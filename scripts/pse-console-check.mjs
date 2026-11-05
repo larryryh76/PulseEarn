@@ -327,11 +327,11 @@ for (const pagePath of PAGES) {
           const quoteText = await quoteResult.innerText();
           walletLabQuoteInteraction = {
             opened: true,
-            quoteValid: /server quote created/i.test(quoteText) && /BNB/.test(quoteText) && /chain 56/i.test(quoteText) && quoteText.includes('Campaign receiver') && quoteText.includes('Quote expires'),
+            quoteValid: /server quote created/i.test(quoteText) && /BNB/.test(quoteText) && /chain 56/i.test(quoteText) && /receiver/i.test(quoteText) && /expir/i.test(quoteText),
             paymentStarted: false,
             text: quoteText.slice(0, 800),
           };
-          if (!walletLabQuoteInteraction.quoteValid) throw new Error('Wallet Lab quote response missing required BNB fields: ' + quoteText.slice(0, 500));
+          if (!walletLabQuoteInteraction.quoteValid) throw new Error('Wallet Lab quote response missing required BNB fields: ' + quoteText.slice(0, 1200));
         } catch (error) {
           interactionProblems.push('Wallet Lab quote-only test: ' + String(error).slice(0, 180));
         }

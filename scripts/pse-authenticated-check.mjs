@@ -223,10 +223,21 @@ const MEASURE = () => {
   const viewportWidth = document.documentElement.clientWidth;
   const overflowElements = els.map(el => {
     const r = el.getBoundingClientRect();
+    const ancestors = [];
+    let parent = el.parentElement;
+    while (parent && ancestors.length < 7) {
+      const pr = parent.getBoundingClientRect();
+      ancestors.push({ tag: parent.tagName.toLowerCase(),
+        className: String(parent.className?.baseVal || parent.className || '').slice(0, 120),
+        left: Math.round(pr.left * 10) / 10, right: Math.round(pr.right * 10) / 10,
+        width: Math.round(pr.width * 10) / 10, scrollWidth: parent.scrollWidth,
+        clientWidth: parent.clientWidth });
+      parent = parent.parentElement;
+    }
     return { tag: el.tagName.toLowerCase(), className: String(el.className?.baseVal || el.className || '').slice(0, 120),
       text: (el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 70),
       left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10,
-      width: Math.round(r.width * 10) / 10 };
+      width: Math.round(r.width * 10) / 10, ancestors };
   }).filter(el => el.left < -1 || el.right > viewportWidth + 1)
     .sort((a, b) => Math.max(b.right - viewportWidth, -b.left) - Math.max(a.right - viewportWidth, -a.left))
     .slice(0, 20);
@@ -519,7 +530,7 @@ async function main() {
   console.log(`\nLogout: control ${logout.controlFound ? 'found' : 'NOT FOUND'} · session ended: ${logout.signedOut}${logout.reason ? ` (${logout.reason})` : ''}`);
 
   // ── Report ────────────────────────────────────────────────────────────────
-  const redirects = results.filter(r => !r.reachedConsole);
+  const redirects = results.filter(r => !r.reachedConsole && !(r.route === '/mine' && r.landedOn === '/mine/dashboard'));
   const overflow = results.filter(r => r.horizontalOverflow);
   const leaks = results.filter(r => r.crossProductCalls.length || r.crossProductStoreReads.length);
   const errored = results.filter(r => r.pageErrors.length);

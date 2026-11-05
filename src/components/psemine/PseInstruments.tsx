@@ -929,17 +929,17 @@ export const PaymentConsole: React.FC<{
         <span className="pse-pay-amount-link" aria-hidden="true">
           <span className="pse-pay-amount-line" />
           <span className="pse-pay-amount-rate">
-            Hosted invoice
-            <span className="pse-pay-amount-rate-note">secure provider checkout</span>
+            Server quote
+            <span className="pse-pay-amount-rate-note">BNB Smart Chain · 56</span>
           </span>
           <span className="pse-pay-amount-line" />
         </span>
 
         <div className="pse-pay-amount-side">
-          <span className="pse-micro">Payment choice</span>
-          <span className="pse-metric pse-pay-amount-quoted">Choose crypto</span>
+          <span className="pse-micro">Payment network</span>
+          <span className="pse-metric pse-pay-amount-quoted">Native BNB</span>
           <span className="pse-pay-amount-note">
-            Select an available cryptocurrency and network on the invoice. The exact amount is shown before you pay.
+            The backend returns the exact BNB amount and confirmed campaign receiver before wallet approval.
           </span>
         </div>
       </div>
@@ -949,13 +949,13 @@ export const PaymentConsole: React.FC<{
           <NetworkMark />
         </span>
         <span className="pse-pay-net-id">
-          <span className="pse-pay-net-name">No wallet connection required</span>
-          <span className="pse-pay-net-note">Pay from the wallet you prefer. PulseEarn never asks for your keys or seed phrase.</span>
+          <span className="pse-pay-net-name">Wallet connection required</span>
+          <span className="pse-pay-net-note">Connect with Reown/WalletConnect, verify BNB Smart Chain and approve the quoted transfer in your wallet. Never share your keys or seed phrase.</span>
         </span>
       </div>
 
       <ol className="pse-pay-states" aria-label="The four states of a PSEmine purchase">
-        {['Order created', 'Asset selected', 'Payment confirmed', 'Tool activated'].map((state, i) => (
+        {['Quote prepared', 'Wallet approval', 'Backend verification', 'Tool activated'].map((state, i) => (
           <li key={state} className="pse-pay-state" data-active={i === 0 ? 'true' : undefined}>
             <span className="pse-pay-state-node" aria-hidden="true" />
             <span className="pse-pay-state-name">{state}</span>
@@ -966,11 +966,11 @@ export const PaymentConsole: React.FC<{
 
     <div className="pse-pay-foot">
       <Link className="pse-btn pse-btn--block" to="/mine/signup">
-        Open an account for secure checkout
+        Open an account to view tools
         <span className="pse-btn-arrow" aria-hidden="true">→</span>
       </Link>
       <span className="pse-pay-foot-note">
-        Available assets and networks depend on the merchant checkout configuration.
+        Tool purchases use native BNB on BNB Smart Chain only. The backend verifies every transfer before activation.
       </span>
     </div>
   </Reveal>

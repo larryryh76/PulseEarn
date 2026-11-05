@@ -91,7 +91,11 @@ def _run_transaction(db, txn_fn):
       txn_fn returned a validation rejection before buffering any writes.
     """
     txn = db.transaction()
-    if _firestore is not None and hasattr(_firestore, "transactional"):
+    # In-memory test transactions expose their buffered operations explicitly.
+    # Do not pass these doubles through firebase_admin's Transaction wrapper
+    # merely because the SDK is installed in the test environment.
+    is_test_double = hasattr(txn, "_ops")
+    if _firestore is not None and hasattr(_firestore, "transactional") and not is_test_double:
         return _firestore.transactional(txn_fn)(txn)
     result = txn_fn(txn)
     commit = getattr(txn, "commit", None)

@@ -316,7 +316,7 @@ const PURCHASE: ReadonlyArray<PseFlowStep> = [
   {
     id: 'pay',
     glyph: 'wallet',
-    name: 'Pay with crypto',
+    name: 'Approve native BNB',
     note: 'Connect your wallet, verify BNB Smart Chain (56), then approve the exact server-quoted native-BNB amount.',
     denom: <Denom tone="bnb">BNB</Denom>,
   },

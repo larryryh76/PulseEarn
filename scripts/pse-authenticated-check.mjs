@@ -424,6 +424,7 @@ async function main() {
   const overlays = {
     notifications: { opened: false, screenshot: null, text: '', error: '' },
     quote: { opened: false, screenshot: null, text: '', error: '', paymentStarted: false },
+    walletLabQuote: { opened: false, validQuote: false, screenshot: null, text: '', error: '', paymentStarted: false },
   };
   try {
     await authPage.setViewportSize({ width: 390, height: 844 });
@@ -462,6 +463,23 @@ async function main() {
     }
   } catch (e) {
     overlays.quote.error = String(e).slice(0, 220);
+  }
+  try {
+    await authPage.goto(`${base}/mine/wallet`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+    await authPage.getByRole('button', { name: 'Wallet Lab', exact: true }).click();
+    const quoteTest = authPage.getByRole('button', { name: 'Test Starter Miner', exact: true });
+    await quoteTest.waitFor({ state: 'visible', timeout: 10_000 });
+    await quoteTest.click();
+    const quoteResult = authPage.locator('.pse-wallet-lab-quote-result');
+    await quoteResult.waitFor({ state: 'visible', timeout: 20_000 });
+    overlays.walletLabQuote.opened = true;
+    overlays.walletLabQuote.validQuote = await quoteResult.getByText('Server quote created').isVisible();
+    overlays.walletLabQuote.text = (await quoteResult.innerText()).slice(0, 1400);
+    overlays.walletLabQuote.screenshot = 'wallet-lab-quote-390.png';
+    overlays.walletLabQuote.paymentStarted = false;
+    await authPage.screenshot({ path: path.join(OUT, overlays.walletLabQuote.screenshot), fullPage: false, animations: 'disabled' });
+  } catch (e) {
+    overlays.walletLabQuote.error = String(e).slice(0, 220);
   }
   fs.writeFileSync(path.join(OUT, 'overlay-interactions.json'), JSON.stringify(overlays, null, 2));
 

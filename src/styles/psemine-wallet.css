@@ -270,3 +270,13 @@
 .pse-wallet-purchase-note p { max-width:72ch; margin:5px 0 0; color:#96a5bf; font-size:10px; line-height:1.6; }
 .pse-wallet-purchase-actions { display:flex; flex-wrap:wrap; gap:7px; flex:none; }
 @media(max-width:620px) { .pse-wallet-purchase-note { align-items:flex-start; flex-direction:column; } .pse-wallet-purchase-actions { width:100%; } .pse-wallet-purchase-actions > * { flex:1; } }
+
+
+.pse-wallet-lab-quote-result { display:grid; gap:12px; padding:14px; border:1px solid rgba(86,190,218,.22); border-radius:10px; background:rgba(23,62,80,.14); }
+.pse-wallet-lab-quote-result-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.pse-wallet-lab-quote-result-head strong { color:#bfeaf4; font-size:11px; }
+.pse-wallet-lab-quote-result dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; margin:0; }
+.pse-wallet-lab-quote-result dl > div { min-width:0; }
+.pse-wallet-lab-quote-result dt { color:#8194ae; font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
+.pse-wallet-lab-quote-result dd { margin:4px 0 0; color:#e0e8f7; font-size:11px; font-weight:650; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+@media(max-width:520px) { .pse-wallet-lab-quote-result dl { grid-template-columns:minmax(0,1fr); } }

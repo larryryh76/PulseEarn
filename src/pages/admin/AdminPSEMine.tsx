@@ -98,6 +98,8 @@ export const AdminPSEMine: React.FC = () => {
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [recovery, setRecovery] = useState<Row[]>([]);
+  const [recoveryStatus, setRecoveryStatus] = useState('open');
+  const [recoveryQuery, setRecoveryQuery] = useState('');
   const [withdrawals, setWithdrawals] = useState<Row[]>([]);
   const [audit, setAudit] = useState<Row[]>([]);
   const [walletInput, setWalletInput] = useState('');
@@ -133,7 +135,7 @@ export const AdminPSEMine: React.FC = () => {
       ['payment configuration and tool metrics', '/api/admin/psemine/overview', (d: Row) => { setMineStats(d.stats || {}); setConfig(d.campaign || null); }],
       ['purchase orders', '/api/admin/psemine/orders', (d: Row) => setOrders(Array.isArray(d.orders) ? d.orders : [])],
       ['verified payments', '/api/admin/psemine/payments', (d: Row) => setPayments(Array.isArray(d.payments) ? d.payments : [])],
-      ['payment recovery cases', '/api/admin/mine/payment-recovery?status=open', (d: Row) => setRecovery(Array.isArray(d.cases) ? d.cases : [])],
+      ['payment recovery cases', `/api/admin/mine/payment-recovery?status=${encodeURIComponent(recoveryStatus)}`, (d: Row) => setRecovery(Array.isArray(d.cases) ? d.cases : [])],
       ['payout queue', '/api/admin/psemine/withdrawals', (d: Row) => setWithdrawals(Array.isArray(d.withdrawals) ? d.withdrawals : [])],
       ['audit history', '/api/admin/mine/audit', (d: Row) => setAudit(Array.isArray(d.records) ? d.records : [])],
     ] as const;
@@ -145,7 +147,7 @@ export const AdminPSEMine: React.FC = () => {
     setLoadErrors(failures);
     setLoadState(failures.length === jobs.length ? 'error' : failures.length ? 'partial' : 'ready');
     setLoadedAt(Date.now());
-  }, [currentUser, request]);
+  }, [currentUser, request, recoveryStatus]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setWalletInput(String(config?.receiverWalletAddress || '')); }, [config?.receiverWalletAddress]);
@@ -163,6 +165,14 @@ export const AdminPSEMine: React.FC = () => {
         .some(value => String(value || '').toLowerCase().includes(q));
     });
   }, [orders, orderQuery, payments]);
+
+  const filteredRecovery = useMemo(() => {
+    const q = recoveryQuery.trim().toLowerCase();
+    return recovery.filter(row => !q || [
+      row.id, row.userId, row.purchaseId, row.quoteId, row.reason,
+      row.status, row.txHash, row.sender, row.recipient,
+    ].some(value => String(value || '').toLowerCase().includes(q)));
+  }, [recovery, recoveryQuery]);
 
   const runCampaignAction = async (action: string) => {
     if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }
@@ -325,8 +335,8 @@ export const AdminPSEMine: React.FC = () => {
           <Table columns={['Confirmed', 'Payment', 'Order', 'User', 'GBP value', 'BNB received', 'Transaction']} rows={payments} empty="No genuine verified tool payments recorded yet." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.confirmedAt)}</td><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.priceGbp ?? row.purchasePriceGbp ?? row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.paidBnbAmount ?? row.amountBnb ?? '—'} BNB</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
         </Panel>
 
-        <Panel id="ops-recovery" title="Payment recovery" detail="Review failed or ambiguous payment evidence. Never ask a user to pay again until the existing transaction is reconciled.">
-          <Table columns={['Case', 'User', 'Reason', 'Transaction', 'Created', 'Actions']} rows={recovery} empty="No open payment-recovery cases." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1"><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void attachRecovery(row)} disabled={!isAdmin || busy || typeof row.purchaseId !== 'string'} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Attach to purchase</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        <Panel id="ops-recovery" title="Payment recovery" detail="Reconcile the original on-chain transfer before releasing a user's purchase lock or asking them to retry." right={<div className="flex w-full flex-wrap gap-2 sm:w-auto"><select value={recoveryStatus} onChange={e => setRecoveryStatus(e.target.value)} disabled={busy} aria-label="Recovery case status" className="min-h-10 rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white"><option value="open">Open cases</option><option value="attached">Attached</option><option value="reviewed">Reviewed</option><option value="rejected">Rejected</option><option value="resolved">Resolved</option></select><input value={recoveryQuery} onChange={e => setRecoveryQuery(e.target.value)} placeholder="Search case, user, purchase, hash…" aria-label="Search recovery cases" className="min-h-10 w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" /></div>}>
+          <Table columns={['Case', 'User / purchase', 'Reason', 'Transaction', 'Status', 'Created', 'Actions']} rows={filteredRecovery} empty={recoveryStatus === 'open' ? 'No open payment-recovery cases.' : `No ${recoveryStatus} recovery cases returned.`} render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 text-slate-400"><div className="font-mono">{short(row.userId)}</div><div className="mt-1 text-[10px] text-slate-500">{short(row.purchaseId || 'No purchase linked')}</div></td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{row.txHash ? <a href={`https://bscscan.com/tx/${row.txHash}`} target="_blank" rel="noreferrer" className="text-cyan-200 hover:underline">{short(row.txHash)}</a> : 'No hash recorded'}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1">{row.status === 'open' && <><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="min-h-9 rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void attachRecovery(row)} disabled={!isAdmin || busy || typeof row.purchaseId !== 'string'} className="min-h-9 rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Attach to purchase</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy} className="min-h-9 rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></>}</div></td></tr>} />
         </Panel>
 
         <Panel id="ops-payouts" title="Payout queue" detail="Approvals require a BNB Smart Chain transaction hash; the backend validates the transfer before finalising.">

@@ -606,10 +606,10 @@ const run = async () => {
     hashPersistedBeforeServerReport: hashPersist > iSend && hashPersist < reportHash,
     serverReportRetriedIdempotently: retryLoop !== -1 && retryLoop < reportHash,
     recoveryReportsBeforeVerify: recoveryReport !== -1 && recoveryVerify > recoveryReport,
-    recoveryUsesSavedHash: recoveredBody.includes('saved?.transactionHash'),
+    recoveryUsesSavedHash: recoveredBody.includes('saved.transactionHash'),
     pass: hashPersist > iSend && hashPersist < reportHash && retryLoop !== -1 && retryLoop < reportHash
       && recoveryReport !== -1 && recoveryVerify > recoveryReport
-      && recoveredBody.includes('saved?.transactionHash'),
+      && recoveredBody.includes('saved.transactionHash'),
   });
 
   fs.writeFileSync(path.join(tmpDir, 'report.json'), JSON.stringify(report, null, 2));

@@ -474,23 +474,19 @@ export class PSEMineEngine {
    * its own data and the chain itself.
    */
   public static async activateToolPurchase(
-    purchaseId: string, 
+    purchaseId: string,
     txHash: string,
     senderWallet?: string
   ): Promise<{ success: boolean; error?: string; code?: string; confirmations?: number; user?: PSEMineUser }> {
-    const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
-    const purchaseSnap = await getDoc(purchaseRef);
-
-    if (!purchaseSnap.exists()) {
-      return { success: false, error: 'Purchase intent not found' };
+    // The backend is the sole authority for purchase ownership, status, quote,
+    // sender, receiver, amount, chain and settlement. Do not pre-read the
+    // purchase document from the browser: that adds a separate Firestore rules
+    // dependency, can be stale, and can prevent the authoritative verifier from
+    // reconciling a valid transaction when client read access is unavailable.
+    if (!purchaseId || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+      return { success: false, code: 'INVALID_SUBMISSION', error: 'A valid purchase and transaction hash are required.' };
     }
 
-    const purchase = purchaseSnap.data() as PSEMinePurchase;
-    if (purchase.status === 'activated') {
-      return { success: false, error: 'Purchase already activated' };
-    }
-
-    // Call authoritative server endpoint with user Firebase ID token with 30s timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -500,7 +496,7 @@ export class PSEMineEngine {
       const token = await auth.currentUser?.getIdToken();
 
       if (!token) {
-        return { success: false, error: 'Authentication required. Please sign in.' };
+        return { success: false, code: 'AUTHENTICATION_REQUIRED', error: 'Authentication required. Please sign in.' };
       }
 
       const res = await fetch('/api/mine/tools/verify-purchase', {
@@ -510,10 +506,9 @@ export class PSEMineEngine {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          purchaseId: purchase.id,
-          transactionHash: txHash,
-          senderWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
-          toolId: purchase.toolId
+          purchaseId,
+          transactionHash: txHash.toLowerCase(),
+          ...(senderWallet ? { senderWallet: senderWallet.toLowerCase() } : {})
         }),
         signal: controller.signal
       });
@@ -522,23 +517,17 @@ export class PSEMineEngine {
       if (!res.ok || !data.success) {
         return {
           success: false,
-          // Machine-readable backend code (e.g. INSUFFICIENT_CONFIRMATIONS,
-          // WALLET_MISMATCH, QUOTE_EXPIRED) so the UI can distinguish
-          // "still confirming" from "rejected" without parsing prose.
           code: typeof data.error === 'string' ? data.error : undefined,
           confirmations: typeof data.confirmations === 'number' ? data.confirmations : undefined,
           error: pseFailureMessage('POST /api/mine/tools/verify-purchase', res.status, data),
         };
       }
 
-      // Fetch fresh authoritative user record from Firestore
-      const userSnap = await getDoc(doc(db, 'psemine_users', purchase.userId));
-      const updatedUser = userSnap.exists() ? (userSnap.data() as PSEMineUser) : undefined;
-
-      return { success: true, user: updatedUser };
+      // The endpoint only returns success after on-chain verification and the
+      // atomic activation commit. A follow-up browser read is not part of payment
+      // success and must not turn a completed settlement into a reported failure.
+      return { success: true };
     } catch (e: unknown) {
-      // A timeout is its own state: the chain result is genuinely unknown, so
-      // say that rather than reporting a generic verification failure.
       if (e instanceof Error && e.name === 'AbortError') {
         logPseDiagnostic('POST /api/mine/tools/verify-purchase', {
           kind: 'unavailable', title: '', message: '', retryable: true,
@@ -546,11 +535,13 @@ export class PSEMineEngine {
         });
         return {
           success: false,
-          error: 'Verification request timed out. Check BSCScan before retrying — the payment itself is unaffected.',
+          code: 'VERIFICATION_TIMEOUT',
+          error: 'Verification timed out. Your transaction hash is preserved; check the same transaction again. Do not send another payment.',
         };
       }
       return {
         success: false,
+        code: 'VERIFICATION_UNAVAILABLE',
         error: pseTransportFailureMessage('POST /api/mine/tools/verify-purchase', e),
       };
     } finally {

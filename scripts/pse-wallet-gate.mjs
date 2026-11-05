@@ -612,6 +612,19 @@ const run = async () => {
       && recoveredBody.includes('saved.transactionHash'),
   });
 
+  // 12. KNOWN HASH SAFETY: once the wallet returned a hash, the UI must
+  //     offer same-hash reconciliation and must not offer a no-broadcast close.
+  step('known-hash-never-closes-no-broadcast', {
+    knownHashRecoveryAction: toolsSrc.includes('result.uncertain && result.hash')
+      && toolsSrc.includes('onClick={() => void recheckRecovered()}'),
+    noBroadcastRequiresNoHash: toolsSrc.includes('result.uncertain && !result.hash && !confirmedNoTransaction'),
+    recoveredIntentRetained: toolsSrc.includes('setResume({ kind: \'submitted\', purchase: recoveredPurchase })'),
+    pass: toolsSrc.includes('result.uncertain && result.hash')
+      && toolsSrc.includes('onClick={() => void recheckRecovered()}')
+      && toolsSrc.includes('result.uncertain && !result.hash && !confirmedNoTransaction')
+      && toolsSrc.includes('setResume({ kind: \'submitted\', purchase: recoveredPurchase })'),
+  });
+
   fs.writeFileSync(path.join(tmpDir, 'report.json'), JSON.stringify(report, null, 2));
 };
 

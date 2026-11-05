@@ -52,6 +52,7 @@ import {
   silentInjectedAccounts,
   subscribeWalletEvents,
   walletConnectChainId,
+  walletConnectSessionAccounts,
 } from '../engines/psemine/pseWallet';
 import {
   beginWalletTrace,
@@ -960,8 +961,19 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const provider = providerRef.current;
       if (!provider) return { success: false, error: 'Reconnect your wallet before paying.' };
-      const accounts = await provider.request({ method: 'eth_accounts' });
-      const activeAddress = Array.isArray(accounts) ? String(accounts[0] || '').toLowerCase() : '';
+      // WalletConnect's UniversalProvider can answer eth_accounts against its mutable
+      // default chain. After an Android handoff that default may be stale even though
+      // the approved BNB Smart Chain session is valid. Resolve its payer from CAIP-10;
+      // injected providers are still checked live through eth_accounts.
+      let activeAddress = '';
+      if (transportRef.current === 'walletConnect') {
+        activeAddress = walletConnectSessionAccounts(
+          provider as PseEip1193Provider & { session?: { namespaces?: { eip155?: { accounts?: string[] } } } },
+        )[0] || '';
+      } else {
+        const accounts = await provider.request({ method: 'eth_accounts' });
+        activeAddress = Array.isArray(accounts) ? String(accounts[0] || '').toLowerCase() : '';
+      }
       if (activeAddress !== connectedWallet.toLowerCase()) {
         return { success: false, error: 'The active wallet changed. Reconnect the wallet attached to this purchase.' };
       }

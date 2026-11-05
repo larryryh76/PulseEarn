@@ -9713,6 +9713,12 @@ def mine_report_purchase_submission():
     if existing_hash and existing_hash != tx_hash:
         return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
                         "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
+    # Idempotent duplicate report: preserve a later verification state. A retry
+    # of the same hash must never move confirming back to transaction_submitted
+    # or emit duplicate "submitted" notifications.
+    if existing_hash == tx_hash and purchase.get('status') in ('transaction_submitted', 'confirming'):
+        return jsonify({"success": True, "purchaseId": purchase_id,
+                        "status": purchase.get('status'), "transactionHash": tx_hash})
     if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
         return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE"}), 409
     ref.update({

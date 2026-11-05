@@ -352,3 +352,13 @@ class TestExpiredPaymentRecoveryAttachment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTransactionHashValidation(unittest.TestCase):
+    """The verification endpoint must reject malformed hashes before any RPC."""
+
+    def test_verifier_requires_exact_32_byte_hex_hash(self):
+        handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "verify_psemine_tool_purchase")
+        self.assertIn("_tx_re.fullmatch(r'0x[0-9a-f]{64}', tx_hash)", handler)
+        self.assertIn('"error": "INVALID_TRANSACTION_HASH"', handler)
+        self.assertNotIn("len(tx_hash) != 66", handler)

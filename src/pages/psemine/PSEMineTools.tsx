@@ -606,6 +606,36 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   /** Forget the local binding (expired quote, wallet disconnect, restart). */
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
 
+
+  // Prepare the server-side purchase intent BEFORE the Pay tap. Mobile wallet
+  // apps require eth_sendTransaction to be invoked directly from the user's
+  // gesture; awaiting a backend bind or chain switch inside the click handler
+  // can lose that gesture and leave the wallet approval prompt unopened.
+  const bindAttemptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || purchaseId || boundPayer) return;
+    const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
+    if (bindAttemptRef.current === key) return;
+    bindAttemptRef.current = key;
+    let cancelled = false;
+    void bindPurchaseIntent(quote).then(bound => {
+      if (cancelled) return;
+      if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
+        bindAttemptRef.current = null;
+        toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
+        return;
+      }
+      setPurchaseId(bound.purchaseId);
+      setBoundPayer(bound.payerWallet);
+      void refresh();
+    }).catch(error => {
+      if (cancelled) return;
+      bindAttemptRef.current = null;
+      toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
+    });
+    return () => { cancelled = true; };
+  }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
+
   // ── Refresh recovery (runs before the quote effect) ────────────────────────
   // A live awaiting_payment intent is resumed with its ORIGINAL quote and payer;
   // a submitted intent opens the verification-recovery panel; an expired one
@@ -807,115 +837,62 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       toast.error(blockedReason || 'This purchase is not ready to pay.');
       return;
     }
+    if (!onRequiredChain) {
+      toast.error(`Switch to ${networkName} before paying. Use the network button below.`);
+      return;
+    }
+    if (!purchaseId || !boundPayer) {
+      toast('Preparing your secure purchase. The Pay button will be ready in a moment.', { icon: '⏳' });
+      return;
+    }
+    const intentId = purchaseId;
+    const payer = boundPayer;
+    const payerCheck = resolvePaymentPayer(payer, connectedWallet);
+    if (!payerCheck.ok) {
+      toast.error('The connected wallet does not match the payer bound to this purchase.');
+      return;
+    }
+    // Do not await a chain switch or backend request before this call. The
+    // provider request must remain in the original user-activation task so
+    // Android browsers can hand off to the wallet app and show its approval UI.
     setStep('verifying');
-    setPaymentProgress('Checking BNB Smart Chain and preparing your secure wallet request…');
+    setPaymentProgress('Your wallet is opening. Review the exact BNB transfer there…');
     recordWalletStage('payment_flow_started');
+    const wei = quote.bnbAmountWei;
+    if (!wei || !/^[0-9]+$/.test(String(wei))) {
+      setStep('result');
+      setResult({ ok: false, message: 'The server quote is missing its exact BNB amount. Request a new quote.' });
+      return;
+    }
+    recordWalletStage('payment_send_started');
+    setPaymentProgress('Your payment request is being sent to your wallet. Keep the wallet open and approve the exact BNB amount there…');
+    setSubmissionState('SUBMISSION_IN_PROGRESS');
     try {
-      // 1. VERIFY / SWITCH NETWORK before creating a purchase intent.
-      // A failed switch must not leave a bound, unpaid pending purchase.
-      setPaymentProgress('Please approve the BNB Smart Chain network switch in your wallet if prompted…');
-      const chainOk = await ensurePaymentChain(quote.chainId || 56);
-      if (!chainOk) {
-        recordWalletStage('payment_chain_not_ready', String(quote.chainId || 56));
-        setSubmissionState('NOT_SUBMITTED');
-        setStep('pay');
-        toast.error(`Could not switch to ${networkName}. Approve the network request in your wallet app and try again.`);
-        return;
-      }
-      // ensurePaymentChain has already verified the active chain. Avoid another
-      // wallet RPC round trip here so the ownership prompt appears immediately.
-
-      // 2. Bind the payer wallet to this quote on the backend. No personal_sign
-      //    request is made; the native BNB transaction is the payment proof.
-      setPaymentProgress('Network confirmed. Binding your payer wallet to this quote…');
-      const bound = await bindPurchaseIntent(quote);
-      if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
-        setSubmissionState('NOT_SUBMITTED');
-        setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
-        setStep('result');
-        return;
-      }
-      const intentId = bound.purchaseId;
-      const payer = bound.payerWallet;
-      setPurchaseId(intentId);
-      setBoundPayer(payer);
-      // The backend has persisted the purchase-ready notification; refresh
-      // the shared feed now so the shell badge updates without a page reload.
-      void refresh();
-
-      // 3. The wallet about to send must still be the cryptographically bound payer.
-      const payerCheck = resolvePaymentPayer(payer, connectedWallet);
-      if (!payerCheck.ok) {
-        setSubmissionState('NOT_SUBMITTED');
-        setResult({
-          ok: false,
-          message: payerCheck.code === 'WALLET_MISMATCH'
-            ? `WALLET_MISMATCH — this purchase is bound to ${shortAddr(payer)}. Reconnect that wallet to pay, or close this and start a new purchase with ${shortAddr(connectedWallet)}. Nothing was sent and the binding was not changed.`
-            : 'This purchase has no bound payer wallet. Start the purchase again.',
-        });
-        setStep('result');
-        return;
-      }
-
-      // 4. to + value come VERBATIM from the server quote; from is the BOUND payer.
-      const wei = quote.bnbAmountWei;
-      if (!wei || !/^[0-9]+$/.test(String(wei))) {
-        throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');
-      }
-
-      // 5. EXACTLY ONE broadcast attempt.
-      recordWalletStage('payment_send_started');
-      setPaymentProgress('Your payment request is being sent to your wallet. Keep the wallet open and approve the exact BNB amount there…');
-      setSubmissionState('SUBMISSION_IN_PROGRESS');
       let txHash: string;
       try {
-        txHash = await sendPayment({
-          from: payer,
-          to: quote.receiverWallet,
-          value: String(wei),
-        });
+        txHash = await sendPayment({ from: payer, to: quote.receiverWallet, value: String(wei) });
       } catch (sendErr) {
         if (isSessionUnavailable(sendErr)) {
-          // WalletConnect raised this LOCALLY: the relay has no matching session,
-          // so no request reached the wallet and nothing could be broadcast. The
-          // purchase must stay retryable instead of being locked as uncertain.
           setSubmissionState('NOT_SUBMITTED');
-          setResult({
-            ok: false,
-            message: 'Your wallet session ended before the payment was requested, so nothing was sent and nothing was locked. Reconnect your wallet and request a fresh quote.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
-          });
+          setResult({ ok: false, message: 'Your wallet session ended before the payment was requested, so nothing was sent. Reconnect and prepare a fresh quote.' });
           setStep('result');
           return;
         }
         if (typeof sendErr === 'object' && sendErr !== null &&
             (sendErr as { code?: string }).code === 'PAYMENT_METHOD_UNSUPPORTED') {
           setSubmissionState('NOT_SUBMITTED');
-          setResult({
-            ok: false,
-            message: 'This wallet rejected the transaction request before submission. No payment was sent. The diagnostic below identifies the exact RPC error. Reconnect and request a fresh quote before trying again.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
-          });
+          setResult({ ok: false, message: 'This wallet rejected the transaction request before submission. No payment was sent. Reconnect and prepare a fresh quote.', diagnostic: (sendErr as { diagnostic?: string }).diagnostic });
           setStep('result');
           return;
         }
         if (isSubmissionUncertain(sendErr)) {
-          // Lock the purchase on the backend, not just this browser. This keeps
-          // another device from creating a second payment while the first
-          // wallet handoff has an ambiguous outcome.
           let serverLocked = false;
           try {
             await PSEMineEngine.markPurchaseSubmissionUncertain(intentId);
             serverLocked = true;
             void refresh();
           } catch (lockErr) {
-            toast.error(lockErr instanceof Error
-              ? `Payment status could not be synced to the server: ${lockErr.message}`
-              : 'Payment status could not be synced to the server. Do not retry.');
+            toast.error(lockErr instanceof Error ? `Payment status could not be synced to the server: ${lockErr.message}` : 'Payment status could not be synced to the server. Do not retry.');
           }
           setSubmissionState('UNKNOWN_SUBMISSION_STATE');
           try {
@@ -924,18 +901,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               receiverWallet: quote.receiverWallet, quotedBNBWei: String(quote.bnbAmountWei || ''),
               createdAt: new Date().toISOString(),
             }));
-          } catch { /* the live page still keeps the retry lock */ }
+          } catch { /* live page still keeps the retry lock */ }
           setUncertainRecovery(true);
           setConfirmedNoTransaction(false);
           setResult({
-            ok: false,
-            uncertain: true,
+            ok: false, uncertain: true,
             message: serverLocked
-              ? 'We could not confirm whether your wallet submitted this payment. This purchase is now locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
+              ? 'We could not confirm whether your wallet submitted this payment. This purchase is locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
               : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.',
-            diagnostic: typeof sendErr === 'object' && sendErr !== null
-              ? (sendErr as { diagnostic?: string }).diagnostic
-              : undefined,
+            diagnostic: (sendErr as { diagnostic?: string }).diagnostic,
           });
           setStep('result');
           return;
@@ -945,45 +919,33 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       if (!txHash) throw new Error('Transaction was not submitted.');
       recordWalletStage('payment_hash_returned');
       setSubmissionState('SUBMITTED');
-      // Store the hash on the backend before verification so a refresh or
-      // another device can resume the exact same on-chain transfer.
       try {
         await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
       } catch {
-        // Fail closed against a second purchase if the hash write failed.
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
         void refresh();
-        setResult({
-          ok: false, uncertain: true, hash: txHash,
-          message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash and use it for reconciliation.',
-        });
+        setResult({ ok: false, uncertain: true, hash: txHash, message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash for reconciliation.' });
         setUncertainRecovery(true);
         setStep('result');
         return;
       }
-      // The submitted-hash notification and status are now persisted server-side.
       void refresh();
-
-      // 6. Backend verifies on-chain; activation is server-authoritative.
       setSubmissionState('CONFIRMING');
       const res = await submitPurchaseTx(intentId, txHash, payer);
       if (res.success) {
         setSubmissionState('VERIFIED');
-        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* ignore */ }
         setUncertainRecovery(false);
         setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
       } else {
         const stillConfirming = res.code === 'INSUFFICIENT_CONFIRMATIONS';
-        const verificationCanBeRetried = stillConfirming
-          || res.code === 'VERIFICATION_TIMEOUT'
-          || res.code === 'VERIFICATION_UNAVAILABLE';
+        const verificationCanBeRetried = stillConfirming || res.code === 'VERIFICATION_TIMEOUT' || res.code === 'VERIFICATION_UNAVAILABLE';
         setSubmissionState(stillConfirming ? 'CONFIRMING' : 'SUBMITTED');
         setResult({
-          ok: false,
-          recheckable: verificationCanBeRetried,
+          ok: false, recheckable: verificationCanBeRetried,
           message: verificationCanBeRetried
             ? (res.error || 'The same transaction is still being reconciled. Check this transaction again; do not send another payment.')
-            : (res.error || 'Verification failed. If you already sent the payment, keep the transaction hash — support can reconcile it from the on-chain record.'),
+            : (res.error || 'Verification failed. If you already sent the payment, keep the transaction hash for reconciliation.'),
           hash: txHash,
         });
       }
@@ -996,13 +958,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         setStep('pay');
         toast('Payment cancelled in your wallet.');
       } else {
-        // The raw provider/RPC message can embed endpoints; keep only the stage.
         recordWalletStage('payment_flow_failed');
         setResult({ ok: false, message: msg });
         setStep('result');
       }
     }
   };
+
 
   /** Re-run backend verification for a hash that is still gathering confirmations. */
   const recheckVerification = async (hash: string) => {

@@ -98,6 +98,119 @@ def _run_transaction(db, txn_fn):
     if callable(commit):
         commit()
     return result
+
+# ----------------------------------------------------------------------------
+# Purchase payment state machine (server-side, transactional)
+# ----------------------------------------------------------------------------
+
+PURCHASE_PAYMENT_STATES = {
+    "awaiting_payment", "submission_uncertain", "transaction_submitted",
+    "confirming", "manual_review", "activated", "abandoned_no_broadcast",
+    "superseded", "failed",
+}
+
+
+def purchase_transition_decision(purchase, uid, action, *, tx_hash=None,
+                                 sender_wallet=None):
+    """Pure transition guard shared by every client submission/recovery route.
+
+    A submitted transaction hash is immutable. Once present, an intent can
+    never be marked uncertain or closed as a no-broadcast. Activation and
+    manual review are terminal from the user's point of view; retry requests
+    may observe them but cannot overwrite them.
+    """
+    purchase = purchase or {}
+    if purchase.get("userId") != uid:
+        return {"ok": False, "error": "FORBIDDEN"}
+    status = str(purchase.get("status") or "")
+    existing_hash = str(purchase.get("transactionHash") or purchase.get("txHash") or "").strip().lower()
+    bound_wallet = str(purchase.get("paymentWallet") or "").strip().lower()
+    sender = str(sender_wallet or "").strip().lower()
+    requested_hash = str(tx_hash or "").strip().lower()
+
+    if action == "mark_uncertain":
+        if status == "activated":
+            return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
+        if existing_hash:
+            return {"ok": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                    "transactionHash": existing_hash, "status": status}
+        if status == "submission_uncertain":
+            return {"ok": True, "idempotent": True, "status": status, "updates": None}
+        if status != "awaiting_payment":
+            return {"ok": False, "error": "PURCHASE_NOT_RECOVERABLE"}
+        return {"ok": True, "status": "submission_uncertain", "updates": {
+            "status": "submission_uncertain",
+            "submissionUncertainAt": None,
+            "statusMessage": "Wallet submission outcome is unknown. Do not send another payment until reconciled.",
+        }}
+
+    if action == "report_submission":
+        if status == "activated":
+            return {"ok": True, "idempotent": True, "status": status,
+                    "transactionHash": existing_hash}
+        if sender and bound_wallet and sender != bound_wallet:
+            return {"ok": False, "error": "WALLET_MISMATCH"}
+        if existing_hash and existing_hash != requested_hash:
+            return {"ok": False, "error": "SUBMISSION_HASH_CONFLICT"}
+        if existing_hash == requested_hash and existing_hash:
+            # Never regress confirming/manual_review or duplicate notifications.
+            return {"ok": True, "idempotent": True, "status": status,
+                    "transactionHash": existing_hash, "updates": None}
+        if status not in ("awaiting_payment", "submission_uncertain"):
+            return {"ok": False, "error": "PURCHASE_NOT_RECOVERABLE"}
+        return {"ok": True, "status": "transaction_submitted",
+                "transactionHash": requested_hash, "updates": {
+                    "transactionHash": requested_hash,
+                    "status": "transaction_submitted",
+                    "submissionReportedAt": None,
+                    "statusMessage": "Transaction hash recorded. Waiting for on-chain verification.",
+                }}
+
+    if action == "resolve_no_broadcast":
+        if status != "submission_uncertain":
+            return {"ok": False, "error": "PURCHASE_NOT_UNCERTAIN"}
+        if existing_hash:
+            return {"ok": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                    "transactionHash": existing_hash}
+        return {"ok": True, "status": "abandoned_no_broadcast", "updates": {
+            "status": "abandoned_no_broadcast",
+            "noBroadcastConfirmedAt": None,
+            "noBroadcastConfirmedBy": uid,
+            "statusMessage": "User confirmed no transaction was broadcast. This intent is closed.",
+        }}
+
+    return {"ok": False, "error": "INVALID_PURCHASE_TRANSITION"}
+
+
+def transition_purchase_state(db, purchase_id, uid, action, *,
+                              tx_hash=None, sender_wallet=None, updated_at=None):
+    """Apply a guarded purchase transition using a Firestore transaction."""
+    ref = db.collection("psemine_purchases").document(purchase_id)
+
+    def _transition(txn):
+        snap = txn.get(ref)
+        if not snap.exists:
+            return {"ok": False, "error": "PURCHASE_NOT_FOUND"}
+        purchase = snap.to_dict() or {}
+        decision = purchase_transition_decision(
+            purchase, uid, action, tx_hash=tx_hash, sender_wallet=sender_wallet,
+        )
+        updates = decision.get("updates")
+        if decision.get("ok") and updates:
+            # Firestore server timestamps are injected by the API caller. The
+            # helper remains SDK-independent and directly testable.
+            if updated_at is not None:
+                updates["updatedAt"] = updated_at
+            for key in ("submissionUncertainAt", "submissionReportedAt",
+                        "noBroadcastConfirmedAt"):
+                if key in updates and updated_at is not None:
+                    updates[key] = updated_at
+            txn.update(ref, updates)
+        return decision
+
+    return _run_transaction(db, _transition)
+
+
 # ----------------------------------------------------------------------------
 # Lifecycle (cron) authorization
 # ----------------------------------------------------------------------------

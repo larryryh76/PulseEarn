@@ -628,6 +628,8 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
             self.assertTrue(second["ok"])
             self.assertTrue(second.get("idempotent"))
             self.assertEqual("attached", second["status"])
+            audit_rows = db.collection("admin_audit_logs").get()
+            self.assertEqual(1, len(audit_rows), "idempotent retries must not duplicate audit entries")
         finally:
             psemine_engine.firestore_server_ts = original_ts
 

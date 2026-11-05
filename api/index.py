@@ -9737,63 +9737,57 @@ def mine_create_purchase():
     response_payload['createdAt'] = now_dt.isoformat()
     return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
 
+
 @app.route('/api/mine/purchases/mark-uncertain', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_mark_purchase_uncertain():
-    """Persist an ambiguous wallet broadcast on the server so every device is locked."""
+    """Atomically persist an ambiguous wallet broadcast across all devices."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
     if not purchase_id:
         return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    status = purchase.get('status')
-    if status == 'activated':
-        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED"}), 409
-    if purchase.get('transactionHash') or purchase.get('txHash'):
-        # Once a hash is known, uncertainty cannot replace the submitted state.
-        # Preserve the hash and route the user to verification of that same tx.
-        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
-                        "message": "A transaction hash is already recorded. Verify that same transaction; do not mark it as an unknown submission or pay again.",
-                        "transactionHash": purchase.get('transactionHash') or purchase.get('txHash'),
-                        "status": status}), 409
-    if status not in ('awaiting_payment', 'submission_uncertain'):
-        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE",
-                        "message": "Only an awaiting or already-uncertain purchase without a recorded hash can be marked uncertain."}), 409
-    if status == 'submission_uncertain':
-        return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
-    ref.update({
-        'status': 'submission_uncertain',
-        'submissionUncertainAt': firestore.SERVER_TIMESTAMP,
-        'statusMessage': 'Wallet submission outcome is unknown. Do not send another payment until reconciled.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    mine_notify(uid,
-        notif_id=f"notif_purchase_uncertain_{purchase_id}",
-        type='purchase',
-        title='Payment needs your attention',
-        message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
-        related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "mark_uncertain",
+        updated_at=firestore.SERVER_TIMESTAMP,
     )
-    return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        if error == "TRANSACTION_HASH_ALREADY_RECORDED":
+            return jsonify({"success": False, "error": error,
+                            "message": "A transaction hash is already recorded. Verify that same transaction; do not pay again.",
+                            "transactionHash": result.get("transactionHash"),
+                            "status": result.get("status")}), status_code
+        return jsonify({"success": False, "error": error,
+                        "message": "This purchase can no longer be marked as an unknown wallet submission."}), status_code
+
+    if not result.get("idempotent"):
+        purchase = db.collection('psemine_purchases').document(purchase_id).get().to_dict() or {}
+        mine_notify(uid,
+            notif_id=f"notif_purchase_uncertain_{purchase_id}",
+            type='purchase',
+            title='Payment needs your attention',
+            message='The wallet submission result is uncertain. Do not send another payment. Check your wallet activity and use the purchase recovery flow.',
+            related={'source': 'mine_mark_purchase_uncertain', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'status': 'submission_uncertain'},
+        )
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": result.get("status")})
 
 
 @app.route('/api/mine/purchases/report-submission', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_report_purchase_submission():
-    """Persist a returned transaction hash before attempting chain verification."""
+    """Atomically persist one immutable transaction hash before verification."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
@@ -9803,84 +9797,67 @@ def mine_report_purchase_submission():
     if not purchase_id or not _re.fullmatch(r'0x[0-9a-f]{64}', tx_hash):
         return jsonify({"success": False, "error": "INVALID_SUBMISSION",
                         "message": "A purchase ID and valid transaction hash are required."}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    if purchase.get('status') == 'activated':
-        return jsonify({"success": True, "purchaseId": purchase_id, "status": "activated",
-                        "transactionHash": purchase.get('transactionHash')})
-    bound = str(purchase.get('paymentWallet') or '').lower()
-    if sender and bound and sender != bound:
-        return jsonify({"success": False, "error": "WALLET_MISMATCH",
-                        "message": "The sending wallet does not match the wallet bound to this purchase."}), 409
-    existing_hash = str(purchase.get('transactionHash') or '').lower()
-    if existing_hash and existing_hash != tx_hash:
-        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
-                        "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
-    # Idempotent duplicate report: preserve a later verification state. A retry
-    # of the same hash must never move confirming back to transaction_submitted
-    # or emit duplicate "submitted" notifications.
-    if existing_hash == tx_hash and purchase.get('status') in ('transaction_submitted', 'confirming'):
-        return jsonify({"success": True, "purchaseId": purchase_id,
-                        "status": purchase.get('status'), "transactionHash": tx_hash})
-    if purchase.get('status') not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
-        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE"}), 409
-    ref.update({
-        'transactionHash': tx_hash,
-        'status': 'transaction_submitted',
-        'submissionReportedAt': firestore.SERVER_TIMESTAMP,
-        'statusMessage': 'Transaction hash recorded. Waiting for on-chain verification.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    mine_notify(uid,
-        notif_id=f"notif_purchase_submitted_{purchase_id}",
-        type='purchase',
-        title='Payment submitted — verification pending',
-        message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
-        related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': 'transaction_submitted'},
+
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "report_submission",
+        tx_hash=tx_hash, sender_wallet=sender,
+        updated_at=firestore.SERVER_TIMESTAMP,
     )
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        messages = {
+            "WALLET_MISMATCH": "The sending wallet does not match the wallet bound to this purchase.",
+            "SUBMISSION_HASH_CONFLICT": "A different transaction hash is already attached to this purchase. Contact support.",
+            "PURCHASE_NOT_RECOVERABLE": "This purchase is not accepting a new transaction submission.",
+        }
+        return jsonify({"success": False, "error": error,
+                        "message": messages.get(error, "The transaction could not be attached to this purchase.")}), status_code
+
+    status = result.get("status")
+    if not result.get("idempotent") and status == "transaction_submitted":
+        purchase = db.collection('psemine_purchases').document(purchase_id).get().to_dict() or {}
+        mine_notify(uid,
+            notif_id=f"notif_purchase_submitted_{purchase_id}",
+            type='purchase',
+            title='Payment submitted — verification pending',
+            message='Your transaction hash has been recorded. PSEmine is verifying the sender, recipient, exact amount and BNB Smart Chain confirmations. Your tool is not active yet.',
+            related={'source': 'mine_report_purchase_submission', 'purchaseId': purchase_id, 'toolId': purchase.get('toolId'), 'txHash': tx_hash, 'status': status},
+        )
     return jsonify({"success": True, "purchaseId": purchase_id,
-                    "status": "transaction_submitted", "transactionHash": tx_hash})
+                    "status": status, "transactionHash": result.get("transactionHash") or tx_hash})
 
 
 @app.route('/api/mine/purchases/resolve-no-broadcast', methods=['POST'])
 @verify_token
 @require_psemine_access
 def mine_resolve_purchase_no_broadcast():
-    """Close an uncertain intent only after the user explicitly attests no tx exists."""
+    """Atomically close an uncertain intent only after explicit user attestation."""
     db = get_db()
-    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
     purchase_id = str(data.get('purchaseId') or '').strip()
-    confirmed = data.get('confirmedNoTransaction') is True
-    if not purchase_id or not confirmed:
+    if not purchase_id or data.get('confirmedNoTransaction') is not True:
         return jsonify({"success": False, "error": "EXPLICIT_CONFIRMATION_REQUIRED"}), 400
-    ref = db.collection('psemine_purchases').document(purchase_id)
-    snap = ref.get()
-    if not snap.exists:
-        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
-    purchase = snap.to_dict() or {}
-    if purchase.get('userId') != uid:
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    if purchase.get('status') != 'submission_uncertain':
-        return jsonify({"success": False, "error": "PURCHASE_NOT_UNCERTAIN"}), 409
-    if purchase.get('transactionHash'):
-        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
-                        "message": "A transaction hash is attached. Reconcile that transaction instead of closing this intent."}), 409
-    ref.update({
-        'status': 'abandoned_no_broadcast',
-        'noBroadcastConfirmedAt': firestore.SERVER_TIMESTAMP,
-        'noBroadcastConfirmedBy': uid,
-        'statusMessage': 'User confirmed no transaction was broadcast. This intent is closed.',
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
-    return jsonify({"success": True, "purchaseId": purchase_id, "status": "abandoned_no_broadcast"})
 
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "resolve_no_broadcast",
+        updated_at=firestore.SERVER_TIMESTAMP,
+    )
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        if error == "TRANSACTION_HASH_ALREADY_RECORDED":
+            return jsonify({"success": False, "error": error,
+                            "message": "A transaction hash is attached. Reconcile that transaction instead of closing this intent.",
+                            "transactionHash": result.get("transactionHash")}), status_code
+        return jsonify({"success": False, "error": error,
+                        "message": "Only an uncertain purchase without a transaction hash can be closed this way."}), status_code
+    return jsonify({"success": True, "purchaseId": purchase_id, "status": result.get("status")})
 
 @app.route('/api/mine/wallet', methods=['POST'])
 @verify_token

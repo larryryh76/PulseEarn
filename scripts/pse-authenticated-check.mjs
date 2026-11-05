@@ -443,15 +443,16 @@ async function main() {
   }
   try {
     await authPage.goto(`${base}/mine/tools`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    const buy = authPage.getByRole('button', { name: /buy this tool/i }).first();
+    const buy = authPage.getByRole('button', { name: /view details|buy this tool/i }).first();
     await buy.waitFor({ state: 'visible', timeout: 12_000 });
     if (await buy.isEnabled()) {
       await buy.click();
       const dialog = authPage.locator('.pse-purchase-dialog');
       await dialog.waitFor({ state: 'visible', timeout: 20_000 });
+      if (!BASE_URL) await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 8_000 });
       overlays.quote.opened = true;
       overlays.quote.text = (await dialog.innerText()).slice(0, 2600);
-      overlays.quote.screenshot = 'purchase-quote-390.png';
+      overlays.quote.screenshot = 'tool-details-390.png';
       await authPage.screenshot({ path: path.join(OUT, overlays.quote.screenshot), fullPage: false, animations: 'disabled' });
       overlays.quote.paymentStarted = false;
       const close = dialog.getByRole('button', { name: /^Close$/i }).first();

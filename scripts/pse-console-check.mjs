@@ -281,6 +281,62 @@ for (const pagePath of PAGES) {
          is open, and it is where the full hash and address live — exactly the
          strings that used to widen a phone layout. */
       let detailResult = null;
+      let toolDetailInteraction = null;
+      let walletLabQuoteInteraction = null;
+      const interactionProblems = [];
+
+      // Exercise the redesigned tool-details and quote stages in the isolated
+      // local UI harness. The fixture quote is explicitly test data; no wallet
+      // provider is called, no purchase intent is bound and no BNB is sent.
+      if (pagePath === '/mine/tools' && scenario === 'full' && (width === 390 || width === 1440)) {
+        try {
+          const openDetails = page.getByRole('button', { name: /view details/i }).first();
+          await openDetails.waitFor({ state: 'visible', timeout: 5_000 });
+          if (!await openDetails.isEnabled()) throw new Error('View details action is disabled in the full fixture.');
+          await openDetails.click();
+          const dialog = page.locator('.pse-purchase-dialog');
+          await dialog.waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 5_000 });
+          const quoteCta = dialog.getByRole('button', { name: /review live quote|connect wallet & continue/i }).first();
+          if (!await quoteCta.isEnabled()) throw new Error('The details modal did not enable its quote step after the fixture quote loaded.');
+          await quoteCta.click();
+          await dialog.waitFor({ state: 'visible', timeout: 5_000 });
+          const quoteText = await dialog.innerText();
+          const metrics = await dialog.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+          });
+          toolDetailInteraction = { opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText), paymentStarted: false, metrics };
+          if (!toolDetailInteraction.quoteVisible) throw new Error('Quote stage did not show its BNB quote inside the modal.');
+          if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) throw new Error('Tool details/quote modal exceeds its viewport or clips horizontally.');
+          await dialog.getByRole('button', { name: /^Close$/i }).first().click();
+        } catch (error) {
+          interactionProblems.push('tool details / in-modal quote: ' + String(error).slice(0, 180));
+        }
+      }
+
+      if (pagePath === '/mine/wallet' && scenario === 'full' && width === 390) {
+        try {
+          await page.getByRole('button', { name: 'Wallet Lab', exact: true }).click();
+          const quoteTest = page.getByRole('button', { name: 'Test Starter Miner', exact: true });
+          await quoteTest.waitFor({ state: 'visible', timeout: 5_000 });
+          await quoteTest.click();
+          const quoteResult = page.locator('.pse-wallet-lab-quote-result');
+          await quoteResult.waitFor({ state: 'visible', timeout: 8_000 });
+          await quoteResult.getByText('Server quote created', { exact: true }).waitFor({ state: 'visible', timeout: 5_000 });
+          const quoteText = await quoteResult.innerText();
+          walletLabQuoteInteraction = {
+            opened: true,
+            quoteValid: /server quote created/i.test(quoteText) && /BNB/.test(quoteText) && /chain 56/i.test(quoteText) && /receiver/i.test(quoteText) && /expir/i.test(quoteText),
+            paymentStarted: false,
+            text: quoteText.slice(0, 800),
+          };
+          if (!walletLabQuoteInteraction.quoteValid) throw new Error('Wallet Lab quote response missing required BNB fields: ' + quoteText.slice(0, 1200));
+        } catch (error) {
+          interactionProblems.push('Wallet Lab quote-only test: ' + String(error).slice(0, 180));
+        }
+      }
+
       if (pagePath === '/mine/wallet' && (scenario === 'full' || scenario === 'settled')) {
         const rows = page.locator('.pse-w-txrow');
         const count = await rows.count();
@@ -288,7 +344,7 @@ for (const pagePath of PAGES) {
         detailResult = await page.evaluate(AUDIT);
       }
 
-      const problems = [];
+      const problems = [...interactionProblems];
       if (result.overflowX > 0) problems.push(`horizontal overflow ${result.overflowX}px`);
       if (result.wide.length) problems.push(`${result.wide.length} element(s) outside viewport`);
       if (result.clipped.length) problems.push(`${result.clipped.length} clipped text node(s)`);
@@ -310,7 +366,7 @@ for (const pagePath of PAGES) {
         }
       }
 
-      const row = { page: pagePath, scenario, width, ...result, details: detailResult, problems };
+      const row = { page: pagePath, scenario, width, ...result, details: detailResult, toolDetailInteraction, walletLabQuoteInteraction, problems };
       rows.push(row);
       if (problems.length) failures.push(row);
 

@@ -2,10 +2,11 @@ import '../../styles/psemine-wallet.css';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
+import { LOCKED_PSEMINE_TOOLS, type PSEMineQuote, type PSEToolTierId } from '../../types/psemine';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { requestPayout, type PseWithdrawal } from '../../engines/psemine/pseMineApi';
 import {
-  campaignStatusView, copyText, fmtDateTime, gbp, payoutStatusView, shortAddr, shortHash,
+  bnbExactFromWei, campaignStatusView, copyText, fmtDateTime, gbp, payoutStatusView, shortAddr, shortHash,
 } from '../../components/psemine/pseCore';
 import {
   PseButton, PseEmptyNote, PseErrorNotice, PseFeedNotice, PseField, PseInput, PseNotice,
@@ -79,17 +80,42 @@ function payoutAmount(w: PseWithdrawal): number | null {
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export const PSEMineWallet: React.FC = () => {
-  const { pseUser, campaign, updatePayoutWallet, connectedWallet, walletTransport, walletChainId, walletName, injectedWallets, walletConnectAvailable, walletRecoveryState, walletCorrelationId, refreshWalletChain, connectWallet, disconnectWallet, isConnectingWallet } = usePSEMine();
+  const { pseUser, campaign, updatePayoutWallet, connectedWallet, walletTransport, walletChainId, walletName, injectedWallets, walletConnectAvailable, walletRecoveryState, walletCorrelationId, refreshWalletChain, connectWallet, disconnectWallet, isConnectingWallet, requestQuote, clearQuote } = usePSEMine();
 
   const {
     state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed,
   } = usePseState();
   const availableStr = useAvailableGBP();
 
+  const runQuoteProbe = async (toolId: PSEToolTierId) => {
+    setQuoteProbeBusy(true);
+    setQuoteProbeError(null);
+    setQuoteProbe(null);
+    try {
+      // Quote-only diagnostic: inspect a server quote, then clear the shared quote.
+      // Never bind an intent, sign a transaction or submit BNB from this test.
+      const result = await requestQuote(toolId);
+      clearQuote();
+      if (!result) {
+        setQuoteProbeError('The backend did not return a valid quote. Check campaign availability and receiver-wallet configuration.');
+        return;
+      }
+      setQuoteProbe(result);
+    } catch (error) {
+      clearQuote();
+      setQuoteProbeError(error instanceof Error ? error.message : 'Quote diagnostic failed.');
+    } finally {
+      setQuoteProbeBusy(false);
+    }
+  };
+
   const [payoutInput, setPayoutInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [walletTab, setWalletTab] = useState<'overview' | 'activity' | 'manage' | 'lab'>('overview');
   const [checkingWallet, setCheckingWallet] = useState(false);
+  const [quoteProbe, setQuoteProbe] = useState<PSEMineQuote | null>(null);
+  const [quoteProbeBusy, setQuoteProbeBusy] = useState(false);
+  const [quoteProbeError, setQuoteProbeError] = useState<string | null>(null);
 
   // Mirror the backend gate exactly: create_payout_request blocks while the
   // effective campaign status is active/paused. Everything else (minimum £10,
@@ -244,7 +270,7 @@ export const PSEMineWallet: React.FC = () => {
         </section>
       )}
 
-      {/* Hosted checkout does not require a browser wallet connection. */}
+      {/* These actions manage payouts. Tool purchases use the separate direct-BNB wallet flow. */}
       <div className="pse-w-actions" aria-label="Wallet actions">
         <button type="button" className="pse-w-action pse-w-action--primary" onClick={() => {
             setWalletTab('overview');
@@ -264,6 +290,16 @@ export const PSEMineWallet: React.FC = () => {
           <span className="pse-w-action-label">History</span>
         </button>
       </div>
+      <section className="pse-wallet-purchase-note" aria-label="Tool purchase wallet information">
+        <div>
+          <strong>Tool purchases use direct BNB</strong>
+          <p>Connect with Reown/WalletConnect on the Tools page, review the exact server-quoted amount and campaign receiver, then approve native BNB on BNB Smart Chain. Your payout address is separate and is never used as the purchase receiver.</p>
+        </div>
+        <div className="pse-wallet-purchase-actions">
+          <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Browse tools</Link>
+          <button type="button" className="pse-btn pse-btn--ghost pse-btn--sm" onClick={() => setWalletTab('lab')}>Open Wallet Lab</button>
+        </div>
+      </section>
 
       <nav className="pse-wallet-tabs" aria-label="Wallet sections">
         <button type="button" className={walletTab === 'overview' ? 'is-active' : ''} aria-current={walletTab === 'overview' ? 'page' : undefined} onClick={() => setWalletTab('overview')}>Overview</button>
@@ -463,6 +499,45 @@ export const PSEMineWallet: React.FC = () => {
               {walletCorrelationId && <p className="pse-wallet-lab-correlation">Support reference: <code>{walletCorrelationId}</code></p>}
             </PseSection>
           </div>
+          <section className="pse-wallet-lab-safety" aria-labelledby="pse-wallet-lab-quote-title">
+            <h3 id="pse-wallet-lab-quote-title">Quote-only backend test</h3>
+            <p><strong>SAFE TEST · NO WALLET SIGNATURE · NO BNB TRANSFER.</strong> Select a tier to request a fresh quote from the authenticated backend. The test inspects its tool, exact BNB amount, receiving wallet, network and expiry, then clears the shared quote. It does not create a purchase intent or activate a tool.</p>
+            <div className="pse-wallet-lab-actions">
+              {Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder).map(tool => (
+                <PseButton key={tool.id} size="sm" variant="secondary" onClick={() => void runQuoteProbe(tool.id)} disabled={quoteProbeBusy}>
+                  {quoteProbeBusy ? 'Testing…' : 'Test ' + tool.name}
+                </PseButton>
+              ))}
+            </div>
+            {quoteProbeError && <PseNotice tone="attention">{quoteProbeError}</PseNotice>}
+            {quoteProbe && (
+              <div className="pse-wallet-lab-quote-result" role="status" aria-live="polite">
+                <div className="pse-wallet-lab-quote-result-head">
+                  <strong>Server quote created</strong>
+                  <PseStatus tone="good">Valid response</PseStatus>
+                </div>
+                <dl>
+                  <div><dt>Tool</dt><dd>{LOCKED_PSEMINE_TOOLS[quoteProbe.toolId].name}</dd></div>
+                  <div><dt>Exact amount</dt><dd>{bnbExactFromWei(quoteProbe.bnbAmountWei, quoteProbe.bnbAmount)} BNB</dd></div>
+                  <div><dt>Network</dt><dd>{quoteProbe.network} · chain {quoteProbe.chainId}</dd></div>
+                  <div><dt>Campaign receiver</dt><dd>{shortAddr(quoteProbe.receiverWallet)}</dd></div>
+                  <div><dt>Quote expires</dt><dd>{fmtDateTime(quoteProbe.expiresAt)}</dd></div>
+                </dl>
+              </div>
+            )}
+          </section>
+          <section className="pse-wallet-lab-safety" aria-labelledby="pse-wallet-lab-safety-title">
+            <h3 id="pse-wallet-lab-safety-title">Safe transaction testing</h3>
+            <p>This lab is connection-only. It does not broadcast BNB, sign a payment, activate a tool, or change your balance.</p>
+            <ul>
+              <li>Connection and network checks are read-only wallet diagnostics.</li>
+              <li>Requesting a quote from a tool details flow asks the backend for a time-limited price; it does not create an on-chain transfer.</li>
+              <li>A payment intent is bound to your authenticated account, quote, payer, receiver, exact wei amount and BNB Smart Chain.</li>
+              <li>Only the backend can verify the transaction and activate ownership. A wallet callback or local status is never enough.</li>
+              <li>If submission is uncertain or awaiting confirmation, resume the same purchase and never broadcast a second transfer.</li>
+            </ul>
+            <Link to="/mine/tools" className="pse-btn pse-btn--secondary pse-btn--sm">Open tool details &amp; quote flow</Link>
+          </section>
           <PseNotice tone="attention">A connected wallet is not proof of payment. Every purchase still requires a fresh server quote, explicit wallet approval, and independent on-chain verification.</PseNotice>
         </div>
       )}

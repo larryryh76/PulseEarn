@@ -29,6 +29,9 @@ const campaign = {
   referralEnabled: true,
   paymentNetwork: 'BNB Smart Chain',
   receiverWalletAddress: PAYOUT,
+  receiverWalletConfigured: true,
+  receiverWalletConfiguredAt: new Date(now - 90 * day).toISOString(),
+  receiverWalletConfiguredBy: 'qa-fixture-admin',
 };
 
 const tools = [

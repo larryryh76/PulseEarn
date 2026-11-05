@@ -1824,6 +1824,8 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         if action == "attach_to_purchase":
             if not purchase_id:
                 return {"ok": False, "error": "PURCHASE_ID_REQUIRED"}
+            if current_status == "attached" and recovery.get("attachedPurchaseId") == purchase_id:
+                return {"ok": True, "status": "attached", "idempotent": True}
             if current_status not in ("open", "reviewed"):
                 return {"ok": False, "error": "RECOVERY_NOT_ATTACHABLE"}
             if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
@@ -1862,6 +1864,8 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
             return {"ok": True, "status": "attached"}
 
         if action == "mark_reviewed":
+            if current_status == "reviewed":
+                return {"ok": True, "status": "reviewed", "idempotent": True}
             if current_status != "open":
                 return {"ok": False, "error": "RECOVERY_NOT_OPEN"}
             txn.update(recovery_ref, {
@@ -1875,6 +1879,8 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         # Rejecting a recovery that already names a purchase/hash would discard
         # the only operational pointer while leaving the user's purchase locked.
         # Keep those money cases available for attachment/re-verification.
+        if current_status == "rejected":
+            return {"ok": True, "status": "rejected", "idempotent": True}
         if current_status not in ("open", "reviewed"):
             return {"ok": False, "error": "RECOVERY_NOT_REJECTABLE"}
         if recovery.get("purchaseId") or recovery.get("attachedPurchaseId") or recovery.get("txHash") or recovery.get("transactionHash"):

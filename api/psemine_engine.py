@@ -152,8 +152,10 @@ def purchase_transition_decision(purchase, uid, action, *, tx_hash=None,
             return {"ok": False, "error": "WALLET_MISMATCH"}
         if existing_hash and existing_hash != requested_hash:
             return {"ok": False, "error": "SUBMISSION_HASH_CONFLICT"}
-        if existing_hash == requested_hash and existing_hash:
-            # Never regress confirming/manual_review or duplicate notifications.
+        if existing_hash == requested_hash and existing_hash and status in (
+            "transaction_submitted", "confirming", "manual_review"
+        ):
+            # Never regress a later state or duplicate notifications.
             return {"ok": True, "idempotent": True, "status": status,
                     "transactionHash": existing_hash, "updates": None}
         if status not in ("awaiting_payment", "submission_uncertain"):

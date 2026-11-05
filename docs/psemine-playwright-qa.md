@@ -21,8 +21,11 @@ committed, printed, added to screenshots, or written to the report.
 
 Open **Actions → PSEmine authenticated Playwright QA → Run workflow**.
 
-The workflow signs in through the real PSEmine login form on
-`https://www.pulseearn.online`, then checks these authenticated routes:
+The workflow builds the PR branch locally, serves that exact frontend build to Playwright,
+and proxies only `/api/*` requests to `https://www.pulseearn.online`. This tests the
+proposed frontend against the real authenticated backend without relying on the
+currently deployed production UI. Firebase authentication remains real. It then
+checks these authenticated routes:
 
 - `/mine/dashboard`
 - `/mine/tools`

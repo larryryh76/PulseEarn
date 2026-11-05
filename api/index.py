@@ -8278,8 +8278,9 @@ def verify_psemine_tool_purchase():
     if not purchase_id:
         return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
 
-    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
-        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH", "message": "Transaction hash must be a 66-character hex string starting with 0x."}), 400
+    import re as _tx_re
+    if not _tx_re.fullmatch(r'0x[0-9a-f]{64}', tx_hash):
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH", "message": "Transaction hash must be exactly 32 bytes of hexadecimal data with a 0x prefix."}), 400
 
     # 1. Fetch purchase intent
     purchase_ref = db.collection('psemine_purchases').document(purchase_id)

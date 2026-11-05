@@ -473,13 +473,19 @@ async function main() {
     const quoteResult = authPage.locator('.pse-wallet-lab-quote-result');
     await quoteResult.waitFor({ state: 'visible', timeout: 20_000 });
     overlays.walletLabQuote.opened = true;
-    overlays.walletLabQuote.validQuote = await quoteResult.getByText('Server quote created').isVisible();
-    overlays.walletLabQuote.text = (await quoteResult.innerText()).slice(0, 1400);
+    const quoteText = await quoteResult.innerText();
+    overlays.walletLabQuote.validQuote = quoteText.includes('Server quote created')
+      && /BNB/.test(quoteText) && /chain 56/i.test(quoteText)
+      && quoteText.includes('Campaign receiver') && quoteText.includes('Quote expires');
+    overlays.walletLabQuote.text = quoteText.slice(0, 1400);
     overlays.walletLabQuote.screenshot = 'wallet-lab-quote-390.png';
     overlays.walletLabQuote.paymentStarted = false;
     await authPage.screenshot({ path: path.join(OUT, overlays.walletLabQuote.screenshot), fullPage: false, animations: 'disabled' });
   } catch (e) {
     overlays.walletLabQuote.error = String(e).slice(0, 220);
+  }
+  if (!overlays.walletLabQuote.validQuote || overlays.walletLabQuote.paymentStarted) {
+    throw new Error('Wallet Lab quote-only diagnostic did not return a valid BNB Smart Chain quote without starting payment.');
   }
   fs.writeFileSync(path.join(OUT, 'overlay-interactions.json'), JSON.stringify(overlays, null, 2));
 

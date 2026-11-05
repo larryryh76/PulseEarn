@@ -9759,9 +9759,18 @@ def mine_mark_purchase_uncertain():
     status = purchase.get('status')
     if status == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED"}), 409
-    if status not in ('awaiting_payment', 'transaction_submitted', 'confirming', 'submission_uncertain'):
+    if purchase.get('transactionHash') or purchase.get('txHash'):
+        # Once a hash is known, uncertainty cannot replace the submitted state.
+        # Preserve the hash and route the user to verification of that same tx.
+        return jsonify({"success": False, "error": "TRANSACTION_HASH_ALREADY_RECORDED",
+                        "message": "A transaction hash is already recorded. Verify that same transaction; do not mark it as an unknown submission or pay again.",
+                        "transactionHash": purchase.get('transactionHash') or purchase.get('txHash'),
+                        "status": status}), 409
+    if status not in ('awaiting_payment', 'submission_uncertain'):
         return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE",
-                        "message": "This purchase cannot be marked as an uncertain wallet submission."}), 409
+                        "message": "Only an awaiting or already-uncertain purchase without a recorded hash can be marked uncertain."}), 409
+    if status == 'submission_uncertain':
+        return jsonify({"success": True, "purchaseId": purchase_id, "status": "submission_uncertain"})
     ref.update({
         'status': 'submission_uncertain',
         'submissionUncertainAt': firestore.SERVER_TIMESTAMP,

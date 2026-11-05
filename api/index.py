@@ -7765,6 +7765,8 @@ def admin_psemine_overview():
         "receiverWalletConfiguredAt": campaign_config.get("receiverWalletConfiguredAt"),
         "receiverWalletConfiguredBy": bool(campaign_config.get("receiverWalletConfiguredBy")),
         "purchaseReady": bool(configured_receiver),
+        "purchaseEnabled": campaign_config.get("purchaseEnabled") is True,
+        "purchaseEnabledUpdatedAt": campaign_config.get("purchaseEnabledUpdatedAt"),
         "paymentChainId": campaign_config.get("paymentChainId", PSEMINE_BSC_CHAIN_ID),
         # Return the effective backend permissions so the console never guesses
         # whether a cached client profile can perform a protected operation.

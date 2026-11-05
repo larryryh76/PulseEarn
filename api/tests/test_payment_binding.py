@@ -415,3 +415,132 @@ class TestUncertainRecoveryPreservesKnownHash(unittest.TestCase):
             handler.index("ref.update({"),
             "known hash must be checked before uncertainty status is written",
         )
+
+
+class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
+    """All user submission/recovery mutations are monotonic and transactional."""
+
+    TX_A = "0x" + "ab" * 32
+    TX_B = "0x" + "cd" * 32
+
+    def _db(self, status="awaiting_payment", tx_hash=None):
+        db = tpc.FakeDB()
+        db.collection("psemine_purchases").document("purchase1").set({
+            "id": "purchase1",
+            "userId": "user1",
+            "toolId": "starter",
+            "status": status,
+            "paymentWallet": WALLET_A,
+            "transactionHash": tx_hash,
+        })
+        return db
+
+    def _transition(self, db, action, **kwargs):
+        return psemine_engine.transition_purchase_state(
+            db, "purchase1", "user1", action,
+            updated_at="server-time", **kwargs,
+        )
+
+    def test_uncertain_to_hash_submission_advances_monotonically(self):
+        db = self._db()
+        uncertain = self._transition(db, "mark_uncertain")
+        self.assertTrue(uncertain["ok"])
+        self.assertEqual("submission_uncertain", uncertain["status"])
+        submitted = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(submitted["ok"])
+        self.assertEqual("transaction_submitted", submitted["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+        self.assertEqual("transaction_submitted", purchase["status"])
+
+    def test_known_hash_cannot_be_downgraded_to_uncertain_or_closed(self):
+        db = self._db("transaction_submitted", self.TX_A)
+        uncertain = self._transition(db, "mark_uncertain")
+        self.assertFalse(uncertain["ok"])
+        self.assertEqual("TRANSACTION_HASH_ALREADY_RECORDED", uncertain["error"])
+        closed = self._transition(db, "resolve_no_broadcast")
+        self.assertFalse(closed["ok"])
+        self.assertEqual("TRANSACTION_HASH_ALREADY_RECORDED", closed["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("transaction_submitted", purchase["status"])
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+
+    def test_conflicting_hash_is_rejected_without_overwriting_original(self):
+        db = self._db("transaction_submitted", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_B, sender_wallet=WALLET_A,
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("SUBMISSION_HASH_CONFLICT", result["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+
+    def test_duplicate_hash_is_idempotent_and_preserves_confirming(self):
+        db = self._db("confirming", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["idempotent"])
+        self.assertEqual("confirming", result["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("confirming", purchase["status"])
+
+    def test_manual_review_is_not_regressed_by_duplicate_hash_report(self):
+        db = self._db("manual_review", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual("manual_review", result["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("manual_review", purchase["status"])
+
+    def test_wrong_owner_cannot_transition_purchase(self):
+        db = self._db()
+        result = psemine_engine.transition_purchase_state(
+            db, "purchase1", "user2", "mark_uncertain",
+            updated_at="server-time",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("FORBIDDEN", result["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("awaiting_payment", purchase["status"])
+
+    def test_no_broadcast_requires_uncertain_state_and_no_hash(self):
+        db = self._db()
+        refused = self._transition(db, "resolve_no_broadcast")
+        self.assertFalse(refused["ok"])
+        self.assertEqual("PURCHASE_NOT_UNCERTAIN", refused["error"])
+        self._transition(db, "mark_uncertain")
+        closed = self._transition(db, "resolve_no_broadcast")
+        self.assertTrue(closed["ok"])
+        self.assertEqual("abandoned_no_broadcast", closed["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("abandoned_no_broadcast", purchase["status"])
+
+    def test_verifier_requires_persisted_hash_and_rechecks_state_inside_activation_txn(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "verify_psemine_tool_purchase")
+        self.assertIn("persisted_hash != tx_hash", handler)
+        self.assertIn("TRANSACTION_SUBMISSION_REQUIRED", handler)
+        self.assertIn("p_curr_data.get('transactionHash')", handler)
+        self.assertIn("p_curr_data.get('status') not in allowed_activation_states", handler)
+        self.assertIn("transaction_submitted", handler)
+        self.assertIn("manual_review", handler)
+
+    def test_submission_and_recovery_handlers_delegate_to_transactional_guard(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        for handler_name, action in (
+            ("mine_mark_purchase_uncertain", '"mark_uncertain"'),
+            ("mine_report_purchase_submission", '"report_submission"'),
+            ("mine_resolve_purchase_no_broadcast", '"resolve_no_broadcast"'),
+        ):
+            handler = tfg._handler_body(source, handler_name)
+            self.assertIn("transition_purchase_state", handler)
+            self.assertIn(action, handler)
+            self.assertNotIn("ref.update({", handler)
+
+

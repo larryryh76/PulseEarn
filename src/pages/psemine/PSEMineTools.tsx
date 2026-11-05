@@ -553,8 +553,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const [uncertainRecovery, setUncertainRecovery] = useState(() => {
     if (!pending) return false;
     try {
-      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
-      return Boolean(saved?.purchaseId && saved.purchaseId === pending.purchaseId);
+      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string; transactionHash?: string } | null;
+      const hasRecoverableHash = Boolean(saved?.transactionHash && /^0x[0-9a-fA-F]{64}$/.test(saved.transactionHash));
+      return Boolean(saved?.purchaseId && saved.purchaseId === pending.purchaseId && !hasRecoverableHash);
     } catch { return false; }
   });
   const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
@@ -614,12 +615,33 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // falls through to a fresh quote (the backend supersedes the dead intent and
   // keeps the old record as audit evidence).
   useEffect(() => {
-    if (!pending) return;
+    if (confirmedNoTransaction || !pending || pending.toolId !== tool.id) return;
+    // A wallet can return a real hash while the follow-up API request fails.
+    // Recover that exact hash from this account's local evidence and re-submit
+    // it to the idempotent backend endpoint before attempting verification.
     try {
-      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as { purchaseId?: string } | null;
+      const saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null') as {
+        purchaseId?: string; transactionHash?: string; payerWallet?: string;
+      } | null;
+      const savedHash = String(saved?.transactionHash || '').trim();
+      if (saved?.purchaseId === pending.purchaseId && /^0x[0-9a-fA-F]{64}$/.test(savedHash)) {
+        if (!resume || resume.kind !== 'submitted' || resume.purchase.transactionHash !== savedHash) {
+          const recoveredPurchase = {
+            ...pending,
+            transactionHash: savedHash,
+            paymentWallet: pending.paymentWallet || saved.payerWallet || '',
+          };
+          setPurchaseId(pending.purchaseId);
+          setBoundPayer(recoveredPurchase.paymentWallet || null);
+          setResume({ kind: 'submitted', purchase: recoveredPurchase });
+          setSubmissionState('CONFIRMING');
+          setStep('verifying');
+        }
+        return;
+      }
       if (saved?.purchaseId === pending.purchaseId) setUncertainRecovery(true);
-    } catch { /* malformed local marker is ignored */ }
-  }, [pending]);
+    } catch { /* malformed local marker is ignored; server state remains locked */ }
+  }, [pending, tool.id, confirmedNoTransaction, resume]);
 
   useEffect(() => {
     if (confirmedNoTransaction) return;
@@ -936,13 +958,30 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       if (!txHash) throw new Error('Transaction was not submitted.');
       recordWalletStage('payment_hash_returned');
       setSubmissionState('SUBMITTED');
+      // Persist the returned hash locally BEFORE the network report. If the
+      // browser/app handoff or API response is interrupted, this exact transfer
+      // can be attached to the same server intent after refresh — never rebroadcast.
       try {
-        await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
-      } catch {
+        localStorage.setItem('psemine_uncertain_payment', JSON.stringify({
+          purchaseId: intentId, toolId: tool.id, payerWallet: payer,
+          receiverWallet: quote.receiverWallet, quotedBNBWei: String(quote.bnbAmountWei || ''),
+          transactionHash: txHash, createdAt: new Date().toISOString(),
+        }));
+      } catch { /* the live result still retains the hash for this session */ }
+      let submissionRecorded = false;
+      for (let attempt = 0; attempt < 2 && !submissionRecorded; attempt += 1) {
+        try {
+          await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
+          submissionRecorded = true;
+        } catch {
+          if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 350));
+        }
+      }
+      if (!submissionRecorded) {
         await PSEMineEngine.markPurchaseSubmissionUncertain(intentId).catch(() => false);
         void refresh();
-        setResult({ ok: false, uncertain: true, hash: txHash, message: 'Your wallet returned a transaction hash, but PSEmine could not save it to the server. Do not send again. Keep this hash for reconciliation.' });
-        setUncertainRecovery(true);
+        setResult({ ok: false, uncertain: true, hash: txHash, message: 'Your wallet returned a transaction hash, but the server could not confirm that it saved it. The hash has been kept on this device for safe recovery. Do not send again.' });
+        setUncertainRecovery(false);
         setStep('result');
         return;
       }
@@ -1010,14 +1049,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const recheckRecovered = async () => {
     if (resume?.kind !== 'submitted') return;
     const p = resume.purchase;
-    if (!p.transactionHash) return;
+    let saved: { purchaseId?: string; transactionHash?: string; payerWallet?: string } | null = null;
+    try { saved = JSON.parse(localStorage.getItem('psemine_uncertain_payment') || 'null'); } catch { /* ignore malformed local evidence */ }
+    const txHash = p.transactionHash || (saved?.purchaseId === p.purchaseId ? saved.transactionHash : undefined);
+    const sender = p.paymentWallet || (saved?.purchaseId === p.purchaseId ? saved.payerWallet : '') || '';
+    if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return;
     setRechecking(true);
     try {
-      const res = await submitPurchaseTx(p.purchaseId, p.transactionHash, p.paymentWallet || '');
+      // Idempotently persist/reconcile the hash first. This is safe whether the
+      // original report never reached the server or committed with a lost reply.
+      await PSEMineEngine.reportPurchaseSubmission(p.purchaseId, txHash, sender);
+      const res = await submitPurchaseTx(p.purchaseId, txHash, sender);
       if (res.success) {
         setResume(null);
         setSubmissionState('VERIFIED');
-        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: p.transactionHash });
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
         setStep('result');
       } else if (res.code === 'INSUFFICIENT_CONFIRMATIONS') {
         toast('Still confirming on-chain — the backend needs more block confirmations.', { icon: '⏳' });

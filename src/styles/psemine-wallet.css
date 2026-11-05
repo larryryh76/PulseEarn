@@ -282,3 +282,18 @@
 @media(max-width:520px) { .pse-wallet-lab-quote-result dl { grid-template-columns:minmax(0,1fr); } }
 
 .pse-wallet-lab-quote-result .pse-status[data-tone="good"] { color:#a9e9f5; border-color:rgba(84,204,231,.25); background:rgba(84,204,231,.08); }
+
+
+/* Keep the wallet surface inside narrow device viewports. */
+.pse-wallet {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+.pse-wallet :is(.pse-w-balance, .pse-w-figures, .pse-w-hero, .pse-w-actions, .pse-wallet-tabs, .pse-wallet-view) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}

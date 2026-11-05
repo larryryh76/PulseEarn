@@ -977,7 +977,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           await PSEMineEngine.reportPurchaseSubmission(intentId, txHash, payer);
           submissionRecorded = true;
         } catch {
-          if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 350));
+          if (attempt === 0) await new Promise<void>(resolve => window.setTimeout(() => resolve(), 350));
         }
       }
       if (!submissionRecorded) {

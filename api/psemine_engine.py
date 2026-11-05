@@ -1897,16 +1897,16 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
     if not result.get("ok"):
         return result
     if not result.get("idempotent"):
-      try:
-        db.collection("admin_audit_logs").add({
-            "timestamp": now,
-            "adminId": admin_uid,
-            "action": f"PSEMINE_RECOVERY_{action.upper()}",
-            "targetEntity": f"psemine_payment_recovery/{recovery_id}",
-            "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
-        })
-      except Exception:
-        logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
+        try:
+            db.collection("admin_audit_logs").add({
+                "timestamp": now,
+                "adminId": admin_uid,
+                "action": f"PSEMINE_RECOVERY_{action.upper()}",
+                "targetEntity": f"psemine_payment_recovery/{recovery_id}",
+                "metadata": {"notes": notes, "purchaseId": purchase_id, "status": result.get("status")},
+            })
+        except Exception:
+            logging.warning("[PSEmine] recovery resolution audit append failed", exc_info=True)
     return result
 
 def admin_deprecate_tool(db, tool_id, admin_uid, reason=""):

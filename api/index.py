@@ -8298,6 +8298,17 @@ def verify_psemine_tool_purchase():
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
 
+    # Verification is only allowed for the exact hash atomically persisted by
+    # report-submission. This prevents a client from bypassing the submission
+    # lock and racing two different hashes through independent RPC checks.
+    persisted_hash = str(purchase.get('transactionHash') or '').strip().lower()
+    if not persisted_hash:
+        return jsonify({"success": False, "error": "TRANSACTION_SUBMISSION_REQUIRED",
+                        "message": "Record the wallet-returned transaction hash before requesting verification."}), 409
+    if persisted_hash != tx_hash:
+        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
+                        "message": "This purchase is already bound to a different transaction hash. Do not send another payment."}), 409
+
     # 1b. Campaign lifecycle gate at verification time (server clock is the authority).
     # Terminal states settle/payout/closed/archived are all economically closed,
     # not just 'ended' — activation must be impossible in every one of them.
@@ -8584,8 +8595,22 @@ def verify_psemine_tool_purchase():
                 raise Exception("TRANSACTION_ALREADY_REDEEMED")
 
             p_curr = purchase_ref.get(transaction=txn)
-            if not p_curr.exists or p_curr.to_dict().get('status') == 'activated':
+            if not p_curr.exists:
+                raise Exception("PURCHASE_NOT_FOUND")
+            p_curr_data = p_curr.to_dict() or {}
+            if p_curr_data.get('status') == 'activated':
                 raise Exception("PURCHASE_ALREADY_ACTIVATED")
+            # Recheck the immutable hash and legal state INSIDE the same
+            # transaction that creates ownership and redeems the hash. A stale
+            # verifier must never activate against a hash replaced by a racing
+            # report or overwrite a manual-review/abandoned terminal state.
+            if str(p_curr_data.get('transactionHash') or '').strip().lower() != tx_hash:
+                raise Exception("SUBMISSION_HASH_CONFLICT")
+            allowed_activation_states = ('transaction_submitted', 'confirming')
+            if recovery_authorized:
+                allowed_activation_states = allowed_activation_states + ('manual_review',)
+            if p_curr_data.get('status') not in allowed_activation_states:
+                raise Exception("PURCHASE_STATE_NOT_ACTIVATABLE")
 
             u_curr = user_ref.get(transaction=txn)
             u_dict = u_curr.to_dict() if u_curr.exists else {}

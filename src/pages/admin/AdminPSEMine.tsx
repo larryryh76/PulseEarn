@@ -217,7 +217,7 @@ export const AdminPSEMine: React.FC = () => {
     setBusy(true);
     try {
       await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_receiver_wallet', receiverWalletAddress: address, reason: 'PSEmine operations configuration' }) });
-      toast.success('Campaign receiving wallet saved. New purchase quotes can now be issued.');
+      toast.success('Campaign receiving wallet saved. Review the purchase gate before opening checkout.');
       setWalletAck(false); setWalletPhrase('');
       await load(true);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Wallet configuration failed.'); }

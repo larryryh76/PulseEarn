@@ -449,6 +449,7 @@ async function main() {
       await buy.click();
       const dialog = authPage.locator('.pse-purchase-dialog');
       await dialog.waitFor({ state: 'visible', timeout: 20_000 });
+      await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 8_000 });
       overlays.quote.opened = true;
       overlays.quote.text = (await dialog.innerText()).slice(0, 2600);
       overlays.quote.screenshot = 'tool-details-390.png';

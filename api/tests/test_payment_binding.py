@@ -571,3 +571,26 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
         self.assertIn("recovery_data.get('attachedPurchaseId') != purchase_id", handler)
         self.assertIn("recovery_data.get('txHash')", handler)
         self.assertIn("RECOVERY_CASE_NOT_ATTACHED", handler)
+
+    def test_admin_cannot_reject_recovery_with_purchase_or_hash_evidence(self):
+        db = tpc.FakeDB()
+        tx_hash = self.TX_A
+        recovery_id = psemine_engine.create_payment_recovery(
+            db, "user1", tx_hash=tx_hash, quote_id="quote1",
+            purchase_id="purchase1", reason="RPC_ERROR",
+        )
+        result = psemine_engine.admin_resolve_payment_recovery(
+            db, recovery_id, "admin1", "reject", notes="Reviewed",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("PAYMENT_CASE_REQUIRES_RECONCILIATION", result["error"])
+        recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+        self.assertEqual("open", recovery["status"])
+
+    def test_recovery_filter_route_only_accepts_known_statuses(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "admin_mine_payment_recovery")
+        self.assertIn("allowed_statuses", handler)
+        self.assertIn("'attached'", handler)
+        self.assertIn("'reviewed'", handler)
+        self.assertIn("INVALID_RECOVERY_STATUS", handler)

@@ -282,3 +282,34 @@
 @media(max-width:520px) { .pse-wallet-lab-quote-result dl { grid-template-columns:minmax(0,1fr); } }
 
 .pse-wallet-lab-quote-result .pse-status[data-tone="good"] { color:#a9e9f5; border-color:rgba(84,204,231,.25); background:rgba(84,204,231,.08); }
+
+
+/* Mobile wallet header: stack identity and account/network chips instead of
+   squeezing both columns into a 375px viewport. Keep every value readable. */
+@media(max-width:760px) {
+  .pse-wallet .pse-w-head {
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+    width:100%;
+    min-width:0;
+  }
+  .pse-wallet .pse-w-head-id,
+  .pse-wallet .pse-w-head-side {
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+  .pse-wallet .pse-w-head-side {
+    justify-content:flex-start;
+  }
+  .pse-wallet .pse-w-chip {
+    min-width:0;
+    max-width:100%;
+  }
+  .pse-wallet .pse-w-chip-value {
+    max-width:min(100%, 220px);
+    overflow-wrap:anywhere;
+  }
+}

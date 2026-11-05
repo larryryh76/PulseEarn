@@ -301,6 +301,7 @@ async function main() {
     console.log('  Firebase configuration, so no session can be created here.');
     console.log('  Re-run with:  PSE_TEST_EMAIL=… PSE_TEST_PASSWORD=… bun scripts/pse-authenticated-check.mjs');
     console.log('  Console routes therefore remain NOT RUNTIME VERIFIED in this environment.');
+    process.exitCode = 1;
     return;
   }
   if (!BASE_URL && !fs.existsSync(DIST)) {

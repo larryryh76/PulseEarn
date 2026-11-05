@@ -30,6 +30,7 @@ import {
   type PseWalletConnection,
   type PseWalletTransport,
   type PseInjectedWallet,
+  type PseWalletSessionLike,
   PseWalletConnectError,
   cancelWalletConnect,
   clearWalletConnectHandoff,
@@ -967,9 +968,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // injected providers are still checked live through eth_accounts.
       let activeAddress = '';
       if (transportRef.current === 'walletConnect') {
-        activeAddress = walletConnectSessionAccounts(
-          provider as PseEip1193Provider & { session?: { namespaces?: { eip155?: { accounts?: string[] } } } },
-        )[0] || '';
+        const session = (provider as PseEip1193Provider & { session?: PseWalletSessionLike }).session;
+        activeAddress = walletConnectSessionAccounts(session)[0] || '';
       } else {
         const accounts = await provider.request({ method: 'eth_accounts' });
         activeAddress = Array.isArray(accounts) ? String(accounts[0] || '').toLowerCase() : '';

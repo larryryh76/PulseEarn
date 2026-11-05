@@ -198,6 +198,7 @@ const wcSessionProvider = {
 };
 const wcChainOk = await m.ensureChain(wcSessionProvider, 56, 'walletConnect');
 check('walletconnect:approved-bsc-session-overrides-stale-default', wcChainOk === true);
+check('walletconnect:payer-address-from-approved-session', m.walletConnectSessionAccounts(wcSessionProvider.session)[0] === ADDRESS);
 check('walletconnect:no-injected-chain-switch-rpc', switchRequests === 0, { switchRequests });
 const wcWrongSession = {
   session: { namespaces: { eip155: { accounts: [`eip155:1:${ADDRESS}`] } } },

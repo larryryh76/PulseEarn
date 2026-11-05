@@ -387,3 +387,26 @@
     align-items: flex-start;
   }
 }
+
+
+/* Active equipment motion is tied only to the backend-reported active state. */
+.pse-stage[data-page="dashboard"] .pse-owner[data-state="active"] {
+  border-color:rgba(94,207,232,.28);
+  background:linear-gradient(100deg,rgba(45,139,171,.085),rgba(11,18,31,.34) 48%);
+  box-shadow:inset 2px 0 0 rgba(91,211,236,.72);
+}
+.pse-stage[data-page="dashboard"] .pse-owner[data-state="active"] .pse-owner-name {
+  display:inline-flex; align-items:center; gap:8px; min-width:0;
+}
+.pse-stage[data-page="dashboard"] .pse-owner[data-state="active"] .pse-owner-name::after {
+  content:""; flex:none; width:6px; height:6px; border-radius:50%;
+  background:#70dff1; box-shadow:0 0 0 3px rgba(112,223,241,.10),0 0 13px rgba(112,223,241,.65);
+  animation:pse-owned-active-pulse 2.2s ease-in-out infinite;
+}
+@keyframes pse-owned-active-pulse {
+  0%,100% { opacity:.78; box-shadow:0 0 0 3px rgba(112,223,241,.08),0 0 10px rgba(112,223,241,.45); }
+  50% { opacity:1; box-shadow:0 0 0 6px rgba(112,223,241,.035),0 0 18px rgba(112,223,241,.78); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pse-stage[data-page="dashboard"] .pse-owner[data-state="active"] .pse-owner-name::after { animation:none; }
+}

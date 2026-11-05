@@ -209,6 +209,19 @@ if (!fs.existsSync(DIST)) {
 const browser = await chromium.launch({ headless: true });
 let failures = 0;
 
+// The live tool catalogue must not collapse into two desktop-like columns on
+// phone widths. This source-level guard complements rendered viewport checks.
+const toolCss = fs.readFileSync(path.join(process.cwd(), 'src/styles/psemine-tools-payment-redesign.css'), 'utf8');
+const mobileToolRule = toolCss.match(/@media\s*\(min-width:\s*381px\)\s*and\s*\(max-width:\s*620px\)\s*\{([\s\S]*?)\n\}/);
+const mobileToolGrid = mobileToolRule?.[1] || '';
+if (!mobileToolGrid.includes('grid-template-columns:minmax(0,1fr) !important;')
+    || /grid-template-columns:\s*repeat\(2/.test(mobileToolGrid)) {
+  console.error('MOBILE TOOL LAYOUT FAIL: catalogue must be one full-width column from 381px to 620px.');
+  failures++;
+} else {
+  console.log('MOBILE TOOL LAYOUT: ✓ single full-width catalogue column from 381px to 620px');
+}
+
 for (const route of ROUTES) {
   for (const { width, height } of VIEWPORTS) {
    for (const theme of THEMES) {

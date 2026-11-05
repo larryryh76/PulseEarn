@@ -29,7 +29,7 @@ import toast from 'react-hot-toast';
  *     money. Only the backend's released figure can be requested, so it is the
  *     hero figure and accrued is stated beside it as unsettled.
  *   • The payout wallet receives BNB on BNB Smart Chain after settlement.
- *     Tool purchases use a hosted crypto checkout and require no wallet connection.
+ *     Tool purchases use direct native BNB on BNB Smart Chain. The buyer connects an approved wallet, reviews the server-quoted recipient and exact amount, and confirms the transaction in that wallet.
  *
  * EVERY ACTION IS REAL. Copy copies; the in-page actions scroll to a section
  * that exists; the payout request is re-validated by the backend. There is no
@@ -79,7 +79,7 @@ function payoutAmount(w: PseWithdrawal): number | null {
 /* ── Page ──────────────────────────────────────────────────────────────── */
 
 export const PSEMineWallet: React.FC = () => {
-  const { pseUser, campaign, updatePayoutWallet, connectedWallet, walletTransport, connectWallet, disconnectWallet, isConnectingWallet } = usePSEMine();
+  const { pseUser, campaign, updatePayoutWallet, connectedWallet, walletTransport, walletChainId, walletName, injectedWallets, walletConnectAvailable, walletRecoveryState, walletCorrelationId, refreshWalletChain, connectWallet, disconnectWallet, isConnectingWallet } = usePSEMine();
 
   const {
     state, withdrawals, loading, error, refresh, refreshing, campaignStatus, feedErrors, refreshFeed,
@@ -88,7 +88,8 @@ export const PSEMineWallet: React.FC = () => {
 
   const [payoutInput, setPayoutInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [walletTab, setWalletTab] = useState<'overview' | 'activity' | 'manage'>('overview');
+  const [walletTab, setWalletTab] = useState<'overview' | 'activity' | 'manage' | 'lab'>('overview');
+  const [checkingWallet, setCheckingWallet] = useState(false);
 
   // Mirror the backend gate exactly: create_payout_request blocks while the
   // effective campaign status is active/paused. Everything else (minimum £10,
@@ -268,6 +269,7 @@ export const PSEMineWallet: React.FC = () => {
         <button type="button" className={walletTab === 'overview' ? 'is-active' : ''} aria-current={walletTab === 'overview' ? 'page' : undefined} onClick={() => setWalletTab('overview')}>Overview</button>
         <button type="button" className={walletTab === 'activity' ? 'is-active' : ''} aria-current={walletTab === 'activity' ? 'page' : undefined} onClick={() => setWalletTab('activity')}>Activity <span>{withdrawals.length}</span></button>
         <button type="button" className={walletTab === 'manage' ? 'is-active' : ''} aria-current={walletTab === 'manage' ? 'page' : undefined} onClick={() => setWalletTab('manage')}>Manage wallet</button>
+        <button type="button" className={walletTab === 'lab' ? 'is-active' : ''} aria-current={walletTab === 'lab' ? 'page' : undefined} onClick={() => setWalletTab('lab')}>Wallet Lab</button>
       </nav>
 
       {walletTab === 'overview' && (
@@ -415,6 +417,53 @@ export const PSEMineWallet: React.FC = () => {
             </div>
 
           </div>
+        </div>
+      )}
+
+      {walletTab === 'lab' && (
+        <div className="pse-wallet-view pse-wallet-lab">
+          <div className="pse-wallet-lab-intro">
+            <span className="pse-wallet-lab-kicker">CONNECTION DIAGNOSTICS</span>
+            <h2>Wallet Lab</h2>
+            <p>Check the wallet session PSEmine can actually use before starting a tool purchase. This panel never sends a payment or signs a transaction.</p>
+          </div>
+          <div className="pse-wallet-lab-grid">
+            <PseSection title="Active wallet" meta={connectedWallet ? 'Session connected' : 'No active session'}>
+              <dl className="pse-w-net">
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Connection</dt><dd className="pse-w-net-val">{connectedWallet ? 'Connected' : isConnectingWallet ? 'Connecting' : 'Disconnected'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Address</dt><dd className="pse-w-net-val">{connectedWallet ? shortAddr(connectedWallet) : '—'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Wallet</dt><dd className="pse-w-net-val">{walletName || walletTransport || 'Not detected'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Transport</dt><dd className="pse-w-net-val">{walletTransport || '—'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Reported chain</dt><dd className="pse-w-net-val">{walletChainId === 56 ? 'BNB Smart Chain · 56' : walletChainId ? `Unsupported chain · ${walletChainId}` : 'Not confirmed'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Payment readiness</dt><dd className="pse-w-net-val">{!connectedWallet ? 'Connect a wallet first' : walletChainId === 56 ? 'Chain confirmed' : 'Network check required'}</dd></div>
+              </dl>
+              <div className="pse-wallet-lab-actions">
+                <PseButton variant="secondary" size="sm" disabled={!connectedWallet || checkingWallet} busy={checkingWallet} onClick={async () => {
+                  setCheckingWallet(true);
+                  try {
+                    const chain = await refreshWalletChain();
+                    if (chain === 56) toast.success('Wallet confirmed on BNB Smart Chain.');
+                    else if (chain === null) toast.error('The wallet did not report an active network.');
+                    else toast.error(`Wallet is on chain ${chain}. Switch to BNB Smart Chain before paying.`);
+                  } catch { toast.error('Could not read the wallet network. Reconnect and try again.'); }
+                  finally { setCheckingWallet(false); }
+                }}>{checkingWallet ? 'Checking network…' : 'Check wallet network'}</PseButton>
+                {connectedWallet ? <PseButton variant="secondary" size="sm" disabled={isConnectingWallet} onClick={() => void disconnectWallet()}>Disconnect</PseButton> : <PseButton size="sm" disabled={isConnectingWallet} busy={isConnectingWallet} onClick={() => void connectWallet()}>{isConnectingWallet ? 'Connecting…' : 'Connect wallet'}</PseButton>}
+              </div>
+            </PseSection>
+            <PseSection title="Wallet availability" meta="Detected in this browser">
+              <dl className="pse-w-net">
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">WalletConnect</dt><dd className="pse-w-net-val">{walletConnectAvailable ? 'Available' : 'Not configured'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Injected wallets</dt><dd className="pse-w-net-val">{injectedWallets.length ? `${injectedWallets.length} detected` : 'None detected'}</dd></div>
+                <div className="pse-w-net-row"><dt className="pse-w-net-key">Session recovery</dt><dd className="pse-w-net-val">{walletRecoveryState === 'resuming' ? 'Resuming previous approval' : walletRecoveryState === 'interrupted' ? 'Previous handoff interrupted' : 'No recovery pending'}</dd></div>
+              </dl>
+              {injectedWallets.length > 0 ? (
+                <ul className="pse-wallet-lab-wallets">{injectedWallets.map(wallet => <li key={wallet.id}><span>{wallet.name}</span><span>{wallet.id}</span></li>)}</ul>
+              ) : <p className="pse-prose--sm">No browser-injected wallet was detected. WalletConnect may still be available through the connect flow.</p>}
+              {walletCorrelationId && <p className="pse-wallet-lab-correlation">Support reference: <code>{walletCorrelationId}</code></p>}
+            </PseSection>
+          </div>
+          <PseNotice tone="attention">A connected wallet is not proof of payment. Every purchase still requires a fresh server quote, explicit wallet approval, and independent on-chain verification.</PseNotice>
         </div>
       )}
     </div>

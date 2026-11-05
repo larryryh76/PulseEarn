@@ -266,7 +266,7 @@ export const PseOwnedUnit: React.FC<{ tool: PseStateTool; action?: React.ReactNo
     ? gbpHour(tool.hourlyRateGBP)
     : '—';
   return (
-    <li className="pse-owner" data-no-action={action ? undefined : 'true'}>
+    <li className="pse-owner" data-state={cycleKey} data-no-action={action ? undefined : 'true'}>
       <div className="pse-owner-id">
         <span className="pse-owner-name">{tool.toolName || tool.toolId || 'Mining tool'}</span>
         <span className="pse-owner-meta">

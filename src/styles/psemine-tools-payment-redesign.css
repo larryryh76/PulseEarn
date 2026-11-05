@@ -583,60 +583,6 @@
 .pse-route-account .pse-account-overview-actions { min-width:0; }
 .pse-route-account .pse-account-shortcut { min-width:0; }
 .pse-route-account .pse-account-shortcut small { overflow-wrap:anywhere; }
-@media (min-width:381px) and (max-width:620px) {
-  /* Two compact columns remove almost two full screens of catalogue scrolling
-     while keeping every purchase fact and action visible on each card. */
-  .pse-route-tools .pse-marketplace-products {
-    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-    align-items:stretch;
-    gap:10px;
-  }
-  .pse-route-tools .pse-marketplace-products .pse-product {
-    display:flex;
-    flex-direction:column;
-    align-items:stretch;
-    gap:8px;
-    padding:11px;
-    border-radius:15px;
-  }
-  .pse-route-tools .pse-product .pse-tool-art {
-    width:100%;
-    height:68px;
-    min-height:68px;
-    max-height:68px;
-    grid-row:auto;
-  }
-  .pse-route-tools .pse-product .pse-tool-art svg { height:62px; }
-  .pse-route-tools .pse-product-id { min-width:0; }
-  .pse-route-tools .pse-product-name { font-size:14px; line-height:1.2; }
-  .pse-route-tools .pse-product-name .pse-rowitem-meta {
-    display:block;
-    margin-top:3px;
-    font-size:9px;
-    line-height:1.35;
-  }
-  .pse-route-tools .pse-product-desc { display:none; }
-  .pse-route-tools .pse-product-tier { font-size:8px; }
-  .pse-route-tools .pse-product-specs {
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:7px 6px;
-  }
-  .pse-route-tools .pse-product-spec { min-width:0; padding-top:6px; }
-  .pse-route-tools .pse-product-spec dt { font-size:8px; line-height:1.2; }
-  .pse-route-tools .pse-product-spec dd { font-size:11px; line-height:1.25; }
-  .pse-route-tools .pse-product-actions {
-    display:flex;
-    flex-direction:column;
-    align-items:stretch;
-    gap:7px;
-    margin-top:auto;
-    padding-top:9px;
-  }
-  .pse-route-tools .pse-product-avail { min-height:24px; font-size:9px; line-height:1.3; }
-  .pse-route-tools .pse-product-actions .pse-btn { width:100%; min-width:0; min-height:44px; padding-inline:5px; font-size:11px; }
-  .pse-route-tools .pse-marketplace-footnote { margin-top:10px; }
-}
 @media (max-width:380px) {
   .pse-route-tools .pse-marketplace-products .pse-product { gap:7px; }
   .pse-route-tools .pse-product .pse-tool-art { height:64px; min-height:64px; }
@@ -675,38 +621,64 @@
 .pse-route-mining-tools .pse-marketplace-owned,
 .pse-route-mining-tools .pse-marketplace-how { min-width:0; }
 @media (min-width:381px) and (max-width:620px) {
+  /* One full-width product per row. The former two-column layout compressed
+     names, BNB prices and hourly capacity into narrow cards on real phones. */
   .pse-route-mining-tools .pse-marketplace-products {
-    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-    align-items:stretch; gap:10px;
+    grid-template-columns:minmax(0,1fr) !important;
+    align-items:stretch;
+    gap:13px;
   }
   .pse-route-mining-tools .pse-marketplace-products .pse-product {
-    display:flex; flex-direction:column; align-items:stretch; gap:8px;
-    padding:11px; border-radius:15px;
+    display:grid;
+    grid-template-columns:82px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    align-items:center;
+    gap:9px 14px;
+    padding:14px;
+    border-radius:16px;
   }
   .pse-route-mining-tools .pse-product .pse-tool-art {
-    width:100%; height:68px; min-height:68px; max-height:68px; grid-row:auto;
+    grid-column:1;
+    grid-row:1 / span 2;
+    width:100%;
+    height:auto;
+    min-height:92px;
+    max-height:none;
+    align-self:stretch;
   }
-  .pse-route-mining-tools .pse-product .pse-tool-art svg { height:62px; }
-  .pse-route-mining-tools .pse-product-id { min-width:0; }
-  .pse-route-mining-tools .pse-product-name { font-size:14px; line-height:1.2; }
-  .pse-route-mining-tools .pse-product-name .pse-rowitem-meta {
-    display:block; margin-top:3px; font-size:9px; line-height:1.35;
-  }
-  .pse-route-mining-tools .pse-product-desc { display:none; }
-  .pse-route-mining-tools .pse-product-tier { font-size:8px; }
+  .pse-route-mining-tools .pse-product .pse-tool-art svg { width:100%; height:78px; }
+  .pse-route-mining-tools .pse-product-id { grid-column:2; min-width:0; }
+  .pse-route-mining-tools .pse-product-name { font-size:16px; line-height:1.25; }
+  .pse-route-mining-tools .pse-product-desc { display:block; font-size:11px; line-height:1.45; }
+  .pse-route-mining-tools .pse-product-tier { font-size:9px; }
   .pse-route-mining-tools .pse-product-specs {
-    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 6px;
+    grid-column:1 / -1;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px 10px;
+    padding-top:10px;
   }
-  .pse-route-mining-tools .pse-product-spec { min-width:0; padding-top:6px; }
-  .pse-route-mining-tools .pse-product-spec dt { font-size:8px; line-height:1.2; }
-  .pse-route-mining-tools .pse-product-spec dd { font-size:11px; line-height:1.25; }
+  .pse-route-mining-tools .pse-product-spec { min-width:0; }
+  .pse-route-mining-tools .pse-product-spec dt { font-size:9px; line-height:1.25; }
+  .pse-route-mining-tools .pse-product-spec dd { font-size:12px; line-height:1.3; overflow-wrap:anywhere; }
   .pse-route-mining-tools .pse-product-actions {
-    display:flex; flex-direction:column; align-items:stretch; gap:7px;
-    margin-top:auto; padding-top:9px;
+    grid-column:1 / -1;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-top:2px;
+    padding-top:10px;
+    border-top:1px solid rgba(143,166,211,.12);
   }
-  .pse-route-mining-tools .pse-product-avail { min-height:24px; font-size:9px; line-height:1.3; }
+  .pse-route-mining-tools .pse-product-avail { min-height:0; font-size:10px; }
   .pse-route-mining-tools .pse-product-actions .pse-btn {
-    width:100%; min-width:0; min-height:44px; padding-inline:5px; font-size:11px;
+    width:auto;
+    min-width:138px;
+    min-height:44px;
+    flex:0 0 auto;
+    padding-inline:12px;
+    font-size:12px;
   }
 }
 @media (max-width:620px) {
@@ -722,4 +694,128 @@
 @media (max-width:380px) {
   .pse-route-mining-tools .pse-marketplace-products .pse-product { gap:7px; }
   .pse-route-mining-tools .pse-product .pse-tool-art { height:64px; min-height:64px; }
+}
+
+
+/* Release correction: keep the equipment catalogue readable on tablet and
+   phone. Earlier compact two-column experiments squeezed the five specs into
+   narrow cards; the live product cards now stay full-width below 900px. */
+@media (max-width:900px) {
+  .pse-route-mining-tools .pse-marketplace-products,
+  .pse-route-tools .pse-marketplace-products {
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:12px !important;
+  }
+  .pse-route-mining-tools .pse-marketplace-products .pse-product,
+  .pse-route-tools .pse-marketplace-products .pse-product {
+    display:grid !important;
+    grid-template-columns:104px minmax(0,1fr) !important;
+    grid-template-areas:"art identity" "specs specs" "actions actions";
+    grid-template-rows:auto auto auto;
+    align-items:start;
+    gap:12px 16px !important;
+    padding:16px !important;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art,
+  .pse-route-tools .pse-product .pse-tool-art {
+    grid-area:art;
+    width:100%;
+    height:96px;
+    min-height:96px;
+    max-height:96px;
+  }
+  .pse-route-mining-tools .pse-product-id,
+  .pse-route-tools .pse-product-id { grid-area:identity; min-width:0; }
+  .pse-route-mining-tools .pse-product-specs,
+  .pse-route-tools .pse-product-specs {
+    grid-area:specs;
+    display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+    gap:9px 12px !important;
+    min-width:0;
+  }
+  .pse-route-mining-tools .pse-product-actions,
+  .pse-route-tools .pse-product-actions {
+    grid-area:actions;
+    display:flex !important;
+    flex-direction:row !important;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-top:0;
+    padding-top:12px;
+  }
+  .pse-route-mining-tools .pse-product-actions .pse-btn,
+  .pse-route-tools .pse-product-actions .pse-btn,
+  .pse-route-mining-tools .pse-product-actions button,
+  .pse-route-tools .pse-product-actions button {
+    min-height:48px !important;
+    height:auto !important;
+  }
+}
+@media (max-width:620px) {
+  .pse-route-mining-tools .pse-marketplace-products .pse-product,
+  .pse-route-tools .pse-marketplace-products .pse-product {
+    grid-template-columns:76px minmax(0,1fr) !important;
+    gap:10px 12px !important;
+    padding:14px !important;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art,
+  .pse-route-tools .pse-product .pse-tool-art {
+    height:76px;
+    min-height:76px;
+    max-height:76px;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art svg,
+  .pse-route-tools .pse-product .pse-tool-art svg { height:70px; }
+  .pse-route-mining-tools .pse-product-name,
+  .pse-route-tools .pse-product-name { font-size:16px; line-height:1.2; }
+  .pse-route-mining-tools .pse-product-desc,
+  .pse-route-tools .pse-product-desc {
+    display:-webkit-box !important;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    overflow:hidden;
+    font-size:11px;
+    line-height:1.45;
+  }
+  .pse-route-mining-tools .pse-product-tier,
+  .pse-route-tools .pse-product-tier { font-size:9px; }
+  .pse-route-mining-tools .pse-product-specs,
+  .pse-route-tools .pse-product-specs {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:9px 12px !important;
+  }
+  .pse-route-mining-tools .pse-product-spec dt,
+  .pse-route-tools .pse-product-spec dt { font-size:9px; line-height:1.3; }
+  .pse-route-mining-tools .pse-product-spec dd,
+  .pse-route-tools .pse-product-spec dd { font-size:13px; line-height:1.3; }
+  .pse-route-mining-tools .pse-product-actions,
+  .pse-route-tools .pse-product-actions { justify-content:space-between; }
+  .pse-route-mining-tools .pse-product-actions .pse-btn,
+  .pse-route-tools .pse-product-actions .pse-btn,
+  .pse-route-mining-tools .pse-product-actions button,
+  .pse-route-tools .pse-product-actions button {
+    width:auto !important;
+    min-width:128px;
+    min-height:48px !important;
+    padding-inline:16px !important;
+  }
+}
+@media (max-width:380px) {
+  .pse-route-mining-tools .pse-marketplace-products .pse-product,
+  .pse-route-tools .pse-marketplace-products .pse-product {
+    grid-template-columns:64px minmax(0,1fr) !important;
+    gap:9px 10px !important;
+    padding:12px !important;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art,
+  .pse-route-tools .pse-product .pse-tool-art {
+    height:64px;
+    min-height:64px;
+    max-height:64px;
+  }
+  .pse-route-mining-tools .pse-product .pse-tool-art svg,
+  .pse-route-tools .pse-product .pse-tool-art svg { height:60px; }
 }

@@ -1088,7 +1088,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const ss = String(secondsLeft % 60).padStart(2, '0');
   const stepIndex = STEP_ORDER.findIndex(s => s.id === step);
   const continuous = dutyOf(tool) === 'continuous';
-  const purchaseReadyForTool = Boolean(quote) && (resume?.kind === 'live' || !pending || pending.toolId !== tool.id || pending.status === 'awaiting_payment');
+  // The details CTA starts quote creation; it must not wait for a quote that is only requested after entering the quote step.
+  const purchaseReadyForTool = owned < tool.maxPerUser && (!pending || pending.toolId === tool.id);
 
   return (
     <>

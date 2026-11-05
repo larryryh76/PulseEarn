@@ -29,7 +29,7 @@ import toast from 'react-hot-toast';
  *     money. Only the backend's released figure can be requested, so it is the
  *     hero figure and accrued is stated beside it as unsettled.
  *   • The payout wallet receives BNB on BNB Smart Chain after settlement.
- *     Tool purchases use a hosted crypto checkout and require no wallet connection.
+ *     Tool purchases use direct native BNB on BNB Smart Chain. The buyer connects an approved wallet, reviews the server-quoted recipient and exact amount, and confirms the transaction in that wallet.
  *
  * EVERY ACTION IS REAL. Copy copies; the in-page actions scroll to a section
  * that exists; the payout request is re-validated by the backend. There is no

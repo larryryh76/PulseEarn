@@ -1561,3 +1561,24 @@
   .pse-route-account .pse-account-disclosure > summary small { max-width:48%; font-size:9px; }
   .pse-route-account .pse-account-disclosure > .pse-block { padding:0 11px 12px; }
 }
+
+
+/* Console utility links remain comfortably tappable on touch screens. */
+@media(max-width:900px) {
+  .pse-console-shell .pse-console-foot-links a,
+  .pse-console-shell .pse-bar-account,
+  .pse-console-shell .pse-bar-signout,
+  .pse-console-shell .pse-bar-tools a {
+    min-height:44px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .pse-console-shell .pse-console-foot-links {
+    align-items:center;
+    gap:8px 14px;
+  }
+  .pse-console-shell .pse-console-foot-links a {
+    padding:0 4px;
+  }
+}

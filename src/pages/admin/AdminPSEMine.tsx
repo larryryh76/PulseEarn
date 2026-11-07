@@ -161,7 +161,7 @@ export const AdminPSEMine: React.FC = () => {
       // paid only when the independent BSC receipt ledger contains its order ID.
       if (['paid', 'confirmed', 'completed', 'verified', 'success'].includes(status)
           && !verifiedOrderIds.has(String(order.id || order.orderId || ''))) return false;
-      return !q || [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash]
+      return !q || [order.id, order.orderId, order.userId, order.toolId, order.toolName, order.status, order.txHash, order.transactionHash, order.source]
         .some(value => String(value || '').toLowerCase().includes(q));
     });
   }, [orders, orderQuery, payments]);
@@ -350,7 +350,7 @@ export const AdminPSEMine: React.FC = () => {
         </Panel>
 
         <Panel id="ops-purchases" title="Purchase orders" detail="Order intents are not counted as income until an on-chain payment is verified." right={<input value={orderQuery} onChange={e => setOrderQuery(e.target.value)} placeholder="Search user, order, tx hash…" className="w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" />}>
-          <Table columns={['Order', 'User', 'Tool', 'Amount', 'Status', 'Transaction']} rows={filteredOrders} empty="No order intents have been returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{row.toolName || row.toolId || '—'}</td><td className="px-3 py-3 text-slate-300">{money(row.priceGbp ?? row.amountGbp ?? row.gbpPrice)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
+          <Table columns={['Order', 'User', 'Tool', 'Amount', 'Status', 'Transaction']} rows={filteredOrders} empty="No order intents have been returned by the backend." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.orderId)}{row.source === 'legacy_order' ? <span className="ml-2 rounded border border-amber-400/25 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-200">Legacy</span> : null}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{row.toolName || row.toolId || '—'}</td><td className="px-3 py-3 text-slate-300">{money(row.priceGbp ?? row.amountGbp ?? row.gbpPrice)}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
         </Panel>
 
         <Panel id="ops-payments" title="Verified tool payments" detail="Only backend-confirmed BNB Smart Chain receipt records belong here.">

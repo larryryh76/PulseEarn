@@ -448,6 +448,37 @@ export class PSEMineEngine {
     return true;
   }
 
+  /**
+   * Read-only chain preflight for a wallet hash PSEmine never received.
+   * Nothing is attached unless the sender, recipient, amount and chain match
+   * the server-created purchase intent.
+   */
+  public static async checkPurchaseTransaction(
+    purchaseId: string, transactionHash: string,
+  ): Promise<{ match: boolean; pending: boolean; confirmations?: number; message?: string }> {
+    const { getAuth } = await import('firebase/auth');
+    const token = await getAuth().currentUser?.getIdToken();
+    if (!token) throw new Error('Authentication required to check this transaction.');
+    const res = await fetch('/api/mine/purchases/check-transaction', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ purchaseId, transactionHash }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+      return {
+        match: false,
+        pending: false,
+        message: pseFailureMessage('POST /api/mine/purchases/check-transaction', res.status, data),
+      };
+    }
+    return {
+      match: data.match === true,
+      pending: data.pending === true,
+      confirmations: typeof data.confirmations === 'number' ? data.confirmations : undefined,
+      message: typeof data.message === 'string' ? data.message : undefined,
+    };
+  }
+
   /** Release a server-side uncertain lock only after explicit user attestation and no known hash. */
   public static async confirmNoPurchaseBroadcast(purchaseId: string): Promise<boolean> {
     const { getAuth } = await import('firebase/auth');

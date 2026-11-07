@@ -22,6 +22,23 @@ git metadata. (It was used once during the 2026-09-19 incident when the
 GitHub webhook was stolen by the duplicate project; content parity was
 verified manually afterward.)
 
+## Required frontend environment
+
+Set these on the `pulse-earn` Vercel project (Production **and** Preview). Vite
+inlines `VITE_*` values at build time, so changing one requires a new build.
+
+| Variable | Purpose |
+|---|---|
+| `VITE_FIREBASE_*` | Firebase web app config (public client identifiers) |
+| `VITE_ADMIN_EMAIL` | Existing global PulseEarn administrator |
+| `VITE_WALLETCONNECT_PROJECT_ID` | **Public** Reown/WalletConnect project ID. Without it PSEmine offers injected wallets only, and a normal mobile browser cannot hand off to Trust Wallet, MetaMask or Binance Web3 Wallet. |
+
+The WalletConnect project ID is a public client identifier. Never place a
+private key, seed phrase, Firebase service-account JSON or BSC RPC credential
+in a `VITE_*` variable: Vite bundles those values into the browser bundle.
+Server-only values belong in the Vercel Python environment (`PSEMINE_BSC_RPC_URL`,
+`PSEMINE_BSC_RPC_FALLBACKS`, Firebase Admin credentials), never in the frontend.
+
 ## Known trap (2026-09-19 incident)
 
 The `pulseearn` duplicate project was linked to the same GitHub repo with

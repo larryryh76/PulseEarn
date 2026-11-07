@@ -7866,9 +7866,63 @@ def admin_psemine_orders():
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
-    snaps = db.collection('psemine_orders').order_by('createdAt', direction='DESCENDING').limit(100).get()
-    orders = [{**s.to_dict(), 'id': s.id} for s in snaps]
-    return jsonify({"success": True, "orders": orders})
+    def _iso(value):
+        return value.isoformat() if hasattr(value, 'isoformat') else value
+
+    orders = []
+    # Legacy order intents remain visible for audit but are explicitly labelled.
+    # They are never treated as verified revenue; only psemine_payments rows
+    # written by the on-chain verifier count.
+    try:
+        for snap in db.collection('psemine_orders').order_by('createdAt', direction='DESCENDING').limit(100).get():
+            row = snap.to_dict() or {}
+            orders.append({
+                **row,
+                'id': snap.id,
+                'orderId': snap.id,
+                'source': 'legacy_order',
+                'createdAt': _iso(row.get('createdAt')),
+                'updatedAt': _iso(row.get('updatedAt')),
+            })
+    except Exception:
+        logging.warning('[PSEmine Admin] legacy order feed unavailable', exc_info=True)
+
+    # Canonical V2 purchase intents created by /api/mine/purchases/create.
+    # These carry the bound payer, locked quote, exact wei amount, status and
+    # transaction hash the admin needs to reconcile pending/failed payments.
+    try:
+        for snap in db.collection('psemine_purchases').order_by('createdAt', direction='DESCENDING').limit(200).get():
+            row = snap.to_dict() or {}
+            orders.append({
+                'id': snap.id,
+                'orderId': snap.id,
+                'purchaseId': snap.id,
+                'userId': row.get('userId'),
+                'toolId': row.get('toolId'),
+                'toolName': row.get('toolName'),
+                'priceGbp': row.get('quotedGBPAmount'),
+                'amountGbp': row.get('quotedGBPAmount'),
+                'amountBnb': row.get('quotedBNBAmount'),
+                'quotedBNBWei': row.get('quotedBNBWei'),
+                'exchangeRateBNBGBP': row.get('exchangeRateBNBGBP'),
+                'paymentWallet': row.get('paymentWallet'),
+                'receiverWallet': row.get('receiverWallet'),
+                'quoteId': row.get('quoteId'),
+                'status': row.get('status'),
+                'txHash': row.get('transactionHash'),
+                'transactionHash': row.get('transactionHash'),
+                'recoveryCaseId': row.get('recoveryCaseId'),
+                'reviewReason': row.get('reviewReason'),
+                'createdAt': _iso(row.get('createdAt')),
+                'updatedAt': _iso(row.get('updatedAt')),
+                'expiresAt': _iso(row.get('expiresAt')),
+                'source': 'psemine_purchase',
+            })
+    except Exception:
+        logging.warning('[PSEmine Admin] canonical purchase feed unavailable', exc_info=True)
+
+    orders.sort(key=lambda row: str(row.get('createdAt') or ''), reverse=True)
+    return jsonify({"success": True, "orders": orders[:150]})
 
 @app.route('/api/admin/psemine/payments', methods=['GET'])
 @verify_token
@@ -7897,11 +7951,15 @@ def admin_psemine_payments():
                 'userId': str(row.get('userId') or ''),
                 'toolId': str(row.get('toolId') or ''),
                 'txHash': str(row.get('txHash') or ''),
+                'purchaseId': str(row.get('purchaseId') or row.get('orderId') or ''),
+                'quoteId': str(row.get('quoteId') or ''),
+                'priceGbp': row.get('priceGbp'),
                 'amountBnb': str(row.get('amountBnb') or ''),
                 'paidBnbAmount': str(row.get('paidBnbAmount') or ''),
                 'asset': str(row.get('asset') or ''),
                 'chainId': row.get('chainId'),
                 'destination': str(row.get('destinationAddress') or ''),
+                'senderAddress': str(row.get('senderAddress') or ''),
                 'blockNumber': row.get('blockNumber'),
                 'status': 'confirmed',
                 'createdAt': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
@@ -8641,6 +8699,18 @@ def verify_psemine_tool_purchase():
     own_ref = db.collection('psemine_tool_ownership').document(ownership_id)
     camp_ref = db.collection('psemine_campaigns').document('active_campaign')
     redeemed_ref = db.collection('psemine_redeemed_hashes').document(tx_hash)
+    # Canonical verified-payment ledger row. The id is derived from the hash so
+    # a retry and a concurrent verifier can only ever produce ONE receipt row.
+    # It is written in the SAME transaction that redeems the hash and activates
+    # ownership: admin revenue can never count an activation that did not
+    # commit, and an activation can never exist without its payment evidence.
+    payment_id = f"pay_{tx_hash}"
+    payment_ref = db.collection('psemine_payments').document(payment_id)
+    # Dev-only RPC bypass is not on-chain evidence. Never write a canonical
+    # receipt row for it.
+    onchain_verified = bool(
+        verified and receipt_block and block_depth and int(block_depth) > 0
+    )
     # (transaction-read-first) migration-ledger doc is READ here, before ANY
     # txn.set — Firestore transactions reject reads that follow writes.
     _mig_id = f"migration_{uid}"
@@ -8658,6 +8728,12 @@ def verify_psemine_tool_purchase():
             # Firestore transactions reject reads that follow writes.
             h_curr = redeemed_ref.get(transaction=txn)
             if h_curr.exists:
+                raise Exception("TRANSACTION_ALREADY_REDEEMED")
+
+            # The payment receipt row is also an idempotency guard. It is read
+            # before ANY write, as Firestore transactions require.
+            pay_curr = payment_ref.get(transaction=txn)
+            if pay_curr.exists:
                 raise Exception("TRANSACTION_ALREADY_REDEEMED")
 
             p_curr = purchase_ref.get(transaction=txn)
@@ -8743,6 +8819,35 @@ def verify_psemine_tool_purchase():
                 'redeemedAt': now_iso
             })
 
+            # Commit the canonical verified-payment receipt in the SAME
+            # transaction. Only records written by an actual BSC receipt check
+            # carry verificationSource=bsc_rpc_receipt and are counted by the
+            # admin ledger and lifetime tool revenue.
+            if onchain_verified:
+                txn.set(payment_ref, {
+                    'id': payment_id,
+                    'orderId': purchase_id,
+                    'purchaseId': purchase_id,
+                    'quoteId': quote_id,
+                    'userId': uid,
+                    'toolId': tool_id,
+                    'priceGbp': float(q_data.get('gbpPrice') or tool_cfg['price_gbp']),
+                    'paidBnbAmount': quoted_bnb,
+                    'amountBnb': str(server_quoted_bnb),
+                    'paidWeiAmount': int(expected_wei),
+                    'asset': 'BNB',
+                    'chainId': PSEMINE_BSC_CHAIN_ID,
+                    'destinationAddress': expected_destination,
+                    'senderAddress': (expected_sender or '').lower(),
+                    'txHash': tx_hash,
+                    'blockNumber': int(receipt_block),
+                    'confirmationDepth': int(block_depth),
+                    'verificationSource': 'bsc_rpc_receipt',
+                    'status': 'confirmed',
+                    'createdAt': firestore.SERVER_TIMESTAMP,
+                    'confirmedAt': firestore.SERVER_TIMESTAMP,
+                })
+
             # Commit purchase update
             txn.update(purchase_ref, {
                 'status': 'activated',
@@ -8755,6 +8860,7 @@ def verify_psemine_tool_purchase():
                 # for a legacy intent with no binding at all), never a raw
                 # client-supplied address.
                 'paymentWallet': (expected_sender or p_curr.to_dict().get('paymentWallet') or '').lower(),
+                'paymentId': payment_id if onchain_verified else None,
                 'confirmedAt': now_iso,
                 'activatedAt': now_iso,
                 'confirmations': block_depth,  # actual observed depth (0 in dev bypass) — never fabricated
@@ -9379,20 +9485,40 @@ def mine_state():
             .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming', 'manual_review', 'submission_uncertain']).get()
         for pr in pur_rows:
             pd = pr.to_dict() or {}
+            # A quote that lapsed before any submission is EXPIRED, not a live
+            # request. Project that explicitly so the checkout asks for a fresh
+            # quote instead of presenting a stale payable amount. The scheduled
+            # reconciliation sweep persists the same terminal state.
+            projected_status = pd.get('status')
+            projected_message = pd.get('statusMessage')
+            if projected_status == 'awaiting_payment' and not pd.get('transactionHash'):
+                expires_raw = pd.get('expiresAt')
+                if expires_raw:
+                    try:
+                        if now > _pse_engine._parse(expires_raw):
+                            projected_status = 'expired'
+                            projected_message = 'Quote expired before payment was submitted. Request a fresh quote.'
+                    except Exception:
+                        pass
             pending_purchases.append({
                 'purchaseId': pr.id,
                 'toolId': pd.get('toolId'),
                 'toolName': pd.get('toolName'),
-                'status': pd.get('status'),
+                'status': projected_status,
                 'quoteId': pd.get('quoteId'),
                 'walletProofNonce': pd.get('walletProofNonce'),
                 'paymentWallet': pd.get('paymentWallet'),
                 'receiverWallet': pd.get('receiverWallet'),
                 'quotedBNBAmount': pd.get('quotedBNBAmount'),
                 'quotedBNBWei': pd.get('quotedBNBWei'),
+                'exchangeRateBNBGBP': pd.get('exchangeRateBNBGBP'),
+                'quoteCreatedAt': pd.get('quoteCreatedAt'),
                 'chainId': pd.get('chainId'),
                 'expiresAt': pd.get('expiresAt'),
                 'transactionHash': pd.get('transactionHash'),
+                'recoveryCaseId': pd.get('recoveryCaseId'),
+                'reviewReason': pd.get('reviewReason'),
+                'statusMessage': projected_message,
             })
     except Exception:
         logging.warning("[PSEmine State] pending-purchase projection failed", exc_info=True)
@@ -9717,6 +9843,7 @@ def mine_create_purchase():
         'quotedBNBAmount': q.get('bnbAmount'),
         'quotedBNBWei': q.get('bnbAmountWei'),
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
+        'quoteCreatedAt': q.get('createdAt'),
         'receiverWallet': q.get('receiverWallet'),
         'paymentWallet': payment_wallet,
         'payerBindingVerified': True,
@@ -9779,7 +9906,7 @@ def mine_create_purchase():
                     'supersededAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP,
                 })
-            elif locked_status not in ('activated', 'superseded', 'abandoned_no_broadcast', 'failed', 'cancelled'):
+            elif locked_status not in ('activated', 'superseded', 'abandoned_no_broadcast', 'failed', 'cancelled', 'expired'):
                 # Unknown states fail closed; a new payment must not bypass an
                 # intent whose economic state the current code does not know.
                 return {
@@ -9934,6 +10061,95 @@ def mine_report_purchase_submission():
         )
     return jsonify({"success": True, "purchaseId": purchase_id,
                     "status": status, "transactionHash": result.get("transactionHash") or tx_hash})
+
+
+@app.route('/api/mine/purchases/check-transaction', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_check_purchase_transaction():
+    """Read-only preflight for recovering a payment the browser never recorded.
+
+    A user whose wallet broadcast a transfer but never returned the hash (for
+    example, the browser was closed while the wallet app was open) can paste the
+    hash from the wallet. This route checks the chain against the intent's own
+    immutable terms BEFORE the hash is bound. A typo, a transfer to another
+    address, a different amount or a foreign sender is rejected without
+    corrupting the purchase state, so the user is never forced into manual
+    review just to discover a mistyped hash. It writes nothing.
+    """
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = str(data.get('purchaseId') or '').strip()
+    tx_hash = str(data.get('transactionHash') or '').strip().lower()
+    import re as _re
+    if not purchase_id or not _re.fullmatch(r'0x[0-9a-f]{64}', tx_hash):
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH",
+                        "message": "A purchase ID and valid 32-byte transaction hash are required."}), 400
+
+    purchase_snap = db.collection('psemine_purchases').document(purchase_id).get()
+    if not purchase_snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND"}), 404
+    purchase = purchase_snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    status = str(purchase.get('status') or '')
+    if status == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED",
+                        "message": "This purchase is already activated."}), 409
+    if status == 'manual_review':
+        return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
+                        "message": "This payment is already under manual review. Do not send another payment."}), 409
+    if status not in ('awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming'):
+        return jsonify({"success": False, "error": "PURCHASE_NOT_RECOVERABLE",
+                        "message": "This purchase is not accepting a transaction for recovery."}), 409
+
+    if purchase.get('payerBindingVerified') is not True and purchase.get('walletProofVerified') is not True:
+        return jsonify({"success": False, "error": "PAYER_BINDING_REQUIRED",
+                        "message": "This purchase has no server-confirmed payer binding. Contact support before recovering a transaction."}), 409
+
+    persisted_hash = str(purchase.get('transactionHash') or '').strip().lower()
+    if persisted_hash and persisted_hash != tx_hash:
+        return jsonify({"success": False, "error": "SUBMISSION_HASH_CONFLICT",
+                        "message": "A different transaction hash is already attached to this purchase. Contact support."}), 409
+
+    expected_destination = purchase.get('receiverWallet')
+    if not _is_valid_psemine_receiver_wallet(expected_destination):
+        return jsonify({"success": False, "error": "INVALID_PURCHASE_RECEIVER",
+                        "message": "This purchase has no valid receiving wallet. Contact support."}), 409
+    try:
+        expected_wei = int(str(purchase.get('quotedBNBWei') or '0'))
+    except Exception:
+        expected_wei = 0
+    if expected_wei <= 0:
+        return jsonify({"success": False, "error": "INVALID_PURCHASE_AMOUNT",
+                        "message": "This purchase has no valid quoted amount. Contact support."}), 409
+    expected_sender = str(purchase.get('paymentWallet') or '').strip().lower()
+    if not _re.fullmatch(r'0x[0-9a-f]{40}', expected_sender):
+        return jsonify({"success": False, "error": "PAYER_BINDING_REQUIRED",
+                        "message": "This purchase has no bound payer wallet. Contact support before recovering a transaction."}), 409
+
+    verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
+        tx_hash, expected_destination, expected_wei, expected_sender=expected_sender,
+    )
+    if verified:
+        return jsonify({"success": True, "match": True, "pending": False,
+                        "confirmations": int(block_depth), "blockNumber": receipt_block})
+    if err_code == 'INSUFFICIENT_CONFIRMATIONS':
+        # The terms match; the transaction simply needs more blocks. Binding is
+        # safe because the payment is already real and immutable.
+        return jsonify({"success": True, "match": True, "pending": True,
+                        "confirmations": int(block_depth or 0), "blockNumber": receipt_block,
+                        "message": err_msg})
+    message = err_msg or 'This transaction does not match the purchase on BNB Smart Chain.'
+    if err_code in ('TRANSACTION_NOT_FOUND', 'RECEIPT_NOT_FOUND'):
+        message = ('This transaction is not visible on BNB Smart Chain yet. Check the hash in your wallet '
+                   'and try again shortly. Nothing has been attached to the purchase.')
+    return jsonify({"success": False, "error": err_code or "TRANSACTION_MISMATCH",
+                    "message": message}), 422
 
 
 @app.route('/api/mine/purchases/resolve-no-broadcast', methods=['POST'])
@@ -10210,6 +10426,41 @@ def mine_cron_payment_reconciliation():
     if not db:
         return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
 
+    # Persist the terminal state for quotes that lapsed before any submission.
+    # This is bookkeeping only: no wallet request, no activation, no funds.
+    expired = 0
+    try:
+        now_utc = _pse_engine.utcnow()
+
+        @firestore.transactional
+        def expire_if_still_stale(txn, ref):
+            # Re-read INSIDE the transaction: a submission racing this sweep
+            # must never be overwritten with a terminal expired status.
+            snap = ref.get(transaction=txn)
+            row = snap.to_dict() or {}
+            if row.get('status') != 'awaiting_payment' or row.get('transactionHash'):
+                return False
+            if not row.get('expiresAt'):
+                return False
+            try:
+                if _pse_engine._parse(row.get('expiresAt')) >= now_utc:
+                    return False
+            except Exception:
+                return False
+            txn.update(ref, {
+                'status': 'expired',
+                'statusMessage': 'Quote expired before payment was submitted. Request a fresh quote.',
+                'expiredAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+            return True
+
+        for stale in db.collection('psemine_purchases').where('status', '==', 'awaiting_payment').limit(200).get():
+            if expire_if_still_stale(db.transaction(), stale.reference):
+                expired += 1
+    except Exception:
+        logging.warning('[PSEmine Cron] expired-quote sweep notice', exc_info=True)
+
     candidates = db.collection('psemine_purchases').where('status', 'in', [
         'transaction_submitted', 'confirming', 'submission_uncertain', 'manual_review'
     ]).limit(100).get()
@@ -10268,6 +10519,7 @@ def mine_cron_payment_reconciliation():
 
     return jsonify({
         "success": True,
+        "expired": expired,
         "checked": checked,
         "reconciled": reconciled,
         "alreadyActivated": already_activated,

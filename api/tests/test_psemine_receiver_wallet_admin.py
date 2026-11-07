@@ -223,6 +223,109 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("_is_canonical_verified_psemine_payment(row)", API_SOURCE[payments_start:payments_end])
         self.assertIn("_is_canonical_verified_psemine_payment(payment_row)", API_SOURCE)
 
+    def test_verified_activation_writes_the_canonical_payment_receipt(self):
+        """A current-flow activation must create the row the admin ledger reads.
+
+        The legacy order verifier wrote psemine_payments; the canonical
+        /api/mine/tools/verify-purchase path used to activate ownership without
+        one, so verified revenue and the admin payment table stayed empty.
+        """
+        start = API_SOURCE.index("def verify_psemine_tool_purchase():")
+        end = API_SOURCE.index("@app.route('/api/admin/mine/overview'", start)
+        handler = API_SOURCE[start:end]
+        self.assertIn("payment_ref = db.collection('psemine_payments').document(payment_id)", handler)
+        self.assertIn("pay_curr = payment_ref.get(transaction=txn)", handler)
+        self.assertIn("txn.set(payment_ref, {", handler)
+        for field in (
+            "'verificationSource': 'bsc_rpc_receipt'",
+            "'status': 'confirmed'",
+            "'paidWeiAmount': int(expected_wei)",
+            "'confirmationDepth': int(block_depth)",
+            "'blockNumber': int(receipt_block)",
+            "'destinationAddress': expected_destination",
+            "'chainId': PSEMINE_BSC_CHAIN_ID",
+            "'priceGbp': float(q_data.get('gbpPrice') or tool_cfg['price_gbp'])",
+        ):
+            self.assertIn(field, handler)
+        # The receipt is part of the same transaction as activation, and the
+        # dev-only on-chain bypass must never produce canonical revenue.
+        write = handler.index("txn.set(payment_ref, {")
+        commit = handler.index("commit_purchase_activation(transaction)")
+        self.assertLess(write, commit)
+        self.assertIn("if onchain_verified:", handler)
+
+    def test_admin_payment_rows_expose_the_verified_gbp_value(self):
+        start = API_SOURCE.index("@app.route('/api/admin/psemine/payments'")
+        end = API_SOURCE.index("@app.route(", start + 1)
+        endpoint = API_SOURCE[start:end]
+        self.assertIn("'priceGbp': row.get('priceGbp')", endpoint)
+        self.assertIn("'purchaseId': str(row.get('purchaseId') or row.get('orderId') or '')", endpoint)
+
+    def test_admin_order_feed_includes_canonical_purchases_not_only_legacy_orders(self):
+        start = API_SOURCE.index("def admin_psemine_orders():")
+        end = API_SOURCE.index("@app.route('/api/admin/psemine/payments'", start)
+        endpoint = API_SOURCE[start:end]
+        self.assertIn("db.collection('psemine_purchases')", endpoint)
+        self.assertIn("'source': 'psemine_purchase'", endpoint)
+        self.assertIn("'source': 'legacy_order'", endpoint)
+        self.assertIn("'txHash': row.get('transactionHash')", endpoint)
+        self.assertIn("'paymentWallet': row.get('paymentWallet')", endpoint)
+
+    def test_state_projection_preserves_locked_rate_and_recovery_metadata(self):
+        start = API_SOURCE.index("def mine_state():")
+        end = API_SOURCE.index("\n@app.route(", start)
+        route = API_SOURCE[start:end]
+        for field in (
+            "'exchangeRateBNBGBP': pd.get('exchangeRateBNBGBP')",
+            "'quoteCreatedAt': pd.get('quoteCreatedAt')",
+            "'reviewReason': pd.get('reviewReason')",
+            "'recoveryCaseId': pd.get('recoveryCaseId')",
+        ):
+            self.assertIn(field, route)
+
+    def test_lapsed_quotes_are_projected_as_expired_not_payable(self):
+        """A quote past its expiry must never keep presenting a payable state."""
+        start = API_SOURCE.index("def mine_state():")
+        end = API_SOURCE.index("\n@app.route(", start)
+        route = API_SOURCE[start:end]
+        self.assertIn("projected_status = 'expired'", route)
+        self.assertIn("'Quote expired before payment was submitted. Request a fresh quote.'", route)
+        cron_start = API_SOURCE.index("def mine_cron_payment_reconciliation():")
+        cron_end = API_SOURCE.index("\n@app.route(", cron_start)
+        cron = API_SOURCE[cron_start:cron_end]
+        self.assertIn("where('status', '==', 'awaiting_payment')", cron)
+        self.assertIn("'status': 'expired'", cron)
+        self.assertIn('"expired": expired', cron)
+        self.assertIn("pending.status === 'expired'", TOOLS_SOURCE)
+
+    def test_expired_intent_does_not_deadlock_the_purchase_lock(self):
+        """Expired is terminal; it must not block a fresh quote for the user."""
+        start = API_SOURCE.index("def mine_create_purchase():")
+        end = API_SOURCE.index("@app.route('/api/mine/purchases/mark-uncertain'", start)
+        handler = API_SOURCE[start:end]
+        self.assertIn("'cancelled', 'expired'", handler)
+        self.assertIn('"expired", "cancelled"', ENGINE_SOURCE)
+
+    def test_recovery_hash_is_chain_checked_before_it_can_be_attached(self):
+        """A hash pasted after a browser-close must match before it is bound."""
+        start = API_SOURCE.index("@app.route('/api/mine/purchases/check-transaction'")
+        end = API_SOURCE.index("@app.route('/api/mine/purchases/resolve-no-broadcast'", start)
+        route = API_SOURCE[start:end]
+        self.assertIn("verify_bsc_transaction(", route)
+        self.assertIn("expected_sender=expected_sender", route)
+        # This endpoint is read-only: it must never bind, settle or activate.
+        self.assertNotIn("transition_purchase_state", route)
+        self.assertNotIn("txn.set", route)
+        self.assertNotIn("create_payment_recovery", route)
+        self.assertNotIn("commit_purchase_activation", route)
+
+        engine = (ROOT / "src" / "engines" / "psemine" / "PSEMineEngine.ts").read_text(encoding="utf-8")
+        self.assertIn("checkPurchaseTransaction", engine)
+        tools = TOOLS_SOURCE
+        check_at = tools.index("checkPurchaseTransaction(purchaseId, hash)")
+        attach_at = tools.index("reportPurchaseSubmission(purchaseId, hash, sender)", check_at)
+        self.assertLess(check_at, attach_at)
+
     def test_wallet_change_is_not_misrepresented_as_user_payout_wallet(self):
         self.assertIn("not a user's personal payout wallet", ADMIN_SOURCE)
         self.assertIn("distinct from payout destinations", ADMIN_SOURCE)

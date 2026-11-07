@@ -1064,6 +1064,73 @@ export interface PsePaymentTx {
   value: string;
 }
 
+/** Best-effort estimate for the native BNB transfer's network fee. */
+export interface PseNetworkFeeEstimate {
+  /** Gas units as a decimal string. */
+  gasLimit: string;
+  /** Wei per gas as a decimal string. */
+  gasPriceWei: string;
+  /** gasLimit × gasPrice, in wei, as a decimal string. */
+  feeWei: string;
+}
+
+const parseHexQuantity = (value: unknown): bigint | null => {
+  if (typeof value !== 'string' || !/^0x[0-9a-f]+$/i.test(value.trim())) return null;
+  try { return BigInt(value.trim()); } catch { return null; }
+};
+
+/**
+ * Reads the wallet's own gas price and a gas estimate for the exact transfer.
+ *
+ * This is presentation only: a quote or a payment never depends on it. Some
+ * mobile wallets do not answer these read methods over WalletConnect, so the
+ * call is bounded and returns null instead of blocking or failing checkout.
+ * The wallet remains the authority for the final network fee at approval.
+ */
+export const estimateNativeTransferFee = async (
+  provider: PseEip1193Provider,
+  tx: PsePaymentTx,
+  transport: PseWalletTransport = 'injected',
+  timeoutMs = 6_000,
+): Promise<PseNetworkFeeEstimate | null> => {
+  if (!provider || typeof provider.request !== 'function') return null;
+  const caipChain = transport === 'walletConnect' ? PSE_BSC_CAIP2 : undefined;
+  const request = <T>(args: { method: string; params?: unknown[] | object }) =>
+    caipChain ? provider.request<T>(args, caipChain) : provider.request<T>(args);
+  try {
+    const result = await Promise.race([
+      Promise.all([
+        request<unknown>({ method: 'eth_gasPrice' }),
+        request<unknown>({
+          method: 'eth_estimateGas',
+          params: [{ from: tx.from, to: tx.to, value: tx.value }],
+        }),
+      ]),
+      new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+    if (!result) {
+      recordWalletStage('fee_estimate_unavailable', 'wallet did not answer within timeout');
+      return null;
+    }
+    const [gasPriceRaw, gasLimitRaw] = result;
+    const gasPrice = parseHexQuantity(gasPriceRaw);
+    const gasLimit = parseHexQuantity(gasLimitRaw);
+    if (!gasPrice || !gasLimit || gasPrice <= BigInt(0) || gasLimit <= BigInt(0)) {
+      recordWalletStage('fee_estimate_unavailable', 'invalid gas response');
+      return null;
+    }
+    recordWalletStage('fee_estimate_ready', `gas=${gasLimit.toString()}`);
+    return {
+      gasLimit: gasLimit.toString(),
+      gasPriceWei: gasPrice.toString(),
+      feeWei: (gasPrice * gasLimit).toString(),
+    };
+  } catch (error) {
+    recordWalletStage('fee_estimate_unavailable', redactedMessage(error));
+    return null;
+  }
+};
+
 /* ─── Payment submission state machine ───
  *
  * A payment is not a boolean. Between "the user tapped Pay" and "the tool is

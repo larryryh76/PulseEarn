@@ -50,6 +50,8 @@ import {
   getChainId,
   parseChainId,
   sendPaymentTransaction,
+  estimateNativeTransferFee,
+  type PseNetworkFeeEstimate,
   silentInjectedAccounts,
   subscribeWalletEvents,
   walletConnectChainId,
@@ -118,6 +120,8 @@ interface PSEMineContextType {
   disconnectWallet: () => Promise<void>;
   /** Sends the payment through the active provider; resolves with the tx hash. */
   sendPayment: (tx: { from: string; to: string; value: string }) => Promise<string>;
+  /** Optional pre-payment fee estimate; null when the wallet cannot answer. */
+  estimateNetworkFee: (tx: { from: string; to: string; value: string }) => Promise<PseNetworkFeeEstimate | null>;
   /** Fail-closed chain assertion against the server-quoted chain. */
   ensurePaymentChain: (chainId: number) => Promise<boolean>;
   /**
@@ -754,6 +758,13 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return sendPaymentTransaction(provider, tx, transportRef.current ?? 'injected');
   }, []);
 
+  /** Optional display-only fee estimate through the active wallet provider. */
+  const estimateNetworkFee = useCallback(async (tx: { from: string; to: string; value: string }) => {
+    const provider = providerRef.current;
+    if (!provider) return null;
+    return estimateNativeTransferFee(provider, tx, transportRef.current ?? 'injected');
+  }, []);
+
   // Silent re-connect on session start: previously-authorised injected
   // accounts re-adopt automatically; per-account persistence means account B
   // never inherits account A's wallet. The stored key holds both address and
@@ -1179,6 +1190,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cancelWalletConnectTransport,
         disconnectWallet,
         sendPayment,
+        estimateNetworkFee,
         ensurePaymentChain,
         refreshWalletChain,
         tools: toolsList,

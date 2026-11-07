@@ -110,7 +110,7 @@ def _run_transaction(db, txn_fn):
 PURCHASE_PAYMENT_STATES = {
     "awaiting_payment", "submission_uncertain", "transaction_submitted",
     "confirming", "manual_review", "activated", "abandoned_no_broadcast",
-    "superseded", "failed",
+    "superseded", "failed", "expired", "cancelled",
 }
 
 

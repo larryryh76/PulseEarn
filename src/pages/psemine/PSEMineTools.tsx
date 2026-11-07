@@ -5,6 +5,7 @@ import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
   type PsePaymentSubmissionState,
+  type PseNetworkFeeEstimate,
   canRetryPayment,
   isSessionUnavailable,
   isSubmissionUncertain,
@@ -58,6 +59,15 @@ const timeRemaining = (value: string | null | undefined, now: number) => {
   if (days) return `${days}d ${hours}h remaining`;
   if (hours) return `${hours}h ${minutes}m remaining`;
   return `${minutes}m ${seconds}s remaining`;
+};
+
+/** Server timestamp for the BNB rate captured with this quote. */
+const quoteStamp = (value: string): string => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'Earlier quote';
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London',
+  }).format(date) + ' UK';
 };
 
 /** Purpose-drawn equipment faces: each tier has its own chassis geometry, not a reused stock icon. */
@@ -528,7 +538,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const {
     connectedWallet, walletChainId, walletTransport, pseUser, walletCorrelationId,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain, refreshWalletChain,
+    sendPayment, estimateNetworkFee, ensurePaymentChain, refreshWalletChain,
   } = usePSEMine();
   const { refresh } = usePseState();
 
@@ -559,6 +569,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     } catch { return false; }
   });
   const [confirmedNoTransaction, setConfirmedNoTransaction] = useState(false);
+  const [feeEstimate, setFeeEstimate] = useState<PseNetworkFeeEstimate | null>(null);
+  // A wallet can broadcast while the browser is closed, so PSEmine never saw
+  // the hash. This lets the user paste the hash from their wallet and have the
+  // server check it against this intent BEFORE attaching it.
+  const [manualHash, setManualHash] = useState('');
+  const [manualRecovering, setManualRecovering] = useState(false);
+  const [manualHashError, setManualHashError] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -669,6 +686,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       setStep('result');
       return;
     }
+    if (pending.status === 'expired') {
+      setResume({ kind: 'expired', purchase: pending });
+      setStep('quote');
+      return;
+    }
     if (pending.status && pending.status !== 'awaiting_payment') {
       setResume({ kind: 'submitted', purchase: pending });
       setSubmissionState('CONFIRMING');
@@ -690,11 +712,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           gbpPrice: tool.purchasePriceGBP,
           bnbAmount: Number(pending.quotedBNBAmount ?? 0),
           bnbAmountWei: pending.quotedBNBWei || undefined,
-          exchangeRateBNBGBP: 0,
+          exchangeRateBNBGBP: Number(pending.exchangeRateBNBGBP ?? 0),
           receiverWallet: pending.receiverWallet,
           network: 'BNB Smart Chain',
           chainId: pending.chainId || 56,
-          createdAt: '',
+          createdAt: pending.quoteCreatedAt || '',
           expiresAt,
         },
       });
@@ -786,6 +808,30 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const chainUnknown = walletChainId === null;
   const wrongChain = !chainUnknown && walletChainId !== requiredChainId;
   const onRequiredChain = walletChainId === requiredChainId;
+
+  // Display-only fee estimate for the exact native transfer. The wallet still
+  // shows and charges its own final network fee at approval; a wallet that does
+  // not answer these read methods simply shows "in wallet" instead.
+  useEffect(() => {
+    let cancelled = false;
+    const value = String(quote?.bnbAmountWei || '');
+    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || !/^\d+$/.test(value)) {
+      setFeeEstimate(null);
+      return () => { cancelled = true; };
+    }
+    void estimateNetworkFee({
+      from: connectedWallet,
+      to: quote.receiverWallet,
+      value,
+    }).then(fee => { if (!cancelled) setFeeEstimate(fee); });
+    return () => { cancelled = true; };
+  }, [step, quote, connectedWallet, walletLive, estimateNetworkFee]);
+
+  const totalPayableWei = useMemo(() => {
+    if (!quote?.bnbAmountWei || !feeEstimate) return null;
+    try { return (BigInt(quote.bnbAmountWei) + BigInt(feeEstimate.feeWei)).toString(); }
+    catch { return null; }
+  }, [quote?.bnbAmountWei, feeEstimate]);
   const payerAligned = !boundPayer || !connectedWallet || connectedWallet.toLowerCase() === boundPayer.toLowerCase();
   const walletChanged = Boolean(boundPayer && connectedWallet && !payerAligned);
   const quoteValid = Boolean(quote) && secondsLeft > 0;
@@ -1102,6 +1148,61 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     }
   };
 
+  /** Attach a hash the browser never received, but only after a read-only
+   *  on-chain match against this purchase. A mismatch writes nothing. */
+  const recoverKnownPayment = async () => {
+    const hash = manualHash.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/.test(hash)) {
+      setManualHashError('Enter the 64-character transaction hash shown in your wallet.');
+      return;
+    }
+    if (!purchaseId) {
+      setManualHashError('The purchase is still being prepared. Wait a moment and try again.');
+      return;
+    }
+    const sender = boundPayer || connectedWallet || '';
+    setManualRecovering(true);
+    setManualHashError(null);
+    try {
+      const check = await PSEMineEngine.checkPurchaseTransaction(purchaseId, hash);
+      if (!check.match) {
+        setManualHashError(check.message || 'This transaction does not match this purchase. Nothing was attached.');
+        return;
+      }
+      // Terms matched. Bind the immutable hash and run the same independent
+      // verification as a wallet-returned hash; activation is never assumed.
+      await PSEMineEngine.reportPurchaseSubmission(purchaseId, hash, sender);
+      const res = await submitPurchaseTx(purchaseId, hash, sender);
+      if (res.success) {
+        setSubmissionState('VERIFIED');
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
+        setUncertainRecovery(false);
+        setResult({ ok: true, hash, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.` });
+      } else if (res.code === 'INSUFFICIENT_CONFIRMATIONS') {
+        setSubmissionState('CONFIRMING');
+        setResult({
+          ok: false, recheckable: true, hash,
+          message: res.error || 'The transaction matches this purchase and is waiting for more BNB Smart Chain confirmations. Do not send another payment.',
+        });
+      } else {
+        setResult({
+          ok: false, hash,
+          recheckable: res.code === 'VERIFICATION_TIMEOUT' || res.code === 'VERIFICATION_UNAVAILABLE',
+          message: res.error || 'The transaction was attached, but verification has not completed. Do not send another payment.',
+        });
+      }
+      setManualHash('');
+      setStep('result');
+    } catch (error) {
+      setManualHashError(error instanceof Error
+        ? error.message
+        : 'The transaction could not be checked. Nothing was attached; try again.');
+    } finally {
+      setManualRecovering(false);
+      void refresh();
+    }
+  };
+
   /** Restart from a fresh quote — the only route out of an uncertain or failed
    *  submission, and only ever at the user's explicit request. */
   const confirmNoBroadcast = async () => {
@@ -1146,6 +1247,43 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const continuous = dutyOf(tool) === 'continuous';
   // The details CTA starts quote creation; it must not wait for a quote that is only requested after entering the quote step.
   const purchaseReadyForTool = owned < tool.maxPerUser && (!pending || pending.toolId === tool.id);
+
+  const hashRecoveryPanel = (
+    <details className="pse-block-note mt-3">
+      <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Already approved this payment in your wallet?</summary>
+      <p className="pse-prose--sm" style={{ marginTop: 8 }}>
+        If your wallet shows the BNB transfer but PSEmine never received its hash, paste the hash here. The server
+        checks the sender, recipient, exact amount and BNB Smart Chain before attaching anything. A mismatch writes
+        nothing to this purchase.
+      </p>
+      <label className="pse-field" htmlFor="pse-manual-hash">
+        <span>Transaction hash</span>
+        <input
+          id="pse-manual-hash"
+          className="pse-input"
+          value={manualHash}
+          onChange={event => { setManualHash(event.target.value); setManualHashError(null); }}
+          placeholder="0x…"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-invalid={Boolean(manualHashError)}
+        />
+      </label>
+      {manualHashError && <p className="pse-field-error" role="alert">{manualHashError}</p>}
+      <PseButton
+        variant="secondary"
+        size="sm"
+        onClick={() => void recoverKnownPayment()}
+        disabled={manualRecovering || !purchaseId}
+      >
+        {manualRecovering ? 'Checking on BNB Smart Chain…' : 'Check this transaction'}
+      </PseButton>
+      <p className="pse-block-meta">
+        This attaches the hash to the same purchase. It never starts a second payment.
+      </p>
+    </details>
+  );
 
   return (
     <>
@@ -1283,6 +1421,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               <PseFact label="Tool" value={tool.name} text />
               <PseFact label="Fixed price" value={gbp(quote.gbpPrice)} />
               <PseFact label="Live rate" value={quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'} />
+              <PseFact label="Rate captured" value={quoteStamp(quote.createdAt)} text />
               <PseFact label="You pay, exactly" value={`${exactBnb} BNB`} />
               <PseFact label="Network" value={`${networkName} · ${requiredChainId}`} text />
               <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
@@ -1348,7 +1487,16 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             <PseFact label="Receiving wallet" value={shortAddr(quote.receiverWallet)} />
             <PseFact label="Quote expires" value={`${mm}:${ss}`} />
             <PseFact label="You pay exactly" value={`${exactBnb} BNB`} />
+            <PseFact label="Network fee (est.)" value={feeEstimate ? `${bnbExactFromWei(feeEstimate.feeWei)} BNB` : 'Shown in wallet'} />
+            <PseFact label="Total payable (est.)" value={totalPayableWei ? `${bnbExactFromWei(totalPayableWei)} BNB` : `${exactBnb} BNB + network fee`} />
           </PseFacts>
+
+          <p className="pse-block-note">
+            The network fee is paid to BNB Smart Chain validators, not to PSEmine. It is estimated from your wallet's
+            gas price; your wallet shows the final fee on its approval screen.
+          </p>
+
+          {hashRecoveryPanel}
 
           <PseButton
             variant="secondary"
@@ -1399,8 +1547,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   : onRequiredChain
                     ? `${networkName} (chain ${requiredChainId})`
                     : chainUnknown
-                      ? `Network not confirmed yet — PSEmine will request ${networkName} automatically when you tap Pay`
-                      : `Network switch required — PSEmine will request ${networkName} automatically before payment`,
+                      ? `Network not confirmed yet — tap Switch to ${networkName} and approve chain ${requiredChainId} in your wallet`
+                      : `Network switch required — confirm ${networkName} (chain ${requiredChainId}) before payment`,
               },
               { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
               { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
@@ -1429,9 +1577,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {connectedWallet && (wrongChain || chainUnknown) && (
             <PseNotice tone="attention">
               {chainUnknown
-                ? `Your wallet is connected, but its network is not confirmed yet. When you tap Pay, PSEmine will ask your wallet app to verify or switch to ${networkName} (chain ${requiredChainId}).`
-                : `Your wallet is currently on chain ${walletChainId}. When you tap Pay, PSEmine will request ${networkName} (chain ${requiredChainId}) from your wallet app before preparing the payment.`}
-              {' '}Approve that network request in the wallet app if it appears; you do not need to open wallet settings yourself.
+                ? `Your wallet is connected, but its network is not confirmed yet. Tap Switch to ${networkName} and approve chain ${requiredChainId} in your wallet app.`
+                : `Your wallet is currently on chain ${walletChainId}. Tap Switch to ${networkName} and approve chain ${requiredChainId} in your wallet app before preparing the payment.`}
+              {' '}You do not need to open wallet settings yourself.
             </PseNotice>
           )}
 
@@ -1539,6 +1687,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               {result.hash ? <> Transaction: <a className="pse-link" href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer">{shortHash(result.hash)} on BscScan</a>.</> : ' If a transfer appears, do not pay again. Keep its transaction hash for reconciliation.'}
             </PseNotice>
           )}
+          {result.uncertain && !result.hash && hashRecoveryPanel}
           {result.uncertain && result.hash && (
             <PseButton variant="secondary" onClick={() => void recheckRecovered()} disabled={rechecking}>
               {rechecking ? 'Reconciling transaction…' : 'Recover this transaction'}

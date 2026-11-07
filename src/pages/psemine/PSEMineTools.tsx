@@ -461,11 +461,16 @@ export const PSEMineTools: React.FC = () => {
                                 ? `${remaining} slot${remaining === 1 ? '' : 's'} available`
                                 : walletSetupRequired ? 'Wallet setup pending' : 'Campaign purchases closed'}
                     </span>
-                    {atLimit ? (
+                    {atLimit && !pendingForTool ? (
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
-                      <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'View details' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
+                      <PseButton
+                        className="pse-product-buy-button"
+                        onClick={() => setPurchasing(tool)}
+                        disabled={!purchaseOpen && !pendingForTool}
+                        aria-label={pendingForTool ? `Resume purchase of ${tool.name}` : `Buy Tool: ${tool.name}`}
+                      >
+                        {pendingForTool ? 'Resume purchase' : purchaseOpen ? 'Buy Tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>

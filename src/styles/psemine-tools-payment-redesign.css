@@ -929,3 +929,43 @@
 @media(prefers-reduced-motion:reduce) {
   .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { transition:none; }
 }
+
+/* Purchase is the primary action on every equipment card. Keep it explicit,
+   high-contrast and comfortably tappable instead of the previous low-priority
+   "View details" micro-action. */
+.pse-stage[data-page="tools"] .pse-product-actions .pse-product-buy-button {
+  min-width:132px;
+  min-height:44px;
+  padding:0 17px;
+  border:1px solid rgba(103,218,255,.62);
+  border-radius:11px;
+  background:linear-gradient(135deg,#155d83 0%,#2458a7 100%);
+  color:#f5fbff;
+  font-size:12px;
+  font-weight:780;
+  letter-spacing:.01em;
+  box-shadow:0 7px 20px rgba(20,105,166,.22),inset 0 1px 0 rgba(255,255,255,.12);
+  transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.pse-stage[data-page="tools"] .pse-product-actions .pse-product-buy-button:not(:disabled):hover {
+  transform:translateY(-1px);
+  filter:brightness(1.12);
+  box-shadow:0 10px 25px rgba(20,125,190,.3),inset 0 1px 0 rgba(255,255,255,.16);
+}
+.pse-stage[data-page="tools"] .pse-product-actions .pse-product-buy-button:focus-visible {
+  outline:2px solid #7ce7ff;
+  outline-offset:3px;
+}
+.pse-stage[data-page="tools"] .pse-product-actions .pse-product-buy-button:disabled {
+  opacity:.56;
+  cursor:not-allowed;
+  filter:saturate(.55);
+}
+@media (max-width:620px) {
+  .pse-stage[data-page="tools"] .pse-product-actions .pse-product-buy-button {
+    min-height:48px;
+    min-width:140px;
+    padding-inline:18px;
+  }
+}
+

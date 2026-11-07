@@ -98,6 +98,8 @@ export const AdminPSEMine: React.FC = () => {
   const [orders, setOrders] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [recovery, setRecovery] = useState<Row[]>([]);
+  const [recoveryStatus, setRecoveryStatus] = useState('open');
+  const [recoveryQuery, setRecoveryQuery] = useState('');
   const [withdrawals, setWithdrawals] = useState<Row[]>([]);
   const [audit, setAudit] = useState<Row[]>([]);
   const [walletInput, setWalletInput] = useState('');
@@ -133,7 +135,7 @@ export const AdminPSEMine: React.FC = () => {
       ['payment configuration and tool metrics', '/api/admin/psemine/overview', (d: Row) => { setMineStats(d.stats || {}); setConfig(d.campaign || null); }],
       ['purchase orders', '/api/admin/psemine/orders', (d: Row) => setOrders(Array.isArray(d.orders) ? d.orders : [])],
       ['verified payments', '/api/admin/psemine/payments', (d: Row) => setPayments(Array.isArray(d.payments) ? d.payments : [])],
-      ['payment recovery cases', '/api/admin/mine/payment-recovery?status=open', (d: Row) => setRecovery(Array.isArray(d.cases) ? d.cases : [])],
+      ['payment recovery cases', `/api/admin/mine/payment-recovery?status=${encodeURIComponent(recoveryStatus)}`, (d: Row) => setRecovery(Array.isArray(d.cases) ? d.cases : [])],
       ['payout queue', '/api/admin/psemine/withdrawals', (d: Row) => setWithdrawals(Array.isArray(d.withdrawals) ? d.withdrawals : [])],
       ['audit history', '/api/admin/mine/audit', (d: Row) => setAudit(Array.isArray(d.records) ? d.records : [])],
     ] as const;
@@ -145,7 +147,7 @@ export const AdminPSEMine: React.FC = () => {
     setLoadErrors(failures);
     setLoadState(failures.length === jobs.length ? 'error' : failures.length ? 'partial' : 'ready');
     setLoadedAt(Date.now());
-  }, [currentUser, request]);
+  }, [currentUser, request, recoveryStatus]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setWalletInput(String(config?.receiverWalletAddress || '')); }, [config?.receiverWalletAddress]);
@@ -163,6 +165,14 @@ export const AdminPSEMine: React.FC = () => {
         .some(value => String(value || '').toLowerCase().includes(q));
     });
   }, [orders, orderQuery, payments]);
+
+  const filteredRecovery = useMemo(() => {
+    const q = recoveryQuery.trim().toLowerCase();
+    return recovery.filter(row => !q || [
+      row.id, row.userId, row.purchaseId, row.quoteId, row.reason,
+      row.status, row.txHash, row.sender, row.recipient,
+    ].some(value => String(value || '').toLowerCase().includes(q)));
+  }, [recovery, recoveryQuery]);
 
   const runCampaignAction = async (action: string) => {
     if (!isAdmin) { toast.error('Your account does not have PSEmine admin permissions.'); return; }
@@ -184,6 +194,20 @@ export const AdminPSEMine: React.FC = () => {
     finally { setBusy(false); }
   };
 
+  const setPurchaseGate = async (enabled: boolean) => {
+    if (!isAdmin) { toast.error('Your account needs platform admin permission to change the purchase gate.'); return; }
+    if (enabled && !config?.purchaseReady) { toast.error('Confirm the campaign receiving wallet before enabling purchases.'); return; }
+    const phrase = enabled ? 'ENABLE PURCHASES' : 'PAUSE PURCHASES';
+    if (window.prompt(`Type ${phrase} to confirm this change. Existing submitted transactions will still be reconciled.`) !== phrase) return;
+    setBusy(true);
+    try {
+      await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_purchase_enabled', enabled, reason: actionReason || 'PSEmine purchase gate update' }) });
+      toast.success(enabled ? 'New tool purchases are now enabled.' : 'New tool purchases are paused. Submitted transactions remain verifiable.');
+      await load(true);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Purchase gate update failed.'); }
+    finally { setBusy(false); }
+  };
+
   const saveWallet = async () => {
     if (!canConfigureReceiverWallet) { toast.error('Your account needs platform admin permission to configure the campaign receiver.'); return; }
     const address = walletInput.trim();
@@ -193,7 +217,7 @@ export const AdminPSEMine: React.FC = () => {
     setBusy(true);
     try {
       await request('/api/admin/mine/campaign/action', { method: 'POST', body: JSON.stringify({ action: 'set_receiver_wallet', receiverWalletAddress: address, reason: 'PSEmine operations configuration' }) });
-      toast.success('Campaign receiving wallet saved. New purchase quotes can now be issued.');
+      toast.success('Campaign receiving wallet saved. Review the purchase gate before opening checkout.');
       setWalletAck(false); setWalletPhrase('');
       await load(true);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Wallet configuration failed.'); }
@@ -298,8 +322,16 @@ export const AdminPSEMine: React.FC = () => {
             <label className="mt-3 flex items-start gap-2 text-xs text-slate-400"><input type="checkbox" checked={walletAck} onChange={e => setWalletAck(e.target.checked)} disabled={!canConfigureReceiverWallet || busy} className="mt-0.5 accent-cyan-400" />I have independently checked the complete address and confirmed it is the intended BNB Smart Chain receiving wallet.</label>
             <label className="mt-3 block text-xs font-medium text-slate-300">Type CONFIRM RECEIVER</label>
             <input value={walletPhrase} onChange={e => setWalletPhrase(e.target.value)} placeholder="CONFIRM RECEIVER" disabled={!canConfigureReceiverWallet || busy} className="mt-1 w-full rounded-xl border border-white/10 bg-[#080d17] px-3 py-2.5 text-sm text-white disabled:opacity-50" />
-            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : config?.receiverWalletConfigured ? 'Save receiving wallet' : 'Confirm receiving wallet & enable purchases'}</button>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination.</p>
+            <button type="button" onClick={() => void saveWallet()} disabled={!canConfigureReceiverWallet || busy || !walletAck || walletPhrase.trim() !== 'CONFIRM RECEIVER'} className="mt-3 w-full rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-[#06101c] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Saving…' : 'Save receiving wallet'}</button>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Saving is performed by the authenticated backend and audited. It applies to new purchase quotes; existing quotes keep their original destination. Saving the address does not open purchases — manage the purchase gate separately below.</p>
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><div className="text-xs font-semibold text-white">Tool purchase gate</div><p className="mt-1 text-[10px] text-slate-400">New checkouts are {config?.purchaseEnabled ? 'open' : 'paused'}. Existing submitted transactions remain verifiable.</p></div>
+                <Pill value={config?.purchaseEnabled ? 'Purchases open' : 'Purchases paused'} />
+              </div>
+              <button type="button" onClick={() => void setPurchaseGate(!config?.purchaseEnabled)} disabled={!isAdmin || busy || (!config?.purchaseEnabled && !config?.purchaseReady)} className={`mt-3 min-h-11 w-full rounded-xl border px-4 py-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${config?.purchaseEnabled ? 'border-amber-400/25 bg-amber-400/10 text-amber-100' : 'border-cyan-400/25 bg-cyan-400/10 text-cyan-100'}`}>{config?.purchaseEnabled ? 'Pause new purchases' : 'Enable new purchases'}</button>
+              {!config?.purchaseReady && <p className="mt-2 text-[10px] text-amber-200">Configure and confirm the receiving wallet before enabling purchases.</p>}
+            </div>
           </Panel>
         </div>
 
@@ -325,8 +357,8 @@ export const AdminPSEMine: React.FC = () => {
           <Table columns={['Confirmed', 'Payment', 'Order', 'User', 'GBP value', 'BNB received', 'Transaction']} rows={payments} empty="No genuine verified tool payments recorded yet." render={row => <tr><td className="px-3 py-3 text-slate-400">{dateText(row.confirmedAt)}</td><td className="px-3 py-3 font-mono text-slate-300">{short(row.id)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.orderId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-white">{money(row.priceGbp ?? row.purchasePriceGbp ?? row.amountGbp)}</td><td className="px-3 py-3 text-slate-300">{row.paidBnbAmount ?? row.amountBnb ?? '—'} BNB</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td></tr>} />
         </Panel>
 
-        <Panel id="ops-recovery" title="Payment recovery" detail="Review failed or ambiguous payment evidence. Never ask a user to pay again until the existing transaction is reconciled.">
-          <Table columns={['Case', 'User', 'Reason', 'Transaction', 'Created', 'Actions']} rows={recovery} empty="No open payment-recovery cases." render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.userId)}</td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{short(row.txHash || row.transactionHash)}</td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1"><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void attachRecovery(row)} disabled={!isAdmin || busy || typeof row.purchaseId !== 'string'} className="rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Attach to purchase</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy} className="rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></div></td></tr>} />
+        <Panel id="ops-recovery" title="Payment recovery" detail="Reconcile the original on-chain transfer before releasing a user's purchase lock or asking them to retry." right={<div className="flex w-full flex-wrap gap-2 sm:w-auto"><select value={recoveryStatus} onChange={e => setRecoveryStatus(e.target.value)} disabled={busy} aria-label="Recovery case status" className="min-h-10 rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white"><option value="open">Open cases</option><option value="attached">Attached</option><option value="reviewed">Reviewed</option><option value="rejected">Rejected</option><option value="resolved">Resolved</option></select><input value={recoveryQuery} onChange={e => setRecoveryQuery(e.target.value)} placeholder="Search case, user, purchase, hash…" aria-label="Search recovery cases" className="min-h-10 w-full rounded-lg border border-white/10 bg-[#080d17] px-3 py-2 text-xs text-white sm:w-64" /></div>}>
+          <Table columns={['Case', 'User / purchase', 'Reason', 'Transaction', 'Status', 'Created', 'Actions']} rows={filteredRecovery} empty={recoveryStatus === 'open' ? 'No open payment-recovery cases.' : `No ${recoveryStatus} recovery cases returned.`} render={row => <tr><td className="px-3 py-3 font-mono text-slate-300">{short(row.id || row.recoveryId)}</td><td className="px-3 py-3 text-slate-400"><div className="font-mono">{short(row.userId)}</div><div className="mt-1 text-[10px] text-slate-500">{short(row.purchaseId || 'No purchase linked')}</div></td><td className="px-3 py-3 text-slate-300">{String(row.reason || 'unknown').replace(/_/g, ' ')}</td><td className="px-3 py-3 font-mono text-slate-400">{row.txHash ? <a href={`https://bscscan.com/tx/${row.txHash}`} target="_blank" rel="noreferrer" className="text-cyan-200 hover:underline">{short(row.txHash)}</a> : 'No hash recorded'}</td><td className="px-3 py-3"><Pill value={row.status} /></td><td className="px-3 py-3 text-slate-400">{dateText(row.createdAt)}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1">{(row.status === 'open' || row.status === 'reviewed') && <><button onClick={() => void attachRecovery(row)} disabled={!isAdmin || busy || typeof row.purchaseId !== 'string'} className="min-h-9 rounded border border-cyan-400/20 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40">Attach to purchase</button>{row.status === 'open' && <><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'mark_reviewed')} disabled={!isAdmin || busy} className="min-h-9 rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300 disabled:opacity-40">Mark reviewed</button><button onClick={() => void resolveCase(String(row.id || row.recoveryId), 'reject')} disabled={!isAdmin || busy || Boolean(row.purchaseId || row.txHash || row.transactionHash)} title={row.purchaseId || row.txHash || row.transactionHash ? 'A payment with purchase/transaction evidence must be reconciled, not discarded.' : undefined} className="min-h-9 rounded border border-rose-400/20 px-2 py-1 text-[10px] text-rose-200 disabled:opacity-40">Reject</button></>}</>}</div></td></tr>} />
         </Panel>
 
         <Panel id="ops-payouts" title="Payout queue" detail="Approvals require a BNB Smart Chain transaction hash; the backend validates the transfer before finalising.">

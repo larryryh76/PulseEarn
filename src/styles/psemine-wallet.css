@@ -313,3 +313,26 @@
     overflow-wrap:anywhere;
   }
 }
+
+
+@media(max-width:430px) {
+  .pse-wallet {
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+  .pse-wallet > *,
+  .pse-w-head,
+  .pse-w-head-id,
+  .pse-w-head-side,
+  .pse-w-actions,
+  .pse-wallet-view {
+    min-width:0;
+  }
+  .pse-w-head,
+  .pse-w-actions,
+  .pse-wallet-view {
+    width:100%;
+    max-width:100%;
+  }
+}

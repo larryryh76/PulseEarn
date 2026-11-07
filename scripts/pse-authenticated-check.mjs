@@ -221,6 +221,40 @@ const MEASURE = () => {
     if (bordered && bg !== 'rgba(0, 0, 0, 0)' && r.width > 160 && r.height > 60) cardLike++;
   }
   const bodyText = (document.body.innerText || '').replace(/\s+/g, ' ').trim();
+  const viewportWidth = document.documentElement.clientWidth;
+  const overflowNodes = Array.from(document.querySelectorAll('body *')).map(el => {
+    const r = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      tag: el.tagName.toLowerCase(),
+      id: el.id || '',
+      className: String(el.className?.baseVal || el.className || '').slice(0, 120),
+      left: Math.round(r.left * 10) / 10,
+      right: Math.round(r.right * 10) / 10,
+      width: Math.round(r.width * 10) / 10,
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+      overflowX: style.overflowX,
+      boxSizing: style.boxSizing,
+      marginLeft: style.marginLeft,
+      marginRight: style.marginRight,
+      paddingLeft: style.paddingLeft,
+      paddingRight: style.paddingRight,
+      transform: style.transform,
+      parent: el.parentElement ? (() => {
+        const p = el.parentElement.getBoundingClientRect();
+        return {
+          tag: el.parentElement.tagName.toLowerCase(),
+          className: String(el.parentElement.className?.baseVal || el.parentElement.className || '').slice(0, 100),
+          left: Math.round(p.left * 10) / 10,
+          right: Math.round(p.right * 10) / 10,
+          width: Math.round(p.width * 10) / 10,
+        };
+      })() : null,
+    };
+  }).filter(x => x.width > 0 && (x.left < -1 || x.right > viewportWidth + 1))
+    .sort((a, b) => (b.right - viewportWidth) - (a.right - viewportWidth))
+    .slice(0, 40);
 
   // Composition law, measured from the rendered DOM: top-level bordered
   // containers only (ledgers/plates). A sub-plate INSIDE a ledger is not a
@@ -238,6 +272,7 @@ const MEASURE = () => {
     docHeight: document.documentElement.scrollHeight,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
+    overflowNodes,
     headingSizes: [...new Set(headings.map(h => h.size))].sort((a, b) => b - a),
     headings: headings.slice(0, 12),
     cardLike, surfaces: surfaces.size,

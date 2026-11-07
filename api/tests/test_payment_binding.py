@@ -369,14 +369,14 @@ class TestPurchaseSubmissionStateMonotonicity(unittest.TestCase):
 
     def test_same_hash_retry_preserves_confirming_status_without_duplicate_write(self):
         handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_report_purchase_submission")
-        self.assertIn("existing_hash == tx_hash", handler)
-        self.assertIn("purchase.get('status') in ('transaction_submitted', 'confirming')", handler)
-        self.assertIn('"status": purchase.get(\'status\')', handler)
-        self.assertLess(
-            handler.index("existing_hash == tx_hash"),
-            handler.index("ref.update({"),
-            "idempotent same-hash return must happen before status mutation",
-        )
+        self.assertIn("transition_purchase_state", handler)
+        self.assertIn('"report_submission"', handler)
+        decision = tfg._read(tfg.ENGINE_SRC) if hasattr(tfg, "ENGINE_SRC") else open(
+            os.path.join(os.path.dirname(tfg.INDEX_SRC), "psemine_engine.py"), encoding="utf-8"
+        ).read()
+        self.assertIn('existing_hash == requested_hash', decision)
+        self.assertIn('"transaction_submitted", "confirming", "manual_review"', decision)
+        self.assertIn('"idempotent": True', decision)
 
 
 class TestAtomicPurchaseIntentReservation(unittest.TestCase):
@@ -407,11 +407,288 @@ class TestUncertainRecoveryPreservesKnownHash(unittest.TestCase):
 
     def test_mark_uncertain_refuses_when_hash_is_already_recorded(self):
         handler = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "mine_mark_purchase_uncertain")
-        self.assertIn("purchase.get('transactionHash') or purchase.get('txHash')", handler)
-        self.assertIn('"error": "TRANSACTION_HASH_ALREADY_RECORDED"', handler)
-        self.assertIn("status not in ('awaiting_payment', 'submission_uncertain')", handler)
-        self.assertLess(
-            handler.index("TRANSACTION_HASH_ALREADY_RECORDED"),
-            handler.index("ref.update({"),
-            "known hash must be checked before uncertainty status is written",
+        self.assertIn("transition_purchase_state", handler)
+        self.assertIn('"mark_uncertain"', handler)
+        decision = open(
+            os.path.join(os.path.dirname(tfg.INDEX_SRC), "psemine_engine.py"), encoding="utf-8"
+        ).read()
+        self.assertIn('if existing_hash:', decision)
+        self.assertIn('"TRANSACTION_HASH_ALREADY_RECORDED"', decision)
+
+
+class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
+    """All user submission/recovery mutations are monotonic and transactional."""
+
+    TX_A = "0x" + "ab" * 32
+    TX_B = "0x" + "cd" * 32
+
+    def _db(self, status="awaiting_payment", tx_hash=None):
+        db = tpc.FakeDB()
+        db.collection("psemine_purchases").document("purchase1").set({
+            "id": "purchase1",
+            "userId": "user1",
+            "toolId": "starter",
+            "status": status,
+            "paymentWallet": WALLET_A,
+            "transactionHash": tx_hash,
+        })
+        return db
+
+    def _transition(self, db, action, **kwargs):
+        return psemine_engine.transition_purchase_state(
+            db, "purchase1", "user1", action,
+            updated_at="server-time", **kwargs,
         )
+
+    def test_uncertain_to_hash_submission_advances_monotonically(self):
+        db = self._db()
+        uncertain = self._transition(db, "mark_uncertain")
+        self.assertTrue(uncertain["ok"])
+        self.assertEqual("submission_uncertain", uncertain["status"])
+        submitted = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(submitted["ok"])
+        self.assertEqual("transaction_submitted", submitted["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+        self.assertEqual("transaction_submitted", purchase["status"])
+
+    def test_known_hash_cannot_be_downgraded_to_uncertain_or_closed(self):
+        db = self._db("transaction_submitted", self.TX_A)
+        uncertain = self._transition(db, "mark_uncertain")
+        self.assertFalse(uncertain["ok"])
+        self.assertEqual("TRANSACTION_HASH_ALREADY_RECORDED", uncertain["error"])
+        closed = self._transition(db, "resolve_no_broadcast")
+        self.assertFalse(closed["ok"])
+        self.assertEqual("PURCHASE_NOT_UNCERTAIN", closed["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("transaction_submitted", purchase["status"])
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+
+    def test_conflicting_hash_is_rejected_without_overwriting_original(self):
+        db = self._db("transaction_submitted", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_B, sender_wallet=WALLET_A,
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("SUBMISSION_HASH_CONFLICT", result["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual(self.TX_A, purchase["transactionHash"])
+
+    def test_duplicate_hash_is_idempotent_and_preserves_confirming(self):
+        db = self._db("confirming", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["idempotent"])
+        self.assertEqual("confirming", result["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("confirming", purchase["status"])
+
+    def test_manual_review_is_not_regressed_by_duplicate_hash_report(self):
+        db = self._db("manual_review", self.TX_A)
+        result = self._transition(
+            db, "report_submission", tx_hash=self.TX_A, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual("manual_review", result["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("manual_review", purchase["status"])
+
+    def test_wrong_owner_cannot_transition_purchase(self):
+        db = self._db()
+        result = psemine_engine.transition_purchase_state(
+            db, "purchase1", "user2", "mark_uncertain",
+            updated_at="server-time",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("FORBIDDEN", result["error"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("awaiting_payment", purchase["status"])
+
+    def test_no_broadcast_requires_uncertain_state_and_no_hash(self):
+        db = self._db()
+        refused = self._transition(db, "resolve_no_broadcast")
+        self.assertFalse(refused["ok"])
+        self.assertEqual("PURCHASE_NOT_UNCERTAIN", refused["error"])
+        self._transition(db, "mark_uncertain")
+        closed = self._transition(db, "resolve_no_broadcast")
+        self.assertTrue(closed["ok"])
+        self.assertEqual("abandoned_no_broadcast", closed["status"])
+        purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+        self.assertEqual("abandoned_no_broadcast", purchase["status"])
+
+    def test_verifier_requires_persisted_hash_and_rechecks_state_inside_activation_txn(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "verify_psemine_tool_purchase")
+        self.assertIn("persisted_hash != tx_hash", handler)
+        self.assertIn("TRANSACTION_SUBMISSION_REQUIRED", handler)
+        self.assertIn("p_curr_data.get('transactionHash')", handler)
+        self.assertIn("p_curr_data.get('status') not in allowed_activation_states", handler)
+        self.assertIn("transaction_submitted", handler)
+        self.assertIn("manual_review", handler)
+
+    def test_submission_and_recovery_handlers_delegate_to_transactional_guard(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        for handler_name, action in (
+            ("mine_mark_purchase_uncertain", '"mark_uncertain"'),
+            ("mine_report_purchase_submission", '"report_submission"'),
+            ("mine_resolve_purchase_no_broadcast", '"resolve_no_broadcast"'),
+        ):
+            handler = tfg._handler_body(source, handler_name)
+            self.assertIn("transition_purchase_state", handler)
+            self.assertIn(action, handler)
+            self.assertNotIn("ref.update({", handler)
+
+
+
+    def test_verifier_uses_bounded_bsc_rpc_failover_without_exposing_provider_errors(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        pool_start = source.index("def _psemine_bsc_rpc_urls(")
+        verifier_start = source.index("def verify_bsc_transaction(", pool_start)
+        verifier_end = source.index("\ndef recalculate_psemine_user_mining_state", verifier_start)
+        pool = source[pool_start:verifier_start]
+        verifier = source[verifier_start:verifier_end]
+        self.assertIn("PSEMINE_BSC_RPC_URL", pool)
+        self.assertIn("PSEMINE_BSC_RPC_FALLBACKS", pool)
+        self.assertIn("https://bsc-dataseed.bnbchain.org", pool)
+        self.assertIn("https://bsc-dataseed-public.bnbchain.org", pool)
+        self.assertIn("for rpc_url in rpc_urls", verifier)
+        self.assertIn("rpc_deadline", verifier)
+        self.assertIn("timeout=min(6.0, remaining)", verifier)
+        self.assertIn("continue", verifier)
+        self.assertNotIn("str(exc)", verifier)
+        self.assertIn("TRANSACTION_NOT_FOUND", verifier)
+        self.assertIn("INSUFFICIENT_CONFIRMATIONS", verifier)
+
+    def test_recovery_attachment_is_revalidated_inside_activation_transaction(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "verify_psemine_tool_purchase")
+        self.assertIn("recovery_ref.get(transaction=txn)", handler)
+        self.assertIn("recovery_data.get('status') != 'attached'", handler)
+        self.assertIn("recovery_data.get('attachedPurchaseId') != purchase_id", handler)
+        self.assertIn("recovery_data.get('txHash')", handler)
+        self.assertIn("RECOVERY_CASE_NOT_ATTACHED", handler)
+
+    def test_admin_cannot_reject_recovery_with_purchase_or_hash_evidence(self):
+        db = tpc.FakeDB()
+        tx_hash = self.TX_A
+        recovery_id = psemine_engine.create_payment_recovery(
+            db, "user1", tx_hash=tx_hash, quote_id="quote1",
+            purchase_id="purchase1", reason="RPC_ERROR",
+        )
+        result = psemine_engine.admin_resolve_payment_recovery(
+            db, recovery_id, "admin1", "reject", notes="Reviewed",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("PAYMENT_CASE_REQUIRES_RECONCILIATION", result["error"])
+        recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+        self.assertEqual("open", recovery["status"])
+
+    def test_recovery_filter_route_only_accepts_known_statuses(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "admin_mine_payment_recovery")
+        self.assertIn("allowed_statuses", handler)
+        self.assertIn("'attached'", handler)
+        self.assertIn("'reviewed'", handler)
+        self.assertIn("INVALID_RECOVERY_STATUS", handler)
+
+    def test_admin_overview_exposes_separate_purchase_gate_state(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        handler = tfg._handler_body(source, "admin_psemine_overview")
+        self.assertIn('"purchaseReady": bool(configured_receiver)', handler)
+        self.assertIn('"purchaseEnabled": campaign_config.get("purchaseEnabled") is True', handler)
+        self.assertIn('"canManageCampaign": is_admin(request.user["uid"])', handler)
+
+    def test_repeated_admin_recovery_attachment_is_idempotent(self):
+        db = tpc.FakeDB()
+        original_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        tx_hash = self.TX_A
+        try:
+            db.collection("psemine_purchases").document("purchase1").set({
+                "id": "purchase1", "userId": "user1", "quoteId": "quote1",
+                "transactionHash": tx_hash, "status": "manual_review",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=tx_hash, quote_id="quote1",
+                purchase_id="purchase1", reason="RPC_ERROR",
+            )
+            first = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            second = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            self.assertTrue(first["ok"])
+            self.assertTrue(second["ok"])
+            self.assertTrue(second.get("idempotent"))
+            self.assertEqual("attached", second["status"])
+            audit_rows = db.collection("admin_audit_logs").get()
+            self.assertEqual(1, len(audit_rows), "idempotent retries must not duplicate audit entries")
+        finally:
+            psemine_engine.firestore_server_ts = original_ts
+
+    def test_admin_can_attach_hash_evidence_to_uncertain_or_user_closed_intent(self):
+        for status in ("submission_uncertain", "abandoned_no_broadcast"):
+            db = tpc.FakeDB()
+            original_ts = psemine_engine.firestore_server_ts
+            psemine_engine.firestore_server_ts = lambda: tpc.TS
+            try:
+                db.collection("psemine_purchases").document("purchase1").set({
+                    "id": "purchase1", "userId": "user1", "quoteId": "quote1",
+                    "status": status, "transactionHash": None,
+                })
+                recovery_id = psemine_engine.create_payment_recovery(
+                    db, "user1", tx_hash=self.TX_A, quote_id="quote1",
+                    purchase_id="purchase1", reason="LATE_HASH_RECOVERY",
+                )
+                result = psemine_engine.admin_resolve_payment_recovery(
+                    db, recovery_id, "admin1", "attach_to_purchase",
+                    purchase_id="purchase1",
+                )
+                self.assertTrue(result["ok"], f"status={status}: {result}")
+                purchase = db.collection("psemine_purchases").document("purchase1").get().to_dict()
+                self.assertEqual("manual_review", purchase["status"])
+                self.assertEqual(self.TX_A, purchase["transactionHash"])
+            finally:
+                psemine_engine.firestore_server_ts = original_ts
+
+    def test_admin_recovery_cannot_orphan_another_live_purchase_lock(self):
+        import uuid
+        db = tpc.FakeDB()
+        original_ts = psemine_engine.firestore_server_ts
+        psemine_engine.firestore_server_ts = lambda: tpc.TS
+        try:
+            db.collection("psemine_purchases").document("purchase1").set({
+                "id": "purchase1", "userId": "user1", "toolId": "starter",
+                "quoteId": "quote1", "status": "manual_review",
+            })
+            db.collection("psemine_purchases").document("purchase2").set({
+                "id": "purchase2", "userId": "user1", "toolId": "starter",
+                "quoteId": "quote2", "status": "awaiting_payment",
+            })
+            lock_id = uuid.uuid5(uuid.NAMESPACE_URL, "psemine-purchase:user1:starter").hex
+            db.collection("psemine_purchase_locks").document(lock_id).set({
+                "userId": "user1", "toolId": "starter", "purchaseId": "purchase2",
+            })
+            recovery_id = psemine_engine.create_payment_recovery(
+                db, "user1", tx_hash=self.TX_A, quote_id="quote1",
+                purchase_id="purchase1", reason="LATE_HASH_RECOVERY",
+            )
+            result = psemine_engine.admin_resolve_payment_recovery(
+                db, recovery_id, "admin1", "attach_to_purchase",
+                purchase_id="purchase1",
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual("PURCHASE_LOCK_CONFLICT", result["error"])
+            lock = db.collection("psemine_purchase_locks").document(lock_id).get().to_dict()
+            self.assertEqual("purchase2", lock["purchaseId"])
+            recovery = db.collection("psemine_payment_recovery").document(recovery_id).get().to_dict()
+            self.assertEqual("open", recovery["status"])
+        finally:
+            psemine_engine.firestore_server_ts = original_ts

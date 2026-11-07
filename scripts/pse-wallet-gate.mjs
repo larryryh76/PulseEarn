@@ -591,6 +591,40 @@ const run = async () => {
       && iUncertain > iSend && iRetryGate !== -1,
   });
 
+  // 11. HASH RECOVERY: if a wallet returns a hash but the API reply is lost,
+  //     persist it locally before reporting, then re-attach that same hash after
+  //     refresh before backend verification. This must never rebroadcast.
+  const hashPersist = payBody.indexOf("localStorage.setItem('psemine_uncertain_payment'");
+  const reportHash = payBody.indexOf('PSEMineEngine.reportPurchaseSubmission');
+  const retryLoop = payBody.indexOf('for (let attempt = 0; attempt < 2');
+  const recoveredStart = toolsSrc.indexOf('const recheckRecovered = async () => {');
+  const recoveredEnd = toolsSrc.indexOf('\n  };', recoveredStart);
+  const recoveredBody = recoveredStart === -1 || recoveredEnd === -1 ? '' : toolsSrc.slice(recoveredStart, recoveredEnd);
+  const recoveryReport = recoveredBody.indexOf('PSEMineEngine.reportPurchaseSubmission');
+  const recoveryVerify = recoveredBody.indexOf('submitPurchaseTx(');
+  step('returned-hash-refresh-recovery', {
+    hashPersistedBeforeServerReport: hashPersist > iSend && hashPersist < reportHash,
+    serverReportRetriedIdempotently: retryLoop !== -1 && retryLoop < reportHash,
+    recoveryReportsBeforeVerify: recoveryReport !== -1 && recoveryVerify > recoveryReport,
+    recoveryUsesSavedHash: recoveredBody.includes('saved.transactionHash'),
+    pass: hashPersist > iSend && hashPersist < reportHash && retryLoop !== -1 && retryLoop < reportHash
+      && recoveryReport !== -1 && recoveryVerify > recoveryReport
+      && recoveredBody.includes('saved.transactionHash'),
+  });
+
+  // 12. KNOWN HASH SAFETY: once the wallet returned a hash, the UI must
+  //     offer same-hash reconciliation and must not offer a no-broadcast close.
+  step('known-hash-never-closes-no-broadcast', {
+    knownHashRecoveryAction: toolsSrc.includes('result.uncertain && result.hash')
+      && toolsSrc.includes('onClick={() => void recheckRecovered()}'),
+    noBroadcastRequiresNoHash: toolsSrc.includes('result.uncertain && !result.hash && !confirmedNoTransaction'),
+    recoveredIntentRetained: toolsSrc.includes('setResume({ kind: \'submitted\', purchase: recoveredPurchase })'),
+    pass: toolsSrc.includes('result.uncertain && result.hash')
+      && toolsSrc.includes('onClick={() => void recheckRecovered()}')
+      && toolsSrc.includes('result.uncertain && !result.hash && !confirmedNoTransaction')
+      && toolsSrc.includes('setResume({ kind: \'submitted\', purchase: recoveredPurchase })'),
+  });
+
   fs.writeFileSync(path.join(tmpDir, 'report.json'), JSON.stringify(report, null, 2));
 };
 

@@ -468,7 +468,7 @@ export const PSEMineTools: React.FC = () => {
                         className="pse-product-buy-button"
                         onClick={() => setPurchasing(tool)}
                         disabled={!purchaseOpen && !pendingForTool}
-                        aria-label={pendingForTool ? `Resume ${tool.name} purchase` : `Buy ${tool.name}`}
+                        aria-label={pendingForTool ? `Resume purchase of ${tool.name}` : `Buy Tool: ${tool.name}`}
                       >
                         {pendingForTool ? 'Resume purchase' : purchaseOpen ? 'Buy Tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>

@@ -187,6 +187,18 @@ check('send:predispatch-is-session-unavailable', m.isSessionUnavailable(unavaila
 check('send:predispatch-is-not-uncertain', m.isSubmissionUncertain(unavailable) === false);
 check('send:predispatch-never-retried', preDispatch.calls.length === 1);
 
+// ── 4b. Display-only fee estimate is bounded and never fakes a fee ────────
+const feeProvider = makeProvider(({ method }) => {
+  if (method === 'eth_gasPrice') return '0x3b9aca00'; // 1 gwei
+  if (method === 'eth_estimateGas') return '0x5208'; // 21,000 gas
+  return null;
+});
+const feeEstimate = await m.estimateNativeTransferFee(feeProvider, TX, 'injected');
+check('fee:exact-transfer-estimate', feeEstimate?.feeWei === (21000n * 1000000000n).toString());
+check('fee:preserves-gas-units', feeEstimate?.gasLimit === '21000');
+const noFeeProvider = makeProvider(() => { throw new Error('method not supported'); });
+check('fee:wallet-cannot-answer-is-null', (await m.estimateNativeTransferFee(noFeeProvider, TX, 'injected')) === null);
+
 const rejected = makeProvider(() => { const e = new Error('User rejected the request.'); e.code = 4001; throw e; });
 let rejection = null;
 try { await m.sendPaymentTransaction(rejected, TX, 'injected'); } catch (e) { rejection = e; }

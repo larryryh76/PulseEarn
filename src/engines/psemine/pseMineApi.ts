@@ -105,6 +105,10 @@ export interface PsePendingPurchase {
   receiverWallet?: string;
   quotedBNBAmount?: number;
   quotedBNBWei?: string;
+  /** Locked BNB/GBP rate captured with the original quote. */
+  exchangeRateBNBGBP?: number;
+  /** Server timestamp of the original rate capture. */
+  quoteCreatedAt?: string;
   chainId?: number;
   expiresAt?: string;
   transactionHash?: string | null;

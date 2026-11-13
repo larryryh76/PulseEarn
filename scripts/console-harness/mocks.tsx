@@ -9,7 +9,7 @@
  * NOTHING HERE IS APPLICATION CODE. `scripts/pse-console-check.mjs` resolves
  * these paths only inside its own esbuild process.
  */
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import type { Fixture } from './fixture';
 
 declare global {
@@ -36,6 +36,24 @@ export function usePSEMineAuth() {
 }
 
 /* ── src/contexts/PSEMineContext ─────────────────────────────────────────── */
+const makeQuote = (toolId = 'starter') => ({
+  quoteId: 'fixture-quote-only',
+  walletProofNonce: 'fixture-nonce',
+  userId: 'fixture-user',
+  toolId,
+  toolVersion: 1,
+  gbpPrice: 3,
+  bnbAmount: 0.001,
+  bnbAmountWei: '1000000000000000',
+  exchangeRateBNBGBP: 3000,
+  receiverWallet: '0x2222222222222222222222222222222222222222',
+  network: 'BNB Smart Chain',
+  chainId: 56,
+  createdAt: new Date().toISOString(),
+  expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+});
+type HarnessQuote = ReturnType<typeof makeQuote>;
+
 const walletCalls = {
   connectWallet: async () => null,
   connectWalletConnectTransport: async () => null,
@@ -45,23 +63,6 @@ const walletCalls = {
   updatePayoutWallet: async () => ({ success: true }),
   maintainTool: async () => ({ success: true }),
   refreshData: async () => undefined,
-  requestQuote: async (toolId = 'starter') => ({
-    quoteId: 'fixture-quote-only',
-    walletProofNonce: 'fixture-nonce',
-    userId: 'fixture-user',
-    toolId,
-    toolVersion: 1,
-    gbpPrice: 3,
-    bnbAmount: 0.001,
-    bnbAmountWei: '1000000000000000',
-    exchangeRateBNBGBP: 3000,
-    receiverWallet: '0x2222222222222222222222222222222222222222',
-    network: 'BNB Smart Chain',
-    chainId: 56,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
-  }),
-  clearQuote: () => undefined,
   bindPurchaseIntent: async () => ({ success: false }),
   sendPayment: async () => '',
   submitPurchaseTx: async () => ({ success: false }),
@@ -69,8 +70,23 @@ const walletCalls = {
 
 export function usePSEMine(): Record<string, unknown> {
   const f = fixture();
+  const [activeQuote, setActiveQuote] = useState<HarnessQuote | null>(null);
+  const [isRequestingQuote, setIsRequestingQuote] = useState(false);
+  const requestQuote = useCallback(async (toolId = 'starter') => {
+    setIsRequestingQuote(true);
+    try {
+      const nextQuote = makeQuote(toolId);
+      setActiveQuote(nextQuote);
+      return nextQuote;
+    } finally {
+      setIsRequestingQuote(false);
+    }
+  }, []);
+  const clearQuote = useCallback(() => setActiveQuote(null), []);
   return {
     ...walletCalls,
+    requestQuote,
+    clearQuote,
     campaign: f.campaign,
     pseUser: f.state?.user ?? null,
     loading: false,
@@ -88,8 +104,8 @@ export function usePSEMine(): Record<string, unknown> {
     referrals: [],
     activities: [],
     payouts: [],
-    activeQuote: null,
-    isRequestingQuote: false,
+    activeQuote,
+    isRequestingQuote,
     stateEpoch: 0,
     campaignDaysRemaining: 28,
     isCampaignArchived: false,

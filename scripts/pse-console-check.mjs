@@ -304,10 +304,18 @@ for (const pagePath of PAGES) {
           const quoteText = await dialog.innerText();
           const metrics = await dialog.evaluate(el => {
             const r = el.getBoundingClientRect();
-            return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+            return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.scrollHeight };
           });
-          toolDetailInteraction = { opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText), paymentStarted: false, metrics };
-          if (!toolDetailInteraction.quoteVisible) throw new Error('Quote stage did not show its BNB quote inside the modal.');
+          const exactAmountVisible = /You pay, exactly/i.test(quoteText) && /0\\.001\\s*BNB/i.test(quoteText);
+          const networkVisible = /BNB Smart Chain/i.test(quoteText) && /\\b56\\b/.test(quoteText);
+          const receiverVisible = /Receiving wallet/i.test(quoteText);
+          toolDetailInteraction = {
+            opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText),
+            exactAmountVisible, networkVisible, receiverVisible, paymentStarted: false, metrics,
+          };
+          if (!toolDetailInteraction.quoteVisible || !exactAmountVisible || !networkVisible || !receiverVisible) {
+            throw new Error('Quote stage must show exact BNB amount, BNB Smart Chain (56), and receiving wallet inside the modal.');
+          }
           if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) throw new Error('Tool details/quote modal exceeds its viewport or clips horizontally.');
           await dialog.getByRole('button', { name: /^Close$/i }).first().click();
         } catch (error) {

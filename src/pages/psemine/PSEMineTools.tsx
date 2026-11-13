@@ -464,8 +464,8 @@ export const PSEMineTools: React.FC = () => {
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
-                      <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'View details' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
+                      <PseButton size="md" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
+                        {purchaseOpen ? 'Buy Tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>

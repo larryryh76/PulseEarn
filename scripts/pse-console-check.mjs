@@ -314,7 +314,9 @@ for (const pagePath of PAGES) {
             exactAmountVisible, networkVisible, receiverVisible, paymentStarted: false, metrics,
           };
           if (!toolDetailInteraction.quoteVisible || !exactAmountVisible || !networkVisible || !receiverVisible) {
-            throw new Error('Quote stage must show exact BNB amount, BNB Smart Chain (56), and receiving wallet inside the modal.');
+            throw new Error(
+              `Quote stage missing required fields (amount=${exactAmountVisible}, network=${networkVisible}, receiver=${receiverVisible}). Text: ${quoteText.slice(0, 900)}`,
+            );
           }
           if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) throw new Error('Tool details/quote modal exceeds its viewport or clips horizontally.');
           await dialog.getByRole('button', { name: /^Close$/i }).first().click();

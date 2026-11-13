@@ -610,7 +610,8 @@ const run = async () => {
   const bscPinned = toolsSrc.includes('const requiredChainId = 56;')
     && toolsSrc.includes("const networkName = 'BNB Smart Chain';")
     && toolsSrc.includes('const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);')
-    && toolsSrc.includes('if (pendingChainId !== 56)');
+    && toolsSrc.includes("const pendingNetworkIsBsc = !pendingNetwork || pendingNetwork.includes('bnb') || pendingNetwork === 'bsc';")
+    && toolsSrc.includes('if (pendingChainId !== 56 || !pendingNetworkIsBsc)');
   const invalidQuoteBlocked = toolsSrc.includes('Number(quote.chainId ?? 56) === 56')
     && toolsSrc.includes('This quote is not for BNB Smart Chain (56). Refresh it before paying.')
     && toolsSrc.includes('!quoteNetworkValid || !connectedWallet');

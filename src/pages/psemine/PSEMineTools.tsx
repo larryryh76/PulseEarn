@@ -700,6 +700,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     const expiresAt = pending.expiresAt;
+    const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);
+    if (pendingChainId !== 56) {
+      // A legacy pending intent must never make Ethereum look like the
+      // required payment network. Drop its unsigned quote and fetch a fresh
+      // server quote pinned to BNB Smart Chain; submitted hashes were handled above.
+      setResume({ kind: 'expired', purchase: pending });
+      setStep('quote');
+      return;
+    }
     const live = expiresAt ? Date.parse(expiresAt) > nowMs() : false;
     if (live && expiresAt && pending.quoteId && pending.receiverWallet) {
       setResume({
@@ -717,7 +726,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           exchangeRateBNBGBP: Number(pending.exchangeRateBNBGBP ?? 0),
           receiverWallet: pending.receiverWallet,
           network: 'BNB Smart Chain',
-          chainId: pending.chainId || 56,
+          chainId: 56,
           createdAt: pending.quoteCreatedAt || '',
           expiresAt,
         },
@@ -802,8 +811,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   );
 
   // ── Pre-payment state (the clauses the pay button obeys) ───────────────────
-  const requiredChainId = quote?.chainId || 56;
-  const networkName = quote?.network || 'BNB Smart Chain';
+  const requiredChainId = 56;
+  const networkName = 'BNB Smart Chain';
   // An address remembered for this ACCOUNT is not a usable payer: signing needs
   // a live EIP-1193 provider in THIS browser.
   const walletLive = Boolean(connectedWallet) && walletTransport !== null;
@@ -836,7 +845,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   }, [quote?.bnbAmountWei, feeEstimate]);
   const payerAligned = !boundPayer || !connectedWallet || connectedWallet.toLowerCase() === boundPayer.toLowerCase();
   const walletChanged = Boolean(boundPayer && connectedWallet && !payerAligned);
-  const quoteValid = Boolean(quote) && secondsLeft > 0;
+  const quoteNetworkValid = !quote || Number(quote.chainId ?? 56) === 56;
+  const quoteValid = Boolean(quote) && secondsLeft > 0 && quoteNetworkValid;
   const ownershipOk = owned < tool.maxPerUser;
   const showingRecovery = resume?.kind === 'submitted';
 
@@ -847,6 +857,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     // Chain selection is handled automatically by payNow through the active
     // wallet provider. If needed, the wallet app will show its own switch/add
     // network approval prompt; the user must not navigate wallet settings.
+    if (quote && !quoteNetworkValid) return 'This quote is not for BNB Smart Chain (56). Refresh it before paying.';
     if (!quoteValid) return 'The quote expired. Refresh it to continue — the backend will not accept a stale quote.';
     if (!ownershipOk) return `Maximum ownership reached for ${tool.name}.`;
     return null;

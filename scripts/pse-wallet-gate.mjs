@@ -605,6 +605,21 @@ const run = async () => {
     pass: intentBindingBscGate && intentBindingRetry,
   });
 
+  // 10b. Neither a stale server quote nor a legacy pending purchase may
+  //      switch the product away from BNB Smart Chain mainnet.
+  const bscPinned = toolsSrc.includes('const requiredChainId = 56;')
+    && toolsSrc.includes("const networkName = 'BNB Smart Chain';")
+    && toolsSrc.includes('const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);')
+    && toolsSrc.includes('if (pendingChainId !== 56)');
+  const invalidQuoteBlocked = toolsSrc.includes('Number(quote.chainId ?? 56) === 56')
+    && toolsSrc.includes('This quote is not for BNB Smart Chain (56). Refresh it before paying.');
+  step('payment-network-pinned-to-bsc-mainnet', {
+    requiredChainIs56: bscPinned,
+    nonBscLegacyQuoteIsReplaced: bscPinned,
+    invalidQuoteCannotBePaid: invalidQuoteBlocked,
+    pass: bscPinned && invalidQuoteBlocked,
+  });
+
   // 11. HASH RECOVERY: if a wallet returns a hash but the API reply is lost,
   //     persist it locally before reporting, then re-attach that same hash after
   //     refresh before backend verification. This must never rebroadcast.

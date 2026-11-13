@@ -701,7 +701,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     }
     const expiresAt = pending.expiresAt;
     const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);
-    if (pendingChainId !== 56) {
+    const pendingNetwork = String(pending.network || '').trim().toLowerCase();
+    const pendingNetworkIsBsc = !pendingNetwork || pendingNetwork.includes('bnb') || pendingNetwork === 'bsc';
+    if (pendingChainId !== 56 || !pendingNetworkIsBsc) {
       // A legacy pending intent must never make Ethereum look like the
       // required payment network. Drop its unsigned quote and fetch a fresh
       // server quote pinned to BNB Smart Chain; submitted hashes were handled above.

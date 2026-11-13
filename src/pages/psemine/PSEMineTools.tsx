@@ -556,6 +556,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // permitted (never after UNKNOWN_SUBMISSION_STATE).
   const [boundPayer, setBoundPayer] = useState<string | null>(null);
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [bindingError, setBindingError] = useState<string | null>(null);
+  const [bindingRetry, setBindingRetry] = useState(0);
   const [submissionState, setSubmissionState] = useState<PsePaymentSubmissionState>('NOT_SUBMITTED');
   // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
   const [resume, setResume] = useState<ResumeState | null>(null);
@@ -861,22 +863,28 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
     if (bindAttemptRef.current === key) return;
     bindAttemptRef.current = key;
+    setBindingError(null);
     void bindPurchaseIntent(quote).then(bound => {
       if (bindAttemptRef.current !== key) return;
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         bindAttemptRef.current = null;
-        toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
+        const message = bound.error || 'Could not prepare this purchase. Please retry.';
+        setBindingError(message);
+        toast.error(message);
         return;
       }
+      setBindingError(null);
       setPurchaseId(bound.purchaseId);
       setBoundPayer(bound.payerWallet);
       void refresh();
     }).catch(error => {
       if (bindAttemptRef.current !== key) return;
       bindAttemptRef.current = null;
-      toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
+      const message = error instanceof Error ? error.message : 'Could not prepare this purchase.';
+      setBindingError(message);
+      toast.error(message);
     });
-  }, [step, quote, connectedWallet, walletLive, onRequiredChain, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
+  }, [step, quote, connectedWallet, walletLive, onRequiredChain, purchaseId, boundPayer, bindingRetry, bindPurchaseIntent, refresh]);
 
   const refreshQuoteNow = () => {
     setResume(null);
@@ -1602,7 +1610,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseButton>
           </div>
           {payBlocked && <PseNotice tone="attention">{blockedReason}</PseNotice>}
-          {!purchaseId && !payBlocked && <PseNotice tone="info">Securing your purchase quote and binding it to this wallet. The payment button becomes active when this is ready.</PseNotice>}
+          {!purchaseId && bindingError ? (
+            <PseNotice tone="attention" title="Checkout preparation needs attention">
+              {bindingError} No payment has been sent.
+              <div className="mt-3">
+                <PseButton size="sm" variant="secondary" onClick={() => { bindAttemptRef.current = null; setBindingRetry(value => value + 1); }}>
+                  Retry checkout preparation
+                </PseButton>
+              </div>
+            </PseNotice>
+          ) : !purchaseId && !payBlocked ? (
+            <PseNotice tone="info">Securing your purchase quote and binding it to this wallet. The payment button becomes active when this is ready.</PseNotice>
+          ) : null}
           {walletLive && !onRequiredChain && <PseNotice tone="attention">Switch and confirm BNB Smart Chain before paying. Network switching is a separate wallet action so the payment approval can open immediately from your Pay tap.</PseNotice>}
           <p className="pse-block-note">
             After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and

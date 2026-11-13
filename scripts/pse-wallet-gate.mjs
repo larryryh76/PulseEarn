@@ -607,11 +607,14 @@ const run = async () => {
 
   // 10b. Neither a stale server quote nor a legacy pending purchase may
   //      switch the product away from BNB Smart Chain mainnet.
+  const apiSrc = fs.readFileSync(path.join(process.cwd(), 'api/index.py'), 'utf8');
+  const pendingNetworkProjection = apiSrc.includes("'network': pd.get('network')");
   const bscPinned = toolsSrc.includes('const requiredChainId = 56;')
     && toolsSrc.includes("const networkName = 'BNB Smart Chain';")
     && toolsSrc.includes('const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);')
     && toolsSrc.includes("const pendingNetworkIsBsc = !pendingNetwork || pendingNetwork.includes('bnb') || pendingNetwork === 'bsc';")
-    && toolsSrc.includes('if (pendingChainId !== 56 || !pendingNetworkIsBsc)');
+    && toolsSrc.includes('if (pendingChainId !== 56 || !pendingNetworkIsBsc)')
+    && pendingNetworkProjection;
   const invalidQuoteBlocked = toolsSrc.includes('Number(quote.chainId ?? 56) === 56')
     && toolsSrc.includes('This quote is not for BNB Smart Chain (56). Refresh it before paying.')
     && toolsSrc.includes('!quoteNetworkValid || !connectedWallet');

@@ -300,9 +300,9 @@ for (const pagePath of PAGES) {
           const quoteCta = dialog.getByRole('button', { name: /review live quote|connect wallet & continue/i }).first();
           if (!await quoteCta.isEnabled()) throw new Error('The details modal did not enable its quote step after the fixture quote loaded.');
           await quoteCta.click();
-          await dialog.getByText(/You pay, exactly/i).waitFor({ state: 'visible', timeout: 8_000 });
-          await dialog.getByText(/BNB Smart Chain/i).waitFor({ state: 'visible', timeout: 8_000 });
-          await dialog.getByText(/Receiving wallet/i).waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.getByText(/You pay, exactly/i).first().waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.getByText(/BNB Smart Chain/i).first().waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.getByText(/Receiving wallet/i).first().waitFor({ state: 'visible', timeout: 8_000 });
           const quoteText = await dialog.innerText();
           const metrics = await dialog.evaluate(el => {
             const r = el.getBoundingClientRect();

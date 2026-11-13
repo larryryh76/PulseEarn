@@ -478,7 +478,7 @@ async function main() {
   }
   try {
     await authPage.goto(`${base}/mine/tools`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    const buy = authPage.getByRole('button', { name: /view details|buy this tool/i }).first();
+    const buy = authPage.getByRole('button', { name: /view details|buy(?: this)? tool/i }).first();
     await buy.waitFor({ state: 'visible', timeout: 12_000 });
     if (await buy.isEnabled()) {
       await buy.click();

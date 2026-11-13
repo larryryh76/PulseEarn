@@ -9514,6 +9514,7 @@ def mine_state():
                 'exchangeRateBNBGBP': pd.get('exchangeRateBNBGBP'),
                 'quoteCreatedAt': pd.get('quoteCreatedAt'),
                 'chainId': pd.get('chainId'),
+                'network': pd.get('network'),
                 'expiresAt': pd.get('expiresAt'),
                 'transactionHash': pd.get('transactionHash'),
                 'recoveryCaseId': pd.get('recoveryCaseId'),

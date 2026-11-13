@@ -857,7 +857,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // can lose that gesture and leave the wallet approval prompt unopened.
   const bindAttemptRef = useRef<string | null>(null);
   useEffect(() => {
-    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || purchaseId || boundPayer) return;
+    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || !onRequiredChain || purchaseId || boundPayer) return;
     const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
     if (bindAttemptRef.current === key) return;
     bindAttemptRef.current = key;
@@ -876,7 +876,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       bindAttemptRef.current = null;
       toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
     });
-  }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
+  }, [step, quote, connectedWallet, walletLive, onRequiredChain, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
 
   const refreshQuoteNow = () => {
     setResume(null);

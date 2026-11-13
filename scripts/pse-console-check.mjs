@@ -304,10 +304,10 @@ for (const pagePath of PAGES) {
           const quoteText = await dialog.innerText();
           const metrics = await dialog.evaluate(el => {
             const r = el.getBoundingClientRect();
-            return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.scrollHeight };
+            return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
           });
-          const exactAmountVisible = /You pay, exactly/i.test(quoteText) && /0\\.001\\s*BNB/i.test(quoteText);
-          const networkVisible = /BNB Smart Chain/i.test(quoteText) && /\\b56\\b/.test(quoteText);
+          const exactAmountVisible = /You pay, exactly/i.test(quoteText) && /0\.001\s*BNB/i.test(quoteText);
+          const networkVisible = /BNB Smart Chain/i.test(quoteText) && /\b56\b/.test(quoteText);
           const receiverVisible = /Receiving wallet/i.test(quoteText);
           toolDetailInteraction = {
             opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText),

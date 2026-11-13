@@ -290,9 +290,9 @@ for (const pagePath of PAGES) {
       // provider is called, no purchase intent is bound and no BNB is sent.
       if (pagePath === '/mine/tools' && scenario === 'full' && (width === 390 || width === 1440)) {
         try {
-          const openDetails = page.getByRole('button', { name: /view details/i }).first();
+          const openDetails = page.getByRole('button', { name: /buy tool|view details/i }).first();
           await openDetails.waitFor({ state: 'visible', timeout: 5_000 });
-          if (!await openDetails.isEnabled()) throw new Error('View details action is disabled in the full fixture.');
+          if (!await openDetails.isEnabled()) throw new Error('Buy Tool action is disabled in the full fixture.');
           await openDetails.click();
           const dialog = page.locator('.pse-purchase-dialog');
           await dialog.waitFor({ state: 'visible', timeout: 8_000 });
@@ -300,14 +300,26 @@ for (const pagePath of PAGES) {
           const quoteCta = dialog.getByRole('button', { name: /review live quote|connect wallet & continue/i }).first();
           if (!await quoteCta.isEnabled()) throw new Error('The details modal did not enable its quote step after the fixture quote loaded.');
           await quoteCta.click();
-          await dialog.waitFor({ state: 'visible', timeout: 5_000 });
+          await dialog.getByText(/You pay, exactly/i).first().waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.getByText(/BNB Smart Chain/i).first().waitFor({ state: 'visible', timeout: 8_000 });
+          await dialog.getByText(/Receiving wallet/i).first().waitFor({ state: 'visible', timeout: 8_000 });
           const quoteText = await dialog.innerText();
           const metrics = await dialog.evaluate(el => {
             const r = el.getBoundingClientRect();
             return { width: Math.round(r.width), height: Math.round(r.height), scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
           });
-          toolDetailInteraction = { opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText), paymentStarted: false, metrics };
-          if (!toolDetailInteraction.quoteVisible) throw new Error('Quote stage did not show its BNB quote inside the modal.');
+          const exactAmountVisible = /You pay, exactly/i.test(quoteText) && /0\.001\s*BNB/i.test(quoteText);
+          const networkVisible = /BNB Smart Chain/i.test(quoteText) && /\b56\b/.test(quoteText);
+          const receiverVisible = /Receiving wallet/i.test(quoteText);
+          toolDetailInteraction = {
+            opened: true, quoteStayedInModal: true, quoteVisible: /BNB|quote/i.test(quoteText),
+            exactAmountVisible, networkVisible, receiverVisible, paymentStarted: false, metrics,
+          };
+          if (!toolDetailInteraction.quoteVisible || !exactAmountVisible || !networkVisible || !receiverVisible) {
+            throw new Error(
+              `Quote stage missing required fields (amount=${exactAmountVisible}, network=${networkVisible}, receiver=${receiverVisible}). Text: ${quoteText.slice(0, 900)}`,
+            );
+          }
           if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) throw new Error('Tool details/quote modal exceeds its viewport or clips horizontally.');
           await dialog.getByRole('button', { name: /^Close$/i }).first().click();
         } catch (error) {

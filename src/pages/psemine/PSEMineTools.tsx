@@ -464,8 +464,8 @@ export const PSEMineTools: React.FC = () => {
                     {atLimit ? (
                       <span className="pse-rowitem-meta">At account limit</span>
                     ) : (
-                      <PseButton size="sm" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
-                        {purchaseOpen ? 'View details' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
+                      <PseButton size="md" onClick={() => setPurchasing(tool)} disabled={!purchaseOpen}>
+                        {purchaseOpen ? 'Buy Tool' : walletSetupRequired ? 'Unavailable' : 'Purchases closed'}
                       </PseButton>
                     )}
                   </div>
@@ -556,6 +556,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // permitted (never after UNKNOWN_SUBMISSION_STATE).
   const [boundPayer, setBoundPayer] = useState<string | null>(null);
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [bindingError, setBindingError] = useState<string | null>(null);
+  const [bindingRetry, setBindingRetry] = useState(0);
   const [submissionState, setSubmissionState] = useState<PsePaymentSubmissionState>('NOT_SUBMITTED');
   // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
   const [resume, setResume] = useState<ResumeState | null>(null);
@@ -698,6 +700,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     const expiresAt = pending.expiresAt;
+    const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);
+    const pendingNetwork = String(pending.network || '').trim().toLowerCase();
+    const pendingNetworkIsBsc = !pendingNetwork || pendingNetwork.includes('bnb') || pendingNetwork === 'bsc';
+    if (pendingChainId !== 56 || !pendingNetworkIsBsc) {
+      // A legacy pending intent must never make Ethereum look like the
+      // required payment network. Drop its unsigned quote and fetch a fresh
+      // server quote pinned to BNB Smart Chain; submitted hashes were handled above.
+      setResume({ kind: 'expired', purchase: pending });
+      setStep('quote');
+      return;
+    }
     const live = expiresAt ? Date.parse(expiresAt) > nowMs() : false;
     if (live && expiresAt && pending.quoteId && pending.receiverWallet) {
       setResume({
@@ -715,7 +728,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           exchangeRateBNBGBP: Number(pending.exchangeRateBNBGBP ?? 0),
           receiverWallet: pending.receiverWallet,
           network: 'BNB Smart Chain',
-          chainId: pending.chainId || 56,
+          chainId: 56,
           createdAt: pending.quoteCreatedAt || '',
           expiresAt,
         },
@@ -800,8 +813,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   );
 
   // ── Pre-payment state (the clauses the pay button obeys) ───────────────────
-  const requiredChainId = quote?.chainId || 56;
-  const networkName = quote?.network || 'BNB Smart Chain';
+  const requiredChainId = 56;
+  const networkName = 'BNB Smart Chain';
   // An address remembered for this ACCOUNT is not a usable payer: signing needs
   // a live EIP-1193 provider in THIS browser.
   const walletLive = Boolean(connectedWallet) && walletTransport !== null;
@@ -834,7 +847,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   }, [quote?.bnbAmountWei, feeEstimate]);
   const payerAligned = !boundPayer || !connectedWallet || connectedWallet.toLowerCase() === boundPayer.toLowerCase();
   const walletChanged = Boolean(boundPayer && connectedWallet && !payerAligned);
-  const quoteValid = Boolean(quote) && secondsLeft > 0;
+  const quoteNetworkValid = !quote || Number(quote.chainId ?? 56) === 56;
+  const quoteValid = Boolean(quote) && secondsLeft > 0 && quoteNetworkValid;
   const ownershipOk = owned < tool.maxPerUser;
   const showingRecovery = resume?.kind === 'submitted';
 
@@ -845,6 +859,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     // Chain selection is handled automatically by payNow through the active
     // wallet provider. If needed, the wallet app will show its own switch/add
     // network approval prompt; the user must not navigate wallet settings.
+    if (quote && !quoteNetworkValid) return 'This quote is not for BNB Smart Chain (56). Refresh it before paying.';
     if (!quoteValid) return 'The quote expired. Refresh it to continue — the backend will not accept a stale quote.';
     if (!ownershipOk) return `Maximum ownership reached for ${tool.name}.`;
     return null;
@@ -857,26 +872,32 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // can lose that gesture and leave the wallet approval prompt unopened.
   const bindAttemptRef = useRef<string | null>(null);
   useEffect(() => {
-    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || purchaseId || boundPayer) return;
+    if (step !== 'pay' || !quote || !quoteNetworkValid || !connectedWallet || !walletLive || !onRequiredChain || purchaseId || boundPayer) return;
     const key = `${quote.quoteId}:${connectedWallet.toLowerCase()}`;
     if (bindAttemptRef.current === key) return;
     bindAttemptRef.current = key;
+    setBindingError(null);
     void bindPurchaseIntent(quote).then(bound => {
       if (bindAttemptRef.current !== key) return;
       if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
         bindAttemptRef.current = null;
-        toast.error(bound.error || 'Could not prepare this purchase. Please retry.');
+        const message = bound.error || 'Could not prepare this purchase. Please retry.';
+        setBindingError(message);
+        toast.error(message);
         return;
       }
+      setBindingError(null);
       setPurchaseId(bound.purchaseId);
       setBoundPayer(bound.payerWallet);
       void refresh();
     }).catch(error => {
       if (bindAttemptRef.current !== key) return;
       bindAttemptRef.current = null;
-      toast.error(error instanceof Error ? error.message : 'Could not prepare this purchase.');
+      const message = error instanceof Error ? error.message : 'Could not prepare this purchase.';
+      setBindingError(message);
+      toast.error(message);
     });
-  }, [step, quote, connectedWallet, walletLive, purchaseId, boundPayer, bindPurchaseIntent, refresh]);
+  }, [step, quote, quoteNetworkValid, connectedWallet, walletLive, onRequiredChain, purchaseId, boundPayer, bindingRetry, bindPurchaseIntent, refresh]);
 
   const refreshQuoteNow = () => {
     setResume(null);
@@ -1602,7 +1623,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </PseButton>
           </div>
           {payBlocked && <PseNotice tone="attention">{blockedReason}</PseNotice>}
-          {!purchaseId && !payBlocked && <PseNotice tone="info">Securing your purchase quote and binding it to this wallet. The payment button becomes active when this is ready.</PseNotice>}
+          {!purchaseId && bindingError ? (
+            <PseNotice tone="attention" title="Checkout preparation needs attention">
+              {bindingError} No payment has been sent.
+              <div className="mt-3">
+                <PseButton size="sm" variant="secondary" onClick={() => { bindAttemptRef.current = null; setBindingRetry(value => value + 1); }}>
+                  Retry checkout preparation
+                </PseButton>
+              </div>
+            </PseNotice>
+          ) : !purchaseId && !payBlocked ? (
+            <PseNotice tone="info">Securing your purchase quote and binding it to this wallet. The payment button becomes active when this is ready.</PseNotice>
+          ) : null}
           {walletLive && !onRequiredChain && <PseNotice tone="attention">Switch and confirm BNB Smart Chain before paying. Network switching is a separate wallet action so the payment approval can open immediately from your Pay tap.</PseNotice>}
           <p className="pse-block-note">
             After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and

@@ -110,6 +110,7 @@ export interface PsePendingPurchase {
   /** Server timestamp of the original rate capture. */
   quoteCreatedAt?: string;
   chainId?: number;
+  network?: string;
   expiresAt?: string;
   transactionHash?: string | null;
   recoveryCaseId?: string | null;

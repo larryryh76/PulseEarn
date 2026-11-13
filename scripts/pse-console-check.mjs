@@ -290,9 +290,9 @@ for (const pagePath of PAGES) {
       // provider is called, no purchase intent is bound and no BNB is sent.
       if (pagePath === '/mine/tools' && scenario === 'full' && (width === 390 || width === 1440)) {
         try {
-          const openDetails = page.getByRole('button', { name: /view details/i }).first();
+          const openDetails = page.getByRole('button', { name: /buy tool|view details/i }).first();
           await openDetails.waitFor({ state: 'visible', timeout: 5_000 });
-          if (!await openDetails.isEnabled()) throw new Error('View details action is disabled in the full fixture.');
+          if (!await openDetails.isEnabled()) throw new Error('Buy Tool action is disabled in the full fixture.');
           await openDetails.click();
           const dialog = page.locator('.pse-purchase-dialog');
           await dialog.waitFor({ state: 'visible', timeout: 8_000 });

@@ -591,6 +591,20 @@ const run = async () => {
       && iUncertain > iSend && iRetryGate !== -1,
   });
 
+  // 10a. A purchase intent may only be bound once the connected wallet is
+  //      confirmed on BNB Smart Chain. A network change must re-run the bind,
+  //      and a transient backend failure must expose an explicit retry action.
+  const intentBindingBscGate = prebindBody.includes('!onRequiredChain')
+    && prebindBody.includes('onRequiredChain, purchaseId');
+  const intentBindingRetry = toolsSrc.includes('Retry checkout preparation')
+    && toolsSrc.includes('setBindingRetry');
+  step('purchase-intent-bsc-gate-and-retry', {
+    waitsForBscBeforeBinding: intentBindingBscGate,
+    retriesAfterNetworkChange: intentBindingBscGate,
+    exposesManualRetryAfterBindFailure: intentBindingRetry,
+    pass: intentBindingBscGate && intentBindingRetry,
+  });
+
   // 11. HASH RECOVERY: if a wallet returns a hash but the API reply is lost,
   //     persist it locally before reporting, then re-attach that same hash after
   //     refresh before backend verification. This must never rebroadcast.

@@ -612,11 +612,12 @@ const run = async () => {
     && toolsSrc.includes('const pendingChainId = pending.chainId == null ? 56 : Number(pending.chainId);')
     && toolsSrc.includes('if (pendingChainId !== 56)');
   const invalidQuoteBlocked = toolsSrc.includes('Number(quote.chainId ?? 56) === 56')
-    && toolsSrc.includes('This quote is not for BNB Smart Chain (56). Refresh it before paying.');
+    && toolsSrc.includes('This quote is not for BNB Smart Chain (56). Refresh it before paying.')
+    && toolsSrc.includes('!quoteNetworkValid || !connectedWallet');
   step('payment-network-pinned-to-bsc-mainnet', {
     requiredChainIs56: bscPinned,
     nonBscLegacyQuoteIsReplaced: bscPinned,
-    invalidQuoteCannotBePaid: invalidQuoteBlocked,
+    invalidQuoteCannotBePaidOrBound: invalidQuoteBlocked,
     pass: bscPinned && invalidQuoteBlocked,
   });
 

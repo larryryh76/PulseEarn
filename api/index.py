@@ -9797,7 +9797,8 @@ def mine_create_purchase():
                 })
                 stored['walletProofVerified'] = True
                 stored['walletProofNonce'] = q.get('walletProofNonce')
-            return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
+            return jsonify({"success": True, "purchaseId": e.id, "existing": True,
+                            "purchase": _pse_engine.purchase_intent_response(stored)})
         if stored.get('walletProofVerified') is not True:
             if stored.get('transactionHash') or stored.get('txHash'):
                 return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
@@ -9956,7 +9957,7 @@ def mine_create_purchase():
             'success': True,
             'purchaseId': create_result['purchaseId'],
             'existing': True,
-            'purchase': create_result['purchase'],
+            'purchase': _pse_engine.purchase_intent_response(create_result['purchase']),
         })
 
     mine_notify(uid,
@@ -9966,11 +9967,17 @@ def mine_create_purchase():
         message=f"Your {tool_cfg['name']} purchase is awaiting wallet approval. Quoted amount: {q.get('bnbAmount')} BNB on BNB Smart Chain. No payment is confirmed yet.",
         related={'source': 'mine_create_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'status': 'awaiting_payment'},
     )
-    # Firestore SERVER_TIMESTAMP is valid for the committed document but not
-    # JSON serializable. Return a concrete UTC timestamp in the response.
-    response_payload = dict(payload)
-    response_payload['createdAt'] = now_dt.isoformat()
-    return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
+    # A Firestore SERVER_TIMESTAMP sentinel is valid for the committed document
+    # but is NOT JSON serializable. Returning the raw payload raised a 500 after
+    # the intent had already been committed, so the client could not obtain the
+    # purchaseId of the intent it had just created. The allow-listed projection
+    # converts every timestamp to ISO and never leaks a Sentinel.
+    return jsonify({
+        "success": True,
+        "purchaseId": purchase_id,
+        "existing": False,
+        "purchase": _pse_engine.purchase_intent_response(payload, now_dt.isoformat()),
+    })
 
 
 @app.route('/api/mine/purchases/mark-uncertain', methods=['POST'])

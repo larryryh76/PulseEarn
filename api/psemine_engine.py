@@ -312,6 +312,55 @@ def purchase_sender_binding(declared_sender, intent_wallet):
     return True, None, (declared or intent)
 
 
+PURCHASE_INTENT_RESPONSE_FIELDS = (
+    "id", "userId", "toolId", "toolName", "toolVersion", "quoteId",
+    "quotedGBPAmount", "quotedBNBAmount", "quotedBNBWei", "exchangeRateBNBGBP",
+    "quoteCreatedAt", "receiverWallet", "paymentWallet", "payerBindingVerified",
+    "transactionHash", "network", "chainId", "status", "statusMessage",
+    "confirmations", "requiredConfirmations", "createdAt", "expiresAt",
+    "confirmedAt", "activatedAt",
+)
+
+
+def purchase_intent_response(purchase, created_at_iso=None):
+    """JSON-safe projection of a purchase intent for an API response.
+
+    WHY THIS EXISTS
+    ---------------
+    A purchase document written with firestore.SERVER_TIMESTAMP contains a
+    Sentinel until Firestore commits it. Serializing that document straight into
+    a Flask response raises `TypeError: Object of type Sentinel is not JSON
+    serializable` AFTER the intent transaction has already committed — the
+    client sees a 500 and believes no purchase exists, while the account now
+    holds an awaiting_payment intent. That is exactly how a payable checkout
+    turns into an orphaned lock.
+
+    The response is therefore an allow-listed projection (the client only needs
+    identity, the immutable payer binding, the quote terms and the state), and
+    every timestamp is converted to an ISO string. Firestore Timestamps are
+    datetime subclasses, so they serialize deterministically; a Sentinel — or
+    any non-datetime timestamp placeholder — is replaced by `created_at_iso`
+    (or the current UTC time) instead of being handed to jsonify.
+    """
+    source = purchase or {}
+    now_iso = created_at_iso or utcnow().isoformat()
+    timestamp_fields = ("createdAt", "expiresAt", "confirmedAt", "activatedAt")
+    result = {}
+    for field in PURCHASE_INTENT_RESPONSE_FIELDS:
+        if field not in source:
+            continue
+        value = source.get(field)
+        if value is None:
+            result[field] = None
+            continue
+        if isinstance(value, datetime):
+            value = value.isoformat()
+        elif field in timestamp_fields:
+            value = now_iso
+        result[field] = value
+    return result
+
+
 def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, now=None,
                                    stored_quote_id=None, requested_quote_id=None):
     """Decide what POST /api/mine/purchases/create may do with an existing intent.

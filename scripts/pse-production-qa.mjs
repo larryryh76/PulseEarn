@@ -638,6 +638,15 @@ async function main() {
     await w.goto(`${base}/mine/wallet`, { waitUntil: 'load', timeout: 30000 });
     await w.waitForTimeout(3000); // discovery announce window + page settle
 
+    // Wallet connection controls live on the "Manage wallet" tab; Overview is
+    // the default landing tab. Open Manage first, otherwise a harness run
+    // reports "connect never requested accounts" while the product is fine.
+    const manageTab = w.locator('button:has-text("Manage wallet")').first();
+    if (await manageTab.count() && await manageTab.isVisible().catch(() => false)) {
+      await manageTab.click().catch(() => {});
+      await w.waitForTimeout(600);
+    }
+
     // A backend wallet association from an earlier session renders this page in
     // the Connected state — disconnect through the real UI so the connect flow
     // can be exercised from scratch.
@@ -701,6 +710,72 @@ async function main() {
       await new Promise(r => setTimeout(r, 1200));
     });
 
+    // ── SESSION PERSISTENCE (full document reload) ──────────────────────────
+    // A returning user must NOT have to approve the wallet again. Reload the
+    // real console: the persisted per-account record plus the provider's
+    // silent eth_accounts answer must restore the same address, without any
+    // eth_requestAccounts approval prompt.
+    await w.reload({ waitUntil: 'load' });
+    await w.waitForTimeout(3500); // provider announce window + silent restore
+    const manageAfterReload = w.locator('button:has-text("Manage wallet")').first();
+    if (await manageAfterReload.count() && await manageAfterReload.isVisible().catch(() => false)) {
+      await manageAfterReload.click().catch(() => {});
+      await w.waitForTimeout(800);
+    }
+    const restoreState = await w.evaluate(() => ({
+      text: document.body.innerText,
+      calls: window.__pseQA?.calls || [],
+      stored: (() => { try { const key = Object.keys(localStorage).find(k => k.startsWith('psemine_connected_wallet:')); return key ? (JSON.parse(localStorage.getItem(key) || 'null')?.address || null) : null; } catch { return null; } })(),
+    }));
+    const restoredAddress = /0x1111/i.test(restoreState.text);
+    const disconnectVisible = /Disconnect wallet/i.test(restoreState.text);
+    const silentRestore = restoreState.calls.includes('eth_accounts')
+      && !restoreState.calls.includes('eth_requestAccounts');
+    REPORT.wallet.restoreAfterReload = {
+      restoredAddress, disconnectVisible, silentRestore,
+      stored: restoreState.stored, calls: restoreState.calls,
+    };
+    if (restoredAddress && disconnectVisible && silentRestore) {
+      ok('wallet', 'persisted session restored after a full reload without a new approval prompt');
+    } else {
+      defect('wallet', `persisted session not restored after reload: ${JSON.stringify(REPORT.wallet.restoreAfterReload)}`);
+    }
+
+    // ── MANUAL DISCONNECT → RECONNECT ───────────────────────────────────────
+    // Disconnect must be explicit, sticky (a tombstone prevents silent
+    // adoption) and reversible by a new user-initiated approval.
+    const disconnectBtn = w.locator('button:has-text("Disconnect wallet")').first();
+    if (await disconnectBtn.count() && await disconnectBtn.isVisible().catch(() => false)) {
+      await disconnectBtn.click().catch(() => {});
+      await w.waitForTimeout(1200);
+      const afterDisconnect = await w.evaluate(() => ({
+        text: document.body.innerText,
+        calls: window.__pseQA?.calls || [],
+      }));
+      const cleared = !/0x1111/i.test(afterDisconnect.text);
+      const connectVisible = /Connect wallet/i.test(afterDisconnect.text);
+      const reconnectBtn = w.locator('button:has-text("Connect wallet")').first();
+      let reconnected = false;
+      if (await reconnectBtn.count() && await reconnectBtn.isVisible().catch(() => false)) {
+        await reconnectBtn.click().catch(() => {});
+        await w.waitForTimeout(1800);
+        const afterReconnect = await w.evaluate(() => ({
+          text: document.body.innerText,
+          calls: window.__pseQA?.calls || [],
+        }));
+        reconnected = /0x1111/i.test(afterReconnect.text)
+          && afterReconnect.calls.slice(-6).includes('eth_requestAccounts');
+      }
+      REPORT.wallet.disconnectReconnect = { cleared, connectVisible, reconnected };
+      if (cleared && connectVisible && reconnected) {
+        ok('wallet', 'manual disconnect cleared the session and an explicit reconnect approved again');
+      } else {
+        defect('wallet', `disconnect/reconnect failed: ${JSON.stringify(REPORT.wallet.disconnectReconnect)}`);
+      }
+    } else {
+      defect('wallet', 'no Disconnect control after a restored session');
+    }
+
     // Wrong network: the product design gates at PAYMENT time (ensurePaymentChain),
     // not on chainChanged (which is state-refresh only by design). With a LIVE
     // provider session: phase A refuses the in-wallet switch (stub denies) → the
@@ -716,7 +791,7 @@ async function main() {
     let netGuard = { reached: false, blocked: false, noSend: true, switchedToBsc: false, switchRequested: false, liveSession: false,
       diag: await t3.evaluate(() => ({
         hasEthereum: !!window.ethereum,
-        storedAddress: JSON.parse(localStorage.getItem('psemine_connected_wallet') || 'null')?.address || null,
+        storedAddress: (() => { try { const key = Object.keys(localStorage).find(k => k.startsWith('psemine_connected_wallet:')); return key ? (JSON.parse(localStorage.getItem(key) || 'null')?.address || null) : null; } catch { return null; } })(),
         providerAccounts: null,
       })) };
     netGuard.diag.providerAccounts = await t3.evaluate(async () => window.ethereum ? await window.ethereum.request({ method: 'eth_accounts' }) : null);
@@ -825,7 +900,10 @@ async function main() {
     await t2.addInitScript(STUB({ addr: '0x1111111111111111111111111111111111111111', chain: CHAIN }));
     await t2.goto(`${base}/mine/tools`, { waitUntil: 'load', timeout: 30000 });
     await t2.waitForTimeout(3000);
-    const buy = t2.locator('button:has-text("Purchase with BNB")').first();
+    // The catalogue CTA is "Buy Tool"; the dialog then opens on a product
+    // details step. Walk that step explicitly instead of assuming the quote or
+    // pay step is rendered immediately.
+    const buy = t2.locator('button:has-text("Buy Tool")').first();
     if (await buy.count() && await buy.isVisible().catch(() => false)) {
       await buy.click();
       // The dialog opens on the WALLET step when nothing is connected, or
@@ -833,6 +911,15 @@ async function main() {
       // Handle both — and never click "Reconnect…" as if it were "Continue".
       const dlg = t2.locator('[role="dialog"]').first();
       try { await dlg.waitFor({ state: 'visible', timeout: 10000 }); } catch { /* reported below */ }
+      // Details step: advance with its own primary CTA. Exact labels only, so
+      // this can never click the later "Continue to payment" control.
+      const detailsCta = dlg.locator(
+        'button:has-text("Connect wallet & continue"), button:has-text("Review live quote"), button:has-text("Resume existing purchase")'
+      ).first();
+      if (await detailsCta.count() && await detailsCta.isVisible().catch(() => false)) {
+        await detailsCta.click().catch(() => {});
+        await t2.waitForTimeout(2500);
+      }
       const pickStub = async () => {
         const stub = dlg.locator('button:has-text("QA Stub Wallet")').first();
         if (await stub.count() && await stub.isVisible().catch(() => false)) {
@@ -872,7 +959,7 @@ async function main() {
       let reachedQuote = false;
       if (!recovered && !payReady) {
         try {
-          await t2.waitForSelector('text=You pay (exact amount)', { timeout: 15000 });
+          await t2.waitForSelector('text=You pay', { timeout: 15000 });
           reachedQuote = true;
         } catch { /* reported below */ }
       }

@@ -692,3 +692,56 @@ class TestAtomicPurchasePaymentStateMachine(unittest.TestCase):
             self.assertEqual("open", recovery["status"])
         finally:
             psemine_engine.firestore_server_ts = original_ts
+
+
+class TestPurchaseIntentResponseProjection(unittest.TestCase):
+    """The create-intent response must be JSON-safe BEFORE it is sent.
+
+    A firestore.SERVER_TIMESTAMP Sentinel is only resolved at commit. Returning
+    the raw payload to jsonify raised a 500 after the intent transaction had
+    already committed, so the checkout created an orphaned awaiting_payment
+    intent and the client never received its purchaseId.
+    """
+
+    def test_committed_timestamp_sentinels_are_projected_to_iso(self):
+        import json
+        sentinel = object()  # stands in for firestore.SERVER_TIMESTAMP
+        now_iso = "2026-11-17T17:00:00+00:00"
+        payload = {
+            "id": "pse_pur_starter_test",
+            "userId": "user1",
+            "toolId": "starter",
+            "paymentWallet": WALLET_A,
+            "status": "awaiting_payment",
+            "createdAt": sentinel,
+            "expiresAt": "2026-11-17T17:15:00+00:00",
+            "payerBindingVerifiedAt": sentinel,
+        }
+        projected = psemine_engine.purchase_intent_response(payload, now_iso)
+
+        # Must serialize exactly as Flask will serialize it.
+        encoded = json.dumps(projected)
+        self.assertIn(now_iso, encoded)
+        self.assertEqual(now_iso, projected["createdAt"])
+        self.assertEqual("awaiting_payment", projected["status"])
+        self.assertEqual(WALLET_A, projected["paymentWallet"])
+        self.assertNotIn("payerBindingVerifiedAt", projected)
+
+    def test_datetime_timestamps_are_iso_strings(self):
+        import json
+        payload = {
+            "id": "p1",
+            "createdAt": datetime.now(timezone.utc),
+            "confirmedAt": None,
+        }
+        projected = psemine_engine.purchase_intent_response(payload)
+        self.assertIsInstance(projected["createdAt"], str)
+        self.assertIn("T", projected["createdAt"])
+        self.assertIsNone(projected["confirmedAt"])
+        json.dumps(projected)
+
+    def test_create_handler_uses_the_json_safe_projection(self):
+        body = _create_handler()
+        self.assertIn("_pse_engine.purchase_intent_response(", body)
+        self.assertNotIn("response_payload = dict(payload)", body,
+                         "the raw payload (with Sentinels) must never be returned")

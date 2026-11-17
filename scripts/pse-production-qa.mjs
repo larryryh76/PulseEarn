@@ -77,6 +77,9 @@ const REUSE = process.env.PSE_QA_REUSE === '1'
 const HEADFUL = process.env.PSE_QA_HEADED === '1';
 /** Targeted post-change verification: no browser, no account creation. */
 const SMOKE = process.env.PSE_QA_SMOKE === '1';
+/** Skip only the 4×8 route sweep (the slow part) while keeping auth, wallet and
+ *  the real purchase/payment probes in the same run. */
+const FAST = process.env.PSE_QA_FAST === '1';
 /** Escape hatch for deliberately observing a degraded backend. */
 const FORCE = process.env.PSE_QA_FORCE === '1';
 const CHAIN = '0x38'; // BNB Smart Chain (56)
@@ -596,7 +599,7 @@ async function main() {
     note('Authenticated walkthrough skipped: email verification did not complete.');
   }
 
-  if (authCtx) {
+  if (authCtx && !FAST) {
     const routes = ['/mine/dashboard', '/mine/tools', '/mine/wallet', '/mine/referrals', '/mine/activity', '/mine/me', '/mine/guide', '/mine'];
     for (const vp of VIEWPORTS) {
       console.log(`  ── ${vp.width}×${vp.height} ──`);
@@ -813,9 +816,14 @@ async function main() {
       }
       return null;
     };
-    const entry = await clickFirst(['Purchase with BNB', 'Resume payment', 'Complete payment', 'Continue payment', 'Buy Starter Miner', 'Buy ']);
+    const entry = await clickFirst(['Buy Tool', 'Resume payment', 'Complete payment', 'Continue payment', 'Buy Starter Miner', 'Buy ']);
     netGuard.entry = entry;
     if (entry) {
+      // The dialog opens on the product-details step. Advance with THAT step's
+      // own CTA before looking for the quote's Continue control.
+      netGuard.details = await clickFirst([
+        'Connect wallet & continue', 'Review live quote', 'Resume existing purchase',
+      ]);
       // The intermediate step only exists on a FIRST purchase: an account that
       // already holds an awaiting-payment intent resumes straight into the pay
       // step, so the pay control is awaited rather than assumed.
@@ -1137,12 +1145,18 @@ async function main() {
       if (rebind.status === 409) ok('payment', 'wallet-B rebind refused while wallet-A intent is live (409)');
       else console.log(`  ! [payment] rebind → ${rebind.status} (expected 409 while intent live)`);
 
-      // 5f. Unknown transaction hash → recovery recorded, no activation.
+            // 5f. Unknown transaction hash → recovery recorded, no activation.
+      // Verification only accepts the hash atomically persisted by
+      // report-submission, so the client's real two-step flow is exercised: a
+      // hash must be attached to the intent BEFORE the chain is consulted.
       const unknown = '0x' + 'ab'.repeat(32);
+      const reportUnknown = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+      REPORT.payment.reportUnknown = { status: reportUnknown.status, body: reportUnknown.body };
+      if (reportUnknown.status !== 200) defect('payment', `report-submission → ${reportUnknown.status} ${JSON.stringify(reportUnknown.body).slice(0, 140)}`);
       const ver = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
       REPORT.payment.unknownHash = { status: ver.status, body: ver.body };
-      if ([404, 422].includes(ver.status)) ok('payment', `unknown tx hash rejected (${ver.status} ${ver.body?.error}) — no activation, recovery evidence expected`);
-      else defect('payment', `unknown hash → ${ver.status} ${JSON.stringify(ver.body).slice(0, 140)}`);
+      if ([404, 422].includes(ver.status)) ok('payment', `recorded unknown tx hash rejected after on-chain check (${ver.status} ${ver.body?.error}) — no activation`);
+      else defect('payment', `unknown hash → ${ver.status} ${JSON.stringify(ver.body).slice(0, 140)}`); 
 
       // 5g. Malformed hash guard.
       const malformed = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: '0xdeadbeef', senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
@@ -1170,8 +1184,22 @@ async function main() {
         if (txs.length) realTx = txs[txs.length - 1].hash;
       } catch { /* probe is best-effort */ }
       if (realTx) {
-        const real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
-        REPORT.payment.realChainMismatch = { status: real.status, hash: realTx, body: real.body };
+        // A purchase's hash is immutable, and the starter intent above already
+        // holds `unknown`. Use a SEPARATE tier quote/intent so the chain-read
+        // probe is not rejected by the submission lock.
+        let pid2 = null;
+        const q2 = await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: 'builder' }, TOKEN);
+        const quoteId2 = q2.body?.quote?.quoteId || q2.body?.quoteId;
+        if (quoteId2) {
+          const intentB = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId: quoteId2, paymentWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+          pid2 = intentB.body?.purchaseId || null;
+        }
+        let real = { status: 0, body: { error: 'no second intent available' } };
+        if (pid2) {
+          await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId: pid2, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+          real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId: pid2, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+        }
+        REPORT.payment.realChainMismatch = { purchaseId: pid2, status: real.status, hash: realTx, body: real.body };
         console.log(`  real-chain mismatch probe → ${real.status} ${real.body?.error || ''}`);
         if (real.status === 422 && real.body?.error && !['TRANSACTION_NOT_FOUND', 'RPC_ERROR'].includes(real.body.error)) {
           ok('payment', `real BSC transaction (${realTx.slice(0, 18)}…) fetched from the chain and REJECTED on terms (${real.body.error}) — backend genuinely verifies on-chain`);

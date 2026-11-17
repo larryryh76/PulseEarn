@@ -353,6 +353,12 @@ def purchase_intent_response(purchase, created_at_iso=None):
         if value is None:
             result[field] = None
             continue
+        if isinstance(value, str):
+            # Already serialized (e.g. the quote's ISO expiresAt). Keep it
+            # verbatim — replacing a string with `now_iso` would make a live
+            # quote look expired the moment the intent is returned.
+            result[field] = value
+            continue
         if isinstance(value, datetime):
             value = value.isoformat()
         elif field in timestamp_fields:

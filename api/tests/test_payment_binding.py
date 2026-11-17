@@ -727,6 +727,20 @@ class TestPurchaseIntentResponseProjection(unittest.TestCase):
         self.assertEqual(WALLET_A, projected["paymentWallet"])
         self.assertNotIn("payerBindingVerifiedAt", projected)
 
+    def test_iso_string_expiry_is_preserved_verbatim(self):
+        """A live quote's ISO expiry must not be replaced by the creation time.
+
+        Replacing it made the returned intent look already expired, which both
+        dead-ended checkout and let a different wallet supersede a live intent.
+        """
+        expires = "2026-11-17T17:26:11.017977+00:00"
+        projected = psemine_engine.purchase_intent_response({
+            "id": "p1",
+            "createdAt": "2026-11-17T17:11:11.017977+00:00",
+            "expiresAt": expires,
+        })
+        self.assertEqual(expires, projected["expiresAt"])
+
     def test_datetime_timestamps_are_iso_strings(self):
         import json
         payload = {

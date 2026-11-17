@@ -9770,9 +9770,11 @@ def mine_create_purchase():
     # The decision itself is a pure, unit-tested function.
     manual_review_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'manual_review').get()
     if manual_review_rows:
+        under_review = manual_review_rows[0].to_dict() or {}
         return jsonify({"success": False, "error": "PAYMENT_UNDER_REVIEW",
                         "message": "A previous payment for this tool is under manual review. Do not pay again until the case is resolved.",
-                        "purchaseId": manual_review_rows[0].id}), 409
+                        "purchaseId": manual_review_rows[0].id,
+                        "boundWallet": str(under_review.get('paymentWallet') or '').lower()}), 409
 
     blocking_rows = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', 'in', ['submission_uncertain', 'transaction_submitted', 'confirming']).get()
     if blocking_rows:
@@ -9780,7 +9782,12 @@ def mine_create_purchase():
         blocked_status = blocked.get('status')
         return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
                         "message": "A previous payment may already have been submitted. Its server-side recovery record must be reconciled before another payment can be started.",
-                        "purchaseId": blocking_rows[0].id, "status": blocked_status}), 409
+                        "purchaseId": blocking_rows[0].id, "status": blocked_status,
+                        # The client resumes verification of THIS intent, so it
+                        # must know which wallet it was bound to; otherwise the
+                        # recovery check is sent from the currently selected
+                        # wallet and is rejected as WALLET_MISMATCH.
+                        "boundWallet": str(blocked.get('paymentWallet') or '').lower()}), 409
 
     existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
     for e in existing:

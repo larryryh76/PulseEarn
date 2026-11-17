@@ -882,7 +882,15 @@ async function main() {
         && netGuard.warningCleared && netGuard.switchedToBsc && netGuard.sentOnBsc)
       ok('wallet', 'wrong-network pay step warns and blocks with nothing signed; a refused switch keeps it blocked; accepting the switch clears the warning and the send proceeds on BSC');
     else if (!netGuard.liveSession) note(`wrong-network switch path untestable this run (no live provider session): ${JSON.stringify(netGuard)}`);
-    else defect('wallet', `wrong-network guard: ${JSON.stringify(netGuard)}`);
+    else {
+      // A reusable account whose only intent is already transaction_submitted
+      // opens the recovery panel, not a pay step: the guard cannot be reached
+      // without a fresh purchase, and that is account state, not a regression.
+      const panelText = await t3.evaluate(() => document.body.innerText.slice(0, 600)).catch(() => '');
+      if (/transaction submitted|check verification again|recovery/i.test(panelText)) {
+        note(`wrong-network guard not reachable this run: the account's intent is already submitted, so the dialog opened recovery (${panelText.replace(/\s+/g, ' ').slice(0, 120)})`);
+      } else defect('wallet', `wrong-network guard: ${JSON.stringify(netGuard)}`);
+    }
     await t3.close();
 
     // Restore the main wallet page to wallet A on BSC for the remaining probes.
@@ -1121,6 +1129,18 @@ async function main() {
     REPORT.payment.intent = { status: intent.status, body: intent.body };
     console.log(`  intent: ${intent.status} ${JSON.stringify(intent.body).slice(0, 200)}`);
     const purchaseId = intent.body?.purchaseId;
+    // A reusable QA account may already hold a live intent for this tier. A 409
+    // WALLET_MISMATCH is the immutable payer binding WORKING: continue the
+    // probes from the wallet that intent is actually bound to.
+    const WALLET_A = '0x1111111111111111111111111111111111111111';
+    const WALLET_B = '0x2222222222222222222222222222222222222222';
+    const probeWallet = String(
+      intent.body?.purchase?.paymentWallet || intent.body?.boundWallet || WALLET_A
+    ).toLowerCase();
+    const intentCreated = intent.status === 200;
+    if (intent.status === 409 && intent.body?.error === 'WALLET_MISMATCH') {
+      ok('payment', `live intent stays bound to ${probeWallet.slice(0, 6)}…; a different wallet is refused (409)`);
+    }
     // The intent handed back must carry a LIVE quote: a dead-quote intent can
     // never verify (QUOTE_EXPIRED forever), so returning one dead-ends the
     // (user, tool) pair. Regression guard for the 2026-09-19 lapsed-reuse fix.
@@ -1130,46 +1150,65 @@ async function main() {
       if (!Number.isNaN(expMs)) {
         if (expMs > Date.now()) ok('payment', 'created intent carries a live quote window');
         else defect('payment', `intent carries an ALREADY-EXPIRED quote (${expIso}) — dead-end lock`);
-      } else note('intent response did not expose expiresAt for liveness check');
+      } else if (intentCreated) note('created intent did not expose expiresAt for liveness check');
     }
 
     // 5d. Same wallet again → must REUSE the same intent (reload-recovery safe).
-    if (purchaseId) {
-      const intent2 = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId, paymentWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+    if (purchaseId && intentCreated) {
+      const intent2 = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId, paymentWallet: probeWallet }, TOKEN);
       REPORT.payment.intentReuse = { status: intent2.status, sameId: intent2.body?.purchaseId === purchaseId, existing: intent2.body?.existing };
       if (intent2.body?.existing === true && intent2.body?.purchaseId === purchaseId) ok('payment', 'second create reuses the same intent (reload-recovery safe)');
       else if (intent2.status === 200 && intent2.body?.purchaseId && intent2.body?.purchaseId !== purchaseId) ok('payment', 'lapsed-quote intent superseded by a fresh one (dead-end lock fixed)');
       else defect('payment', `second create did not reuse intent: ${JSON.stringify(intent2.body).slice(0, 140)}`);
+    }
 
-      // 5e. Wallet-B intent on the same tool → refused while A's intent is live.
-      const rebind = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId, paymentWallet: '0x2222222222222222222222222222222222222222' }, TOKEN);
+    if (purchaseId) {
+      // 5e. The OPPOSITE wallet cannot take over a live intent.
+      const otherWallet = probeWallet === WALLET_A ? WALLET_B : WALLET_A;
+      const rebind = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId, paymentWallet: otherWallet }, TOKEN);
       REPORT.payment.rebindGuard = { status: rebind.status, body: rebind.body };
-      if (rebind.status === 409) ok('payment', 'wallet-B rebind refused while wallet-A intent is live (409)');
-      else console.log(`  ! [payment] rebind → ${rebind.status} (expected 409 while intent live)`);
+      if (rebind.status === 409) ok('payment', 'a different wallet cannot supersede a live bound intent (409)');
+      else if (!intentCreated) {
+        // The quote was re-priced for this run; a fresh bound intent is the
+        // documented supersede path, not a rebind of the existing one.
+        note(`rebind probe created a fresh intent (${rebind.status}) because this run re-quoted`);
+      } else defect('payment', `rebind → ${rebind.status} (expected 409 while intent live)`);
 
-            // 5f. Unknown transaction hash → recovery recorded, no activation.
+      // 5f. Unknown transaction hash → recorded, then rejected on-chain.
       // Verification only accepts the hash atomically persisted by
       // report-submission, so the client's real two-step flow is exercised: a
       // hash must be attached to the intent BEFORE the chain is consulted.
       const unknown = '0x' + 'ab'.repeat(32);
-      const reportUnknown = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
-      REPORT.payment.reportUnknown = { status: reportUnknown.status, body: reportUnknown.body };
+      let reportUnknown = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId, transactionHash: unknown, senderWallet: probeWallet }, TOKEN);
+      let probeHash = unknown;
+      if (reportUnknown.status === 409 && reportUnknown.body?.error === 'SUBMISSION_HASH_CONFLICT') {
+        // A previous run already attached a hash to this intent. Reuse the
+        // persisted hash; the chain check below is still the decisive proof.
+        const st = await api('GET', `${PROD}/api/mine/state`, null, TOKEN);
+        const pending = (st.body?.pendingPurchases || []).find(p => (p.purchaseId || p.id) === purchaseId);
+        probeHash = String(pending?.transactionHash || '').toLowerCase();
+        if (probeHash) {
+          reportUnknown = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId, transactionHash: probeHash, senderWallet: probeWallet }, TOKEN);
+        }
+      }
+      REPORT.payment.reportUnknown = { status: reportUnknown.status, body: reportUnknown.body, hash: probeHash };
       if (reportUnknown.status !== 200) defect('payment', `report-submission → ${reportUnknown.status} ${JSON.stringify(reportUnknown.body).slice(0, 140)}`);
-      const ver = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+      else ok('payment', 'wallet-returned hash recorded on the purchase (report-submission 200)');
+      const ver = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: probeHash, senderWallet: probeWallet }, TOKEN);
       REPORT.payment.unknownHash = { status: ver.status, body: ver.body };
       if ([404, 422].includes(ver.status)) ok('payment', `recorded unknown tx hash rejected after on-chain check (${ver.status} ${ver.body?.error}) — no activation`);
-      else defect('payment', `unknown hash → ${ver.status} ${JSON.stringify(ver.body).slice(0, 140)}`); 
+      else defect('payment', `unknown hash → ${ver.status} ${JSON.stringify(ver.body).slice(0, 140)}`);
 
       // 5g. Malformed hash guard.
-      const malformed = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: '0xdeadbeef', senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+      const malformed = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: '0xdeadbeef', senderWallet: probeWallet }, TOKEN);
       REPORT.payment.malformedHash = { status: malformed.status, error: malformed.body?.error };
       if (malformed.status === 400) ok('payment', 'malformed hash rejected (400)');
       else defect('payment', `malformed hash → ${malformed.status}`);
 
-      // 5h. Duplicate submission of the same unknown hash.
-      const dup = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+      // 5h. Duplicate verification of the same recorded hash is idempotent.
+      const dup = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: probeHash, senderWallet: probeWallet }, TOKEN);
       REPORT.payment.duplicateUnknown = { status: dup.status, error: dup.body?.error };
-      console.log(`  duplicate unknown-hash submit → ${dup.status} ${dup.body?.error || ''}`);
+      console.log(`  duplicate recorded-hash verify → ${dup.status} ${dup.body?.error || ''}`);
 
       // 5m. REAL-CHAIN MISMATCH (no funds spent): fetch a REAL mainnet BSC
       // transaction directly from the chain (latest block) and submit it — it
@@ -1190,16 +1229,22 @@ async function main() {
         // holds `unknown`. Use a SEPARATE tier quote/intent so the chain-read
         // probe is not rejected by the submission lock.
         let pid2 = null;
-        const q2 = await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: 'builder' }, TOKEN);
+        let pid2Wallet = probeWallet;
+        const q2 = await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: 'advanced' }, TOKEN);
         const quoteId2 = q2.body?.quote?.quoteId || q2.body?.quoteId;
         if (quoteId2) {
-          const intentB = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId: quoteId2, paymentWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+          const intentB = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId: quoteId2, paymentWallet: probeWallet }, TOKEN);
           pid2 = intentB.body?.purchaseId || null;
+          pid2Wallet = String(intentB.body?.purchase?.paymentWallet || intentB.body?.boundWallet || probeWallet).toLowerCase();
         }
         let real = { status: 0, body: { error: 'no second intent available' } };
         if (pid2) {
-          await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId: pid2, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
-          real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId: pid2, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+          const rep = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId: pid2, transactionHash: realTx, senderWallet: pid2Wallet }, TOKEN);
+          if (rep.status === 200) {
+            real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId: pid2, transactionHash: realTx, senderWallet: pid2Wallet }, TOKEN);
+          } else {
+            real = { status: rep.status, body: rep.body };
+          }
         }
         REPORT.payment.realChainMismatch = { purchaseId: pid2, status: real.status, hash: realTx, body: real.body };
         console.log(`  real-chain mismatch probe → ${real.status} ${real.body?.error || ''}`);

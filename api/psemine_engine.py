@@ -96,7 +96,29 @@ def _run_transaction(db, txn_fn):
     # merely because the SDK is installed in the test environment.
     is_test_double = hasattr(txn, "_ops")
     if _firestore is not None and hasattr(_firestore, "transactional") and not is_test_double:
-        return _firestore.transactional(txn_fn)(txn)
+        # A transition that REJECTS buffers no writes (e.g. a superseded
+        # purchase reported again). The SDK's transactional wrapper still
+        # commits, and Firestore rejects an empty commit — turning a correct
+        # 409 decision into a 500. When nothing was buffered, a commit failure
+        # cannot have changed any state, so return the pure decision instead.
+        outcome = {}
+
+        def _tracked(transaction):
+            result = txn_fn(transaction)
+            outcome['result'] = result
+            outcome['has_writes'] = bool(getattr(transaction, "_write_pbs", ()))
+            return result
+
+        try:
+            return _firestore.transactional(_tracked)(txn)
+        except Exception:
+            if 'result' in outcome and not outcome.get('has_writes'):
+                logging.warning(
+                    "[PSEmine] read-only transaction commit failed; returning the decision",
+                    exc_info=True,
+                )
+                return outcome['result']
+            raise
     result = txn_fn(txn)
     commit = getattr(txn, "commit", None)
     if callable(commit):

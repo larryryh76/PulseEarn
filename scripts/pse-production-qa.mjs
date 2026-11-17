@@ -819,11 +819,13 @@ async function main() {
     const entry = await clickFirst(['Buy Tool', 'Resume payment', 'Complete payment', 'Continue payment', 'Buy Starter Miner', 'Buy ']);
     netGuard.entry = entry;
     if (entry) {
-      // The dialog opens on the product-details step. Advance with THAT step's
-      // own CTA before looking for the quote's Continue control.
+      // The dialog opens on the product-details step. Let it paint, then advance
+      // with THAT step's own CTA before looking for the quote's Continue control.
+      await t3.waitForTimeout(1500);
       netGuard.details = await clickFirst([
         'Connect wallet & continue', 'Review live quote', 'Resume existing purchase',
       ]);
+      await t3.waitForTimeout(800);
       // The intermediate step only exists on a FIRST purchase: an account that
       // already holds an awaiting-payment intent resumes straight into the pay
       // step, so the pay control is awaited rather than assumed.

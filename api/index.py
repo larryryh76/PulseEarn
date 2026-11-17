@@ -9799,7 +9799,11 @@ def mine_create_purchase():
                 stored['walletProofNonce'] = q.get('walletProofNonce')
             return jsonify({"success": True, "purchaseId": e.id, "existing": True,
                             "purchase": _pse_engine.purchase_intent_response(stored)})
-        if stored.get('walletProofVerified') is not True:
+        # New intents prove payer ownership with `payerBindingVerified`; legacy
+        # intents used `walletProofVerified`. Treating only the legacy flag as
+        # proof made every new live intent look unproven, so a DIFFERENT wallet
+        # could supersede it and move the purchase instead of receiving 409.
+        if stored.get('payerBindingVerified') is not True and stored.get('walletProofVerified') is not True:
             if stored.get('transactionHash') or stored.get('txHash'):
                 return jsonify({"success": False, "error": "PAYMENT_RECOVERY_LOCKED",
                                 "message": "A legacy purchase has transaction evidence but no verified wallet-ownership proof. Do not pay again; request payment recovery review.",

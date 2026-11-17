@@ -759,3 +759,64 @@ class TestPurchaseIntentResponseProjection(unittest.TestCase):
         self.assertIn("_pse_engine.purchase_intent_response(", body)
         self.assertNotIn("response_payload = dict(payload)", body,
                          "the raw payload (with Sentinels) must never be returned")
+
+
+class TestReadOnlyTransactionCommit(unittest.TestCase):
+    """A rejected transition buffers no writes; its decision must still surface.
+
+    The Firestore SDK's transactional wrapper commits unconditionally. Firestore
+    rejects an empty commit, so every rejection (superseded purchase, wrong
+    owner, conflicting hash) surfaced as HTTP 500 instead of its correct 409.
+    """
+
+    class _Txn:
+        def __init__(self):
+            self._write_pbs = []
+
+    class _DB:
+        def transaction(self):
+            return TestReadOnlyTransactionCommit._Txn()
+
+    @staticmethod
+    def _fake_firestore():
+        class _FS:
+            @staticmethod
+            def transactional(fn):
+                def run(txn):
+                    fn(txn)
+                    raise RuntimeError("empty commit rejected")
+                return run
+        return _FS
+
+    def test_rejected_transition_returns_its_decision_when_empty_commit_fails(self):
+        original = psemine_engine._firestore
+        psemine_engine._firestore = self._fake_firestore()
+        try:
+            result = psemine_engine._run_transaction(
+                self._DB(),
+                lambda txn: {"ok": False, "error": "PURCHASE_NOT_RECOVERABLE"},
+            )
+        finally:
+            psemine_engine._firestore = original
+        self.assertFalse(result["ok"])
+        self.assertEqual("PURCHASE_NOT_RECOVERABLE", result["error"])
+
+    def test_write_transition_commit_failure_still_propagates(self):
+        original = psemine_engine._firestore
+        psemine_engine._firestore = self._fake_firestore()
+        try:
+            with self.assertRaises(RuntimeError):
+                psemine_engine._run_transaction(
+                    self._DB(),
+                    lambda txn: (txn._write_pbs.append(1), {"ok": True})[1],
+                )
+        finally:
+            psemine_engine._firestore = original
+
+    def test_live_intent_with_payer_binding_cannot_be_superseded(self):
+        body = _create_handler()
+        combined = "stored.get('payerBindingVerified') is not True and stored.get('walletProofVerified') is not True"
+        self.assertGreaterEqual(
+            body.count(combined), 2,
+            "the preflight supersede branch must also accept payerBindingVerified as proof",
+        )

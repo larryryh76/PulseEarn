@@ -216,7 +216,11 @@ def transition_purchase_state(db, purchase_id, uid, action, *,
     ref = db.collection("psemine_purchases").document(purchase_id)
 
     def _transition(txn):
-        snap = txn.get(ref)
+        # DocumentReference.get(transaction=txn) returns a DocumentSnapshot.
+        # Transaction.get(ref) returns a GENERATOR in google-cloud-firestore;
+        # reading `.exists` from it raises AttributeError in production. The
+        # in-memory test double returned a snapshot and masked the fault.
+        snap = ref.get(transaction=txn)
         if not snap.exists:
             return {"ok": False, "error": "PURCHASE_NOT_FOUND"}
         purchase = snap.to_dict() or {}
@@ -1902,7 +1906,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
         }
 
     def _resolve(txn):
-        recovery_snap = txn.get(recovery_ref)
+        recovery_snap = recovery_ref.get(transaction=txn)
         if not recovery_snap.exists:
             return {"ok": False, "error": "NOT_FOUND"}
         recovery = recovery_snap.to_dict() or {}
@@ -1917,7 +1921,7 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 return {"ok": False, "error": "RECOVERY_NOT_ATTACHABLE"}
             if recovery.get("purchaseId") and recovery.get("purchaseId") != purchase_id:
                 return {"ok": False, "error": "PURCHASE_MISMATCH"}
-            purchase_snap = txn.get(purchase_ref)
+            purchase_snap = purchase_ref.get(transaction=txn)
             if not purchase_snap.exists:
                 return {"ok": False, "error": "NOT_FOUND"}
             purchase = purchase_snap.to_dict() or {}
@@ -1947,11 +1951,11 @@ def admin_resolve_payment_recovery(db, recovery_id, admin_uid, action, notes="",
                 f"psemine-purchase:{recovery.get('userId')}:{purchase.get('toolId')}",
             ).hex
             lock_ref = db.collection("psemine_purchase_locks").document(lock_id)
-            lock_snap = txn.get(lock_ref)
+            lock_snap = lock_ref.get(transaction=txn)
             locked_id = str((lock_snap.to_dict() or {}).get("purchaseId") or "").strip() if lock_snap.exists else ""
             if locked_id and locked_id != purchase_id:
                 locked_ref = db.collection("psemine_purchases").document(locked_id)
-                locked_snap = txn.get(locked_ref)
+                locked_snap = locked_ref.get(transaction=txn)
                 locked_data = locked_snap.to_dict() or {} if locked_snap.exists else {}
                 locked_status = str(locked_data.get("status") or "unknown")
                 if locked_status not in ("activated", "superseded", "abandoned_no_broadcast", "failed", "cancelled"):

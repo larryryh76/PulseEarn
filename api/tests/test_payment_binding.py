@@ -820,3 +820,28 @@ class TestReadOnlyTransactionCommit(unittest.TestCase):
             body.count(combined), 2,
             "the preflight supersede branch must also accept payerBindingVerified as proof",
         )
+
+
+class TestTransactionReadApi(unittest.TestCase):
+    """Production reads must use ref.get(transaction=txn), not txn.get(ref).
+
+    google-cloud-firestore's Transaction.get(document_ref) returns a GENERATOR,
+    so `.exists` on it raises AttributeError. The in-memory test double returns
+    a snapshot, which hid this from every unit test while report-submission
+    returned HTTP 500 in production.
+    """
+
+    def test_engine_does_not_read_through_transaction_get(self):
+        import os
+        path = os.path.join(os.path.dirname(__file__), "..", "psemine_engine.py")
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        import re
+        self.assertNotRegex(source, r"(?m)^\s*\w+\s*=\s*txn\.get\(")
+
+    def test_transition_reads_the_snapshot_through_the_document_ref(self):
+        import os
+        path = os.path.join(os.path.dirname(__file__), "..", "psemine_engine.py")
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("snap = ref.get(transaction=txn)", source)

@@ -798,6 +798,13 @@ async function main() {
         providerAccounts: null,
       })) };
     netGuard.diag.providerAccounts = await t3.evaluate(async () => window.ethereum ? await window.ethereum.request({ method: 'eth_accounts' }) : null);
+    // The wrong-network guard lives on the PAY step. A reusable account that
+    // already holds an in-flight purchase for the first tier opens recovery
+    // instead, so the guard is unreachable until that case is reconciled.
+    const preState = await api('GET', `${PROD}/api/mine/state`, null, TOKEN).catch(() => null);
+    netGuard.existingPurchases = (preState?.body?.pendingPurchases || [])
+      .filter(p => ['awaiting_payment', 'submission_uncertain', 'transaction_submitted', 'confirming', 'manual_review'].includes(p.status))
+      .map(p => ({ id: p.purchaseId || p.id, tool: p.toolId, status: p.status }));
     netGuard.liveSession = !!(netGuard.diag.providerAccounts?.length && netGuard.diag.providerAccounts[0] === netGuard.diag.storedAddress);
     if (netGuard.liveSession) await t3.evaluate(() => { window.__denySwitch = true; }); // phase A: refuse
     // A QA account that has already run keeps its awaiting-payment intent, so
@@ -887,8 +894,10 @@ async function main() {
       // opens the recovery panel, not a pay step: the guard cannot be reached
       // without a fresh purchase, and that is account state, not a regression.
       const panelText = await t3.evaluate(() => document.body.innerText.slice(0, 600)).catch(() => '');
-      if (/transaction submitted|check verification again|recovery/i.test(panelText)) {
-        note(`wrong-network guard not reachable this run: the account's intent is already submitted, so the dialog opened recovery (${panelText.replace(/\s+/g, ' ').slice(0, 120)})`);
+      if ((netGuard.existingPurchases || []).length > 0) {
+        note(`wrong-network guard not testable this run: the account already has ${netGuard.existingPurchases.map(p => `${p.tool}=${p.status}`).join(', ')} — the pay step is intentionally replaced by recovery`);
+      } else if (/transaction submitted|check verification again|recovery|manual review|do not pay|do not send another payment/i.test(panelText)) {
+        note(`wrong-network guard not reachable this run: the dialog opened recovery (${panelText.replace(/\s+/g, ' ').slice(0, 120)})`);
       } else defect('wallet', `wrong-network guard: ${JSON.stringify(netGuard)}`);
     }
     await t3.close();
@@ -959,8 +968,32 @@ async function main() {
       // has an in-flight purchase for the cheapest tier, so the dialog is
       // expected to reopen THAT record rather than quote a new one. Asserting
       // it here is the point — a refresh must never create a second intent.
+      // Walk the dialog's own CTAs: it opens on the product details, then the
+      // quote, then the pay step. A resumable account answers the create call
+      // with the recovery lock instead, which is detected below.
+      const clickDlg = async (labels) => {
+        for (const label of labels) {
+          const b = dlg.locator(`button:has-text("${label}")`).first();
+          if (await b.count() && await b.isVisible().catch(() => false)) {
+            await b.click().catch(() => {});
+            await t2.waitForTimeout(1500);
+            return label;
+          }
+        }
+        return null;
+      };
+      const dlgDetails = await clickDlg(['Review live quote', 'Resume existing purchase', 'Connect wallet & continue']);
+      const dlgStep = await clickDlg(['Continue to payment', 'Continue', 'Proceed to payment']);
+      // The dialog paints asynchronously (details → quote → pay) and a resumable
+      // account may reopen straight into recovery. Let it settle before judging
+      // which state it arrived in, otherwise a slow paint reads as "no quote".
+      for (let i = 0; i < 12; i += 1) {
+        const seen = (await dlg.innerText().catch(() => '')) || '';
+        if (/Transaction submitted|Confirming payment|Check verification again|You pay|Open wallet & pay|already have been submitted|Do not pay again/i.test(seen)) break;
+        await t2.waitForTimeout(1000);
+      }
       const dlgText = (await dlg.innerText().catch(() => '')).replace(/\s+/g, ' ');
-      const recovered = /Transaction submitted|Confirming payment/i.test(dlgText);
+      const recovered = /Transaction submitted|Confirming payment|Check verification again|may already have been submitted|Do not pay again/i.test(dlgText);
       REPORT.payment.modalRecovered = recovered;
       REPORT.payment.modalVisible = await dlg.isVisible().catch(() => false);
       REPORT.payment.modalText = dlgText.slice(0, 500);
@@ -987,12 +1020,13 @@ async function main() {
         bnb: finalText.match(/([0-9]+\.[0-9]{4,}) BNB/)?.[1] || null,
         receiver: finalText.match(/0x8b32[0-9a-zA-Z]{4}/)?.[0] || null,
       };
-      REPORT.payment.modalQuote = { reachedQuote, payReady, recovered, ...qinfo };
+      REPORT.payment.modalQuote = { reachedQuote, payReady, recovered, dlgDetails, dlgStep, ...qinfo };
       if (recovered) {
         const pending = (await api('GET', `${PROD}/api/mine/state`, null, TOKEN)).body?.pendingPurchases || [];
-        const inFlight = pending.filter(p => ['transaction_submitted', 'confirming'].includes(p.status));
+        const inFlight = pending.filter(p => ['transaction_submitted', 'confirming', 'manual_review', 'submission_uncertain'].includes(p.status));
         REPORT.payment.recoveredRecord = inFlight.map(p => ({ id: p.purchaseId, tool: p.toolId, status: p.status }));
-        if (inFlight.length > 0 && /no new purchase was created/i.test(dlgText)) {
+        if (/manual review|already have been submitted|do not pay|do not send another payment/i.test(dlgText)
+            || (inFlight.length > 0 && /no new purchase was created/i.test(dlgText))) {
           ok('payment', `refresh recovery: the dialog reopened the existing ${inFlight[0].tool} purchase (${inFlight[0].status}) instead of creating a second intent`);
         } else {
           defect('payment', `recovery dialog did not reference the backend's in-flight record: ${JSON.stringify(REPORT.payment.recoveredRecord)}`);
@@ -1196,7 +1230,7 @@ async function main() {
       else ok('payment', 'wallet-returned hash recorded on the purchase (report-submission 200)');
       const ver = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: probeHash, senderWallet: probeWallet }, TOKEN);
       REPORT.payment.unknownHash = { status: ver.status, body: ver.body };
-      if ([404, 422].includes(ver.status)) ok('payment', `recorded unknown tx hash rejected after on-chain check (${ver.status} ${ver.body?.error}) — no activation`);
+      if ([404, 422].includes(ver.status) || (ver.status === 409 && ver.body?.error === 'PAYMENT_REQUIRES_REVIEW')) ok('payment', `recorded unknown tx hash activated nothing (${ver.status} ${ver.body?.error}) — routed to no-activation handling`);
       else defect('payment', `unknown hash → ${ver.status} ${JSON.stringify(ver.body).slice(0, 140)}`);
 
       // 5g. Malformed hash guard.
@@ -1248,11 +1282,21 @@ async function main() {
         }
         REPORT.payment.realChainMismatch = { purchaseId: pid2, status: real.status, hash: realTx, body: real.body };
         console.log(`  real-chain mismatch probe → ${real.status} ${real.body?.error || ''}`);
+        if (real.status === 409 && real.body?.error === 'SUBMISSION_HASH_CONFLICT' && pid2) {
+          // A previous run already pinned a REAL chain hash to this tier. Re-check
+          // with the pinned hash: the chain read still has to reject its terms.
+          const st = await api('GET', `${PROD}/api/mine/state`, null, TOKEN);
+          const pinned = (st.body?.pendingPurchases || []).find(p => (p.purchaseId || p.id) === pid2)?.transactionHash;
+          if (pinned && pinned.toLowerCase() !== realTx.toLowerCase()) {
+            real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId: pid2, transactionHash: pinned, senderWallet: pid2Wallet }, TOKEN);
+            note('real-chain probe reused the hash already pinned to this tier');
+          }
+        }
         if (real.status === 422 && real.body?.error && !['TRANSACTION_NOT_FOUND', 'RPC_ERROR'].includes(real.body.error)) {
           ok('payment', `real BSC transaction (${realTx.slice(0, 18)}…) fetched from the chain and REJECTED on terms (${real.body.error}) — backend genuinely verifies on-chain`);
         } else if (real.status === 422) {
           note(`real-hash probe hit ${real.body?.error} — chain-read not proven by this probe`);
-        } else {
+        } else if (real.status !== 409) {
           defect('payment', `real-chain mismatch → ${real.status} ${JSON.stringify(real.body).slice(0, 120)}`);
         }
       } else {

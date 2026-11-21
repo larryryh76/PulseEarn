@@ -1326,6 +1326,91 @@ async function main() {
     else if (!expectFixed) note(`self-referral → ${ref.status} (expected until the referral fix is deployed)`);
     else defect('payment', `self-referral accepted → ${ref.status}`);
 
+    // ── Stale-checkout cleanup (user-facing cancellation, no real BNB) ──────
+    // Uses a tier with no in-flight payment (elite) so the assertions do not
+    // depend on this account's submitted/manual-review history.
+    if (true) {
+      const CANCEL_WALLET = '0x3333333333333333333333333333333333333333';
+      const cq = await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: 'elite' }, TOKEN);
+      const cancelQuoteId = cq.body?.quote?.quoteId || cq.body?.quoteId;
+      const createAbandoned = async () => {
+        const r = await api('POST', `${PROD}/api/mine/purchases/create`, {
+          quoteId: cancelQuoteId, paymentWallet: CANCEL_WALLET,
+        }, TOKEN);
+        return { status: r.status, body: r.body, id: r.body?.purchaseId };
+      };
+      let abandoned = cancelQuoteId ? await createAbandoned() : { status: 0, body: {} };
+      // Self-heal a live leftover from an earlier run, using the SAME public
+      // cancellation path a user would (never by editing Firestore).
+      if (abandoned.status === 409 && abandoned.id) {
+        await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: abandoned.id }, TOKEN);
+        abandoned = await createAbandoned();
+      }
+      REPORT.cancel = { create: { status: abandoned.status, id: abandoned.id, error: abandoned.body?.error } };
+      if (abandoned.status !== 200 || !abandoned.id) {
+        note(`stale-checkout cleanup BLOCKED: no cancellable elite intent (${abandoned.status} ${abandoned.body?.error || ''})`);
+      } else {
+        const pid = abandoned.id;
+        const first = await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: pid }, TOKEN);
+        if (first.status === 200 && first.body?.status === 'cancelled') ok('payment', 'abandoned unsubmitted checkout can be cancelled (200 cancelled)');
+        else defect('payment', `cancel abandoned checkout → ${first.status} ${JSON.stringify(first.body).slice(0, 120)}`);
+
+        const again = await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: pid }, TOKEN);
+        if (again.status === 200 && again.body?.idempotent === true) ok('payment', 'repeated cancellation is idempotent (200)');
+        else defect('payment', `repeat cancel → ${again.status} ${JSON.stringify(again.body).slice(0, 120)}`);
+
+        const fakeHash = '0x' + '9a'.repeat(32);
+        const repC = await api('POST', `${PROD}/api/mine/purchases/report-submission`, { purchaseId: pid, transactionHash: fakeHash, senderWallet: CANCEL_WALLET }, TOKEN);
+        const verC = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId: pid, transactionHash: fakeHash, senderWallet: CANCEL_WALLET }, TOKEN);
+        if (repC.status === 409 && verC.status === 409) ok('payment', 'cancelled checkout refuses a transaction hash and cannot be verified (409/409)');
+        else defect('payment', `cancelled checkout accepted a hash or verification: report=${repC.status} verify=${verC.status}`);
+
+        const fresh = await createAbandoned();
+        REPORT.cancel.fresh = { status: fresh.status, id: fresh.id };
+        if (fresh.status === 200 && fresh.id && fresh.id !== pid) ok('payment', 'a fresh purchase intent can be created immediately after cancellation (lock released)');
+        else defect('payment', `fresh intent after cancel → ${fresh.status} ${fresh.body?.error || ''}`);
+
+        if (fresh.status === 200 && fresh.id) {
+          const [c1, c2] = await Promise.all([
+            api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: fresh.id }, TOKEN),
+            api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: fresh.id }, TOKEN),
+          ]);
+          if (c1.status === 200 && c2.status === 200) ok('payment', 'concurrent duplicate cancellations both converge (no 5xx)');
+          else defect('payment', `concurrent cancel → ${c1.status}/${c2.status}`);
+        }
+
+        // UI: the cancellation action must be visible on the dialog for the
+        // tool it belongs to, then actually release the checkout.
+        const uiIntent = await createAbandoned();
+        if (uiIntent.status === 200 && uiIntent.id) {
+          const uiPage = await authCtx.newPage();
+          try {
+            await uiPage.goto(`${base}/mine/tools`, { waitUntil: 'load', timeout: 30000 });
+            await uiPage.waitForTimeout(2500);
+            await uiPage.locator('article[data-product-index="4"] button:has-text("Buy Tool")').first().click();
+            await uiPage.waitForTimeout(2500);
+            const link = uiPage.locator('button:has-text("Cancel this incomplete checkout")').first();
+            if (await link.count() && await link.isVisible().catch(() => false)) {
+              ok('payment', 'the purchase dialog visibly offers "Cancel this incomplete checkout"');
+              await link.click();
+              await uiPage.waitForTimeout(600);
+              const confirm = uiPage.locator('button:has-text("Yes, cancel checkout")').first();
+              if (await confirm.count() && await confirm.isVisible().catch(() => false)) {
+                await confirm.click();
+                await uiPage.waitForTimeout(4000);
+                const after = await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: uiIntent.id }, TOKEN);
+                if (after.status === 200 && after.body?.idempotent === true) ok('payment', 'the UI cancellation reached the backend and released the checkout');
+                else defect('payment', `UI cancel did not release the checkout (${after.status})`);
+              } else defect('payment', 'cancel confirmation did not render');
+            } else {
+              note('UI cancel action not reachable this run (dialog opened in another state)');
+              await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: uiIntent.id }, TOKEN);
+            }
+          } finally { await uiPage.close(); }
+        }
+      }
+    }
+
     // 5j. Withdrawal guard: fresh account with no balance → rejected.
     const wd = await api('POST', `${PROD}/api/mine/withdrawals/request`, { amountGbp: 25 }, TOKEN);
     REPORT.payment.withdrawal = { status: wd.status, error: wd.body?.error };

@@ -926,6 +926,11 @@
   .pse-tool-detail-actions { display:grid; grid-template-columns:1fr; }
   .pse-tool-detail-actions .pse-btn { width:100%; }
 }
+/* Stale-checkout cleanup: intentionally visible, not tucked into a menu. */
+.pse-checkout-cancel { display:grid; gap:10px; padding:2px 0; }
+.pse-checkout-cancel > .pse-link { justify-self:start; font-size:13px; }
+.pse-checkout-cancel .pse-notice p { margin:0 0 10px; }
+
 @media(prefers-reduced-motion:reduce) {
   .pse-stage[data-page="tools"] .pse-marketplace-products .pse-product { transition:none; }
 }

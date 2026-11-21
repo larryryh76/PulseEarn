@@ -137,7 +137,7 @@ PURCHASE_PAYMENT_STATES = {
 
 
 def purchase_transition_decision(purchase, uid, action, *, tx_hash=None,
-                                 sender_wallet=None):
+                                 sender_wallet=None, cancel_reason=None):
     """Pure transition guard shared by every client submission/recovery route.
 
     A submitted transaction hash is immutable. Once present, an intent can
@@ -207,11 +207,49 @@ def purchase_transition_decision(purchase, uid, action, *, tx_hash=None,
             "statusMessage": "User confirmed no transaction was broadcast. This intent is closed.",
         }}
 
+    if action == "cancel":
+        # A cancellation may only discard an intent that provably never carried
+        # a transaction. ANY hash — even one attached to a failed or unnoticed
+        # attempt — is evidence of a broadcast and must go through verification
+        # or admin recovery, never through a user reset.
+        if status == "activated":
+            return {"ok": False, "error": "PURCHASE_ALREADY_ACTIVATED"}
+        if existing_hash:
+            return {"ok": False, "error": "PURCHASE_HAS_TRANSACTION",
+                    "transactionHash": existing_hash, "status": status}
+        if status == "cancelled":
+            # Idempotent: a repeated cancel (double tap, retry, another device)
+            # must not fail, and must not rewrite the audit fields.
+            return {"ok": True, "idempotent": True, "status": status,
+                    "updates": None}
+        if status in ("submission_uncertain", "transaction_submitted",
+                      "confirming", "manual_review"):
+            # The wallet may have broadcast. The user is offered recovery, not
+            # a reset; the backend refuses with the authoritative status.
+            return {"ok": False, "error": "PAYMENT_MAY_BE_IN_FLIGHT",
+                    "status": status}
+        if status in ("superseded", "abandoned_no_broadcast"):
+            # Already closed and cannot be paid: nothing to cancel, but the
+            # user must not be trapped by a stale record either.
+            return {"ok": True, "idempotent": True, "status": status,
+                    "updates": None}
+        if status not in ("awaiting_payment", "created", "expired", "failed"):
+            return {"ok": False, "error": "PURCHASE_NOT_CANCELLABLE",
+                    "status": status}
+        return {"ok": True, "status": "cancelled", "updates": {
+            "status": "cancelled",
+            "cancelledAt": None,
+            "cancelledBy": uid,
+            "cancellationReason": cancel_reason or "USER_CANCELLED_INCOMPLETE_CHECKOUT",
+            "statusMessage": "This checkout was cancelled before any transaction was submitted. Start a new purchase whenever you are ready.",
+        }}
+
     return {"ok": False, "error": "INVALID_PURCHASE_TRANSITION"}
 
 
 def transition_purchase_state(db, purchase_id, uid, action, *,
-                              tx_hash=None, sender_wallet=None, updated_at=None):
+                              tx_hash=None, sender_wallet=None, updated_at=None,
+                              cancel_reason=None):
     """Apply a guarded purchase transition using a Firestore transaction."""
     ref = db.collection("psemine_purchases").document(purchase_id)
 
@@ -226,18 +264,36 @@ def transition_purchase_state(db, purchase_id, uid, action, *,
         purchase = snap.to_dict() or {}
         decision = purchase_transition_decision(
             purchase, uid, action, tx_hash=tx_hash, sender_wallet=sender_wallet,
+            cancel_reason=cancel_reason,
         )
         updates = decision.get("updates")
+        lock_ref = None
+        if action == "cancel" and decision.get("ok") and updates:
+            # Release the checkout lock in the SAME transaction. All reads must
+            # precede writes, and deleting a lock that points elsewhere would
+            # release another intent's reservation.
+            import uuid as _uuid
+            lock_id = _uuid.uuid5(
+                _uuid.NAMESPACE_URL,
+                f"psemine-purchase:{uid}:{purchase.get('toolId')}",
+            ).hex
+            lock_ref = db.collection("psemine_purchase_locks").document(lock_id)
+            lock_snap = lock_ref.get(transaction=txn)
+            owner = str((lock_snap.to_dict() or {}).get("purchaseId") or "").strip() if lock_snap.exists else ""
+            if owner != purchase_id:
+                lock_ref = None
         if decision.get("ok") and updates:
             # Firestore server timestamps are injected by the API caller. The
             # helper remains SDK-independent and directly testable.
             if updated_at is not None:
                 updates["updatedAt"] = updated_at
             for key in ("submissionUncertainAt", "submissionReportedAt",
-                        "noBroadcastConfirmedAt"):
+                        "noBroadcastConfirmedAt", "cancelledAt"):
                 if key in updates and updated_at is not None:
                     updates[key] = updated_at
             txn.update(ref, updates)
+            if lock_ref is not None:
+                txn.delete(lock_ref)
         return decision
 
     return _run_transaction(db, _transition)

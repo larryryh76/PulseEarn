@@ -8421,6 +8421,11 @@ def verify_psemine_tool_purchase():
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+    if purchase.get('status') in ('cancelled', 'superseded'):
+        # Defence in depth: a closed checkout can never be verified even if a
+        # hash were somehow attached to it out of band.
+        return jsonify({"success": False, "error": "PURCHASE_CLOSED",
+                        "message": "This checkout was cancelled before payment and cannot be activated. Start a new purchase."}), 409
 
     # Verification is only allowed for the exact hash atomically persisted by
     # report-submission. This prevents a client from bypassing the submission
@@ -10200,6 +10205,57 @@ def mine_resolve_purchase_no_broadcast():
         return jsonify({"success": False, "error": error,
                         "message": "Only an uncertain purchase without a transaction hash can be closed this way."}), status_code
     return jsonify({"success": True, "purchaseId": purchase_id, "status": result.get("status")})
+
+@app.route('/api/mine/purchases/cancel', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_cancel_purchase():
+    """Cancel an incomplete checkout that provably never reached the chain.
+
+    The user may only clear an intent with NO transaction evidence. Anything
+    submitted/uncertain/confirming/manual-review is refused with its
+    authoritative status and must go through verification or admin recovery, so
+    a cancellation can never discard a real payment or permit a second one.
+
+    Runs in one Firestore transaction on the purchase document, which serialises
+    it against report-submission/verification: whichever commits first wins, and
+    the loser observes the new state (cancel → submission refused; submission →
+    cancel refused because a hash now exists).
+    """
+    db = get_db()
+    if not db:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = str(data.get('purchaseId') or '').strip()
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
+    reason = str(data.get('reason') or '').strip()[:200]
+
+    import psemine_engine as _pse_engine
+    result = _pse_engine.transition_purchase_state(
+        db, purchase_id, uid, "cancel",
+        cancel_reason=reason or None,
+        updated_at=firestore.SERVER_TIMESTAMP,
+    )
+    if not result.get("ok"):
+        error = result.get("error")
+        status_code = 404 if error == "PURCHASE_NOT_FOUND" else 403 if error == "FORBIDDEN" else 409
+        messages = {
+            "PURCHASE_HAS_TRANSACTION": "A transaction hash is already recorded for this purchase. It cannot be cancelled; use the verification/recovery action so the payment is never lost.",
+            "PAYMENT_MAY_BE_IN_FLIGHT": "This payment may already have been sent to your wallet. Do not start another payment; check the transaction status or wait for review.",
+            "PURCHASE_ALREADY_ACTIVATED": "This purchase is already active and cannot be cancelled.",
+            "PURCHASE_NOT_CANCELLABLE": "This checkout can no longer be cancelled. Refresh the purchase state and use the recovery action shown.",
+        }
+        return jsonify({"success": False, "error": error,
+                        "message": messages.get(error, "This checkout could not be cancelled."),
+                        "status": result.get("status"),
+                        "transactionHash": result.get("transactionHash")}), status_code
+
+    return jsonify({"success": True, "purchaseId": purchase_id,
+                    "status": "cancelled", "released": True,
+                    "idempotent": bool(result.get("idempotent"))})
+
 
 @app.route('/api/mine/wallet', methods=['POST'])
 @verify_token

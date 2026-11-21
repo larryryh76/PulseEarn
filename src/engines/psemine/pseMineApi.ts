@@ -236,6 +236,47 @@ export async function markNotificationRead(id: string): Promise<boolean> {
   }
 }
 
+/* ── Cancel an incomplete checkout ──────────────────────────────────────
+ *
+ * Only an intent with NO transaction evidence may be cleared. The backend
+ * enforces that atomically and refuses anything submitted/uncertain, so this
+ * helper never decides safety locally: it reports the server's answer.
+ */
+export interface PseCancelPurchaseResult {
+  success: boolean;
+  status?: string;
+  error?: string;
+  message?: string;
+  transactionHash?: string | null;
+}
+export async function cancelIncompletePurchase(
+  purchaseId: string,
+): Promise<PseCancelPurchaseResult> {
+  const OPERATION = 'POST /api/mine/purchases/cancel';
+  try {
+    const res = await request('/api/mine/purchases/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purchaseId, reason: 'USER_CANCELLED_INCOMPLETE_CHECKOUT' }),
+    });
+    const data = await res.json().catch(() => null) as
+      | { success?: boolean; status?: string; transactionHash?: string | null }
+      | null;
+    if (!data || data.success !== true) {
+      const err = pseDataError(OPERATION, res.status);
+      return { success: false, error: err.code, message: err.toInfo().message };
+    }
+    return { success: true, status: data.status };
+  } catch (e) {
+    const info = toPseErrorInfo(e, OPERATION);
+    return {
+      success: false,
+      error: info.code || info.kind,
+      message: info.message,
+    };
+  }
+}
+
 /* ── Explicit enrollment (see PSEMineEngine.enroll) ──────────────────── */
 
 export async function enrollInPSEmine(): Promise<boolean> {

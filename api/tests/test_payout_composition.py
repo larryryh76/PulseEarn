@@ -261,6 +261,10 @@ class FakeStore:
         if doc_id in self._committed:
             self._committed[doc_id]["data"].update(payload)
 
+    def delete(self, doc_id):
+        """Remove a document, mirroring DocumentReference.delete."""
+        self._committed.pop(doc_id, None)
+
     def transaction(self):
         """Create a transaction over the fake database state."""
         return _Txn(self)
@@ -331,12 +335,18 @@ class _MultiTxn:
         """Buffer or apply a document update operation."""
         self._ops.append((doc_ref.collection, doc_ref.id, dict(updates), "update", False))
 
+    def delete(self, doc_ref):
+        """Buffer a document delete, mirroring Transaction.delete."""
+        self._ops.append((doc_ref.collection, doc_ref.id, {}, "delete", False))
+
     def commit(self):
         """Apply all buffered transaction operations."""
         for coll, doc_id, payload, kind, merge in self._ops:
             store = self._namespaces.setdefault(coll, FakeStore())
             if kind == "set":
                 store.set(doc_id, payload, merge)
+            elif kind == "delete":
+                store.delete(doc_id)
             else:
                 store.update(doc_id, payload)
 

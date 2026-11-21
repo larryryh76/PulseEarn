@@ -845,3 +845,191 @@ class TestTransactionReadApi(unittest.TestCase):
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
         self.assertIn("snap = ref.get(transaction=txn)", source)
+
+
+class TestStalePurchaseCancellation(unittest.TestCase):
+    """A user may clear ONLY a checkout that provably never reached the chain.
+
+    The risk being fenced off is a "reset" that discards a real broadcast: if a
+    transaction hash exists (or the status says one might), cancellation must
+    refuse and the intent must stay on the verification/recovery path.
+    """
+
+    UID = "u-cancel"
+
+    def _purchase(self, **overrides):
+        base = {
+            "id": "pse_pur_starter_x",
+            "userId": self.UID,
+            "toolId": "starter",
+            "status": "awaiting_payment",
+            "paymentWallet": WALLET_A,
+            "transactionHash": None,
+        }
+        base.update(overrides)
+        return base
+
+    def _cancel(self, purchase, reason=None):
+        return psemine_engine.purchase_transition_decision(
+            purchase, self.UID, "cancel", cancel_reason=reason,
+        )
+
+    def test_unsubmitted_checkout_can_be_cancelled(self):
+        result = self._cancel(self._purchase(), reason="USER_CANCELLED")
+        self.assertTrue(result["ok"])
+        self.assertEqual("cancelled", result["status"])
+        self.assertEqual("cancelled", result["updates"]["status"])
+        self.assertEqual(self.UID, result["updates"]["cancelledBy"])
+        self.assertEqual("USER_CANCELLED", result["updates"]["cancellationReason"])
+
+    def test_default_reason_is_recorded(self):
+        result = self._cancel(self._purchase())
+        self.assertEqual("USER_CANCELLED_INCOMPLETE_CHECKOUT",
+                         result["updates"]["cancellationReason"])
+
+    def test_expired_and_failed_quotes_are_cancellable(self):
+        for status in ("expired", "failed", "created"):
+            with self.subTest(status=status):
+                result = self._cancel(self._purchase(status=status))
+                self.assertTrue(result["ok"])
+                self.assertEqual("cancelled", result["status"])
+
+    def test_repeated_cancellation_is_idempotent(self):
+        result = self._cancel(self._purchase(status="cancelled"))
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["idempotent"])
+        self.assertIsNone(result["updates"])
+
+    def test_already_closed_records_do_not_trap_the_user(self):
+        for status in ("superseded", "abandoned_no_broadcast"):
+            with self.subTest(status=status):
+                result = self._cancel(self._purchase(status=status))
+                self.assertTrue(result["ok"])
+                self.assertTrue(result["idempotent"])
+
+    def test_any_transaction_hash_blocks_cancellation(self):
+        # Even an "awaiting_payment" record with a hash (a submission that
+        # landed between reads) must never be cleared.
+        result = self._cancel(self._purchase(
+            transactionHash="0x" + "ab" * 32,
+        ))
+        self.assertFalse(result["ok"])
+        self.assertEqual("PURCHASE_HAS_TRANSACTION", result["error"])
+        self.assertIn("transactionHash", result)
+
+    def test_maybe_broadcast_statuses_are_refused(self):
+        for status in ("submission_uncertain", "transaction_submitted",
+                       "confirming", "manual_review"):
+            with self.subTest(status=status):
+                result = self._cancel(self._purchase(status=status))
+                self.assertFalse(result["ok"])
+                self.assertEqual("PAYMENT_MAY_BE_IN_FLIGHT", result["error"])
+                self.assertEqual(status, result["status"])
+
+    def test_activated_purchase_is_never_cancelled(self):
+        result = self._cancel(self._purchase(
+            status="activated", transactionHash="0x" + "cd" * 32,
+        ))
+        self.assertFalse(result["ok"])
+        self.assertEqual("PURCHASE_ALREADY_ACTIVATED", result["error"])
+
+    def test_another_users_purchase_is_forbidden(self):
+        result = psemine_engine.purchase_transition_decision(
+            self._purchase(), "someone-else", "cancel",
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("FORBIDDEN", result["error"])
+
+    def test_cancel_transition_persists_and_releases_the_lock(self):
+        import uuid
+        db = tpc.FakeDB()
+        pid = "pse_pur_starter_cancel"
+        db.collection("psemine_purchases").document(pid).set(self._purchase(id=pid))
+        lock_id = uuid.uuid5(uuid.NAMESPACE_URL,
+                             f"psemine-purchase:{self.UID}:starter").hex
+        db.collection("psemine_purchase_locks").document(lock_id).set({
+            "userId": self.UID, "toolId": "starter", "purchaseId": pid,
+        })
+
+        result = psemine_engine.transition_purchase_state(
+            db, pid, self.UID, "cancel", updated_at="T1",
+        )
+        self.assertTrue(result["ok"])
+        stored = db.collection("psemine_purchases").document(pid).get().to_dict()
+        self.assertEqual("cancelled", stored["status"])
+        self.assertEqual("T1", stored["cancelledAt"])
+        self.assertEqual(self.UID, stored["cancelledBy"])
+        self.assertEqual({}, db.coll("psemine_purchase_locks"),
+                         "the checkout lock must be released by the cancel")
+
+        # Repeated cancel: no rewrite of the audit trail.
+        again = psemine_engine.transition_purchase_state(
+            db, pid, self.UID, "cancel", updated_at="T2",
+        )
+        self.assertTrue(again["ok"])
+        self.assertTrue(again["idempotent"])
+        self.assertEqual("T1", db.collection("psemine_purchases")
+                         .document(pid).get().to_dict()["cancelledAt"])
+
+    def test_cancel_does_not_release_a_lock_owned_by_another_intent(self):
+        import uuid
+        db = tpc.FakeDB()
+        pid = "pse_pur_starter_mine"
+        other = "pse_pur_starter_other"
+        db.collection("psemine_purchases").document(pid).set(self._purchase(id=pid))
+        lock_id = uuid.uuid5(uuid.NAMESPACE_URL,
+                             f"psemine-purchase:{self.UID}:starter").hex
+        db.collection("psemine_purchase_locks").document(lock_id).set({
+            "userId": self.UID, "toolId": "starter", "purchaseId": other,
+        })
+        result = psemine_engine.transition_purchase_state(db, pid, self.UID, "cancel")
+        self.assertTrue(result["ok"])
+        self.assertIn(lock_id, db.coll("psemine_purchase_locks"),
+                      "a lock pointing at another intent must survive")
+
+    def test_cancelled_intent_cannot_accept_a_hash(self):
+        db = tpc.FakeDB()
+        pid = "pse_pur_starter_after_cancel"
+        db.collection("psemine_purchases").document(pid).set(self._purchase(id=pid))
+        self.assertTrue(psemine_engine.transition_purchase_state(
+            db, pid, self.UID, "cancel",
+        )["ok"])
+        result = psemine_engine.transition_purchase_state(
+            db, pid, self.UID, "report_submission",
+            tx_hash="0x" + "ef" * 32, sender_wallet=WALLET_A,
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual("PURCHASE_NOT_RECOVERABLE", result["error"])
+        self.assertIsNone(db.collection("psemine_purchases").document(pid)
+                          .get().to_dict().get("transactionHash"))
+
+    def test_submission_then_cancel_is_refused(self):
+        db = tpc.FakeDB()
+        pid = "pse_pur_starter_after_submit"
+        db.collection("psemine_purchases").document(pid).set(self._purchase(id=pid))
+        submitted = psemine_engine.transition_purchase_state(
+            db, pid, self.UID, "report_submission",
+            tx_hash="0x" + "12" * 32, sender_wallet=WALLET_A,
+        )
+        self.assertTrue(submitted["ok"])
+        result = psemine_engine.transition_purchase_state(db, pid, self.UID, "cancel")
+        self.assertFalse(result["ok"])
+        self.assertEqual("PURCHASE_HAS_TRANSACTION", result["error"])
+        self.assertEqual("0x" + "12" * 32,
+                         db.collection("psemine_purchases").document(pid)
+                         .get().to_dict()["transactionHash"])
+
+    def test_verification_rejects_a_closed_checkout(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        self.assertIn('purchase.get(\'status\') in (\'cancelled\', \'superseded\')', source)
+        self.assertIn('"PURCHASE_CLOSED"', source)
+
+    def test_cancel_route_is_authenticated_and_engine_backed(self):
+        source = tfg._read(tfg.INDEX_SRC)
+        body = tfg._handler_body(source, "mine_cancel_purchase")
+        prefix = source[:source.index("def mine_cancel_purchase")][-400:]
+        self.assertIn("@app.route('/api/mine/purchases/cancel', methods=['POST'])", prefix)
+        self.assertIn("@verify_token", prefix)
+        self.assertIn("@require_psemine_access", prefix)
+        self.assertIn("transition_purchase_state", body)
+        self.assertIn('"cancel"', body)

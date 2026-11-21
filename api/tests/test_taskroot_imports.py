@@ -99,8 +99,10 @@ class TestBootstrapShape(unittest.TestCase):
         #     and no-broadcast recovery routes;
         #   * psemine_public 1 -> 2: the public tool projection is imported by
         #     the app's _public_tool_view, beside public_campaign_view.
+        #   * psemine_engine 31 -> 32: the stale-checkout cancel route imports
+        #     the engine's guarded cancellation transition at its call site.
         per_file = {
-            "index.py": {"psemine_engine": 31, "psemine_core": 11,
+            "index.py": {"psemine_engine": 32, "psemine_core": 11,
                          "psemine_public": 2, "services.provider_cache": 6},
             "psemine_engine.py": {"psemine_engine": 0, "psemine_core": 1,
                                   "psemine_public": 0},

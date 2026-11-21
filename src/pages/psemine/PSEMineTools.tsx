@@ -11,7 +11,7 @@ import {
   isSubmissionUncertain,
   resolvePaymentPayer,
 } from '../../engines/psemine/pseWallet';
-import { type PsePendingPurchase, type PseStateTool } from '../../engines/psemine/pseMineApi';
+import { type PsePendingPurchase, type PseStateTool, cancelIncompletePurchase } from '../../engines/psemine/pseMineApi';
 import { formatWalletDiagnostics, recordWalletStage } from '../../engines/psemine/pseWalletTrace';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
@@ -324,7 +324,13 @@ export const PSEMineTools: React.FC = () => {
 
   const ownedByTool = (id: string) => ownedTools.filter(t => (t.toolId || '') === id).length;
 
-  const purchasePending = purchasing && pendingPurchase?.toolId === purchasing.id ? pendingPurchase : null;
+  // Resume the dialog for the SELECTED tool, not merely for the highest-ranked
+  // pending record: an account can hold an abandoned checkout on one tier and a
+  // submitted payment on another, and opening the second tier's checkout must
+  // not silently ignore (or re-create) its intent.
+  const purchasePending = purchasing
+    ? (state?.pendingPurchases || []).find(row => row.toolId === purchasing.id) || null
+    : null;
 
   return (
     <>
@@ -362,7 +368,7 @@ export const PSEMineTools: React.FC = () => {
               ? `A payment for ${pendingPurchase.toolName || pendingPurchase.toolId} is being verified by the backend.`
               : pendingQuoteLive
                 ? `You have a live quote for ${pendingPurchase.toolName || pendingPurchase.toolId} awaiting payment.`
-                : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — a fresh quote is required.`}
+                : `Your previous quote for ${pendingPurchase.toolName || pendingPurchase.toolId} expired — open this checkout to refresh the quote or cancel the old attempt.`}
           <button
             type="button"
             className="pse-link"
@@ -371,7 +377,11 @@ export const PSEMineTools: React.FC = () => {
               if (def) setPurchasing(def);
             }}
           >
-            {pendingNeedsReview ? 'Open payment recovery' : 'Continue this purchase'}
+            {pendingNeedsReview
+              ? 'Open payment recovery'
+              : pendingInFlight
+                ? 'Continue this purchase'
+                : 'Review or cancel checkout'}
           </button>
         </PseNotice>
       )}
@@ -578,6 +588,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const [manualHash, setManualHash] = useState('');
   const [manualRecovering, setManualRecovering] = useState(false);
   const [manualHashError, setManualHashError] = useState<string | null>(null);
+  // Stale-checkout cleanup. Only the backend decides whether an intent is safe
+  // to clear; this holds the confirmation and the server's refusal, if any.
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const cancelledRef = useRef<string | null>(null);
   const [minimized, setMinimized] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -635,6 +651,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // keeps the old record as audit evidence).
   useEffect(() => {
     if (confirmedNoTransaction || !pending || pending.toolId !== tool.id) return;
+    // A just-cancelled intent may still be present in the last state snapshot.
+    // Never re-enter its recovery view while the refresh is in flight.
+    if (cancelledRef.current === pending.purchaseId) return;
 
     // A wallet can return a real hash while the follow-up API request fails.
     // Recover that exact hash from this account's local evidence and re-submit
@@ -898,6 +917,82 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       toast.error(message);
     });
   }, [step, quote, quoteNetworkValid, connectedWallet, walletLive, onRequiredChain, purchaseId, boundPayer, bindingRetry, bindPurchaseIntent, refresh]);
+
+  // ── Stale-checkout cleanup ────────────────────────────────────────────────
+  // Cancellable ONLY when the backend's authoritative record carries no
+  // transaction hash and the status is pre-submission. Submitted / confirming /
+  // uncertain / under-review are never offered this action; they keep the
+  // verification + admin recovery path instead.
+  const cancellablePurchase = useMemo(() => {
+    if (!pending || pending.toolId !== tool.id || pending.transactionHash) return null;
+    const status = String(pending.status || '');
+    return ['awaiting_payment', 'created', 'expired', 'failed'].includes(status) ? pending : null;
+  }, [pending, tool.id]);
+
+  const cancelCheckout = async () => {
+    if (!cancellablePurchase || cancelling) return;
+    setCancelling(true);
+    setCancelError(null);
+    const result = await cancelIncompletePurchase(cancellablePurchase.purchaseId);
+    setCancelling(false);
+    if (!result.success) {
+      setCancelError(result.message || 'This checkout could not be cancelled. Refresh the purchase state and use the recovery action shown.');
+      // A hash may have landed between the render and the tap: re-read the
+      // authoritative state so the dialog switches to recovery immediately.
+      if (result.error === 'PAYMENT_MAY_BE_IN_FLIGHT' || result.error === 'PURCHASE_HAS_TRANSACTION') void refresh();
+      return;
+    }
+    cancelledRef.current = cancellablePurchase.purchaseId;
+    setCancelConfirm(false);
+    setResume(null);
+    setPurchaseId(null);
+    setBoundPayer(null);
+    setUncertainRecovery(false);
+    setSubmissionState('NOT_SUBMITTED');
+    clearQuote();
+    resetBinding();
+    setStep('quote');
+    setQuoteLoading(true);
+    await refresh().catch(() => undefined);
+    requestQuote(tool.id).finally(() => setQuoteLoading(false));
+    toast.success('Incomplete checkout cancelled — a fresh quote is ready.');
+  };
+
+  const cancelCheckoutPanel = cancellablePurchase ? (
+    <div className="pse-checkout-cancel">
+      {!cancelConfirm ? (
+        <button
+          type="button"
+          className="pse-link"
+          onClick={() => { setCancelConfirm(true); setCancelError(null); }}
+        >
+          Cancel this incomplete checkout
+        </button>
+      ) : (
+        <PseNotice tone="attention" title="Cancel this checkout?">
+          <p>
+            Nothing was sent from your wallet for this attempt, so cancelling releases the reservation and
+            lets you start a new purchase. A payment that is already submitted cannot be cancelled here.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <PseButton
+              variant="secondary"
+              size="sm"
+              busy={cancelling}
+              disabled={cancelling}
+              onClick={() => void cancelCheckout()}
+            >
+              {cancelling ? 'Cancelling…' : 'Yes, cancel checkout'}
+            </PseButton>
+            <PseButton variant="secondary" size="sm" disabled={cancelling} onClick={() => setCancelConfirm(false)}>
+              Keep checkout
+            </PseButton>
+          </div>
+          {cancelError && <p className="pse-field-error" role="alert">{cancelError}</p>}
+        </PseNotice>
+      )}
+    </div>
+  ) : null;
 
   const refreshQuoteNow = () => {
     setResume(null);
@@ -1409,6 +1504,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           ) : pending && pending.toolId === tool.id ? (
             <PseNotice tone="attention">A purchase for this tool is already recorded. Continue the existing payment rather than creating another.</PseNotice>
           ) : null}
+          {cancelCheckoutPanel}
           <div className="pse-tool-detail-actions">
             <PseButton variant="secondary" onClick={onClose}>Back to tools</PseButton>
             <PseButton onClick={() => setStep(connectedWallet ? 'quote' : 'connect')} disabled={owned >= tool.maxPerUser || quoteLoading || !purchaseReadyForTool}>
@@ -1438,6 +1534,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 fresh quote is prepared below; the earlier record is kept for audit and was not rewritten.
               </PseNotice>
             )}
+            {cancelCheckoutPanel}
             <PseFacts cols={2}>
               <PseFact label="Tool" value={tool.name} text />
               <PseFact label="Fixed price" value={gbp(quote.gbpPrice)} />
@@ -1499,6 +1596,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               purchase was created.
             </PseNotice>
           )}
+          {cancelCheckoutPanel}
 
           <PseFacts cols={2}>
             <PseFact label="Tool" value={tool.name} text />

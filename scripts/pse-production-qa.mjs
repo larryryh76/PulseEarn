@@ -1403,7 +1403,16 @@ async function main() {
                 else defect('payment', `UI cancel did not release the checkout (${after.status})`);
               } else defect('payment', 'cancel confirmation did not render');
             } else {
-              note('UI cancel action not reachable this run (dialog opened in another state)');
+              const seen = (await uiPage.evaluate(() => document.querySelector('.pse-purchase-dialog')?.innerText || '(no dialog)')).replace(/\s+/g, ' ');
+              const buttons = await uiPage.locator('.pse-purchase-dialog button').allInnerTexts().catch(() => []);
+              const st = await api('GET', `${PROD}/api/mine/state`, null, TOKEN);
+              REPORT.cancel.uiDebug = {
+                intent: uiIntent.id,
+                pending: (st.body?.pendingPurchases || []).map(p => ({ id: p.purchaseId, tool: p.toolId, status: p.status })),
+                dialog: seen.slice(0, 300), buttons,
+              };
+              console.log(`  [cancel-ui] ${JSON.stringify(REPORT.cancel.uiDebug)}`);
+              note(`UI cancel action not reachable this run: ${seen.slice(0, 180)} | buttons=${JSON.stringify(buttons.slice(0, 10))}`);
               await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: uiIntent.id }, TOKEN);
             }
           } finally { await uiPage.close(); }

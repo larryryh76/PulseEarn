@@ -1520,7 +1520,14 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       )}
 
       {/* ── Step: connect ── */}
-      {!showingRecovery && step === 'connect' && <WalletConnectStep />}
+      {/* A returning user with no live wallet is sent here, so the abandoned
+          checkout they came to clear must stay reachable without reconnecting. */}
+      {!showingRecovery && step === 'connect' && (
+        <>
+          <WalletConnectStep />
+          {cancelCheckoutPanel}
+        </>
+      )}
 
       {/* ── Step: quote ── */}
       {!showingRecovery && step === 'quote' && (

@@ -1420,6 +1420,24 @@ async function main() {
       }
     }
 
+    // Protected states (a wallet may already have broadcast) must never be
+    // clearable by the user-facing cancellation, even though the button is
+    // absent in the UI: the server itself has to refuse.
+    {
+      const st = await api('GET', `${PROD}/api/mine/state`, null, TOKEN);
+      const protectedRows = (st.body?.pendingPurchases || []).filter(row =>
+        ['submission_uncertain', 'transaction_submitted', 'confirming', 'manual_review'].includes(String(row.status)));
+      REPORT.cancel = REPORT.cancel || {};
+      REPORT.cancel.protected = [];
+      for (const row of protectedRows) {
+        const refused = await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: row.purchaseId }, TOKEN);
+        REPORT.cancel.protected.push({ id: row.purchaseId, status: row.status, http: refused.status, error: refused.body?.error });
+        if (refused.status === 409) ok('payment', `protected ${row.status} purchase refuses cancellation (409 ${refused.body?.error})`);
+        else defect('payment', `protected ${row.status} purchase cancellable → ${refused.status} ${refused.body?.error || ''}`);
+      }
+      if (protectedRows.length === 0) note('no submitted/uncertain purchase available to prove cancellation refusal');
+    }
+
     // 5j. Withdrawal guard: fresh account with no balance → rejected.
     const wd = await api('POST', `${PROD}/api/mine/withdrawals/request`, { amountGbp: 25 }, TOKEN);
     REPORT.payment.withdrawal = { status: wd.status, error: wd.body?.error };

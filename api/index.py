@@ -7155,11 +7155,12 @@ def psemine_create_order():
             }), 503
 
         gbp_price = float(tool_cfg['price_gbp'])
-        # Match the exact 8-decimal amount shown by the legacy checkout UI.
-        # Verifying an unrounded float after showing 8 decimals could reject a
-        # payment that the user already sent.
-        bnb_amount = round(gbp_price / bnb_gbp_price, 8)
-        wei_amount = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+        # Same arithmetic authority as the canonical checkout: integer pence and
+        # the quote's rate produce the exact wei that the order will require.
+        wei_amount = _pse_engine.expected_wei_for_price_minor(
+            int(tool_cfg['price_minor_units']), bnb_gbp_price,
+        )
+        bnb_amount = float(Decimal(wei_amount) / Decimal('1000000000000000000'))
 
         now_dt = datetime.now(timezone.utc)
         expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
@@ -8340,8 +8341,21 @@ def generate_psemine_tool_quote():
             "message": "Live BNB/GBP exchange rate is currently unavailable. Please try again in a moment."
         }), 503
 
-    bnb_amount = round(tool_cfg['price_gbp'] / exchange_rate, 6)
-    expected_wei = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+    # AUTHORITATIVE PRICING (pricingVersion 2). Integer pence + Decimal rate,
+    # exact wei rounded UP once. The old `round(price / rate, 6)` quantized the
+    # payable amount to 6 decimal BNB and then re-derived wei from that float,
+    # so the wallet could be asked for a slightly different amount than the
+    # tool price represents and the GBP value collected could fall short of
+    # the price. The precise integer below is the ONLY payable amount: it is
+    # quoted, persisted on the intent, signed by the wallet and compared to the
+    # on-chain value.
+    price_minor = int(tool_cfg['price_minor_units'])
+    expected_wei = _pse_engine.expected_wei_for_price_minor(price_minor, exchange_rate)
+    if expected_wei <= 0:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_AMOUNT",
+                        "message": "The quoted amount could not be computed safely."}), 503
+    bnb_amount = float(Decimal(expected_wei) / Decimal('1000000000000000000'))
+    bnb_amount_exact = format(Decimal(expected_wei) / Decimal('1000000000000000000'), 'f')
 
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
@@ -8358,8 +8372,11 @@ def generate_psemine_tool_quote():
         "toolId": tool_id,
         "toolVersion": tool_cfg['version'],
         "gbpPrice": tool_cfg['price_gbp'],
+        "priceMinor": price_minor,
         "bnbAmount": bnb_amount,
+        "bnbAmountExact": bnb_amount_exact,
         "bnbAmountWei": str(expected_wei),
+        "pricingVersion": 2,
         "exchangeRateBNBGBP": exchange_rate,
         "receiverWallet": receiver_wallet,
         "network": "BNB Smart Chain",
@@ -8580,6 +8597,35 @@ def verify_psemine_tool_purchase():
             "error": "QUOTE_CONFIG_MISMATCH",
             "message": "Quote GBP price does not match canonical tool tier configuration."
         }), 400
+
+    # The quote's integer wei must be the correct conversion of THIS tier's
+    # price at the quote's own rate. A tampered/coarse amount stops settlement.
+    _quote_ok, _quote_expected_wei, _quote_error = _pse_engine.quote_amount_integrity(
+        q_data, tool_price_minor=int(tool_cfg['price_minor_units']),
+    )
+    if not _quote_ok:
+        return jsonify({
+            "success": False,
+            "error": _quote_error or "QUOTE_AMOUNT_INCOHERENT",
+            "message": "The saved quote amount is inconsistent with this tool's price. No tool was activated; request a fresh quote."
+        }), 409
+
+    # The purchase intent must carry exactly the quote's immutable payment
+    # terms. If either record was altered between binding and verification, the
+    # payment is not settled against a substituted amount or destination.
+    _intent_wei = str(purchase.get('quotedBNBWei') or '').strip()
+    if _intent_wei and _intent_wei != str(q_data.get('bnbAmountWei') or '').strip():
+        return jsonify({
+            "success": False, "error": "PURCHASE_QUOTE_AMOUNT_MISMATCH",
+            "message": "The purchase amount does not match its server quote. No tool was activated."
+        }), 409
+    _intent_receiver = str(purchase.get('receiverWallet') or '').strip().lower()
+    _quote_receiver = str(q_data.get('receiverWallet') or '').strip().lower()
+    if _intent_receiver and _intent_receiver != _quote_receiver:
+        return jsonify({
+            "success": False, "error": "PURCHASE_QUOTE_RECEIVER_MISMATCH",
+            "message": "The purchase destination does not match its server quote. No tool was activated."
+        }), 409
 
     q_exp = q_data.get('expiresAt')
     if not q_exp and not recovery_authorized:
@@ -9730,17 +9776,19 @@ def mine_create_purchase():
     if q.get('chainId') != PSEMINE_BSC_CHAIN_ID:
         return jsonify({"success": False, "error": "QUOTE_NETWORK_MISMATCH",
                         "message": "This quote is not for BNB Smart Chain. Request a fresh quote."}), 409
-    try:
-        quoted_wei = int(str(q.get('bnbAmountWei') or '0'))
-        quoted_bnb = Decimal(str(q.get('bnbAmount')))
-        if quoted_wei <= 0 or quoted_bnb <= 0:
-            raise ValueError("non-positive quote")
-        exact_wei = int((quoted_bnb * Decimal('1000000000000000000')).to_integral_value())
-        if exact_wei != quoted_wei:
-            raise ValueError("quote BNB and wei disagree")
-    except Exception:
-        return jsonify({"success": False, "error": "INVALID_QUOTE_AMOUNT",
-                        "message": "The saved quote amount is inconsistent. Request a fresh quote."}), 409
+    # ONE arithmetic authority: the quote's integer wei must be the exact
+    # conversion of the canonical tier price at the quote's own rate. Comparing
+    # the float `bnbAmount` to the wei (the old check) both re-introduced float
+    # drift and said nothing about whether the amount matched the TOOL price.
+    _quote_tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(q.get('toolId'))
+    if not _quote_tool_cfg:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+    _quote_ok, _quote_expected_wei, _quote_error = _pse_engine.quote_amount_integrity(
+        q, tool_price_minor=int(_quote_tool_cfg['price_minor_units']),
+    )
+    if not _quote_ok:
+        return jsonify({"success": False, "error": _quote_error or "INVALID_QUOTE_AMOUNT",
+                        "message": "The saved quote amount is inconsistent with this tool's price. Request a fresh quote."}), 409
     try:
         exp = datetime.fromisoformat(str(q.get('expiresAt')).replace('Z', '+00:00'))
         if exp.tzinfo is None: exp = exp.replace(tzinfo=timezone.utc)
@@ -9860,6 +9908,9 @@ def mine_create_purchase():
         'quotedGBPAmount': tool_cfg['price_gbp'],
         'quotedBNBAmount': q.get('bnbAmount'),
         'quotedBNBWei': q.get('bnbAmountWei'),
+        'quotedBNBAmountExact': q.get('bnbAmountExact'),
+        'quotedPriceMinor': q.get('priceMinor'),
+        'pricingVersion': q.get('pricingVersion'),
         'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
         'quoteCreatedAt': q.get('createdAt'),
         'receiverWallet': q.get('receiverWallet'),

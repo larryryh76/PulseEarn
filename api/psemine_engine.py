@@ -25,7 +25,7 @@ import hmac
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 
 from psemine_core import (
     LOCKED_PSEMINE_TOOLS,
@@ -73,6 +73,81 @@ def _env_int(name, default):
 
 PAYOUT_WALLET_CUTOFF_DAYS = _env_int("PSEMINE_PAYOUT_WALLET_CUTOFF_DAYS", 7)
 PAYOUT_WALLET_CUTOFF_ENABLED = os.environ.get("PSEMINE_PAYOUT_WALLET_CUTOFF", "true").lower() != "false"
+
+# ---------------------------------------------------------------------------
+# Authoritative GBP -> BNB purchase pricing
+# ---------------------------------------------------------------------------
+# Tool prices are integer PENCE (psemine_core.LOCKED_PSEMINE_TOOLS) and the
+# rate is GBP per 1 BNB. The payable amount is the integer WEl amount, never a
+# float and never a display-rounded decimal: the same integer is put in the
+# quote, bound to the purchase intent, sent to the wallet and compared against
+# the on-chain transfer value.
+WEI_PER_BNB = Decimal(10) ** 18
+
+
+def expected_wei_for_price_minor(price_minor, gbp_per_bnb):
+    """Exact wei for an integer-pence price at a GBP/BNB rate.
+
+    Rounded UP (ceiling) to the nearest wei so the merchant can never receive
+    less than the GBP price because of rounding. One wei is ~1e-15 GBP, far
+    below any practical precision, and the wallet receives the exact integer
+    used by verification - there is no tolerance window.
+    """
+    price = Decimal(int(price_minor))
+    rate = Decimal(str(gbp_per_bnb))
+    if price <= 0 or rate <= 0:
+        raise ValueError("non-positive price or rate")
+    raw = (price / Decimal(100)) / rate * WEI_PER_BNB
+    return int(raw.to_integral_value(rounding=ROUND_CEILING))
+
+
+def quote_amount_integrity(quote, *, tool_price_minor=None):
+    """Prove a stored quote's wei is the correct conversion of its own terms.
+
+    Returns (ok, expected_wei, error_code). Pricing version 2 must match the
+    exact ceiling conversion; version 1 (legacy) was quantized to 6 decimal
+    BNB, so it may differ by at most half a micro-BNB (0.5e12 wei) and nothing
+    more. A tampered or incoherent amount is refused before an intent can be
+    bound to it. This is the single arithmetic authority for purchase amounts.
+    """
+    q = quote or {}
+    try:
+        rate = Decimal(str(q.get("exchangeRateBNBGBP")))
+        wei = int(str(q.get("bnbAmountWei") or ""))
+    except Exception:
+        return False, None, "INVALID_QUOTE_AMOUNT"
+    if rate <= 0 or wei <= 0:
+        return False, None, "INVALID_QUOTE_AMOUNT"
+
+    if q.get("priceMinor") is None:
+        try:
+            price_minor = int(
+                (Decimal(str(q.get("gbpPrice"))) * 100).to_integral_value(rounding=ROUND_HALF_UP)
+            )
+        except Exception:
+            return False, None, "INVALID_QUOTE_AMOUNT"
+    else:
+        try:
+            price_minor = int(q.get("priceMinor"))
+        except Exception:
+            return False, None, "INVALID_QUOTE_AMOUNT"
+
+    if tool_price_minor is not None and price_minor != int(tool_price_minor):
+        return False, None, "QUOTE_PRICE_MISMATCH"
+
+    try:
+        expected_wei = expected_wei_for_price_minor(price_minor, rate)
+    except Exception:
+        return False, None, "INVALID_QUOTE_AMOUNT"
+
+    try:
+        version = int(q.get("pricingVersion") or 1)
+    except Exception:
+        version = 1
+    tolerance = 0 if version >= 2 else 1_000_000_000_000
+    if abs(wei - expected_wei) > tolerance:
+        return False, expected_wei, "QUOTE_AMOUNT_INCOHERENT"
+    return True, expected_wei, None
 
 
 def _run_transaction(db, txn_fn):

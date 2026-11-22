@@ -95,9 +95,12 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("receiverWalletConfiguredAt", API_SOURCE)
         self.assertIn("receiverWalletConfiguredBy", API_SOURCE)
 
-    def test_legacy_quote_amount_matches_the_eight_decimal_ui_amount(self):
-        self.assertIn("bnb_amount = round(gbp_price / bnb_gbp_price, 8)", API_SOURCE)
-        self.assertIn("Decimal(str(bnb_amount)) * Decimal('1000000000000000000')", API_SOURCE)
+    def test_legacy_quote_uses_the_same_exact_arithmetic_authority(self):
+        # The legacy v1 order quote no longer quantizes to 8 decimals and
+        # re-derives wei through a float; it uses the canonical pence+rate
+        # conversion so both surfaces quote the same exact integer wei.
+        self.assertIn("wei_amount = _pse_engine.expected_wei_for_price_minor(", API_SOURCE)
+        self.assertIn("float(Decimal(wei_amount) / Decimal('1000000000000000000'))", API_SOURCE)
 
     def test_legacy_order_verification_rejects_stale_receiver(self):
         self.assertIn("LEGACY_ORDER_RECEIVER_STALE", API_SOURCE)
@@ -111,7 +114,11 @@ class TestPSEMineReceiverWalletAdmin(unittest.TestCase):
         self.assertIn("_configured_psemine_receiver_wallet(camp)", route)
         self.assertIn("RECEIVER_WALLET_CHANGED", route)
         self.assertIn("QUOTE_NETWORK_MISMATCH", route)
-        self.assertIn("exact_wei != quoted_wei", route)
+        # The float re-derivation was replaced by the single arithmetic
+        # authority (integer pence + rate -> exact wei, checked against the
+        # canonical tier price) so an incoherent/tampered amount cannot bind.
+        self.assertIn("quote_amount_integrity(", route)
+        self.assertIn("tool_price_minor=int(_quote_tool_cfg['price_minor_units'])", route)
         self.assertIn("INVALID_QUOTE_AMOUNT", route)
 
     def test_admin_money_totals_require_canonical_on_chain_receipts(self):

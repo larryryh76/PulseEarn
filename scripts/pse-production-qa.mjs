@@ -310,6 +310,7 @@ const prov = {
     }
     if (method === 'wallet_addEthereumChain') { window.__stubChain = params?.[0]?.chainId || window.__stubChain; return null; }
     if (method === 'eth_sendTransaction') {
+      window.__lastTx = params?.[0] || null;
       window.__sendCount += 1;
       if (window.__payMode === 'reject') throw Object.assign(new Error('user rejected transaction'), { code: 4001 });
       if (window.__payMode === 'uncertain') throw new Error('Unspecified error - RPC transport failed mid-request');
@@ -1450,6 +1451,104 @@ async function main() {
     if (state.status === 200) ok('payment', 'authenticated /api/mine/state healthy on production (200)');
     else defect('payment', `state endpoint → ${state.status}`);
   } else note('Payment probes skipped (no Firebase token).');
+
+  /* 5z ── PRICING INTEGRITY + WALLET PAYLOAD ─────────────────────────────
+   * The tool price in pence and the quote's rate define the ONLY payable
+   * amount. Every tier is checked with integer arithmetic, then the exact
+   * eth_sendTransaction payload is captured and compared with the quote.
+   */
+  if (TOKEN && authCtx) {
+    const EXPECTED_MINOR = { starter: 300, builder: 1000, advanced: 5000, elite: 20000 };
+    REPORT.pricing = { quotes: [] };
+    const quoteByTool = {};
+    for (const [tool, minor] of Object.entries(EXPECTED_MINOR)) {
+      const qr = await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: tool }, TOKEN);
+      const q = qr.body?.quote;
+      if (qr.status !== 200 || !q) { defect('pricing', `${tool} quote → ${qr.status} ${qr.body?.error || ''}`); continue; }
+      quoteByTool[tool] = q;
+      const rateStr = String(q.exchangeRateBNBGBP);
+      const [ri, rf = ''] = rateStr.split('.');
+      const scaledRate = BigInt(ri + rf);
+      const scale = 10n ** BigInt(rf.length);
+      const wei = BigInt(String(q.bnbAmountWei));
+      const exactWei = (BigInt(minor) * 10n ** 18n * scale + (100n * scaledRate) - 1n) / (100n * scaledRate);
+      const checks = {
+        tierPrice: Math.round(Number(q.gbpPrice) * 100) === minor,
+        priceMinor: q.priceMinor === minor,
+        weiExact: wei === exactWei,
+        chain: q.chainId === 56,
+        receiver: /^0x[0-9a-f]{40}$/i.test(q.receiverWallet || ''),
+        version2: q.pricingVersion === 2,
+      };
+      REPORT.pricing.quotes.push({ tool, ...checks, wei: String(wei), exactWei: String(exactWei), rate: rateStr, receiver: q.receiverWallet });
+      const bad = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
+      if (bad.length) defect('pricing', `${tool} quote integrity failed: ${bad.join(', ')}`);
+      else ok('pricing', `${tool}: £${(minor / 100).toFixed(2)} × £${rateStr}/BNB → ${wei} wei exactly (chain 56)`);
+    }
+
+    const payloadQuote = quoteByTool.elite;
+    if (!payloadQuote) {
+      note('wallet payload untestable: no elite quote available');
+    } else {
+      const WALLET = '0x1111111111111111111111111111111111111111';
+      // Clear an abandoned elite checkout first (the public cancellation path).
+      const st0 = await api('GET', `${PROD}/api/mine/state`, null, TOKEN);
+      for (const row of (st0.body?.pendingPurchases || []).filter(r => r.toolId === 'elite')) {
+        await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: row.purchaseId }, TOKEN);
+      }
+      const q2 = (await api('POST', `${PROD}/api/mine/tools/quote`, { toolId: 'elite' }, TOKEN)).body?.quote;
+      const created = q2 ? await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId: q2.quoteId, paymentWallet: WALLET }, TOKEN) : { status: 0, body: {} };
+      if (created.status !== 200) {
+        note(`wallet payload BLOCKED: could not create an elite intent (${created.status} ${created.body?.error || ''})`);
+      } else {
+        const pg = await authCtx.newPage();
+        await pg.addInitScript(STUB({ addr: WALLET, chain: '0x38' }));
+        try {
+          await pg.goto(`${base}/mine/tools`, { waitUntil: 'load', timeout: 30000 });
+          await pg.waitForTimeout(2500);
+          await pg.locator('article[data-product-index="4"] button:has-text("Buy Tool")').first().click();
+          await pg.waitForTimeout(2500);
+          const pay = pg.locator('button:has-text("Open wallet & pay")').first();
+          await pay.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+          if (await pay.count() && await pay.isVisible().catch(() => false)) {
+            const text = (await pg.locator('.pse-purchase-dialog').innerText()).replace(/\s+/g, ' ');
+            const weiInt = BigInt(String(q2.bnbAmountWei));
+            const digits = weiInt.toString().padStart(19, '0');
+            const whole = digits.slice(0, digits.length - 18);
+            const frac = digits.slice(-18).replace(/0+$/, '');
+            const exactDisplay = frac ? `${whole}.${frac}` : whole;
+            REPORT.pricing.displayedAmount = { exactDisplay, text: text.slice(0, 260) };
+            if (text.includes(exactDisplay)) ok('pricing', `pay step displays the exact quoted amount ${exactDisplay} BNB`);
+            else defect('pricing', `pay step does not display the exact quoted amount ${exactDisplay} BNB`);
+            await pg.evaluate(() => { window.__payMode = 'reject'; });
+            await pay.click();
+            await pg.waitForTimeout(3500);
+            const tx = await pg.evaluate(() => window.__lastTx || null);
+            REPORT.pricing.walletPayload = { tx, expectedWei: String(weiInt), expectedTo: q2.receiverWallet };
+            if (!tx) {
+              note('wallet payload not captured (pay action did not reach eth_sendTransaction)');
+            } else {
+              const valueOk = String(tx.value || '').toLowerCase() === '0x' + weiInt.toString(16);
+              const toOk = String(tx.to || '').toLowerCase() === String(q2.receiverWallet).toLowerCase();
+              const chainOk = String(tx.chainId || '').toLowerCase() === '0x38';
+              if (valueOk) ok('pricing', `wallet received the EXACT quoted value ${tx.value} (${weiInt} wei)`);
+              else defect('pricing', `wallet value ${tx.value} != quoted 0x${weiInt.toString(16)}`);
+              if (toOk) ok('pricing', 'wallet received the quote\'s receiving address');
+              else defect('pricing', `wallet destination ${tx.to} != quote ${q2.receiverWallet}`);
+              if (chainOk) ok('pricing', 'wallet request is routed to BNB Smart Chain (0x38)');
+              else defect('pricing', `wallet request chainId ${tx.chainId} is not 0x38`);
+            }
+          } else {
+            note('wallet pay control not reachable (dialog did not resume the elite intent)');
+          }
+        } finally {
+          await pg.close();
+          // The stub rejects the transfer, so the intent never reached a hash.
+          await api('POST', `${PROD}/api/mine/purchases/cancel`, { purchaseId: created.body.purchaseId }, TOKEN);
+        }
+      }
+    }
+  }
 
   /* 6 ── logout / guard check ──────────────────────────────────────────── */
   if (authCtx) {

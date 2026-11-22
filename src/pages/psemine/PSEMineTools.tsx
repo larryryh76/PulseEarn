@@ -774,7 +774,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   // The amounts the user sees. A live resume ALWAYS uses its own quote, never a
   // freshly fetched one, so the binding can never drift to another quote.
-  const quote = resume?.kind === 'live' ? resume.quote : activeQuote;
+  // The context keeps the last quote globally, so a quick reopen could still
+  // hold the PREVIOUS tool's quote. A quote is usable only for the tool this
+  // dialog is buying — otherwise the wallet could be asked for one product's
+  // amount while the dialog shows another. The server would then create an
+  // intent for the quote's tool, so this guard is enforced before any bind.
+  const candidateQuote = resume?.kind === 'live' ? resume.quote : activeQuote;
+  const quote = candidateQuote && candidateQuote.toolId === tool.id ? candidateQuote : null;
 
   // Quote countdown (server expiry, locally interpolated)
   useEffect(() => {

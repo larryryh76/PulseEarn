@@ -1033,3 +1033,133 @@ class TestStalePurchaseCancellation(unittest.TestCase):
         self.assertIn("@require_psemine_access", prefix)
         self.assertIn("transition_purchase_state", body)
         self.assertIn('"cancel"', body)
+
+
+class TestAuthoritativePricing(unittest.TestCase):
+    """One arithmetic authority: integer pence + Decimal rate -> integer wei.
+
+    The payable amount must never be a display-rounded float, and it must never
+    be possible to bind an intent to a quote whose wei does not match the
+    canonical tool price at the quote's own rate.
+    """
+
+    def test_ceiling_conversion_never_underpays(self):
+        from decimal import Decimal, ROUND_CEILING
+        for price_minor, rate in ((300, "422.76"), (1000, "418.04"),
+                                  (5000, "500"), (20000, "611.13")):
+            with self.subTest(price=price_minor, rate=rate):
+                wei = psemine_engine.expected_wei_for_price_minor(price_minor, rate)
+                self.assertIsInstance(wei, int)
+                raw = (Decimal(price_minor) / Decimal(100)) / Decimal(rate) * Decimal(10) ** 18
+                self.assertEqual(wei, int(raw.to_integral_value(rounding=ROUND_CEILING)))
+                # The collected GBP value covers the price, and one fewer wei
+                # would not: the rounding policy is minimal, never generous.
+                self.assertGreaterEqual(Decimal(wei) / Decimal(10) ** 18 * Decimal(rate),
+                                        Decimal(price_minor) / Decimal(100))
+                self.assertLess(Decimal(wei - 1) / Decimal(10) ** 18 * Decimal(rate),
+                                Decimal(price_minor) / Decimal(100))
+
+    def test_conversion_rejects_non_positive_inputs(self):
+        for price, rate in ((0, 400), (300, 0), (-1, 400), (300, "-1")):
+            with self.subTest(price=price, rate=rate):
+                with self.assertRaises(ValueError):
+                    psemine_engine.expected_wei_for_price_minor(price, rate)
+
+    def _quote(self, **overrides):
+        wei = psemine_engine.expected_wei_for_price_minor(300, "422.76")
+        base = {
+            "gbpPrice": 3.0, "priceMinor": 300,
+            "exchangeRateBNBGBP": 422.76,
+            "bnbAmountWei": str(wei), "pricingVersion": 2,
+        }
+        base.update(overrides)
+        return base
+
+    def test_exact_v2_quote_is_accepted(self):
+        ok, expected, error = psemine_engine.quote_amount_integrity(
+            self._quote(), tool_price_minor=300,
+        )
+        self.assertTrue(ok, error)
+        self.assertEqual(expected, int(self._quote()["bnbAmountWei"]))
+
+    def test_one_wei_off_is_rejected_for_v2(self):
+        wei = int(self._quote()["bnbAmountWei"])
+        for delta in (-1, 1):
+            with self.subTest(delta=delta):
+                ok, _, error = psemine_engine.quote_amount_integrity(
+                    self._quote(bnbAmountWei=str(wei + delta)),
+                )
+                self.assertFalse(ok)
+                self.assertEqual("QUOTE_AMOUNT_INCOHERENT", error)
+
+    def test_price_substitution_is_rejected(self):
+        # A £3 quote cannot be paid under the £10 tier's price.
+        ok, _, error = psemine_engine.quote_amount_integrity(
+            self._quote(), tool_price_minor=1000,
+        )
+        self.assertFalse(ok)
+        self.assertEqual("QUOTE_PRICE_MISMATCH", error)
+
+    def test_legacy_six_decimal_quote_is_tolerated_but_not_tampered(self):
+        # Legacy quotes quantized BNB to 6dp: up to half a micro-BNB away.
+        wei = psemine_engine.expected_wei_for_price_minor(300, "422.76")
+        legacy = self._quote(pricingVersion=1, bnbAmountWei=str(wei - 400_000_000_000))
+        self.assertTrue(psemine_engine.quote_amount_integrity(legacy)[0])
+        tampered = self._quote(pricingVersion=1, bnbAmountWei=str(wei - 5_000_000_000_000))
+        ok, _, error = psemine_engine.quote_amount_integrity(tampered)
+        self.assertFalse(ok)
+        self.assertEqual("QUOTE_AMOUNT_INCOHERENT", error)
+
+    def test_missing_or_malformed_amount_is_rejected(self):
+        for bad in ("", None, "abc", "0", "-1"):
+            with self.subTest(value=bad):
+                ok, _, error = psemine_engine.quote_amount_integrity(
+                    self._quote(bnbAmountWei=bad),
+                )
+                self.assertFalse(ok)
+                self.assertEqual("INVALID_QUOTE_AMOUNT", error)
+
+    def test_quote_route_is_the_single_pricing_authority(self):
+        src = tfg._read(tfg.INDEX_SRC)
+        self.assertIn("expected_wei_for_price_minor(price_minor, exchange_rate)", src)
+        self.assertIn('"pricingVersion": 2', src)
+        # The float-derived amount that used to be the source of wei is gone.
+        self.assertNotIn("round(tool_cfg['price_gbp'] / exchange_rate", src)
+        self.assertIn("quote_amount_integrity(", src)
+        self.assertIn("PURCHASE_QUOTE_AMOUNT_MISMATCH", src)
+        self.assertIn("PURCHASE_QUOTE_RECEIVER_MISMATCH", src)
+
+    def test_frontend_never_pays_a_quote_from_another_tool(self):
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        with open(os.path.join(root, "src", "pages", "psemine", "PSEMineTools.tsx"),
+                  encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("candidateQuote.toolId === tool.id", source)
+        self.assertIn("value: String(wei)", source)
+
+
+class TestSettlementActivatesOnlyItsTool(unittest.TestCase):
+    """A verified payment settles the tool it was quoted for, once."""
+
+    def test_activation_uses_the_purchase_tool_only(self):
+        body = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "verify_psemine_tool_purchase")
+        self.assertIn("tool_id = purchase.get('toolId')", body)
+        self.assertIn("counts[tool_id] = counts.get(tool_id, 0) + 1", body)
+        self.assertIn("hydrate_ownership_for_activation(", body)
+        self.assertIn("purchase_id, now_dt", body)
+        # The activation transaction re-reads the purchase and refuses any
+        # state that is not an allowed pre-activation state, so a replayed or
+        # concurrent verification cannot create a second entitlement.
+        self.assertIn("allowed_activation_states", body)
+        self.assertIn("PURCHASE_STATE_NOT_ACTIVATABLE", body)
+        self.assertIn("SUBMISSION_HASH_CONFLICT", body)
+
+    def test_no_client_supplied_tool_can_activate(self):
+        body = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "verify_psemine_tool_purchase")
+        self.assertNotIn("tool_id = data.get('toolId')", body)
+        self.assertNotIn("counts[data.get('toolId')]", body)
+
+    def test_verified_receipt_is_the_only_income_source(self):
+        body = tfg._handler_body(tfg._read(tfg.INDEX_SRC), "verify_psemine_tool_purchase")
+        self.assertIn("'verificationSource': 'bsc_rpc_receipt'", body)
+        self.assertIn("if onchain_verified:", body)

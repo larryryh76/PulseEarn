@@ -297,12 +297,18 @@ const run = async () => {
   // 5. Assertions on the captured approval parameters.
   const recipientCorrect = (tx.to || '').toLowerCase() === RECEIVER;
   const senderCorrect = (tx.from || '').toLowerCase() === STUB_ADDR;
-  const valueIsWeiString = /^\d+$/.test(String(tx.value));
+  // EIP-1193 `value` is a HEX QUANTITY. The exact wei still has to match, but
+  // the wire encoding must be 0x-prefixed: a decimal string makes wallets that
+  // follow the spec parse the amount as hex and ask for the wrong (much larger)
+  // amount.
+  const valueIsHexQuantity = /^0x[0-9a-f]+$/.test(String(tx.value));
+  const valueIsExact = valueIsHexQuantity && BigInt(tx.value) === 10000000000000000n;
   step('approval-assertions', {
     recipientIsAuthoritativeReceivingWallet: recipientCorrect,
     senderIsConnectedWallet: senderCorrect,
-    valueIsExactWeiString: valueIsWeiString,
-    pass: recipientCorrect && senderCorrect && valueIsWeiString && approval.reachedApproval && approval.rejectionClassified,
+    valueIsHexQuantity,
+    valueIsExactWei: valueIsExact,
+    pass: recipientCorrect && senderCorrect && valueIsExact && approval.reachedApproval && approval.rejectionClassified,
   });
 
   // 6. Post-rejection state: exactly one send attempt, no resolution path ran.
@@ -521,8 +527,10 @@ const run = async () => {
   const oneSendEach = cases.every(c => c.sendAttempts <= 1);
   const directParamsExact = cases.every(c => {
     const sent = c.lastSendParams;
+    // The exact wei must be identical, encoded as a canonical hex quantity.
     return Boolean(sent) && sent.from === b.from
-      && String(sent.to).toLowerCase() === RECEIVER && String(sent.value) === b.value
+      && String(sent.to).toLowerCase() === RECEIVER
+      && /^0x[0-9a-f]+$/.test(String(sent.value)) && BigInt(sent.value) === BigInt(b.value)
       && Object.keys(sent).sort().join(',') === 'from,to,value';
   });
   const unsupported = b.unsupported;

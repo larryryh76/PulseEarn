@@ -1292,6 +1292,27 @@ const walletRpcDiagnostic = (error: unknown, method: string): string => {
   return `${method} | code: ${code === undefined ? 'none' : String(code)} | ${redactedMessage(error)}`;
 };
 
+/**
+ * Canonical EIP-1193 quantity encoding for a wei amount.
+ *
+ * A native transfer's `value` is a HEX QUANTITY. Sending the decimal wei string
+ * (e.g. "472032098182676422") is not valid EIP-1193: a wallet that parses the
+ * field as hex (the spec's encoding) asks the user to approve
+ * 0x472032098182676422 wei — roughly 10x-1000x the quoted amount — while a
+ * lenient wallet may silently accept the decimal. The quote's authoritative
+ * amount stays an integer wei string (display, persistence, verification); this
+ * converts it once, exactly, at the wallet boundary.
+ */
+export const toHexQuantity = (value: string | bigint): string => {
+  const text = typeof value === 'bigint' ? value.toString() : String(value ?? '').trim();
+  if (!/^(0x[0-9a-fA-F]+|\d+)$/.test(text)) {
+    throw new Error('Payment amount is not a valid integer wei value. Nothing was sent.');
+  }
+  const amount = BigInt(text);
+  if (amount < 0n) throw new Error('Payment amount cannot be negative. Nothing was sent.');
+  return '0x' + amount.toString(16);
+};
+
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
@@ -1331,12 +1352,15 @@ export const sendPaymentTransaction = async (
         );
       }
     }
+    // EIP-1193 requires a hex quantity; convert the quote's exact wei once.
+    const valueHex = toHexQuantity(tx.value);
+    recordWalletStage('transaction_value_encoded', valueHex);
     const request = {
       method: 'eth_sendTransaction',
       params: [{
         from: tx.from,
         to: tx.to,
-        value: tx.value,
+        value: valueHex,
         ...(transport === 'walletConnect' ? { chainId: '0x38' } : {}),
       }],
     };

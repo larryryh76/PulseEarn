@@ -1524,13 +1524,18 @@ async function main() {
             await pay.click();
             await pg.waitForTimeout(3500);
             const tx = await pg.evaluate(() => window.__lastTx || null);
-            REPORT.pricing.walletPayload = { tx, expectedWei: String(weiInt), expectedTo: q2.receiverWallet };
+            const chainAtSend = await pg.evaluate(() => window.__stubChain || null);
+            REPORT.pricing.walletPayload = { tx, chainAtSend, expectedWei: String(weiInt), expectedTo: q2.receiverWallet };
             if (!tx) {
               note('wallet payload not captured (pay action did not reach eth_sendTransaction)');
             } else {
               const valueOk = String(tx.value || '').toLowerCase() === '0x' + weiInt.toString(16);
               const toOk = String(tx.to || '').toLowerCase() === String(q2.receiverWallet).toLowerCase();
-              const chainOk = String(tx.chainId || '').toLowerCase() === '0x38';
+              // WalletConnect carries an explicit chainId in the tx object;
+              // injected wallets use their live provider chain, which must be BSC.
+              const chainOk = tx.chainId
+                ? String(tx.chainId).toLowerCase() === '0x38'
+                : String(chainAtSend).toLowerCase() === '0x38';
               if (valueOk) ok('pricing', `wallet received the EXACT quoted value ${tx.value} (${weiInt} wei)`);
               else defect('pricing', `wallet value ${tx.value} != quoted 0x${weiInt.toString(16)}`);
               if (toOk) ok('pricing', 'wallet received the quote\'s receiving address');

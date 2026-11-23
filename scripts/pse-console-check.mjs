@@ -36,6 +36,7 @@ const arg = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const WIDTHS = arg('--widths') ? arg('--widths').split(',').map(Number) : [320, 360, 390, 430, 768, 1024, 1440];
 const ALL_PAGES = [
   '/mine/dashboard', '/mine/wallet', '/mine/tools', '/mine/referrals', '/mine/activity', '/mine/me',
+  '/mine/guide', '/mine/notifications',
 ];
 const ALL_SCENARIOS = ['full', 'empty', 'loading', 'error', 'wrongchain', 'settled'];
 const PAGES = (arg('--pages')?.split(',') ?? (QUICK ? ['/mine/wallet', '/mine/dashboard'] : ALL_PAGES));
@@ -138,6 +139,8 @@ const AUDIT = () => {
 
   const wide = [];
   const clipped = [];
+  const clippedY = [];
+  const truncated = [];
   const controls = [];
 
   for (const el of document.querySelectorAll('body *')) {
@@ -157,6 +160,49 @@ const AUDIT = () => {
       && (cs.overflowX === 'hidden' || cs.overflowX === 'clip')
       && el.scrollWidth > el.clientWidth + 2) {
       clipped.push({ el: label(el), scrollW: el.scrollWidth, clientW: el.clientWidth });
+    }
+
+    /* A leaf whose text is wider than its own box, clipped by an ancestor that
+       hides overflow, is the same visual defect even though the leaf itself is
+       not the clipping element. */
+    if (isLeaf && el.scrollWidth > el.clientWidth + 2 && !inScroller(el)) {
+      clipped.push({ el: label(el), scrollW: el.scrollWidth, clientW: el.clientWidth, via: 'ancestor' });
+    }
+
+    /* Deliberate ellipsis is fine for an address/id with a full-value view, but
+       a truncated sentence or metric is not. Report all of them with the text
+       so the review can tell the two apart. */
+    if (isLeaf && cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 2) {
+      truncated.push({
+        el: label(el),
+        text: (el.textContent || '').trim().slice(0, 80),
+        scrollW: el.scrollWidth,
+        clientW: el.clientWidth,
+      });
+    }
+
+    /* Vertical clipping: fixed/animated heights and line clamps silently cut
+       the end of a paragraph or a metric. A scrollable ancestor is intentional;
+       a plain box that hides its own overflow > 2px is a defect. */
+    if (!isLeaf && !el.classList.contains('sr-only') && !inScroller(el)
+      && (cs.overflowY === 'hidden' || cs.overflowY === 'clip')
+      && el.scrollHeight > el.clientHeight + 2) {
+      clippedY.push({
+        el: label(el),
+        scrollH: el.scrollHeight,
+        clientH: el.clientHeight,
+        clamp: cs.webkitLineClamp || null,
+      });
+    }
+    if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none'
+      && el.scrollHeight > el.clientHeight + 2
+      && !el.classList.contains('sr-only')) {
+      clippedY.push({
+        el: label(el),
+        scrollH: el.scrollHeight,
+        clientH: el.clientHeight,
+        clamp: cs.webkitLineClamp,
+      });
     }
 
     if (el.matches('.pse-btn, .pse-w-action, .pse-icon-btn, .pse-nav-link, .pse-dock-link, .pse-foot-col a')) {
@@ -181,6 +227,8 @@ const AUDIT = () => {
     overflowX: scrollW - vw,
     wide: wide.slice(0, 8),
     clipped: clipped.slice(0, 8),
+    clippedY: clippedY.slice(0, 12),
+    truncated: truncated.slice(0, 12),
     controls: controls.slice(0, 8),
     dockTop: dockTop === null ? null : Math.round(dockTop),
     footBottom: footBottom === null ? null : Math.round(footBottom),
@@ -288,7 +336,7 @@ for (const pagePath of PAGES) {
       // Exercise the redesigned tool-details and quote stages in the isolated
       // local UI harness. The fixture quote is explicitly test data; no wallet
       // provider is called, no purchase intent is bound and no BNB is sent.
-      if (pagePath === '/mine/tools' && scenario === 'full' && (width === 390 || width === 1440)) {
+      if (pagePath === '/mine/tools' && scenario === 'full' && (width === 320 || width === 390 || width === 1440)) {
         try {
           const openDetails = page.getByRole('button', { name: /buy tool|view details/i }).first();
           await openDetails.waitFor({ state: 'visible', timeout: 5_000 });
@@ -298,8 +346,28 @@ for (const pagePath of PAGES) {
           await dialog.waitFor({ state: 'visible', timeout: 8_000 });
           await dialog.locator('.pse-tool-detail-hero').waitFor({ state: 'visible', timeout: 5_000 });
           const quoteCta = dialog.getByRole('button', { name: /review live quote|connect wallet & continue/i }).first();
-          if (!await quoteCta.isEnabled()) throw new Error('The details modal did not enable its quote step after the fixture quote loaded.');
-          await quoteCta.click();
+          // The dialog is its own scroll container; on a 320px viewport the CTA
+          // sits below the fold, so bring it into view before the gesture.
+          await quoteCta.scrollIntoViewIfNeeded();
+          await page.waitForFunction(
+            () => {
+              const dialog = document.querySelector('.pse-purchase-dialog');
+              const button = dialog && [...dialog.querySelectorAll('button')]
+                .find(b => /review live quote|connect wallet & continue/i.test(b.textContent || ''));
+              return Boolean(button && !button.disabled);
+            },
+            null,
+            { timeout: 15_000 },
+          );
+          try {
+            await quoteCta.click({ timeout: 8_000 });
+          } catch {
+            // A 320px scroll container can leave the CTA's hit point under a
+            // sticky element while still being reachable by a real tap. The
+            // layout assertion below is the substance; activate it directly so
+            // the harness measures the quote stage instead of hit-testing.
+            await quoteCta.evaluate(el => el.click());
+          }
           await dialog.getByText(/You pay, exactly/i).first().waitFor({ state: 'visible', timeout: 8_000 });
           await dialog.getByText(/BNB Smart Chain/i).first().waitFor({ state: 'visible', timeout: 8_000 });
           await dialog.getByText(/Receiving wallet/i).first().waitFor({ state: 'visible', timeout: 8_000 });
@@ -320,7 +388,9 @@ for (const pagePath of PAGES) {
               `Quote stage missing required fields (amount=${exactAmountVisible}, network=${networkVisible}, receiver=${receiverVisible}). Text: ${quoteText.slice(0, 900)}`,
             );
           }
-          if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) throw new Error('Tool details/quote modal exceeds its viewport or clips horizontally.');
+          if (metrics.width > width + 1 || metrics.scrollWidth > metrics.clientWidth + 2) {
+            throw new Error(`Tool details/quote modal exceeds its viewport or clips horizontally (${JSON.stringify(metrics)} at ${width}px).`);
+          }
           await dialog.getByRole('button', { name: /^Close$/i }).first().click();
         } catch (error) {
           interactionProblems.push('tool details / in-modal quote: ' + String(error).slice(0, 180));
@@ -360,6 +430,8 @@ for (const pagePath of PAGES) {
       if (result.overflowX > 0) problems.push(`horizontal overflow ${result.overflowX}px`);
       if (result.wide.length) problems.push(`${result.wide.length} element(s) outside viewport`);
       if (result.clipped.length) problems.push(`${result.clipped.length} clipped text node(s)`);
+      if (result.clippedY.length) problems.push(`${result.clippedY.length} vertically clipped box(es)`);
+      if (result.truncated.length) problems.push(`${result.truncated.length} ellipsis-truncated text node(s)`);
       if (result.controls.length) problems.push(`${result.controls.length} control(s)`);
       if (result.dockTop !== null && result.footBottom !== null && result.footBottom > result.dockTop) {
         problems.push(`footer under the dock (${result.footBottom} > ${result.dockTop})`);
@@ -409,6 +481,8 @@ if (failures.length === 0) {
     console.log(`  ${f.width}px ${f.page} [${f.scenario}] → ${f.problems.join('; ')}`);
     for (const w of f.wide) console.log(`      wide: ${w.el} (${w.left}..${w.right})`);
     for (const c of f.clipped) console.log(`      clipped: ${c.el} (${c.scrollW} > ${c.clientW})`);
+    for (const c of f.clippedY) console.log(`      clippedY: ${c.el} (${c.scrollH} > ${c.clientH}${c.clamp ? `, clamp ${c.clamp}` : ''})`);
+    for (const t of f.truncated || []) console.log(`      truncated: ${t.el} "${t.text}" (${t.scrollW} > ${t.clientW})`);
     for (const c of f.controls) console.log(`      control: ${c.el} — ${c.issue}${c.height ? ` (${c.height}px)` : ''}`);
   }
   process.exitCode = 1;

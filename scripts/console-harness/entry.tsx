@@ -37,9 +37,17 @@ const PAGES: Record<string, React.ReactElement> = {
      /mine/guide, so the harness pairs that path with a real console page beneath
      it — exactly what a reader sees when they deep-link the guide. */
   '/mine/guide': <PSEMineDashboard />,
+  /* Notifications are a sheet owned by the shell; the path only opens it so the
+     rendered ledger can be measured like any other surface. */
+  '/mine/notifications': <PSEMineDashboard />,
 };
 
 const page = PAGES[path] ?? PAGES['/mine/dashboard'];
+
+if (path === '/mine/notifications') {
+  /* The shell listens for this window event (same one the header bell fires). */
+  window.setTimeout(() => window.dispatchEvent(new Event('psemine:open-notifications')), 120);
+}
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <MemoryRouter initialEntries={[path]}>

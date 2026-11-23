@@ -81,7 +81,12 @@
 /* Quote and payment: one continuous sheet, preserving the existing state machine. */
 .pse-purchase-overlay { z-index:1200; }
 .pse-purchase-dialog {
-  width:min(100%,760px)!important; max-height:min(90dvh,900px)!important;
+  width:min(100%,760px)!important;
+  /* A modal must never be wider than the visual viewport, whatever its
+     containing block computes (mobile emulation/zoom can report a wider
+     initial containing block than innerWidth). */
+  max-width:100vw!important;
+  max-height:min(90dvh,900px)!important;
   overflow-y:auto!important; overscroll-behavior:contain; scrollbar-width:thin;
   border:1px solid rgba(130,155,225,.25)!important; border-radius:22px!important;
   background:
@@ -144,7 +149,7 @@
   .pse-stage[data-page="tools"] .pse-stat { padding:11px; }
   .pse-purchase-overlay { align-items:flex-end!important; padding:0!important; }
   .pse-purchase-dialog {
-    width:100%!important; max-width:none!important; max-height:calc(94dvh - env(safe-area-inset-top))!important;
+    width:100%!important; max-width:100vw!important; max-height:calc(94dvh - env(safe-area-inset-top))!important;
     border-radius:22px 22px 0 0!important; border-bottom:0!important;
     padding-bottom:env(safe-area-inset-bottom)!important;
     animation:pse-sheet-enter .2s ease-out both;
@@ -384,7 +389,7 @@
  .pse-stage[data-page="tools"] .pse-product-actions .pse-btn { width:100%; }
  .pse-stage[data-page="tools"] .pse-marketplace-rail { grid-template-columns:minmax(0,1fr); }
  .pse-purchase-overlay { align-items:flex-end!important; padding:0!important; }
- .pse-purchase-dialog { width:100%!important; max-width:none!important; max-height:94dvh!important; border-radius:22px 22px 0 0!important; border-bottom:0!important; }
+ .pse-purchase-dialog { width:100%!important; max-width:100vw!important; max-height:94dvh!important; border-radius:22px 22px 0 0!important; border-bottom:0!important; }
  .pse-purchase-dialog .pse-page { padding:18px 16px calc(18px + env(safe-area-inset-bottom))!important; }
 }
 @media(prefers-reduced-motion:reduce) {
@@ -771,14 +776,17 @@
   .pse-route-tools .pse-product .pse-tool-art svg { height:70px; }
   .pse-route-mining-tools .pse-product-name,
   .pse-route-tools .pse-product-name { font-size:16px; line-height:1.2; }
+  /* The card description is a sentence about capacity and duty, not a preview
+     of a longer article: clamping it to two lines cut it mid-sentence on every
+     phone. Let the card grow with its real text instead. */
   .pse-route-mining-tools .pse-product-desc,
   .pse-route-tools .pse-product-desc {
-    display:-webkit-box !important;
-    -webkit-box-orient:vertical;
-    -webkit-line-clamp:2;
-    overflow:hidden;
+    display:block !important;
+    overflow:visible !important;
+    -webkit-line-clamp:unset !important;
     font-size:11px;
     line-height:1.45;
+    overflow-wrap:anywhere;
   }
   .pse-route-mining-tools .pse-product-tier,
   .pse-route-tools .pse-product-tier { font-size:9px; }

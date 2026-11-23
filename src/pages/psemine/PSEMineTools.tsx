@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import '../../styles/psemine-tools-payment-redesign.css';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
@@ -14,6 +15,7 @@ import {
 import { type PsePendingPurchase, type PseStateTool, cancelIncompletePurchase } from '../../engines/psemine/pseMineApi';
 import { formatWalletDiagnostics, recordWalletStage } from '../../engines/psemine/pseWalletTrace';
 import { PSEMineEngine } from '../../engines/psemine/PSEMineEngine';
+import { projectOwnershipAfterPurchase } from '../../engines/psemine/pseOwnership';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
   bnbExactFromWei, copyText, gbp, gbpHour, nowMs, shortAddr, shortHash,
@@ -559,6 +561,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [switchingNetwork, setSwitchingNetwork] = useState(false);
   const [paymentProgress, setPaymentProgress] = useState('Preparing your wallet request…');
+  const [waitSeconds, setWaitSeconds] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean; recheckable?: boolean; diagnostic?: string } | null>(null);
   // Payer binding + submission state. The purchase is bound to a wallet BEFORE
@@ -569,6 +572,17 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const [bindingError, setBindingError] = useState<string | null>(null);
   const [bindingRetry, setBindingRetry] = useState(0);
   const [submissionState, setSubmissionState] = useState<PsePaymentSubmissionState>('NOT_SUBMITTED');
+  // Seconds since the request was handed to the wallet. Used only to show the
+  // user actionable guidance when a reactivated mobile wallet shows no sheet.
+  useEffect(() => {
+    if (step !== 'verifying' || submissionState !== 'SUBMISSION_IN_PROGRESS') {
+      setWaitSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const id = window.setInterval(() => setWaitSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [step, submissionState]);
   // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
   const [resume, setResume] = useState<ResumeState | null>(null);
   const [rechecking, setRechecking] = useState(false);
@@ -850,10 +864,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // Display-only fee estimate for the exact native transfer. The wallet still
   // shows and charges its own final network fee at approval; a wallet that does
   // not answer these read methods simply shows "in wallet" instead.
+  // Presentational only, and injected-only on purpose. Probing a WalletConnect
+  // wallet for gas injects an extra relay request while the user is entering
+  // payment; on mobile that probe can open the wallet app with no approval
+  // sheet. WalletConnect wallets show their own fee at approval instead.
   useEffect(() => {
     let cancelled = false;
     const value = String(quote?.bnbAmountWei || '');
-    if (step !== 'pay' || !quote || !connectedWallet || !walletLive || !/^\d+$/.test(value)) {
+    if (step !== 'pay' || !quote || !connectedWallet || !walletLive
+      || walletTransport !== 'injected' || !/^\d+$/.test(value)) {
       setFeeEstimate(null);
       return () => { cancelled = true; };
     }
@@ -863,7 +882,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       value,
     }).then(fee => { if (!cancelled) setFeeEstimate(fee); });
     return () => { cancelled = true; };
-  }, [step, quote, connectedWallet, walletLive, estimateNetworkFee]);
+  }, [step, quote, connectedWallet, walletLive, walletTransport, estimateNetworkFee]);
 
   const totalPayableWei = useMemo(() => {
     if (!quote?.bnbAmountWei || !feeEstimate) return null;
@@ -875,6 +894,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const quoteNetworkValid = !quote || Number(quote.chainId ?? 56) === 56;
   const quoteValid = Boolean(quote) && secondsLeft > 0 && quoteNetworkValid;
   const ownershipOk = owned < tool.maxPerUser;
+  // Each purchase activates exactly one unit, so the honest projection is the
+  // verified count plus the unit being bought — never the pre-purchase count.
+  const projectedOwned = projectOwnershipAfterPurchase(owned, 1, tool.maxPerUser);
   const showingRecovery = resume?.kind === 'submitted';
 
   const blockedReason = (() => {
@@ -1077,12 +1099,25 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     recordWalletStage('payment_send_started');
     setPaymentProgress('Your payment request is being sent to your wallet. Keep the wallet open and approve the exact BNB amount there…');
     setSubmissionState('SUBMISSION_IN_PROGRESS');
+    // Record the dispatch BEFORE the provider call. If Android discards this
+    // tab while the wallet is open, the reloaded purchase sees that a request
+    // may already be with the wallet and asks the user to confirm no transfer
+    // exists instead of silently sending a second one. Cleared on a proven
+    // pre-dispatch failure / rejection; replaced by the hash on success.
+    try {
+      localStorage.setItem('psemine_uncertain_payment', JSON.stringify({
+        purchaseId: intentId, toolId: tool.id, payerWallet: payer,
+        receiverWallet: quote.receiverWallet, quotedBNBWei: String(quote.bnbAmountWei || ''),
+        createdAt: new Date().toISOString(), dispatchState: 'requested',
+      }));
+    } catch { /* live page keeps the submission lock */ }
     try {
       let txHash: string;
       try {
         txHash = await sendPayment({ from: payer, to: quote.receiverWallet, value: String(wei) });
       } catch (sendErr) {
         if (isSessionUnavailable(sendErr)) {
+          try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
           setSubmissionState('NOT_SUBMITTED');
           setResult({ ok: false, message: 'Your wallet session ended before the payment was requested, so nothing was sent. Reconnect and prepare a fresh quote.' });
           setStep('result');
@@ -1090,6 +1125,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         }
         if (typeof sendErr === 'object' && sendErr !== null &&
             (sendErr as { code?: string }).code === 'PAYMENT_METHOD_UNSUPPORTED') {
+          try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
           setSubmissionState('NOT_SUBMITTED');
           setResult({ ok: false, message: 'This wallet rejected the transaction request before submission. No payment was sent. Reconnect and prepare a fresh quote.', diagnostic: (sendErr as { diagnostic?: string }).diagnostic });
           setStep('result');
@@ -1199,6 +1235,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
       if (/user rejected|user denied|4001/i.test(msg)) {
         recordWalletStage('payment_cancelled_in_wallet');
+        try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
         setSubmissionState('NOT_SUBMITTED');
         setStep('pay');
         toast('Payment cancelled in your wallet.');
@@ -1419,7 +1456,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
         <button type="button" onClick={() => setMinimized(false)} style={{ flexShrink: 0, borderRadius: 10, padding: '9px 12px', background: '#23365b', color: '#fff', fontSize: 13, fontWeight: 600 }}>Return</button>
       </div>
     ) : (
-    <div
+    createPortal(
+      <div
       role="presentation"
       className="pse-purchase-overlay"
       style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))', background: 'rgba(3, 7, 18, .82)', backdropFilter: 'blur(12px)' }}
@@ -1564,8 +1602,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
             </p>
             <p className="pse-prose">
-              Adds {gbpHour(tool.hourlyRateGBP)} of capacity. You will own {owned} of {tool.maxPerUser} after this
-              purchase. {continuous
+              Adds {gbpHour(tool.hourlyRateGBP)} of capacity. You currently own {owned} of {tool.maxPerUser};
+              this purchase brings you to {projectedOwned} of {tool.maxPerUser}. {continuous
                 ? 'Elite mines continuously — no manual session restarts.'
                 : 'This tier mines in sessions: when a session ends, mining stops until you restart the tool.'}
             </p>
@@ -1769,7 +1807,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 <li>Approve only if the details are correct, then return to this page.</li>
               </ol>
               <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Wallet handoff can take a little time. Do not tap Pay again or approve a duplicate request. If you reject the request, no payment is made.</div>
-              <p className="pse-block-meta">Wallet request in progress · no payment is confirmed yet</p>
+              {walletTransport === 'walletConnect' && (
+                <div className="pse-wallet-wait-note">
+                  <strong>The request is already with your wallet.</strong> If no approval screen appears, open your
+                  wallet app from your home screen — the pending PSEmine request is listed there. If it shows nothing,
+                  minimise this panel and reopen the purchase: PSEmine will not send another request until you confirm
+                  that no transaction was submitted.
+                </div>
+              )}
+              {waitSeconds >= 20 && (
+                <div className="pse-wallet-wait-note" role="alert">
+                  <strong>Still waiting after {waitSeconds}s.</strong> Switch back to the wallet app you approved the
+                  session with. If its activity list has no PSEmine transfer, minimise this panel, reopen the same
+                  purchase and use “I checked — no transaction is listed” before trying again.
+                </div>
+              )}
+              <p className="pse-block-meta">Wallet request in progress · {waitSeconds}s · no payment is confirmed yet</p>
             </div>
           ) : (
             <div className="pse-wallet-wait">
@@ -1873,7 +1926,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       )}
     </PsePage>
       </div>
-    </div>
+    </div>,
+    document.body,
+    )
     )}
     </>
   );

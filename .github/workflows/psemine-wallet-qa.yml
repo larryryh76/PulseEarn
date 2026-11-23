@@ -14,6 +14,8 @@ on:
       - "src/components/psemine/**"
       - "src/styles/psemine-*.css"
       - "scripts/pse-wallet-*.mjs"
+      - "scripts/pse-ownership-check.mjs"
+      - "scripts/pse-responsive-check.mjs"
       - "scripts/pse-console-check.mjs"
       - "scripts/pse-a11y-check.mjs"
       - "api/**"
@@ -76,6 +78,9 @@ jobs:
 
       - name: Wallet transaction runtime gate
         run: bun scripts/pse-wallet-gate.mjs
+
+      - name: Ownership projection copy regression
+        run: bun scripts/pse-ownership-check.mjs
 
       - name: Dashboard and wallet responsive console check
         run: bun scripts/pse-console-check.mjs --quick --pages /mine/tools,/mine/wallet,/mine/dashboard --scenarios full,empty,loading,wrongchain --widths 320,360,390,430,768,1024,1440

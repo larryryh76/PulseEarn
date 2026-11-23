@@ -23,7 +23,8 @@
     "test:wallet": "bun scripts/pse-wallet-handoff-check.mjs && bun scripts/pse-wallet-recovery-check.mjs",
     "verify:wallet": "bun run test:wallet",
     "verify:wallet-recovery": "bun scripts/pse-wallet-recovery-check.mjs",
-    "verify:wallet-gate": "bun scripts/pse-wallet-gate.mjs"
+    "verify:wallet-gate": "bun scripts/pse-wallet-gate.mjs",
+    "verify:ownership": "bun scripts/pse-ownership-check.mjs"
   },
   "dependencies": {
     "@reown/appkit": "1.8.24",

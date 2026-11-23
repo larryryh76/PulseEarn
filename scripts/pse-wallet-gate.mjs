@@ -636,7 +636,11 @@ const run = async () => {
   // 11. HASH RECOVERY: if a wallet returns a hash but the API reply is lost,
   //     persist it locally before reporting, then re-attach that same hash after
   //     refresh before backend verification. This must never rebroadcast.
-  const hashPersist = payBody.indexOf("localStorage.setItem('psemine_uncertain_payment'");
+  // Two records now exist: a pre-dispatch marker (no hash) written BEFORE the
+  // provider request, and the hash-bearing record written BEFORE the server
+  // report. Locate the hash-bearing one explicitly.
+  const dispatchMarker = payBody.indexOf("dispatchState: 'requested'");
+  const hashPersist = payBody.indexOf('transactionHash: txHash', iSend);
   const reportHash = payBody.indexOf('PSEMineEngine.reportPurchaseSubmission');
   const retryLoop = payBody.indexOf('for (let attempt = 0; attempt < 2');
   const recoveredStart = toolsSrc.indexOf('const recheckRecovered = async () => {');
@@ -645,11 +649,12 @@ const run = async () => {
   const recoveryReport = recoveredBody.indexOf('PSEMineEngine.reportPurchaseSubmission');
   const recoveryVerify = recoveredBody.indexOf('submitPurchaseTx(');
   step('returned-hash-refresh-recovery', {
+    dispatchMarkerBeforeSend: dispatchMarker > 0 && dispatchMarker < iSend,
     hashPersistedBeforeServerReport: hashPersist > iSend && hashPersist < reportHash,
     serverReportRetriedIdempotently: retryLoop !== -1 && retryLoop < reportHash,
     recoveryReportsBeforeVerify: recoveryReport !== -1 && recoveryVerify > recoveryReport,
     recoveryUsesSavedHash: recoveredBody.includes('saved.transactionHash'),
-    pass: hashPersist > iSend && hashPersist < reportHash && retryLoop !== -1 && retryLoop < reportHash
+    pass: dispatchMarker > 0 && dispatchMarker < iSend && hashPersist > iSend && hashPersist < reportHash && retryLoop !== -1 && retryLoop < reportHash
       && recoveryReport !== -1 && recoveryVerify > recoveryReport
       && recoveredBody.includes('saved.transactionHash'),
   });

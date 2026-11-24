@@ -1001,8 +1001,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       ) : (
         <PseNotice tone="attention" title="Do you want to cancel this checkout?">
           <p>
-            Nothing was sent from your wallet for this attempt, so cancelling releases the reservation and
-            lets you start a new purchase. A payment that is already submitted cannot be cancelled here.
+            If no payment was sent, cancelling closes this checkout so you can start again. If a payment may already be on the way, the server will refuse to cancel it.
           </p>
           <div className="flex flex-wrap gap-2">
             <PseButton
@@ -1913,8 +1912,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           )}
           {!result.ok && !result.recheckable && !result.uncertain && (
             <PseNotice tone="attention">
-              No tool was activated. Nothing was lost: unverified payments are recorded as recovery evidence for manual
-              review — that record exists so an administrator can reconcile it, and it is not an automatic activation.
+              Your tool hasn't been activated yet. If you sent money, don't pay again. Check your wallet activity and use the recovery option to help us match the payment.
             </PseNotice>
           )}
           {result.ok && (

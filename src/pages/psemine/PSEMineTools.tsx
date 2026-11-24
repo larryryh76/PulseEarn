@@ -8,8 +8,10 @@ import {
   type PsePaymentSubmissionState,
   type PseNetworkFeeEstimate,
   canRetryPayment,
+  isApprovalTimeout,
   isSessionUnavailable,
   isSubmissionUncertain,
+  isWalletRejection,
   resolvePaymentPayer,
 } from '../../engines/psemine/pseWallet';
 import { type PsePendingPurchase, type PseStateTool, cancelIncompletePurchase } from '../../engines/psemine/pseMineApi';
@@ -1088,7 +1090,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     // provider request must remain in the original user-activation task so
     // Android browsers can hand off to the wallet app and show its approval UI.
     setStep('verifying');
-    setPaymentProgress('Your wallet is opening. Review the exact BNB transfer there…');
+    setPaymentProgress('Sending the BNB transfer request to your connected wallet…');
     recordWalletStage('payment_flow_started');
     const wei = quote.bnbAmountWei;
     if (!wei || !/^[0-9]+$/.test(String(wei))) {
@@ -1097,7 +1099,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       return;
     }
     recordWalletStage('payment_send_started');
-    setPaymentProgress('Your payment request is being sent to your wallet. Keep the wallet open and approve the exact BNB amount there…');
+    setPaymentProgress('The transfer request has been handed to your wallet connection. PSEmine cannot confirm delivery, so only the wallet\'s own approval screen proves it arrived — open the wallet app if it did not come forward…');
     setSubmissionState('SUBMISSION_IN_PROGRESS');
     // Record the dispatch BEFORE the provider call. If Android discards this
     // tab while the wallet is open, the reloaded purchase sees that a request
@@ -1150,11 +1152,16 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           } catch { /* live page still keeps the retry lock */ }
           setUncertainRecovery(true);
           setConfirmedNoTransaction(false);
+          const approvalTimedOut = isApprovalTimeout(sendErr);
           setResult({
             ok: false, uncertain: true,
             message: serverLocked
-              ? 'We could not confirm whether your wallet submitted this payment. This purchase is locked on your account while you check the sending wallet. Do not pay again if a transfer appears.'
-              : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.',
+              ? (approvalTimedOut
+                ? 'No approval came back from your wallet. If it never showed this BNB transfer, nothing was sent — check the sending wallet\'s activity and pending requests. This purchase stays locked on your account until you confirm no transaction exists.'
+                : 'We could not confirm whether your wallet submitted this payment. This purchase is locked on your account while you check the sending wallet. Do not pay again if a transfer appears.')
+              : (approvalTimedOut
+                ? 'No approval came back from your wallet, and the server could not confirm the recovery lock. Check the sending wallet for a pending request or transfer and do not retry until you know.'
+                : 'We could not confirm whether your wallet submitted this payment, and the server could not confirm the recovery lock. Keep this purchase open and contact support before trying again.'),
             diagnostic: (sendErr as { diagnostic?: string }).diagnostic,
           });
           setStep('result');
@@ -1233,7 +1240,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
       setStep('result');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
-      if (/user rejected|user denied|4001/i.test(msg)) {
+      if (isWalletRejection(e)) {
         recordWalletStage('payment_cancelled_in_wallet');
         try { localStorage.removeItem('psemine_uncertain_payment'); } catch { /* storage unavailable */ }
         setSubmissionState('NOT_SUBMITTED');
@@ -1794,7 +1801,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
       {/* ── Step: verifying ── */}
       {!showingRecovery && step === 'verifying' && (
-        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Your wallet is opening' : 'Preparing secure payment'}>
+        <PseSection title={submissionState === 'SUBMISSION_IN_PROGRESS' ? 'Waiting for wallet approval' : 'Preparing secure payment'}>
           {submissionState === 'SUBMISSION_IN_PROGRESS' ? (
             <div className="pse-wallet-wait" role="status" aria-live="polite">
               <span className="pse-wallet-wait-orbit" aria-hidden="true"><span /></span>
@@ -1809,17 +1816,20 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Wallet handoff can take a little time. Do not tap Pay again or approve a duplicate request. If you reject the request, no payment is made.</div>
               {walletTransport === 'walletConnect' && (
                 <div className="pse-wallet-wait-note">
-                  <strong>The request is already with your wallet.</strong> If no approval screen appears, open your
-                  wallet app from your home screen — the pending PSEmine request is listed there. If it shows nothing,
-                  minimise this panel and reopen the purchase: PSEmine will not send another request until you confirm
-                  that no transaction was submitted.
+                  <strong>No approval screen yet?</strong> WalletConnect does not acknowledge delivery, so PSEmine cannot
+                  tell whether your wallet has shown the request. Open the wallet app that approved this session and
+                  look for a pending PSEmine request. If there is nothing to approve, minimise this panel and reopen
+                  the purchase — PSEmine will not send a second request until you confirm that no transaction was
+                  submitted.
                 </div>
               )}
               {waitSeconds >= 20 && (
                 <div className="pse-wallet-wait-note" role="alert">
-                  <strong>Still waiting after {waitSeconds}s.</strong> Switch back to the wallet app you approved the
-                  session with. If its activity list has no PSEmine transfer, minimise this panel, reopen the same
-                  purchase and use “I checked — no transaction is listed” before trying again.
+                  <strong>No wallet response after {waitSeconds}s.</strong> PSEmine sent the request to the wallet
+                  connection, but it has not received an approval or a transaction hash. Open the wallet app that
+                  holds this session and check its pending requests: if there is nothing to approve and no PSEmine
+                  transfer in its activity, minimise this panel, reopen the same purchase and use
+                  “I checked — no transaction is listed” before trying again.
                 </div>
               )}
               <p className="pse-block-meta">Wallet request in progress · {waitSeconds}s · no payment is confirmed yet</p>

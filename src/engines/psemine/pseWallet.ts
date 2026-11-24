@@ -1417,12 +1417,12 @@ export const resolveLiveWalletConnectProvider = (
 };
 
 /**
- * How long a wallet may hold the transaction request before the app stops
- * waiting silently. WalletConnect expires its own request after five minutes;
- * this is the point where the UI must say "no response" and offer recovery
- * instead of an endless "opening" spinner. It never releases the purchase lock.
+ * How long the app waits for the wallet to answer before showing recovery
+ * options. The wallet should display the payment approval promptly; this short
+ * window makes a stalled request visible instead of leaving the user waiting
+ * for several minutes. It never releases the purchase lock on its own.
  */
-export const WALLET_APPROVAL_TIMEOUT_MS = 240_000;
+export const WALLET_APPROVAL_TIMEOUT_MS = 20_000;
 
 /**
  * Bounds the wallet wait without pretending the outcome is a failure. A request

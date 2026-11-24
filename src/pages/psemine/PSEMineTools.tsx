@@ -1894,7 +1894,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             <PseNotice tone="attention" title={result.hash ? "Recover this exact transaction" : "Check your wallet before retrying"}>
               {result.hash
                 ? 'Your wallet returned a transaction hash, but the server has not confirmed that it saved the submission. PSEmine retained the hash on this device. Reconcile this same transfer below — never send a second payment.'
-                : 'We didn't get a clear answer from your wallet. This doesn't mean the payment failed. Check the sending wallet's activity before you try again.'}
+                : "We didn't get a clear answer from your wallet. This doesn't mean the payment failed. Check the sending wallet's activity before you try again."}
               {boundPayer ? <> Sending wallet: <a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>.</> : ''}
               {result.hash ? <> Transaction: <a className="pse-link" href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer">{shortHash(result.hash)} on BscScan</a>.</> : ' If a transfer appears, do not pay again. Keep its transaction hash for reconciliation.'}
             </PseNotice>

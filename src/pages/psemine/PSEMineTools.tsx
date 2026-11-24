@@ -1832,7 +1832,22 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   “I checked — no transaction is listed” before trying again.
                 </div>
               )}
-              <p className="pse-block-meta">Wallet request in progress · {waitSeconds}s · no payment is confirmed yet</p>
+              {waitSeconds >= 20 && (
+                <PseButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void copyText(formatWalletDiagnostics()).then(ok => {
+                    if (ok) toast.success('Wallet diagnostics copied.');
+                    else toast.error('Could not copy diagnostics. Open the browser console and copy the [pseWallet] lines.');
+                  })}
+                >
+                  Copy wallet diagnostics
+                </PseButton>
+              )}
+              <p className="pse-block-meta">
+                Wallet request pending · {waitSeconds}s · no payment is confirmed yet
+                {walletCorrelationId ? <> · ID <code>{walletCorrelationId}</code></> : null}
+              </p>
             </div>
           ) : (
             <div className="pse-wallet-wait">

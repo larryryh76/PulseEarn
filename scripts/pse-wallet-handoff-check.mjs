@@ -216,6 +216,57 @@ try { await m.sendPaymentTransaction(failing, TX, 'walletConnect'); } catch (err
 check('send:predispatch-retryable', m.isSessionUnavailable(failure) && !m.isSubmissionUncertain(failure));
 check('send:predispatch-recorded', (m.getWalletTrace()?.events || []).some(event => event.stage === 'pre_dispatch_failure'));
 
+// ── 6. Fee probes are injected-only, and every quantity is hex ──────────────
+// A WalletConnect wallet is a signing surface: probing it for gas while the
+// user is entering payment sends an extra relay request that can open the app
+// with no approval sheet, and it used to carry a DECIMAL value.
+check('fee:walletconnect-never-probed', m.shouldProbeWalletForFee('walletConnect') === false);
+check('fee:injected-may-be-probed', m.shouldProbeWalletForFee('injected') === true);
+
+const estimateCalls = [];
+const injectedEstimate = {
+  request: async args => {
+    estimateCalls.push(args);
+    if (args.method === 'eth_gasPrice') return '0x3b9aca00';
+    if (args.method === 'eth_estimateGas') return '0x5208';
+    return null;
+  },
+  on() {}, removeListener() {},
+};
+const fee = await m.estimateNativeTransferFee(injectedEstimate, TX, 'injected');
+const estimate = estimateCalls.find(call => call.method === 'eth_estimateGas');
+check('fee:estimate-value-is-hex-quantity', /^0x[0-9a-f]+$/.test(String(estimate?.params?.[0]?.value)));
+check('fee:estimate-value-equals-quote-wei', BigInt(estimate.params[0].value) === BigInt(TX.value));
+check('fee:estimate-reported', fee !== null && BigInt(fee.feeWei) === BigInt('0x5208') * BigInt('0x3b9aca00'));
+
+// The pay step must not probe a WalletConnect wallet at all (the extra relay
+// request is what opened mobile wallets with no approval sheet).
+const toolsSrc = fs.readFileSync(new URL('../src/pages/psemine/PSEMineTools.tsx', import.meta.url), 'utf8');
+check('fee:pay-step-probes-injected-only',
+  /walletLive\s*\n?\s*\|\| walletTransport !== 'injected'/.test(toolsSrc)
+  || toolsSrc.includes("|| walletTransport !== 'injected'"));
+
+// ── 7. Dispatch stages are observed, not assumed ────────────────────────────
+const dispatchCalls = [];
+sessionStorage.clear();
+m.beginWalletTrace('dispatch');
+const dispatchHash = await m.sendPaymentTransaction({
+  session: { namespaces: { eip155: { accounts: [`eip155:56:${ADDRESS}`], methods: ['eth_sendTransaction'] } } },
+  request: async (args, chain) => { dispatchCalls.push({ args, chain }); return HASH; },
+  on() {}, removeListener() {},
+}, TX, 'walletConnect');
+const dispatchStages = (m.getWalletTrace()?.events || []).map(event => event.stage);
+check('dispatch:exactly-one-send', dispatchCalls.length === 1 && dispatchCalls[0].args.method === 'eth_sendTransaction');
+check('dispatch:bsc-caip2-routing', dispatchCalls[0].chain === 'eip155:56');
+check('dispatch:value-is-hex-not-decimal', /^0x[0-9a-f]+$/.test(String(dispatchCalls[0].args.params[0].value))
+  && BigInt(dispatchCalls[0].args.params[0].value) === BigInt(TX.value));
+check('dispatch:stage-order-observed',
+  dispatchStages.indexOf('wallet_request_dispatched') >= 0
+  && dispatchStages.indexOf('wallet_request_pending') > dispatchStages.indexOf('wallet_request_dispatched')
+  && dispatchStages.indexOf('wallet_approval_returned') > dispatchStages.indexOf('wallet_request_pending'),
+  { stages: dispatchStages });
+check('dispatch:hash-captured-stage', dispatchHash === HASH && dispatchStages.includes('transaction_hash_captured'));
+
 const failures = results.filter(result => !result.pass);
 console.log(JSON.stringify({ total: results.length, passed: results.length - failures.length, failures, results }, null, 1));
 process.exit(failures.length ? 1 : 0);

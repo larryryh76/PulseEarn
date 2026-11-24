@@ -1087,6 +1087,17 @@ const parseHexQuantity = (value: unknown): bigint | null => {
  * call is bounded and returns null instead of blocking or failing checkout.
  * The wallet remains the authority for the final network fee at approval.
  */
+/**
+ * WalletConnect wallets are signing surfaces, not RPC nodes. Reading gas over
+ * the relay sends an EXTRA request into the mobile wallet while the user is
+ * about to approve the transfer; some wallets surface that probe as the app
+ * opening with no approval sheet, or serialise it ahead of eth_sendTransaction.
+ * The fee is informational only, so only the injected provider (which answers
+ * locally) is ever probed.
+ */
+export const shouldProbeWalletForFee = (transport: PseWalletTransport): boolean =>
+  transport === 'injected';
+
 export const estimateNativeTransferFee = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
@@ -1103,7 +1114,8 @@ export const estimateNativeTransferFee = async (
         request<unknown>({ method: 'eth_gasPrice' }),
         request<unknown>({
           method: 'eth_estimateGas',
-          params: [{ from: tx.from, to: tx.to, value: tx.value }],
+          // EIP-1193 quantities are hex; the same exact wei as the payment.
+          params: [{ from: tx.from, to: tx.to, value: toHexQuantity(tx.value) }],
         }),
       ]),
       new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs)),
@@ -1369,13 +1381,20 @@ export const sendPaymentTransaction = async (
     // mobile handoffs can restore a session whose default is not the campaign
     // chain even though the approved session contains eip155:56. Injected
     // EIP-1193 providers keep the standard one-argument request shape.
+    // Observed events, not intentions: the request is handed to the provider
+    // (dispatched) and is now awaiting the wallet's response (pending). A hash
+    // is the only proof the wallet returned an approval.
+    recordWalletStage('wallet_request_dispatched', `method=eth_sendTransaction chain=${transport === 'walletConnect' ? 56 : 'wallet'}`);
+    recordWalletStage('wallet_request_pending', `value=${valueHex}`);
     const hash = transport === 'walletConnect'
       ? await provider.request<string>(request, PSE_BSC_CAIP2)
       : await provider.request<string>(request);
+    recordWalletStage('wallet_approval_returned', 'wallet answered the request');
     if (!isTxHash(hash)) {
       recordWalletStage('ambiguous_submission', 'wallet returned no valid transaction hash');
       throw new PsePaymentSubmissionUncertainError('eth_sendTransaction | wallet returned no valid transaction hash');
     }
+    recordWalletStage('transaction_hash_captured', `hash_length=${hash.length}`);
     recordWalletStage('hash_received', 'wallet returned a transaction hash');
     return hash;
   } catch (e) {

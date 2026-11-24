@@ -68,6 +68,9 @@ jobs:
       - name: Wallet handoff reload recovery and diagnostics regression
         run: bun scripts/pse-wallet-handoff-check.mjs
 
+      - name: Ownership projection copy regression
+        run: bun scripts/pse-ownership-check.mjs
+
       - name: Require authenticated PSEmine QA credentials
         env:
           PSE_TEST_EMAIL: ${{ secrets.PSE_TEST_EMAIL }}

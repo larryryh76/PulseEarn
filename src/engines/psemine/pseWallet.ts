@@ -164,6 +164,28 @@ export const walletConnectSessionAccounts = (
 };
 
 /**
+ * The approved CAIP-10 account string exactly as the wallet approved it.
+ *
+ * Wallets echo their own casing on the approval screen; forwarding the payer in
+ * a different case than the session account is harmless to most wallets but
+ * some mobile clients compare the `from` field against their account record and
+ * drop a mismatch. Use the session's own text for WalletConnect.
+ */
+export const walletConnectSessionAccountText = (
+  session: PseWalletSessionLike | null | undefined,
+  address: string,
+  chainId = PSE_BSC_CHAIN_ID,
+): string | null => {
+  const wanted = String(address || '').toLowerCase();
+  for (const account of session?.namespaces?.eip155?.accounts ?? []) {
+    const match = String(account).match(CAIP10_EIP155);
+    if (!match || Number.parseInt(match[1], 10) !== chainId) continue;
+    if (match[2].toLowerCase() === wanted) return match[2];
+  }
+  return null;
+};
+
+/**
  * A persisted WalletConnect session is NOT proof of a usable connection. It has
  * to exist, be unexpired, and include the campaign chain. A stale, expired,
  * revoked or foreign-chain pairing must never be shown as connected — sign-out
@@ -877,10 +899,27 @@ export class PseWalletRejectedError extends Error {
   }
 }
 
-export const isWalletRejection = (e: unknown): boolean =>
-  e instanceof PseWalletRejectedError ||
-  (typeof e === 'object' && e !== null && 'code' in e && (e as { code?: number }).code === 4001) ||
-  (e instanceof Error && /user rejected|user denied|4001/i.test(e.message));
+/**
+ * A user rejection, from ANY transport. EIP-1193 uses 4001; WalletConnect's
+ * SDK errors use 5000-5003 (USER_REJECTED / chains / methods / accounts), and
+ * many wallets answer with a plain "User rejected." message. Missing the
+ * WalletConnect codes made a genuine "no" look like an uncertain broadcast and
+ * locked the checkout until a manual review.
+ */
+export const isWalletRejection = (e: unknown): boolean => {
+  if (e instanceof PseWalletRejectedError) return true;
+  const code = typeof e === 'object' && e !== null ? (e as { code?: number | string }).code : undefined;
+  const numeric = typeof code === 'number' ? code : typeof code === 'string' && /^\d+$/.test(code) ? Number(code) : null;
+  if (numeric === 4001 || numeric === 5000 || numeric === 5001 || numeric === 5002 || numeric === 5003) return true;
+  const message = [
+    e instanceof Error ? e.message : '',
+    typeof e === 'object' && e !== null ? String((e as { message?: unknown }).message ?? '') : '',
+  ].join(' ');
+  // "transaction rejected" comes from wallets/nodes that refused to broadcast
+  // (e.g. gas/funds checks): no transaction reached the chain, so it is safe to
+  // release the pre-dispatch lock instead of parking the purchase in review.
+  return /user rejected|user denied|user cancelled|user canceled|rejected by user|request rejected|transaction rejected/i.test(message);
+};
 
 const normalizeAddress = (a: string): string => a.toLowerCase();
 
@@ -1191,6 +1230,30 @@ export class PsePaymentSubmissionUncertainError extends Error {
   }
 }
 
+/**
+ * The wallet never answered the payment request. This is NOT proof the request
+ * reached the wallet and NOT proof nothing was sent, so it keeps the uncertain
+ * lock — but the message must say exactly that instead of blaming the user or
+ * claiming the request is safely pending.
+ */
+export const PAYMENT_APPROVAL_TIMEOUT = 'PAYMENT_APPROVAL_TIMEOUT';
+
+export class PsePaymentApprovalTimeoutError extends PsePaymentSubmissionUncertainError {
+  readonly timeoutCode = PAYMENT_APPROVAL_TIMEOUT;
+  constructor(timeoutMs: number) {
+    super(`eth_sendTransaction | no wallet response within ${Math.round(timeoutMs / 1000)}s`);
+    this.name = 'PsePaymentApprovalTimeoutError';
+    this.message =
+      'Your wallet did not return an approval or a transaction hash. If its screen never showed this BNB '
+      + 'transfer, nothing was sent — check the wallet activity (and any pending request) before trying again.';
+  }
+}
+
+export const isApprovalTimeout = (e: unknown): boolean =>
+  e instanceof PsePaymentApprovalTimeoutError ||
+  (typeof e === 'object' && e !== null &&
+    (e as { timeoutCode?: string }).timeoutCode === PAYMENT_APPROVAL_TIMEOUT);
+
 export const isSubmissionUncertain = (e: unknown): boolean =>
   e instanceof PsePaymentSubmissionUncertainError ||
   (typeof e === 'object' && e !== null &&
@@ -1325,27 +1388,96 @@ export const toHexQuantity = (value: string | bigint): string => {
   return '0x' + amount.toString(16);
 };
 
+/**
+ * Resolves the WalletConnect provider that currently owns an approved session.
+ *
+ * AppKit may rebuild its UniversalProvider (relay reconnect, session restore,
+ * a second tab). A provider captured when the page loaded can therefore point
+ * at an object that no longer owns the session: the request is published to a
+ * dead topic, the wallet app opens from the relay push with nothing to show,
+ * and the dapp never gets a hash. Payments must use the live instance, and if
+ * no live session exists they must fail BEFORE dispatch (safe retry) instead of
+ * hanging or being recorded as an uncertain submission.
+ */
+export const resolveLiveWalletConnectProvider = (
+  candidate?: PseEip1193Provider | null,
+): PseEip1193Provider | null => {
+  const hasValidSession = (value: PseEip1193Provider | null | undefined): value is PseEip1193Provider =>
+    Boolean(value) && typeof value!.request === 'function' &&
+    inspectWalletConnectSession((value as WcUniversalProviderLike).session) === 'valid';
+  let live: PseEip1193Provider | null = null;
+  try {
+    live = (wcState.adapter?.getWalletConnectProvider() as PseEip1193Provider | null | undefined) ?? null;
+  } catch {
+    live = null;
+  }
+  if (hasValidSession(live)) return live;
+  if (hasValidSession(candidate ?? null)) return candidate ?? null;
+  return null;
+};
+
+/**
+ * How long a wallet may hold the transaction request before the app stops
+ * waiting silently. WalletConnect expires its own request after five minutes;
+ * this is the point where the UI must say "no response" and offer recovery
+ * instead of an endless "opening" spinner. It never releases the purchase lock.
+ */
+export const WALLET_APPROVAL_TIMEOUT_MS = 240_000;
+
+/**
+ * Bounds the wallet wait without pretending the outcome is a failure. A request
+ * that settles after the window is swallowed here (the purchase stays locked
+ * and the user is told to check the wallet) so it cannot become an unhandled
+ * rejection or a silent second send.
+ */
+const awaitWalletApproval = async <T>(pending: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          recordWalletStage('wallet_approval_timeout', `${Math.round(timeoutMs / 1000)}s without a wallet response`);
+          reject(new PsePaymentApprovalTimeoutError(timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+    void pending.catch(() => undefined);
+  }
+};
+
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
   transport: PseWalletTransport = 'injected',
+  approvalTimeoutMs = WALLET_APPROVAL_TIMEOUT_MS,
 ): Promise<string> => {
   if (!provider || typeof provider.request !== 'function') {
     recordWalletStage('transaction_request_failed', 'no active provider');
-    throw new Error('The active wallet provider is unavailable. Reconnect your wallet.');
+    // Nothing could have been sent: this is a safe pre-dispatch failure, not an
+    // uncertain submission. Locking the purchase here trapped the buyer.
+    throw new PsePaymentSessionUnavailableError('no active provider');
   }
   recordWalletStage('transaction_request_started', `transport=${transport} chain=${transport === 'walletConnect' ? PSE_BSC_CAIP2 : 'wallet-default'}`);
   try {
     // Use the wallet-standard EIP-1193 call directly. ethers BrowserProvider
     // performs several optional node RPC probes before presenting approval;
     // some mobile wallet bridges reject those probes as unknown methods.
-    // Include chainId in the transaction payload as well as the CAIP-2
-    // routing context. Some mobile WalletConnect clients use the transaction
-    // object's chainId when constructing their approval screen; relying only
-    // on UniversalProvider's second argument can leave the signing request
-    // routed but not render a transaction confirmation in the wallet.
+    // Resolve the live transport before touching the request. A captured
+    // provider whose session was replaced is the failure mode where the wallet
+    // app opens from a relay push but no approval sheet is ever produced.
+    const activeProvider = transport === 'walletConnect'
+      ? resolveLiveWalletConnectProvider(provider)
+      : provider;
+    if (!activeProvider) {
+      recordWalletStage('pre_dispatch_failure', 'no live WalletConnect session in this document');
+      throw new PsePaymentSessionUnavailableError('no live WalletConnect session before dispatch');
+    }
+    let payerFrom = tx.from;
     if (transport === 'walletConnect') {
-      const session = (provider as WcUniversalProviderLike).session;
+      const session = (activeProvider as WcUniversalProviderLike).session;
       if (!walletConnectSessionCanSendTransactions(session)) {
         recordWalletStage('wallet_method_unsupported', 'approved session lacks eth_sendTransaction');
         throw new PseWalletConnectError(
@@ -1363,32 +1495,41 @@ export const sendPaymentTransaction = async (
           'session account mismatch',
         );
       }
+      // Send the payer with the wallet's own casing/text from CAIP-10.
+      payerFrom = walletConnectSessionAccountText(session, tx.from) ?? tx.from;
     }
     // EIP-1193 requires a hex quantity; convert the quote's exact wei once.
     const valueHex = toHexQuantity(tx.value);
     recordWalletStage('transaction_value_encoded', valueHex);
+    // The transaction object carries ONLY the five fields a native transfer
+    // needs. `chainId` is not part of eth_sendTransaction params: WalletConnect
+    // routes the request on the CAIP-2 namespace (second request argument).
+    // Sending a non-standard key inside the tx made some mobile wallets open
+    // the session request and render nothing / drop it as invalid.
     const request = {
       method: 'eth_sendTransaction',
-      params: [{
-        from: tx.from,
-        to: tx.to,
-        value: valueHex,
-        ...(transport === 'walletConnect' ? { chainId: '0x38' } : {}),
-      }],
+      params: [{ from: payerFrom, to: tx.to, value: valueHex }],
     };
     // WalletConnect's UniversalProvider accepts an explicit CAIP-2 chain as
     // its second request argument. Do not rely on its mutable/default chain:
     // mobile handoffs can restore a session whose default is not the campaign
     // chain even though the approved session contains eip155:56. Injected
     // EIP-1193 providers keep the standard one-argument request shape.
-    // Observed events, not intentions: the request is handed to the provider
-    // (dispatched) and is now awaiting the wallet's response (pending). A hash
-    // is the only proof the wallet returned an approval.
-    recordWalletStage('wallet_request_dispatched', `method=eth_sendTransaction chain=${transport === 'walletConnect' ? 56 : 'wallet'}`);
-    recordWalletStage('wallet_request_pending', `value=${valueHex}`);
-    const hash = transport === 'walletConnect'
-      ? await provider.request<string>(request, PSE_BSC_CAIP2)
-      : await provider.request<string>(request);
+    //
+    // Stage semantics are deliberately honest: `wallet_request_invoked` only
+    // proves the transport method was called with this exact payload. Neither
+    // WalletConnect nor an injected provider acknowledges delivery, so the app
+    // must never describe a pending promise as "the wallet has the request".
+    // Only a returned hash is evidence the wallet answered.
+    recordWalletStage(
+      'wallet_request_invoked',
+      `method=eth_sendTransaction chain=${transport === 'walletConnect' ? PSE_BSC_CAIP2 : 'wallet-default'} value=${valueHex} to=${tx.to} (no delivery acknowledgement available)`,
+    );
+    recordWalletStage('wallet_request_pending', 'awaiting the wallet response; delivery is not acknowledged');
+    const pending = transport === 'walletConnect'
+      ? activeProvider.request<string>(request, PSE_BSC_CAIP2)
+      : activeProvider.request<string>(request);
+    const hash = await awaitWalletApproval(pending, approvalTimeoutMs);
     recordWalletStage('wallet_approval_returned', 'wallet answered the request');
     if (!isTxHash(hash)) {
       recordWalletStage('ambiguous_submission', 'wallet returned no valid transaction hash');

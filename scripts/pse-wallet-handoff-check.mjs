@@ -185,6 +185,22 @@ check('send:explicit-bsc-chain', calls[0]?.chain === 'eip155:56');
 check('send:stages-recorded', stages.includes('transaction_request_started') && stages.includes('hash_received'), { stages });
 check('send:no-amount-or-address-in-trace', !m.formatWalletDiagnostics().includes(TX.to) && !m.formatWalletDiagnostics().includes(TX.value));
 
+// A real "no" in the wallet must release the checkout, never lock it as an
+// uncertain broadcast. WalletConnect answers with 5000, not EIP-1193 4001.
+check('rejection:wc-5000-is-rejection', m.isWalletRejection({ code: 5000, message: 'User rejected.' }));
+check('rejection:bare-5000-is-rejection', m.isWalletRejection({ code: 5000 }));
+check('rejection:4001-is-rejection', m.isWalletRejection({ code: 4001 }));
+check('rejection:unrelated-error-is-not-rejection', m.isWalletRejection({ code: -32603, message: 'Internal JSON-RPC error' }) === false);
+check('rejection:string-code-is-rejection', m.isWalletRejection({ code: '5000' }));
+
+// A sessionless provider is a proven pre-dispatch failure, not a lock.
+let sessionlessError = null;
+try {
+  await m.sendPaymentTransaction({ request: async () => HASH }, TX, 'walletConnect');
+} catch (error) { sessionlessError = error; }
+check('send:sessionless-provider-safe-to-retry',
+  m.isSessionUnavailable(sessionlessError) && !m.isSubmissionUncertain(sessionlessError));
+
 // ── 5. WalletConnect uses the approved CAIP-10 session, not mutable defaults ──
 let switchRequests = 0;
 const wcSessionProvider = {
@@ -261,11 +277,69 @@ check('dispatch:bsc-caip2-routing', dispatchCalls[0].chain === 'eip155:56');
 check('dispatch:value-is-hex-not-decimal', /^0x[0-9a-f]+$/.test(String(dispatchCalls[0].args.params[0].value))
   && BigInt(dispatchCalls[0].args.params[0].value) === BigInt(TX.value));
 check('dispatch:stage-order-observed',
-  dispatchStages.indexOf('wallet_request_dispatched') >= 0
-  && dispatchStages.indexOf('wallet_request_pending') > dispatchStages.indexOf('wallet_request_dispatched')
+  dispatchStages.indexOf('wallet_request_invoked') >= 0
+  && dispatchStages.indexOf('wallet_request_pending') > dispatchStages.indexOf('wallet_request_invoked')
   && dispatchStages.indexOf('wallet_approval_returned') > dispatchStages.indexOf('wallet_request_pending'),
   { stages: dispatchStages });
 check('dispatch:hash-captured-stage', dispatchHash === HASH && dispatchStages.includes('transaction_hash_captured'));
+
+// ── 8. Wallet-facing transaction shape ─────────────────────────────────────
+// The real phone opened the wallet and rendered no approval. The request must
+// be a plain eth_sendTransaction payload: no RPC fields that belong to the
+// session (chainId), nothing that a mobile wallet can reject as invalid.
+const sentTx = dispatchCalls[0].args.params[0];
+check('dispatch:tx-has-exactly-from-to-value',
+  Object.keys(sentTx).sort().join(',') === 'from,to,value', { keys: Object.keys(sentTx) });
+check('dispatch:no-chainid-inside-tx-params', !('chainId' in sentTx));
+check('dispatch:recipient-is-quote-receiver', sentTx.to === TX.to);
+check('dispatch:payer-is-bound-wallet', sentTx.from === TX.from);
+
+// The payer must be forwarded with the wallet's own session text (casing).
+const CHECKSUM_ADDRESS = '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01';
+const casingCalls = [];
+await m.sendPaymentTransaction({
+  session: { namespaces: { eip155: { accounts: [`eip155:56:${CHECKSUM_ADDRESS}`], methods: ['eth_sendTransaction'] } } },
+  request: async args => { casingCalls.push(args); return HASH; },
+  on() {}, removeListener() {},
+}, { from: CHECKSUM_ADDRESS.toLowerCase(), to: TX.to, value: TX.value }, 'walletConnect');
+check('dispatch:payer-forwarded-with-session-casing',
+  casingCalls[0]?.params?.[0]?.from === CHECKSUM_ADDRESS,
+  { from: casingCalls[0]?.params?.[0]?.from });
+
+// No crypto wallet acks delivery, so a pending promise must never be recorded
+// as "the wallet has the request".
+const invokedDetail = (m.getWalletTrace()?.events || []).find(event => event.stage === 'wallet_request_invoked')?.detail || '';
+check('dispatch:no-delivery-claim-in-trace', /no delivery acknowledgement/i.test(invokedDetail), { detail: invokedDetail });
+
+// ── 9. Stale WalletConnect provider cannot be used for payment ──────────────
+const staleSession = { namespaces: { eip155: { accounts: [`eip155:56:${ADDRESS}`], methods: ['eth_sendTransaction'] } } };
+const staleProvider = { session: staleSession, request: async () => HASH, on() {}, removeListener() {} };
+check('dispatch:live-wc-provider-resolver-exists', typeof m.resolveLiveWalletConnectProvider === 'function');
+check('dispatch:captured-wc-provider-with-valid-session-is-usable',
+  m.resolveLiveWalletConnectProvider(staleProvider) === staleProvider);
+const sessionless = { session: null, request: async () => HASH, on() {}, removeListener() {} };
+check('dispatch:sessionless-provider-refused-before-dispatch',
+  m.resolveLiveWalletConnectProvider(sessionless) === null);
+
+// ── 10. A wallet that never answers cannot hang the checkout ────────────────
+let lateResolve = null;
+const neverAnswers = {
+  session: staleSession,
+  request: () => new Promise(resolve => { lateResolve = resolve; }),
+  on() {}, removeListener() {},
+};
+let timeoutError = null;
+const timeoutStarted = Date.now();
+await m.sendPaymentTransaction(neverAnswers, TX, 'walletConnect', 40)
+  .then(() => undefined)
+  .catch(error => { timeoutError = error; });
+check('dispatch:approval-window-is-bounded', timeoutError !== null && Date.now() - timeoutStarted < 2_000);
+check('dispatch:timeout-is-uncertain-not-released',
+  m.isSubmissionUncertain(timeoutError) === true && m.isSessionUnavailable(timeoutError) === false);
+check('dispatch:timeout-is-labelled-for-recovery-copy', m.isApprovalTimeout(timeoutError) === true);
+// A late hash must not surface as an unhandled rejection after the window.
+if (lateResolve) lateResolve(HASH);
+await new Promise(resolve => setTimeout(resolve, 30));
 
 const failures = results.filter(result => !result.pass);
 console.log(JSON.stringify({ total: results.length, passed: results.length - failures.length, failures, results }, null, 1));

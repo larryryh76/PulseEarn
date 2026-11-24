@@ -166,12 +166,13 @@ check('send:walletconnect-method', wcSend.calls[0]?.method === 'eth_sendTransact
 check('send:walletconnect-chain-context', wcSend.calls[0]?.chain === 'eip155:56');
 check(
   'send:walletconnect-exact-quote-params',
+  // Exactly the native-transfer fields: no chainId (the chain is the CAIP-2
+  // routing argument), no contract data, and the exact quoted wei as hex.
   JSON.stringify(wcSend.calls[0]?.params) === JSON.stringify([{
     from: TX.from, to: TX.to,
-    // EIP-1193 quantity encoding of the exact quoted wei.
     value: '0x' + BigInt(TX.value).toString(16),
-    chainId: '0x38',
   }]),
+  { params: wcSend.calls[0]?.params },
 );
 
 const injectedSend = makeProvider(() => HASH);

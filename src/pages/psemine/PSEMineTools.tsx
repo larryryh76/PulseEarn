@@ -985,7 +985,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
     setQuoteLoading(true);
     await refresh().catch(() => undefined);
     requestQuote(tool.id).finally(() => setQuoteLoading(false));
-    toast.success('Incomplete checkout cancelled — a fresh quote is ready.');
+    toast.success('Checkout cancelled. You can start again with a new quote.');
   };
 
   const cancelCheckoutPanel = cancellablePurchase ? (
@@ -996,13 +996,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           className="pse-link"
           onClick={() => { setCancelConfirm(true); setCancelError(null); }}
         >
-          Cancel this incomplete checkout
+          Cancel this checkout
         </button>
       ) : (
-        <PseNotice tone="attention" title="Cancel this checkout?">
+        <PseNotice tone="attention" title="Do you want to cancel this checkout?">
           <p>
-            Nothing was sent from your wallet for this attempt, so cancelling releases the reservation and
-            lets you start a new purchase. A payment that is already submitted cannot be cancelled here.
+            If no payment was sent, cancelling closes this checkout so you can start again. If a payment may already be on the way, the server will refuse to cancel it.
           </p>
           <div className="flex flex-wrap gap-2">
             <PseButton
@@ -1813,23 +1812,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 <li>Check that the network is BNB Smart Chain and the amount and recipient match this quote.</li>
                 <li>Approve only if the details are correct, then return to this page.</li>
               </ol>
-              <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Wallet handoff can take a little time. Do not tap Pay again or approve a duplicate request. If you reject the request, no payment is made.</div>
+              <div className="pse-wallet-wait-note"><strong>Keep this page open.</strong> Your wallet may take a moment to open. Don't tap Pay again. If you reject the payment, no money is sent.</div>
               {walletTransport === 'walletConnect' && (
                 <div className="pse-wallet-wait-note">
-                  <strong>No approval screen yet?</strong> WalletConnect does not acknowledge delivery, so PSEmine cannot
-                  tell whether your wallet has shown the request. Open the wallet app that approved this session and
-                  look for a pending PSEmine request. If there is nothing to approve, minimise this panel and reopen
-                  the purchase — PSEmine will not send a second request until you confirm that no transaction was
-                  submitted.
+                  <strong>No approval screen yet?</strong> PSEmine can't tell if your wallet received the request. Open the wallet app and look for a PSEmine payment waiting for approval. If nothing is there and you haven't sent money, return here and use the option below to safely clear this checkout.
                 </div>
               )}
               {waitSeconds >= 20 && (
                 <div className="pse-wallet-wait-note" role="alert">
-                  <strong>No wallet response after {waitSeconds}s.</strong> PSEmine sent the request to the wallet
-                  connection, but it has not received an approval or a transaction hash. Open the wallet app that
-                  holds this session and check its pending requests: if there is nothing to approve and no PSEmine
-                  transfer in its activity, minimise this panel, reopen the same purchase and use
-                  “I checked — no transaction is listed” before trying again.
+                  <strong>No wallet response after {waitSeconds}s.</strong> Your wallet hasn't answered yet. Open your wallet and check pending requests and transaction history. If no PSEmine payment is waiting and no money was sent, come back and use “I checked my wallet — no payment was sent” to clear this checkout before trying again.
                 </div>
               )}
               {waitSeconds >= 20 && (
@@ -1903,7 +1894,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             <PseNotice tone="attention" title={result.hash ? "Recover this exact transaction" : "Check your wallet before retrying"}>
               {result.hash
                 ? 'Your wallet returned a transaction hash, but the server has not confirmed that it saved the submission. PSEmine retained the hash on this device. Reconcile this same transfer below — never send a second payment.'
-                : 'The wallet did not return a transaction result, so PSEmine cannot tell whether the transfer was submitted. This does not mean the payment failed. Check the activity for the sending wallet.'}
+                : "We didn't get a clear answer from your wallet. This doesn't mean the payment failed. Check the sending wallet's activity before you try again."}
               {boundPayer ? <> Sending wallet: <a className="pse-link" href={`https://bscscan.com/address/${boundPayer}`} target="_blank" rel="noreferrer">{shortAddr(boundPayer)} on BscScan</a>.</> : ''}
               {result.hash ? <> Transaction: <a className="pse-link" href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer">{shortHash(result.hash)} on BscScan</a>.</> : ' If a transfer appears, do not pay again. Keep its transaction hash for reconciliation.'}
             </PseNotice>
@@ -1916,13 +1907,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           )}
           {result.uncertain && !result.hash && !confirmedNoTransaction && (
             <PseButton variant="secondary" onClick={() => void confirmNoBroadcast()} disabled={rechecking}>
-              {rechecking ? 'Checking with server…' : 'I checked — no transaction is listed'}
+              {rechecking ? 'Checking with server…' : 'I checked my wallet — no payment was sent'}
             </PseButton>
           )}
           {!result.ok && !result.recheckable && !result.uncertain && (
             <PseNotice tone="attention">
-              No tool was activated. Nothing was lost: unverified payments are recorded as recovery evidence for manual
-              review — that record exists so an administrator can reconcile it, and it is not an automatic activation.
+              Your tool hasn't been activated yet. If you sent money, don't pay again. Check your wallet activity and use the recovery option to help us match the payment.
             </PseNotice>
           )}
           {result.ok && (

@@ -18,6 +18,14 @@ If the user prefers not to install Python, skip the CLI searches and {{#QR}}rely
 
 ---
 
+## Using the Search Script (CLI)
+
+When invoked, this skill can run the bundled Python search script to query the catalogs. The script uses only the Python 3 standard library - no extra dependencies.
+
+The script lives in this skill's own `scripts/search.py`. The commands below use the install-rooted path so they resolve when run from the project root.
+
+---
+
 ## How to Use This Skill
 
 Use this skill when the user requests any of the following:
@@ -50,6 +58,8 @@ For accessibility work, search one observable outcome at a time and use explicit
 Do not accept a generic accessibility result for a specific interaction or WCAG criterion.
 
 For text-layout and compact-component bugs, search the **semantic UX outcome first, then the detected stack** for implementation details. Useful outcome queries include `"orphan heading line balance" --domain ux`, `"badge chip label wraps" --domain ux`, `"live badge count screen reader" --domain ux`, and `"rapid chip animation interrupted" --domain ux`. After choosing the applicable UX guidance, use a separate stack query such as `"chip badge overflow nowrap" --stack html-tailwind`; do not replace the outcome search with a framework keyword.
+
+For right-to-left interfaces (Arabic, Hebrew, Persian, Urdu, or an explicit `dir="rtl"` / `rtl:` request), add `--rtl` to the `style` and `product` searches and respect the returned `rtl_level`: `full` needs no directional rework, `partial` mirrors but requires per-component checks (icons, carousels, motion paths, charts), and `caveats` means the style or product encodes reading direction — say so before recommending it, and propose a mirrorable alternative when the user needs a strict RTL build. `--rtl=full` restricts the search to the safest rows; `--rtl` alone keeps every level.
 
 Before using a result, verify the returned domain/category, top result identity, and whether its guidance fits the user's product and platform. **Retry once** with a narrower rewrite or an explicit domain/stack when the result is empty or off-topic. If the retry still fails, state that no verified match was found and use clearly labeled general guidance instead. **Do not persist unverified output.**
 
@@ -107,7 +117,33 @@ python3 {{SCRIPT_PATH}} "<query>" --design-system --persist -p "Project Name" --
 This also creates:
 - `design-system/<project-slug>/pages/dashboard.md` — Page-specific deviations from Master
 
+**Preview the generated system as a static page:**
+
+```bash
+python3 {{SCRIPT_PATH}} "<query>" --design-system --persist --preview -p "Project Name" --output-dir "<project-root>"
+```
+
+`--preview` is valid only with `--design-system`. With `--persist` it writes `design-system/<project-slug>/preview.html` next to `MASTER.md`. Without `--persist`, pass `--output-dir` to write `preview.html` there, or omit it to get a temp file whose path is printed. Existing `preview.html` files are skipped unless `--force` is set, same as Master.
+
 If Master already exists, a new page file is created without changing Master. Existing Master and page files are skipped by default. Read an existing `MASTER.md` before deciding whether `--force` is justified; without explicit user authorization, keep existing files unchanged.
+
+### Step 2b-tokens: Export Design Tokens
+
+`--tokens` is valid only with `--design-system`. It prints a machine-readable token document so hex values and font names do not have to be copied by hand:
+
+```bash
+python3 {{SCRIPT_PATH}} "<query>" --design-system --tokens dtcg
+python3 {{SCRIPT_PATH}} "<query>" --design-system --tokens css
+```
+
+- `dtcg` prints W3C Design Tokens Community Group JSON (`$value` / `$type`, `color`, `font`, and a `semantic` layer such as `color.primary`, `color.on-primary`, `color.background`, `font.heading`).
+- `css` prints `:root` custom properties using the same names `../design-system/scripts/generate-tokens.cjs` emits (`--color-primary`, `--font-heading`, …).
+- Dark-mode results emit the resolved dark values and record the mode in `$description`.
+- With `--persist`, also write `tokens.json` next to `MASTER.md` (and `tokens.css` when `--tokens css`). Existing files follow the same `--force` / skip-if-exists rules. Token files are master-level only; `--page` overrides do not emit page-specific tokens.
+
+```bash
+python3 {{SCRIPT_PATH}} "<query>" --design-system --persist --tokens dtcg -p "Project Name" --output-dir "<project-root>"
+```
 
 **How hierarchical retrieval works:**
 1. Read `design-system/<project-slug>/MASTER.md`
@@ -170,6 +206,7 @@ python3 {{SCRIPT_PATH}} "<keyword>" --domain <domain> [-n <max_results>]
 | Icon suggestions | `icons` | `"decorative icon aria hidden" --domain icons` |
 | Individual Google Fonts | `google-fonts` | `"variable sans serif" --domain google-fonts` |
 | GSAP animation snippets | `gsap` | `"scroll reveal stagger" --domain gsap` |
+| RTL compatibility | `style`, `product` | `"dashboard" --domain style --rtl=full` |
 
 ### Step 4: Stack Guidelines
 
@@ -208,7 +245,7 @@ python3 {{SCRIPT_PATH}} "virtualized list" --stack react-native
 
 ### Available Stacks
 
-`react`, `nextjs`, `vue`, `svelte`, `astro`, `swiftui`, `react-native`, `flutter`, `nuxtjs`, `nuxt-ui`, `html-tailwind`, `shadcn`, `jetpack-compose`, `threejs`, `angular`, `laravel`, `javafx`, `wpf`, `winui`, `avalonia`, `uno`, `uwp`
+`react`, `nextjs`, `vue`, `svelte`, `astro`, `swiftui`, `react-native`, `flutter`, `nuxtjs`, `nuxt-ui`, `html-tailwind`, `shadcn`, `jetpack-compose`, `threejs`, `angular`, `laravel`, `javafx`, `wpf`, `winui`, `avalonia`, `uno`, `uwp`, `pyside6-qss`
 
 **JavaFX enterprise examples:**
 
@@ -259,7 +296,7 @@ python3 {{SCRIPT_PATH}} "streaming suspense" --stack nextjs
 
 ## Output Formats
 
-The `--design-system` flag supports two output formats:
+The `--design-system` flag supports ASCII, Markdown, JSON, and token export:
 
 ```bash
 # ASCII box (default) - best for terminal display
@@ -267,6 +304,10 @@ python3 {{SCRIPT_PATH}} "fintech crypto" --design-system
 
 # Markdown - best for documentation
 python3 {{SCRIPT_PATH}} "fintech crypto" --design-system -f markdown
+
+# Design tokens (requires --design-system)
+python3 {{SCRIPT_PATH}} "fintech crypto" --design-system --tokens dtcg
+python3 {{SCRIPT_PATH}} "fintech crypto" --design-system --tokens css
 ```
 
 ---
@@ -312,7 +353,7 @@ Scope notice: The rules below are for App UI (iOS/Android/React Native/Flutter),
 
 ### Icons & Visual Elements
 
-- 默认图标库使用 **Phosphor (`@phosphor-icons/react`)**。`src/ui-ux-pro-max/data/icons.csv` 中列出的只是常用推荐图标，不是完整集合。
+- 默认图标库使用 **Phosphor (`@phosphor-icons/react`)**。`data/icons.csv` 中列出的只是常用推荐图标，不是完整集合。
 - 当推荐表中找不到合适的图标时：
   - **优先继续从 Phosphor 的完整图标集中选择任何语义更贴切的图标**；
   - 如果 Phosphor 也没有理想选项，可以使用 **Heroicons (`@heroicons/react`)** 作为备选，注意保持风格一致（线性/填充、笔画粗细、圆角风格）。
